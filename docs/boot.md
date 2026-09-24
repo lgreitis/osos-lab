@@ -10,11 +10,35 @@ The patched Rockbox bootloader selects the system at startup:
 
 ## RepriseOS boot
 
-1. The NOR bootloader reads `/osos-cfw.bin` and `/cfw-loader.bin` into RAM.
-2. The companion enters patched Apple PreEfi startup and DXE driver initialization.
-3. Its handoff presents the staged OSOS through a RAM-backed file interface to Bds.
-4. Bds loads OSOS; the companion places the CFW payload at its runtime address.
-5. OSOS starts with Apple's hardware state and boot context. Patched hooks call the payload.
+```mermaid
+sequenceDiagram
+    actor User
+    participant RB as Rockbox bootloader (NOR)
+    participant Disk as iPod disk
+    participant Companion as cfw-loader.bin (RAM)
+    participant Apple as Apple startup and drivers
+    participant OS as OSOS + CFW payload
+
+    Note over User,RB: Power-on/reset reaches the installed bootloader
+    alt Menu/Hold switch
+        RB->>Apple: Enter original Apple boot path
+        Note over Apple,OS: Boot original Apple OS
+    else Play/Pause
+        RB->>Disk: Load Rockbox
+        Note over RB,Disk: Start Rockbox
+    else No buttons
+        RB->>Disk: Read /osos-cfw.bin and /cfw-loader.bin
+        Disk-->>RB: Files staged in RAM
+        RB->>Companion: Copy bootstrap to internal RAM and enter it
+        Companion->>Apple: Run patched PreEfi startup
+        Apple->>Apple: Initialize hardware and dispatch DXE drivers
+        Apple->>Companion: Intercept handoff before normal boot selection
+        Companion->>Companion: Present staged OSOS as a RAM-backed file to Bds
+        Companion->>Companion: Load OSOS and copy the 1 MiB payload into place
+        Companion->>OS: Enter OSOS with Apple's boot context
+        OS->>OS: Native code calls CFW through patched hooks
+    end
+```
 
 The companion adapts Apple's startup and image-loading path to the decrypted
 firmware. Its Apple code patches live in RAM. Compatible companion, OSOS, and
