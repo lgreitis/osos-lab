@@ -1,0 +1,16 @@
+[package]
+name = "reprise-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "reprise"
+path = "src/main.rs"
+
+[dependencies]
+reprise-device = { path = "../reprise-device" }
+reprise-bundle = { path = "../reprise-bundle" }
+serde.workspace = true
+serde_json.workspace = true

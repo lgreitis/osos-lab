@@ -1,0 +1,1 @@
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":0,"length":6880}}}],"message":{"text":"MemorySection"},"properties":{"additionalProperties":{"isArtificial":false,"isVolatile":false,"kind":"rwx","location":"DrawJpeg-2bfd4382-cdb3-4867-b5bd-6f446696cc6b.pe32.sarif.bytes:0","name":"ram","type":"DEFAULT"}},"ruleId":"MEMORY_MAP"}

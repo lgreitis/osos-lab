@@ -1,0 +1,46 @@
+{
+  "target": "classic7g-2.0.4",
+  "device_specific": true,
+  "inputs": {
+    "osos.bin": {
+      "bytes": 10599920,
+      "sha256": "5841de6479f3a655102745fdb20e153ef99c4ef413314ccdb9a4721cace9a36e"
+    },
+    "apple-loader.bin": {
+      "bytes": 129024,
+      "sha256": "7caf3863376cf7890adc73601d24fbf11bc9ce89c7b40366fd61b45a1d6633e8"
+    },
+    "nor.bin": {
+      "bytes": 1048576,
+      "sha256": "6d646d86c06edfcb27634274a416f49033f4c31b1c9b98d1c8be6d87e16d096c"
+    },
+    "modules/ROM.pe32": {
+      "bytes": 5600,
+      "sha256": "e7891d4c91baa5cc739ef45ae4c91f65707db66f0f1136efbcc4ad267b601be8"
+    },
+    "modules/ClockAndReset.pe32": {
+      "bytes": 2112,
+      "sha256": "ecb6dbd1aa4e26a86667f2856fa0c14049a12aa33031df490b445a05d2fa156a"
+    },
+    "modules/Cpu.pe32": {
+      "bytes": 2528,
+      "sha256": "f9c03cf6418511a1b7cb2ec4fd3c10d52b9fbc5a6e2e089ced14ba2d1ab97138"
+    },
+    "modules/InterruptController.pe32": {
+      "bytes": 2272,
+      "sha256": "8d56615fafedf5b812c4d6009ce326bf0283454c4d4758d62a40cf9d3a1968d5"
+    },
+    "modules/Bds.pe32": {
+      "bytes": 5376,
+      "sha256": "2508bb3cf843f67508b04e0bbb8bc3654b782964927ad43644b3a3ba9a4d2cff"
+    },
+    "modules/SoftwareVersion.pe32": {
+      "bytes": 1536,
+      "sha256": "3c7e2a33ca7ec88b49532912236ba8efba549d543e6efa3c893c3bbf11d273fd"
+    }
+  },
+  "toolchain": {
+    "gcc": "9.5.0"
+  },
+  "rockbox_version": "10ec9bd530M-260914"
+}

@@ -1,0 +1,142 @@
+{
+  "ghidra_version": "12.1.3",
+  "programs": [
+    {
+      "path": "NOR-analysis/Thumb/Aes-c0287dba-8a73-4ff1-98f1-455b97d4d480.pe32",
+      "input": "modules/Aes.pe32",
+      "input_sha256": "fc1cf31e5089ceedf6f212067f4b43cea2649a4fd68579f22450043e6ed916b4",
+      "memory_sha256": "fc1cf31e5089ceedf6f212067f4b43cea2649a4fd68579f22450043e6ed916b4"
+    },
+    {
+      "path": "NOR-analysis/Thumb/Ata-084239de-b440-4046-af54-31ca8b9a6b7f.pe32",
+      "input": "modules/Ata.pe32",
+      "input_sha256": "5f0618342fe2c155124e4c509ad03493a92b09e7d13858d065b2a0b680ca5532",
+      "memory_sha256": "5f0618342fe2c155124e4c509ad03493a92b09e7d13858d065b2a0b680ca5532"
+    },
+    {
+      "path": "NOR-analysis/Thumb/Bds-2ed6d875-3da4-462c-b201-7c557027a5ba.pe32",
+      "input": "modules/Bds.pe32",
+      "input_sha256": "2508bb3cf843f67508b04e0bbb8bc3654b782964927ad43644b3a3ba9a4d2cff",
+      "memory_sha256": "2508bb3cf843f67508b04e0bbb8bc3654b782964927ad43644b3a3ba9a4d2cff"
+    },
+    {
+      "path": "NOR-analysis/Thumb/Cpu-3e755d4a-45ca-4902-b188-c9bd64bfee68.pe32",
+      "input": "modules/Cpu.pe32",
+      "input_sha256": "f9c03cf6418511a1b7cb2ec4fd3c10d52b9fbc5a6e2e089ced14ba2d1ab97138",
+      "memory_sha256": "f9c03cf6418511a1b7cb2ec4fd3c10d52b9fbc5a6e2e089ced14ba2d1ab97138"
+    },
+    {
+      "path": "NOR-analysis/Thumb/DetectReset-ffa17ac1-fd9f-4bad-a24a-2133ff21df26.pe32",
+      "input": "modules/DetectReset.pe32",
+      "input_sha256": "cfcc01522fd77f2d558e84098dee7a2723fd45cde2b08eb438208673623e4623",
+      "memory_sha256": "cfcc01522fd77f2d558e84098dee7a2723fd45cde2b08eb438208673623e4623"
+    },
+    {
+      "path": "NOR-analysis/Thumb/DrawJpeg-2bfd4382-cdb3-4867-b5bd-6f446696cc6b.pe32",
+      "input": "modules/DrawJpeg.pe32",
+      "input_sha256": "fd2f47698247f66bbbf0fd128cccba1bee5438c4df428cbbacd3d75993a5e629",
+      "memory_sha256": "fd2f47698247f66bbbf0fd128cccba1bee5438c4df428cbbacd3d75993a5e629"
+    },
+    {
+      "path": "NOR-analysis/Thumb/DrawLogo-9fb23d03-d0ba-4510-8828-012e0ab9ee19.pe32",
+      "input": "modules/DrawLogo.pe32",
+      "input_sha256": "a13506a845ef3eea289b8c1b82a42fcf28d4821208fb2d6e4ee6e8f7c0252889",
+      "memory_sha256": "a13506a845ef3eea289b8c1b82a42fcf28d4821208fb2d6e4ee6e8f7c0252889"
+    },
+    {
+      "path": "NOR-analysis/Thumb/DxeMain-35b898ca-b6a9-49ce-8c72-904735cc49b7.pe32",
+      "input": "modules/DxeMain.pe32",
+      "input_sha256": "228a18e9af94abeb7a26a81ee77509849f554677a21d3d5e088bc38cfb0514dd",
+      "memory_sha256": "228a18e9af94abeb7a26a81ee77509849f554677a21d3d5e088bc38cfb0514dd"
+    },
+    {
+      "path": "NOR-analysis/Thumb/DxeSst25-abc3ba70-fa6b-43c9-8532-7ffc7c785c54.pe32",
+      "input": "modules/DxeSst25.pe32",
+      "input_sha256": "9e5311a55376dd88eae48e4b5874a8d711dd87c9aba08ec18a9f0d16197a50d3",
+      "memory_sha256": "9e5311a55376dd88eae48e4b5874a8d711dd87c9aba08ec18a9f0d16197a50d3"
+    },
+    {
+      "path": "NOR-analysis/Thumb/FileSystemRead-508868d2-0a1d-44af-8ff7-50740641698d.pe32",
+      "input": "modules/FileSystemRead.pe32",
+      "input_sha256": "8d1ecfbfb036e0b3c330834d39997b43aec72914e90f8251e8ae123b0e706299",
+      "memory_sha256": "8d1ecfbfb036e0b3c330834d39997b43aec72914e90f8251e8ae123b0e706299"
+    },
+    {
+      "path": "NOR-analysis/Thumb/ImageManagerSecurity-a3f1a310-0ad9-42e3-8918-3c81d2e3008c.pe32",
+      "input": "modules/ImageManagerSecurity.pe32",
+      "input_sha256": "40f4ca2b5f061b8637226f730e417402f667992f557823539a45ca805cd226d2",
+      "memory_sha256": "40f4ca2b5f061b8637226f730e417402f667992f557823539a45ca805cd226d2"
+    },
+    {
+      "path": "NOR-analysis/Thumb/IpodFirmwareFS-81b6cb09-0d19-4b56-bc42-df9c35fbe21f.pe32",
+      "input": "modules/IpodFirmwareFS.pe32",
+      "input_sha256": "1eaa4e3f45abcb7664faaf7542b989a1eb96d19ac0721e3dc45e5cc4ddbc1f3a",
+      "memory_sha256": "1eaa4e3f45abcb7664faaf7542b989a1eb96d19ac0721e3dc45e5cc4ddbc1f3a"
+    },
+    {
+      "path": "NOR-analysis/Thumb/JpegDecoder-051eb0df-da79-4468-b1cd-e8f2e09f1696.pe32",
+      "input": "modules/JpegDecoder.pe32",
+      "input_sha256": "1eb78d48e513b98d7ae6ecf156a1ed293b912a4b74893aae43c73caf9d432bea",
+      "memory_sha256": "1eb78d48e513b98d7ae6ecf156a1ed293b912a4b74893aae43c73caf9d432bea"
+    },
+    {
+      "path": "NOR-analysis/Thumb/MemoryAllocator-a11a6554-9815-45a9-80c2-28d1412b498b.pe32",
+      "input": "modules/MemoryAllocator.pe32",
+      "input_sha256": "67aff762061cf9aed3e7369328587f2e077a4ca17d474f09ac779ba6f4e9e8ea",
+      "memory_sha256": "67aff762061cf9aed3e7369328587f2e077a4ca17d474f09ac779ba6f4e9e8ea"
+    },
+    {
+      "path": "NOR-analysis/Thumb/PreEfi-eb956406-45f2-4b96-8442-3565daa862f9.pe32",
+      "input": "modules/PreEfi.pe32",
+      "input_sha256": "a364e838a351e1544e7f6f823283f266f4b78ec4ac5c7ed1b6cd13df18cd1fa3",
+      "memory_sha256": "a364e838a351e1544e7f6f823283f266f4b78ec4ac5c7ed1b6cd13df18cd1fa3"
+    },
+    {
+      "path": "NOR-analysis/Thumb/ROM-773641a1-cc51-41b7-b121-943bd7c5fc3f.pe32",
+      "input": "modules/ROM.pe32",
+      "input_sha256": "e7891d4c91baa5cc739ef45ae4c91f65707db66f0f1136efbcc4ad267b601be8",
+      "memory_sha256": "e7891d4c91baa5cc739ef45ae4c91f65707db66f0f1136efbcc4ad267b601be8"
+    },
+    {
+      "path": "NOR-analysis/Thumb/SystemConfig-5d020c3c-c01b-4010-8aea-aa24235c0c97.pe32",
+      "input": "modules/SystemConfig.pe32",
+      "input_sha256": "126f53e349a11b715b000363fcdb72d6a03a95376c6f801e93329080850e112b",
+      "memory_sha256": "126f53e349a11b715b000363fcdb72d6a03a95376c6f801e93329080850e112b"
+    },
+    {
+      "path": "nor.bin",
+      "input": "nor.bin",
+      "input_sha256": "6d646d86c06edfcb27634274a416f49033f4c31b1c9b98d1c8be6d87e16d096c",
+      "memory_sha256": "6d646d86c06edfcb27634274a416f49033f4c31b1c9b98d1c8be6d87e16d096c"
+    },
+    {
+      "path": "nor_bootloader_decrypted.bin",
+      "input": "apple-loader.bin",
+      "input_sha256": "7caf3863376cf7890adc73601d24fbf11bc9ce89c7b40366fd61b45a1d6633e8",
+      "memory_sha256": "7caf3863376cf7890adc73601d24fbf11bc9ce89c7b40366fd61b45a1d6633e8"
+    },
+    {
+      "path": "osos-main-runtime.elf",
+      "input": "osos.bin",
+      "slice": [
+        46808,
+        10553108
+      ],
+      "elf_symbol_prefix": "_binary__Users_lukasgreicius_git_clones_ipod_cfw_effort_artifacts_osos_about_analysis_20260912_osos_main_runtime_bin_",
+      "input_sha256": "5841de6479f3a655102745fdb20e153ef99c4ef413314ccdb9a4721cace9a36e",
+      "memory_sha256": "e78b0247fd500b8c1f5232518ad4d1677e4b752536015d13201714d1a8d433be",
+      "skip_functions": [
+        "08150de8",
+        "081eb59c"
+      ],
+      "import_note": "Two anonymous one-byte stubs overlap defined data in the original project; retain the data definitions."
+    },
+    {
+      "path": "osos_decrypted.bin",
+      "input": "osos.bin",
+      "legacy_tail": "3c7c7c5adae581f466e4d0adaf33bf43",
+      "input_sha256": "5841de6479f3a655102745fdb20e153ef99c4ef413314ccdb9a4721cace9a36e",
+      "memory_sha256": "f4368251a58b2fdc7b46acf3178dae1d24bc1e029736240741015851256c65c4"
+    }
+  ]
+}

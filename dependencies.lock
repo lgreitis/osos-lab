@@ -1,0 +1,9 @@
+{
+  "rockbox": {
+    "url": "https://github.com/Rockbox/rockbox.git",
+    "commit": "10ec9bd530c852631ce126795cacf20e7578017f",
+    "patches": [
+      "patches/rockbox/0001-cfw-file-boot.patch"
+    ]
+  }
+}

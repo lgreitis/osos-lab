@@ -1,0 +1,204 @@
+diff --git a/bootloader/SOURCES b/bootloader/SOURCES
+index 8510479739..891edbca82 100644
+--- a/bootloader/SOURCES
++++ b/bootloader/SOURCES
+@@ -6,6 +6,9 @@ snprintf.c
+ ipodnano2g.c
+ #elif defined(IPOD_6G) || defined(IPOD_NANO3G) || defined(IPOD_NANO4G)
+ ipod-s5l87xx.c
++#ifdef IPOD_CFW_FILE_BOOT
++cfw-file-ipod6g.c
++#endif
+ #elif defined(IPOD_ARCH)
+ ipod.c
+ #elif defined(GIGABEAT_F)
+diff --git a/bootloader/ipod-s5l87xx.c b/bootloader/ipod-s5l87xx.c
+index 077fa1d3e6..576c444abc 100644
+--- a/bootloader/ipod-s5l87xx.c
++++ b/bootloader/ipod-s5l87xx.c
+@@ -770,9 +770,16 @@ static void devel_menu(void)
+ }
+ #endif /* S5L87XX_DEVELOPMENT_BOOTLOADER */
+ 
++#ifdef IPOD_CFW_FILE_BOOT
++extern void cfw_run_file(void) __attribute__((noreturn));
++#endif
++
+ void main(void)
+ {
+     int rc = 0;
++#ifdef IPOD_CFW_FILE_BOOT
++    bool cfw_requested = false;
++#endif
+ 
+     usec_timer_init();
+ 
+@@ -817,6 +824,9 @@ void main(void)
+             sleep(HZ);
+             btn = button_read_device();
+         }
++#ifdef IPOD_CFW_FILE_BOOT
++        cfw_requested = !button_hold() && btn != BUTTON_PLAY;
++#endif
+         /* Enter OF, diagmode and diskmode using ONB */
+         if ((btn == BUTTON_MENU)
+                 || (btn == (BUTTON_SELECT|BUTTON_LEFT))
+@@ -967,6 +977,11 @@ void main(void)
+         fatal_error(ERR_RB);
+     }
+ 
++#ifdef IPOD_CFW_FILE_BOOT
++    if (cfw_requested)
++        cfw_run_file();
++#endif
++
+     printf("Loading Rockbox...");
+     unsigned char *loadbuffer = (unsigned char *)DRAM_ORIG;
+     rc = load_firmware(loadbuffer, BOOTFILE, MAX_LOADSIZE);
+diff --git a/firmware/target/arm/s5l8702/boot.lds b/firmware/target/arm/s5l8702/boot.lds
+index 534e91b858..3ffe7f2517 100644
+--- a/firmware/target/arm/s5l8702/boot.lds
++++ b/firmware/target/arm/s5l8702/boot.lds
+@@ -13,6 +13,9 @@ OUTPUT_ARCH(arm)
+ STARTUP(target/arm/s5l8702/crt0.o)
+ 
+ #define MAX_LOADSIZE 8M  /* reserved for loading Rockbox binary */
++#ifdef IPOD_CFW_FILE_BOOT
++#include "cfw-target.h"
++#endif
+ 
+ #if defined(IPOD_6G) || defined(IPOD_NANO3G) || defined(IPOD_NANO4G)
+ MEMORY
+@@ -30,7 +33,11 @@ MEMORY
+ 
+     /* DRAM region for BSS */
+     BSS_AREA  : ORIGIN = DRAM_ORIG + MAX_LOADSIZE,
++#ifdef IPOD_CFW_FILE_BOOT
++                LENGTH = CFW_STAGE_START - DRAM_ORIG - MAX_LOADSIZE
++#else
+                 LENGTH = DRAM_SIZE - MAX_LOADSIZE - TTB_SIZE
++#endif
+ }
+ #define LOAD_AREA   MOVE_AREA
+ #else
+@@ -102,4 +109,11 @@ SECTIONS
+     . = ALIGN(0x20);  /* align bzero size */
+      _end = .;
+   } > BSS_AREA
++
++#ifdef IPOD_CFW_FILE_BOOT
++  _cfw_stage_start = CFW_STAGE_START;
++  _cfw_stage_end = CFW_STAGE_END;
++  ASSERT(_end <= _cfw_stage_start, "Bootloader BSS overlaps CFW staging")
++  ASSERT(_cfw_stage_end <= TTB_BASE_ADDR, "CFW staging overlaps translation table")
++#endif
+ }
+diff --git a/bootloader/cfw-file-ipod6g.c b/bootloader/cfw-file-ipod6g.c
+new file mode 100644
+--- /dev/null
++++ b/bootloader/cfw-file-ipod6g.c
+@@ -0,0 +1,85 @@
++/* Load CFW files and enter the companion's ARM bootstrap.
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++#include "config.h"
++#include "system.h"
++#include "s5l87xx.h"
++#include "cfw-target.h"
++#include "gpio-s5l8702.h"
++#include "file.h"
++#include "kernel.h"
++#include "lcd.h"
++#include "common.h"
++#include "string.h"
++
++static unsigned char io_buffer[16384] CACHEALIGN_ATTR;
++
++static void stop(const char *message) __attribute__((noreturn));
++static void stop(const char *message)
++{
++    printf("%s", message);
++    printf("Menu+Select to restart");
++    while (1) sleep(HZ);
++}
++
++/* Copy through the uncached alias after each synchronous DMA-backed read. */
++static uint32_t load_file(const char *path, uint32_t destination,
++                          uint32_t minimum, uint32_t capacity)
++{
++    int fd = open(path, O_RDONLY);
++    if (fd < 0) {
++        printf("Missing %s", path);
++        stop("File open failed");
++    }
++    off_t size = filesize(fd);
++    if (size < (off_t)minimum || size > (off_t)capacity) {
++        close(fd);
++        stop("File size out of bounds");
++    }
++    uint32_t position = 0;
++    unsigned char *out = S5L8702_UNCACHED_ADDR((void *)destination);
++    while (position < (uint32_t)size) {
++        uint32_t count = (uint32_t)size - position;
++        if (count > sizeof(io_buffer)) count = sizeof(io_buffer);
++        ssize_t got = read(fd, io_buffer, count);
++        if (got <= 0 || (uint32_t)got > count) {
++            close(fd);
++            stop("File read failed");
++        }
++        memcpy(out + position, io_buffer, got);
++        position += got;
++    }
++    if (close(fd) < 0)
++        stop("File close failed");
++    return position;
++}
++
++void cfw_run_file(void) __attribute__((noreturn));
++void cfw_run_file(void)
++{
++    printf("Loading /osos-cfw.bin");
++    uint32_t osos_bytes = load_file("/osos-cfw.bin", CFW_STAGE_START,
++                                    1, CFW_COMPANION_START - CFW_STAGE_START);
++    printf("Loading /cfw-loader.bin");
++    uint32_t companion_bytes = load_file("/cfw-loader.bin", CFW_COMPANION_START,
++                                         CFW_BOOTSTRAP_BYTES,
++                                         CFW_STAGE_END - CFW_COMPANION_START);
++    const void *companion = S5L8702_UNCACHED_ADDR((void *)CFW_COMPANION_START);
++    printf("Booting CFW...");
++
++    /* Drain display DMA before transferring control with interrupts masked. */
++    lcd_shutdown();
++    disable_irq();
++    disable_fiq();
++    ATA_IRQ_MASK = 0;
++    ATA_IRQ = ATA_IRQ;
++    eint_init();
++    memcpy((void *)IRAM0_ORIG, companion, CFW_BOOTSTRAP_BYTES);
++    commit_discard_idcache();
++
++    /* r0/r1: firmware address/length; r2/r3: companion address/length. */
++    typedef void (*entry_fn)(uint32_t, uint32_t, uint32_t, uint32_t);
++    ((entry_fn)IRAM0_ORIG)(CFW_STAGE_START, osos_bytes,
++                         CFW_COMPANION_START, companion_bytes);
++    while (1);
++}
+diff --git a/firmware/target/arm/s5l8702/cfw-target.h b/firmware/target/arm/s5l8702/cfw-target.h
+new file mode 100644
+--- /dev/null
++++ b/firmware/target/arm/s5l8702/cfw-target.h
+@@ -0,0 +1,14 @@
++/* Classic CFW transport layout. SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef CFW_TARGET_H
++#define CFW_TARGET_H
++
++#if !defined(IPOD_6G) || !defined(BOOTLOADER) || MEMORYSIZE != 64
++#error CFW file boot requires the 64 MiB Classic bootloader
++#endif
++
++#define CFW_STAGE_START (DRAM_ORIG + 0x03000000)
++#define CFW_STAGE_END   TTB_BASE_ADDR
++#define CFW_COMPANION_START (DRAM_ORIG + 0x03c00000)
++#define CFW_BOOTSTRAP_BYTES 0x1f800
++
++#endif

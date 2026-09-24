@@ -1,0 +1,2 @@
+{"kind":"informational","level":"none","message":{"text":"DT.Typedef"},"properties":{"additionalProperties":{"autoNamed":false,"endian":"little","kind":"typedef","size":-1,"type":{"endian":"little","kind":"pointer","size":-1}}},"ruleId":"DATATYPE"}
+{"kind":"informational","level":"none","message":{"text":"DT.Typedef"},"properties":{"additionalProperties":{"autoNamed":false,"endian":"little","kind":"typedef","size":-1,"type":{"endian":"little","kind":"pointer","size":-1}}},"ruleId":"DATATYPE"}

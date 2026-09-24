@@ -1,0 +1,26 @@
+RepriseOS
+
+Custom firmware for iPod.
+
+Build: {build_revision}
+
+Project:
+https://github.com/lgreitis/osos-lab
+
+Report issues:
+https://github.com/lgreitis/osos-lab/issues
+
+Back up your data before installing or updating.
+
+Provided "as is", without warranty of any kind.
+
+Credits
+
+Rockbox contributors - bootloader, dual-boot installer, and hardware drivers.
+https://github.com/Rockbox/rockbox
+
+wInd3x by Serge "q3k" Bazanski - BootROM exploit and DFU tooling, including code ported from Go to Rust.
+https://github.com/freemyipod/wInd3x
+
+giek2000 - iPod firmware research and inspiration for RepriseOS.
+https://github.com/giek2000/ipod-classic-firmware-research
