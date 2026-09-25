@@ -5,10 +5,19 @@
 #define OSOS_RESOURCE_BANK_INIT_OVERRIDES 0x08111d0c
 
 #ifndef __ASSEMBLER__
+#include <stddef.h>
 #include <stdint.h>
 
 uint32_t cfw_irq_save(void);
 void cfw_irq_restore(uint32_t flags);
+
+/* A null signature skips signature verification when opening the manifest. */
+static inline void osos_game_manifest_reader_init(void *reader, const char *manifest,
+                                                  uint8_t mode, const char *signature)
+{
+    typedef void (*fn)(void *, const char *, uint8_t, const char *);
+    ((fn)0x0825ccac)(reader, manifest, mode, signature);
+}
 
 /* Apple's libstdc++ string stores one pointer and owns its backing storage. */
 struct osos_string {

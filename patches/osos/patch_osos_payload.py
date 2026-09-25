@@ -46,6 +46,7 @@ def patch(
     template_address,
     settings_action_address,
     eq_hooks,
+    game_manifest_address,
 ):
     if len(original) != FILE_BYTES or hashlib.sha256(original).hexdigest() != BASE_SHA:
         raise ValueError("Expected the original decrypted FW2.0.4 image")
@@ -56,8 +57,19 @@ def patch(
     def replace(address, expected, replacement):
         position = address - 0x08000000 + 0xB6D8
         if original[position : position + len(expected)] != expected:
-            raise ValueError(f"EQ hook preimage mismatch at {address:#x}")
+            raise ValueError(f"Payload hook preimage mismatch at {address:#x}")
         result[position : position + len(expected)] = replacement
+
+    if (
+        game_manifest_address % 4
+        or not PAYLOAD_BASE <= game_manifest_address < PAYLOAD_BASE + PAYLOAD_BYTES
+    ):
+        raise ValueError("Game manifest hook is outside the payload or unaligned")
+    replace(
+        0x080F9360,
+        arm_bl(0x080F9360, 0x0825CCAC),
+        arm_bl(0x080F9360, game_manifest_address),
+    )
 
     for destination in eq_hooks.values():
         if (

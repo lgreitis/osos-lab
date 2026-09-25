@@ -94,3 +94,11 @@ cfw_settings_action_hook:
     ldr r12, =cfw_settings_action
     bx r12
 .ltorg
+
+.balign 4
+.global cfw_game_manifest_hook
+.type cfw_game_manifest_hook,%function
+cfw_game_manifest_hook:
+    ldr r12, =cfw_game_manifest_reader
+    bx r12
+.ltorg

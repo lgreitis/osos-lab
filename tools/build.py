@@ -199,6 +199,7 @@ def build_osos(out, data, prefix, jobs):
                 "cfw_eq_preset_ids",
             )
         },
+        symbols["cfw_game_manifest_hook"],
     )
     (out / "osos-cfw.bin").write_bytes(osos)
 
