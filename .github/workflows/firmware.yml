@@ -46,6 +46,7 @@ jobs:
       - name: Build pinned ARM toolchain
         if: steps.toolchain.outputs.cache-hit != 'true'
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/toolchains"
           vendor/rockbox/tools/rockboxdev.sh --target=a \
             --prefix="$GITHUB_WORKSPACE/toolchains/rockbox-arm" \
             --builddir="$RUNNER_TEMP/rockbox-toolchain-build" \
