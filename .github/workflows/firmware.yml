@@ -38,7 +38,12 @@ jobs:
           rustup default 1.96.0
           python -m pip install ruff==0.12.12
           python tools/setup.py
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Check formatting and lint
+        run: |
+          ruff check .
+          ruff format --check .
+          cargo fmt --manifest-path host/Cargo.toml --all -- --check
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: toolchain
         with:
           path: toolchains/rockbox-arm
@@ -51,11 +56,14 @@ jobs:
             --prefix="$GITHUB_WORKSPACE/toolchains/rockbox-arm" \
             --builddir="$RUNNER_TEMP/rockbox-toolchain-build" \
             --dlwhere="$RUNNER_TEMP/rockbox-toolchain-download" --makeflags=-j8
-      - name: Check and test
+      - name: Save ARM toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: toolchains/rockbox-arm
+          key: ${{ steps.toolchain.outputs.cache-primary-key }}
+      - name: Test
         run: |
-          ruff check .
-          ruff format --check .
-          cargo fmt --manifest-path host/Cargo.toml --all -- --check
           python -m unittest discover -s patching/tests
           python -m unittest discover -s tools/tests
           python -m unittest discover -s usb-helper/tests -p '*test.py'
