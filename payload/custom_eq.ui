@@ -1,0 +1,50 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
+UI_VALUES(cfw_eq_types)
+    UI_VALUE(0, "Off")
+    UI_VALUE(1, "Peaking")
+    UI_VALUE(2, "Low shelf")
+    UI_VALUE(3, "High shelf")
+UI_END_VALUES()
+
+#define HZ(value) UI_VALUE(value, #value " Hz")
+UI_VALUES(cfw_eq_frequencies)
+    HZ(20) HZ(25) HZ(31) HZ(40) HZ(50) HZ(60) HZ(70) HZ(80) HZ(100)
+    HZ(125) HZ(160) HZ(200) HZ(250) HZ(315) HZ(400) HZ(500)
+    HZ(630) HZ(800) HZ(1000) HZ(1250) HZ(1600) HZ(2000)
+    HZ(2500) HZ(3150) HZ(4000) HZ(5000) HZ(6300) HZ(8000)
+    HZ(10000) HZ(12500) HZ(16000) HZ(20000)
+UI_END_VALUES()
+#undef HZ
+
+UI_RANGE(cfw_eq_precut_values, 0, -100, -5, 10, " dB", 0)
+UI_RANGE(cfw_eq_q, 3, 40, 1, 10, "", 0)
+UI_RANGE(cfw_eq_gain, -120, 120, 5, 10, " dB", 1)
+
+UI_VALUES(cfw_eq_save_status)
+    UI_VALUE(0, "Save settings")
+    UI_VALUE(1, "Save failed - retry")
+    UI_VALUE(2, "Invalid filter settings")
+UI_END_VALUES()
+
+/* Slots and choice order are part of the version-1 saved EQ settings format. */
+#define BAND(number, slot, type, frequency) \
+    UI_MENU(CFW_EQ_Band##number, "Band " #number) \
+        UI_SELECTOR(CFW_EQ_Band##number##_Type, "Type", cfw_eq_types, slot, type) \
+        UI_SELECTOR(CFW_EQ_Band##number##_Frequency, "Frequency", cfw_eq_frequencies, slot + 1, frequency) \
+        UI_SELECTOR(CFW_EQ_Band##number##_Q, "Q", cfw_eq_q, slot + 2, 7) \
+        UI_SELECTOR(CFW_EQ_Band##number##_Gain, "Gain", cfw_eq_gain, slot + 3, 0) \
+    UI_END_MENU()
+
+UI_MENU(CFW_EQ, "Custom EQ")
+    UI_SELECTOR(CFW_EQ_Precut, "Precut", cfw_eq_precut_values, 0, 0)
+    BAND(1, 1, 2, 60)
+    BAND(2, 5, 1, 1000)
+    BAND(3, 9, 3, 8000)
+    UI_ACTION(CFW_EQ_Save, "Save settings", cfw_eq_save_status)
+UI_END_MENU()
+#undef BAND
+
+UI_SETTINGS_ENTRY(CFW_EQ, 0x0DAD0C39, "CFW_EQ_Open")
+
+UI_STRING(CFW_EQ_PRESET_NAME, "Custom")

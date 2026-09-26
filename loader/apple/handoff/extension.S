@@ -2,6 +2,7 @@
 
 .syntax unified
 .cpu arm926ej-s
+#include "common/recipe.inc"
 .section .text.entry,"ax",%progbits
 .thumb
 .thumb_func
@@ -48,27 +49,31 @@ execution_gate_end:
 
 .global bds_image
 bds_image:
-.incbin "bds-relocated.bin",0,0x4ce
+native_module Bds, 0x1500, 53
+native_copy Bds, 0, 0x4ce
+native_expect Bds, 0x4ce, 0x00, 0xf0, 0xa6, 0xee
 .thumb
 .global bds_execution_patch
 bds_execution_patch:
-    /* Fixed-layout Thumb-1 BLX into execution_gate. */
+    /* Fixed-layout Thumb-1 BLX avoids an interworking veneer in the Apple image. */
     .hword 0xf000 | (((0x0bb20008 - 0x0bb244d0) >> 12) & 0x7ff)
     .hword 0xe800 | (((0x0bb20008 - 0x0bb244d0) >> 1) & 0x7fe)
-.incbin "bds-relocated.bin",0x4d2,0xd4a
+native_copy Bds, 0x4d2, 0xd4a
 .arm
 .global original_cpu_mode
 original_cpu_mode:
-.incbin "bds-relocated.bin",0x121c,0x2e4
+native_copy Bds, 0x121c, 0x2e4
 
 .section .versioncheck,"ax",%progbits
 .thumb
 .thumb_func
 .global original_version_check
 original_version_check:
-.incbin "software-version.bin"
+native_copy SoftwareVersion, 0x220, 0x22
+.space 0x1e
+native_copy SoftwareVersion, 0x260, 4
 
 .section .sysinfo,"a",%progbits
-.incbin "sysinfo.bin"
+.space 0x120
 .section .ososheader,"a",%progbits
-.incbin "osos-header.bin"
+native_copy osos, 0, 0x800

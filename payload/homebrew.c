@@ -1,4 +1,9 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #include "osos.h"
+#include "patch.h"
+
+PATCH_CALL(0x080F9360, 0x0825CCAC, cfw_game_manifest_reader);
 
 static int is_homebrew_manifest(const char *path)
 {
@@ -28,8 +33,8 @@ static int is_homebrew_manifest(const char *path)
     return filename[i] == 0 && path[i] == 0;
 }
 
-void cfw_game_manifest_reader(void *reader, const char *manifest, uint8_t mode,
-                              const char *signature)
+PATCH_ARM void cfw_game_manifest_reader(void *reader, const char *manifest,
+                                        uint8_t mode, const char *signature)
 {
     if (mode == 0 && is_homebrew_manifest(manifest))
         signature = NULL;

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #include "doom_port.h"
 #include "game_libc.h"
 #include "doomgeneric.h"

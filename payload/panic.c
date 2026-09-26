@@ -1,5 +1,11 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #include "panic.h"
 #include <stddef.h>
+#include "patch.h"
+
+PATCH_JUMP(0x0803930C, 0xE59F1010, 0xE3A00004, cfw_panic_entry);
+PATCH_JUMP(0x0802606C, 0xE3A01000, 0xE92D4010, cfw_abort_entry);
 
 #define REG32(address) (*(volatile uint32_t *)(address))
 #define LCD_BASE 0x38300000u

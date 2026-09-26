@@ -1,0 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
+UI_TEXT(CFW_Info, "CFW Info", "cfw_info.txt")
+UI_SETTINGS_ENTRY(CFW_Info, 0x0DAD0C3F, "")

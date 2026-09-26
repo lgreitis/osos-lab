@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #ifndef OSOS_GAME_PLATFORM_H
 #define OSOS_GAME_PLATFORM_H
 

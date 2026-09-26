@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
 .DEFAULT_GOAL := all
 
 CROSS_COMPILE ?= arm-elf-eabi-

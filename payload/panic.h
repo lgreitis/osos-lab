@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #ifndef CFW_PANIC_H
 #define CFW_PANIC_H
 

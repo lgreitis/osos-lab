@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Assemble disk firmware and the dual-boot installer from local Apple inputs.
 
-use crate::{invalid, read_file, sha256, valid_hash, write_directory, Result, VerifiedBundle};
+use crate::{invalid, read_file, sha256, write_directory, Result, VerifiedBundle};
 use reprise_device::SysCfg;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
+mod pe;
+mod recipe;
+
+use recipe::{slice, Fingerprint, Recipe, MAX_OUTPUT};
+
 pub const INTERFACE: &str = "classic7g-file-v1";
 const SYSINFO_OFFSET: usize = 0x25100;
 const SYSINFO_BYTES: usize = 0x120;
-const MAX_RECIPE: usize = 2 * 1024 * 1024;
-// OSOS staging space before the companion in classic7g-file-v1.
-const MAX_OUTPUT: usize = 0x03c00000 - 0x03000000;
 pub(crate) const INPUT_FILES: &[(&str, &str)] = &[
     ("osos", "osos.bin"),
     ("apple_loader", "apple-loader.bin"),
@@ -23,119 +25,39 @@ pub(crate) const INPUT_FILES: &[(&str, &str)] = &[
     ("softwareversion", "modules/SoftwareVersion.pe32"),
 ];
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Fingerprint {
-    bytes: usize,
-    sha256: String,
-}
-
-impl Fingerprint {
-    fn check(&self, bytes: &[u8]) -> Result<()> {
-        if bytes.len() != self.bytes || sha256(bytes) != self.sha256 {
-            return Err(invalid("Firmware input/output fingerprint mismatch"));
-        }
-        Ok(())
+/// Apply a developer recipe using the same validation and assembler as bundles.
+/// Only the Apple inputs named by the recipe are loaded.
+pub fn assemble_local(recipe: &[u8], data: &[u8], directory: &Path) -> Result<Vec<u8>> {
+    let recipe = Recipe::parse(recipe)?;
+    let mut inputs = BTreeMap::new();
+    for name in recipe.inputs.keys() {
+        let (_, filename) = INPUT_FILES.iter().find(|(key, _)| *key == name).unwrap();
+        inputs.insert(
+            name.clone(),
+            read_file(&directory.join(filename), MAX_OUTPUT)?,
+        );
     }
+    recipe.apply(&inputs, data)
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-enum Segment {
-    Input {
-        name: String,
-        offset: usize,
-        bytes: usize,
-    },
-    Data {
-        offset: usize,
-        bytes: usize,
-    },
-    Zero {
-        bytes: usize,
-    },
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Recipe {
-    schema: u32,
-    interface: String,
-    inputs: BTreeMap<String, Fingerprint>,
-    output: Fingerprint,
-    segments: Vec<Segment>,
-}
-
-fn slice(data: &[u8], offset: usize, bytes: usize) -> Result<&[u8]> {
-    let end = offset
-        .checked_add(bytes)
-        .ok_or_else(|| invalid("Recipe range overflow"))?;
-    data.get(offset..end)
-        .ok_or_else(|| invalid("Recipe range outside input"))
-}
-
-impl Recipe {
-    fn parse(bytes: &[u8]) -> Result<Self> {
-        if bytes.len() > MAX_RECIPE {
-            return Err(invalid("Assembly recipe exceeds 2 MiB"));
-        }
-        let recipe: Self = serde_json::from_slice(bytes)?;
-        if recipe.schema != 1
-            || recipe.interface != INTERFACE
-            || recipe.inputs.is_empty()
-            || recipe.segments.is_empty()
-            || recipe.output.bytes == 0
-            || recipe.output.bytes > MAX_OUTPUT
-            || !valid_hash(&recipe.output.sha256)
-        {
-            return Err(invalid("Unsupported assembly recipe"));
-        }
-        for (name, spec) in &recipe.inputs {
-            if !INPUT_FILES.iter().any(|(key, _)| key == name)
-                || spec.bytes == 0
-                || spec.bytes > MAX_OUTPUT
-                || !valid_hash(&spec.sha256)
-            {
-                return Err(invalid("Unsupported Apple input"));
-            }
-        }
-        Ok(recipe)
+pub fn assemble_local_companion(
+    recipe: &[u8],
+    data: &[u8],
+    directory: &Path,
+    nor: &[u8],
+) -> Result<Vec<u8>> {
+    if nor.len() != 0x100000 {
+        return Err(invalid("Expected a full 1 MiB NOR backup"));
     }
-
-    fn apply(&self, inputs: &BTreeMap<String, Vec<u8>>, data: &[u8]) -> Result<Vec<u8>> {
-        for (name, spec) in &self.inputs {
-            spec.check(
-                inputs
-                    .get(name)
-                    .ok_or_else(|| invalid(format!("Missing Apple input: {name}")))?,
-            )?;
-        }
-        let mut output = Vec::with_capacity(self.output.bytes);
-        for segment in &self.segments {
-            let bytes = match segment {
-                Segment::Input { bytes, .. }
-                | Segment::Data { bytes, .. }
-                | Segment::Zero { bytes } => *bytes,
-            };
-            if bytes == 0 || bytes > self.output.bytes - output.len() {
-                return Err(invalid("Recipe exceeds output bounds"));
-            }
-            match segment {
-                Segment::Input { name, offset, .. } => {
-                    if !self.inputs.contains_key(name) {
-                        return Err(invalid("Recipe uses an unverified input"));
-                    }
-                    output.extend_from_slice(slice(&inputs[name], *offset, bytes)?);
-                }
-                Segment::Data { offset, .. } => {
-                    output.extend_from_slice(slice(data, *offset, bytes)?)
-                }
-                Segment::Zero { .. } => output.resize(output.len() + bytes, 0),
-            }
-        }
-        self.output.check(&output)?;
-        Ok(output)
+    let syscfg = SysCfg::parse(nor).map_err(|e| invalid(e.to_string()))?;
+    let identity = syscfg.identity().map_err(|e| invalid(e.to_string()))?;
+    if !matches!(identity.model.as_str(), "MC293" | "MC297")
+        || identity.hardware_version != 0x00130200
+        || identity.recorded_firmware != "2.0.4"
+    {
+        return Err(invalid("SysCfg is incompatible with this companion"));
     }
+    personalize_companion(assemble_local(recipe, data, directory)?, &syscfg)
 }
 
 /// Local, decrypted Apple images used by the assembly recipes.
@@ -204,7 +126,10 @@ pub fn assemble_companion(
     {
         return Err(invalid("SysCfg is incompatible with this companion"));
     }
-    let mut image = assemble_component(bundle, "companion", inputs)?;
+    personalize_companion(assemble_component(bundle, "companion", inputs)?, syscfg)
+}
+
+fn personalize_companion(mut image: Vec<u8>, syscfg: &SysCfg) -> Result<Vec<u8>> {
     if image.len() != 0x2b800
         || image[SYSINFO_OFFSET..SYSINFO_OFFSET + SYSINFO_BYTES]
             .iter()

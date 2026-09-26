@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Create a local Ghidra project or export its analysis for Git."""
 
 import argparse

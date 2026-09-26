@@ -31,6 +31,8 @@ Usage:
   reprise bundle sign --directory DIR --seed SECRET_SEED_FILE [--json]
   reprise bundle assemble --directory DIR --key PUBLIC_KEY_FILE
     --inputs DECRYPTED_APPLE_DIR --nor BACKUP_FILE --out NEW_DIR [--json]
+  reprise bundle apply-recipe --recipe FILE --data FILE
+    --inputs DECRYPTED_APPLE_DIR --out NEW_FILE [--nor BACKUP_FILE] [--json]
   reprise firmware inspect --ipsw FILE [--json]
   reprise firmware extract --ipsw FILE --output NEW_IMG1 [--json]
   reprise firmware prepare --ipsw FILE --nor BACKUP --osos PLAINTEXT

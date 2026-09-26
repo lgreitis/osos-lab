@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #ifndef DOOM_PORT_H
 #define DOOM_PORT_H
 

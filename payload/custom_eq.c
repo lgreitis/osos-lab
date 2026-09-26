@@ -1,5 +1,38 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #include "custom_eq.h"
 #include "osos.h"
+#include "patch.h"
+
+PATCH_CALL(0x080587EC, 0x0809C5E8, cfw_preferences_hook);
+PATCH_POINTER(0x0899BF4C, 0x0821C690, cfw_settings_action);
+PATCH_POINTER(0x0899FE64, 0x0821C690, cfw_settings_action);
+PATCH_JUMP(0x080B27F4, 0xE2400064, 0xE3500015, cfw_eq_map_hook);
+PATCH_CALL_WORD(0x081732B4, 0xE350006B, cfw_eq_track_guard);
+
+/* Native preset index 23 / saved ID 122. Reuse Flat's preview. */
+const struct {
+    uint32_t name, preview;
+} cfw_eq_presets[24] = {
+    [23] = {CFW_EQ_PRESET_NAME, 0},
+};
+
+const uint32_t cfw_eq_preset_ids[24] = {[23] = 122};
+PATCH_COPY(cfw_eq_presets, 0, 0x089CC500, 23 * 8);
+PATCH_COPY(cfw_eq_presets, 23 * 8 + 4, 0x089CC500 + 8 * 8 + 4, 4);
+PATCH_COPY(cfw_eq_preset_ids, 0, 0x083E2568, 23 * 4);
+PATCH_POINTER(0x0807BF14, 0x083E2568, cfw_eq_preset_ids);
+PATCH_POINTER(0x080BB408, 0x083E2568, cfw_eq_preset_ids);
+PATCH_POINTER(0x081E01A0, 0x089CC500, cfw_eq_presets);
+PATCH_POINTER(0x081E01E8, 0x089CC500, cfw_eq_presets);
+PATCH_POINTER(0x08293CF4, 0x089CC500, cfw_eq_presets);
+
+/* Preset provider counts and lookup bounds: 23 -> 24 entries. */
+PATCH_WORD(0x080BB3F4, 0xE3520017, 0xE3520018);
+PATCH_WORD(0x081E016C, 0xE3510017, 0xE3510018);
+PATCH_WORD(0x081E01B8, 0xE3510017, 0xE3510018);
+PATCH_WORD(0x081E0CC0, 0xE3A00017, 0xE3A00018);
+PATCH_WORD(0x08293B38, 0xE3550017, 0xE3550018);
 
 static uint32_t settings[CFW_EQ_FIELDS];
 static int initialized;
@@ -81,70 +114,14 @@ static void save_preferences(void)
         save_status = 0;
 }
 
-static int set_label(uint32_t table, unsigned int index, uint32_t source)
-{
-    uint32_t size;
-    unsigned char *data =
-        osos_resource_get(osos_resource_bank(), 0x4954454d, table, &size);
-    /* Generated ITEM blocks have an eight-byte header and a 0x98-byte body. */
-    unsigned int offset = 12 + index * 0xa0;
-    if (!data || size < offset + 0x98)
-        return 0;
-    if (*(uint32_t *)(data + offset + 0x68) == source)
-        return 0;
-    *(uint32_t *)(data + offset + 0x68) = source;
-    return 1;
-}
-
-static void refresh_field(unsigned int index)
-{
-    const struct cfw_eq_field *field = &cfw_eq_fields[index];
-    unsigned int selected = settings[index];
-    set_label(field->parent_table, field->parent_index, field->summaries[selected]);
-    for (unsigned int i = 0; i < field->count; i++)
-        set_label(field->selector_table, i,
-                  i == selected ? field->marked[i] : field->labels[i]);
-    osos_menu_item_changed(field->parent_item);
-}
-
-static void refresh_status(void)
-{
-    set_label(cfw_eq_main_table, 4, cfw_eq_save_labels[save_status]);
-    osos_menu_item_changed(cfw_eq_save_item);
-}
-
-static int selection(const char *action, unsigned int *field, unsigned int *value)
-{
-    static const char prefix[] = "CFW_EQ_Set_";
-    unsigned int i = 0;
-    if (!action)
-        return 0;
-    while (prefix[i] && action[i] == prefix[i])
-        i++;
-    if (prefix[i])
-        return 0;
-    const char *digits = action + i;
-    for (unsigned int n = 0; n < 5; n++) {
-        if (n == 2) {
-            if (digits[n] != '_')
-                return 0;
-        } else if (digits[n] < '0' || digits[n] > '9') {
-            return 0;
-        }
-    }
-    if (digits[5])
-        return 0;
-    *field = (digits[0] - '0') * 10 + digits[1] - '0';
-    *value = (digits[3] - '0') * 10 + digits[4] - '0';
-    return *field < CFW_EQ_FIELDS && *value < cfw_eq_fields[*field].count;
-}
-
-int cfw_settings_action(void *controller, const char *action, uint32_t argument)
+PATCH_ARM int cfw_settings_action(void *controller, const char *action,
+                                  uint32_t argument)
 {
     unsigned int field, value;
     int open = equal(action, "CFW_EQ_Open");
     int save = equal(action, "CFW_EQ_Save");
-    int chosen = selection(action, &field, &value);
+    int chosen = cfw_ui_selection("CFW_EQ_Set_", action, cfw_eq_fields, CFW_EQ_FIELDS,
+                                  &field, &value);
     if (open || save || chosen) {
         if (argument == 0xdeadbeef)
             return 1;
@@ -155,7 +132,7 @@ int cfw_settings_action(void *controller, const char *action, uint32_t argument)
             settings[field] = value;
             if (cfw_eq_publish(settings)) {
                 save_preferences();
-                refresh_field(field);
+                cfw_ui_refresh(&cfw_eq_fields[field], value);
                 osos_menu_item_changed(cfw_eq_fields[field].items[previous]);
                 osos_menu_item_changed(cfw_eq_fields[field].items[value]);
             } else {
@@ -167,8 +144,8 @@ int cfw_settings_action(void *controller, const char *action, uint32_t argument)
             save_preferences();
         if (open)
             for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
-                refresh_field(i);
-        refresh_status();
+                cfw_ui_refresh(&cfw_eq_fields[i], settings[i]);
+        cfw_ui_status(&cfw_eq_save, save_status);
         return 1;
     }
     return osos_settings_action(controller, action, argument);

@@ -15,8 +15,8 @@ MAX_ASSET = 32 * 1024 * 1024
 MAX_TOTAL = 64 * 1024 * 1024
 FORMATS = {
     "usb_helper": ("reprise-upload-v3", {"image", "descriptor"}),
-    "osos": ("reprise-osos-recipe-v1", {"recipe", "data"}),
-    "companion": ("reprise-companion-recipe-v1", {"recipe", "data"}),
+    "osos": ("reprise-osos-recipe-v2", {"recipe", "data"}),
+    "companion": ("reprise-companion-recipe-v2", {"recipe", "data"}),
     "nor": ("reprise-nor-template-v1", {"image", "descriptor"}),
 }
 COMPATIBILITY = {

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Encode a 55x55 RGB/RGBA PNG as native little-endian RGB565 artwork."""
 
 import argparse

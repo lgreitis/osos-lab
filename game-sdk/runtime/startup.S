@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 .syntax unified
 .cpu arm926ej-s
 .arm

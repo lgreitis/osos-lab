@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Fetch pinned Doom/newlib sources, build local libc, and optionally fetch shareware."""
 
 import argparse

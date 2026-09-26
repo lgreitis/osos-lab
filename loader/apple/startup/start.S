@@ -2,11 +2,19 @@
 
 .syntax unified
 .cpu arm926ej-s
+#include "common/recipe.inc"
 .arm
 .section .text.entry,"ax",%progbits
 .equ RESULT, 0x2203c000
 .equ SCRATCH, 0x2203c100
 .equ STACK, 0x2203b000
+
+native_arm_jump apple_loader, 0, probe_start
+.set vector_offset, 4
+.rept 7
+    native_arm_jump apple_loader, vector_offset, probe_exception
+    .set vector_offset, vector_offset + 4
+.endr
 
 .macro call target
     adr lr, .Lret\@
@@ -90,6 +98,7 @@ probe_flush:
     pop {r4, pc}
 .ltorg
 
+native_thumb_call apple_loader, 0x10574, cold_guard, 0x6a, 0x46, 0x02, 0xa9
 .thumb
 .thumb_func
 .global cold_guard

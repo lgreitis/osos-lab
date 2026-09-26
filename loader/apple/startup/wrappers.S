@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
-/* Loaded at PreEfi + 0x40 (0x2200e23c), in DOS-stub padding.
- * PreEfi remains at its original address.
- */
 .syntax unified
 .cpu arm926ej-s
+#include "common/recipe.inc"
 .thumb
 .text
 .balign 4
-/* Entry +0: original HOB-init ABI: r0:r1 base, r2:r3 length. */
+native_thumb_call apple_loader, 0x10596, reserve_hob, 0xff, 0xf7, 0x8b, 0xf9
+.thumb_func
+reserve_hob:
+    /* Original HOB-init ABI: r0:r1 base, r2:r3 length. */
     push {r4, lr}
     movs r2, #3
     lsls r2, r2, #24
@@ -17,7 +18,10 @@
     blx r4
     pop {r4, pc}
 .balign 4
-/* Entry +16: same ABI, including DRAM resource length passed into DXE prep. */
+native_thumb_call apple_loader, 0x105be, reserve_dram, 0xfe, 0xf7, 0xc7, 0xff
+.thumb_func
+reserve_dram:
+    /* Same ABI, including DRAM resource length passed into DXE prep. */
     push {r4, lr}
     movs r2, #3
     lsls r2, r2, #24

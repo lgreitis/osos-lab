@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Prepare pinned upstream checkouts and apply the project patches."""
 
 import argparse

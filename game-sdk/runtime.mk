@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
 # Set GAME_SDK before including this file. Outputs stay in the app's build tree.
 GAME_SDK_BUILD ?= build/sdk
 GAME_ARCH_FLAGS := -mcpu=arm926ej-s -marm -mfloat-abi=soft

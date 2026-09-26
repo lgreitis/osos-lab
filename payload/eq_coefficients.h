@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #ifndef CFW_EQ_COEFFICIENTS_H
 #define CFW_EQ_COEFFICIENTS_H
 #include <stdint.h>

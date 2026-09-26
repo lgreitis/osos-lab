@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #ifndef CFW_OSOS_H
 #define CFW_OSOS_H
 

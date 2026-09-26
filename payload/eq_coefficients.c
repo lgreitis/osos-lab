@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #include "eq_coefficients.h"
 
 #define SCALE 16777216

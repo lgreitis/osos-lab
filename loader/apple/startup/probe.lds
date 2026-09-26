@@ -3,6 +3,7 @@
 ENTRY(probe_start)
 SECTIONS {
     . = 0x2201a730;
+    image_start = .;
     .text : { *(.text.entry) *(.text*) *(.rodata*) }
     .data : { *(.data*) }
     .bss (NOLOAD) : { *(.bss*) *(COMMON) }
@@ -25,6 +26,9 @@ SECTIONS {
     .irqimage : { *(.irqimage) }
     ASSERT(SIZEOF(.irqimage) == 0x8e0, "InterruptController size changed")
     ASSERT(. <= 0x2201f510, "Startup overlaps SecCore")
+
+    image_limit = 0x2201f510;
+    .cfw.native 0 : { *(.cfw.native) }
 
     /DISCARD/ : { *(.comment) *(.ARM.attributes) *(.ARM.exidx*) *(.ARM.extab*) }
 }

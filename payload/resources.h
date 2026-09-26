@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #ifndef CFW_RESOURCES_H
 #define CFW_RESOURCES_H
 #include <stdint.h>

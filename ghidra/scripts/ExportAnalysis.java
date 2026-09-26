@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
 // Export the current program's analysis and its memory image.
 // @category OSOS
 

@@ -1,27 +1,35 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #include "resources.h"
 #include "osos.h"
+#include "patch.h"
 
-const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size)
+PATCH_CALL(0x081C7410, OSOS_RESOURCE_BANK_INIT_OVERRIDES, cfw_resource_hook);
+PATCH_CALL(0x081AEDD8, 0x08111E0C, cfw_next_template);
+
+PATCH_ARM const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size)
 {
-    const struct cfw_resource *body = 0;
-
+    uint32_t start = 0;
     for (uint32_t i = 0; i < cfw_resource_count; i++) {
-        if (cfw_resources[i].type == 0x56696577) { /* View */
-            body = &cfw_resources[i];
+        if (cfw_resources[i].type == 0x56696577 && cfw_resources[i].id == *id) {
+            start = i + 1;
             break;
         }
     }
-    if (body && *id == body->id)
-        return 0;
-
-    const void *data = osos_resource_next(bank, id, size);
-    if (data || !body)
-        return data;
-
-    /* Let Apple's template initializer create the CFW info body after stock views. */
-    *id = body->id;
-    *size = body->size;
-    return body->data;
+    if (!start) {
+        const void *data = osos_resource_next(bank, id, size);
+        if (data)
+            return data;
+    }
+    for (uint32_t i = start; i < cfw_resource_count; i++) {
+        const struct cfw_resource *resource = &cfw_resources[i];
+        if (resource->type == 0x56696577) { /* View */
+            *id = resource->id;
+            *size = resource->size;
+            return resource->data;
+        }
+    }
+    return 0;
 }
 
 void cfw_install_resources(void *bank)

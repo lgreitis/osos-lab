@@ -4,8 +4,12 @@ RepriseOS firmware, reverse engineering, and developer tools for iPod.
 
 > Current support: iPod Classic 7G Rev B, Apple 2.0.4, FAT32. Support for more models is planned.
 
-- `payload/`: CFW info, custom EQ, and panic screen.
-- `loader/` and `patches/`: Apple companion loader, OSOS patches, and Rockbox bootloader.
+- `payload/`: OSOS features, C patch declarations, and UI definitions.
+- `game-sdk/`: C runtime and APIs for native homebrew games.
+- `doom/`: Doom port, build tooling, and game packaging example.
+- `patching/`: Python recipe builder, native UI generation, and framework tests.
+- `targets/`: supported firmware fingerprints and UI structure metadata.
+- `loader/` and `patches/`: Apple companion loader and Rockbox bootloader patches.
 - `usb-helper/`: FAT32 transfer, readback verification, and DFU return.
 - `host/`: Rust device library, IPSW/NOR preparation, bundle assembly, and CLI.
 - `tools/`: firmware builds, release bundle export, and Ghidra import/export.
@@ -33,16 +37,20 @@ cargo build --manifest-path host/Cargo.toml --release -j 8
 
 Firmware builds use the inputs in [the target manifest](targets/classic7g-2.0.4.json).
 Outputs go to `build/`, intermediates to `.build/`. Individual targets:
-`osos`, `loader`, `bootloader`. `tools/setup.py` prepares pinned dependencies
-under `vendor/`; all project tooling lives in this repository.
+`osos`, `osos-recipe`, `loader`, `loader-recipe`, `bootloader`. `tools/setup.py`
+prepares pinned dependencies under `vendor/`; all project tooling lives in this repository.
+
+`osos-recipe` and `loader-recipe` produce JSON recipes and compiled data without
+Apple inputs. `osos` and `loader` also assemble images with local inputs through
+the shared Rust assembler and require Cargo.
 
 ## Distribution
 
 ```sh
 python3 usb-helper/build.py --rockbox vendor/rockbox \
   --toolchain /path/to/bin --out build/helper
-python3 tools/assembly.py --helper build/helper --version 0.1.0-dev.1 \
-  --nm /path/to/bin/arm-elf-eabi-nm --out build/package
+python3 tools/export_bundle.py --helper build/helper --version 0.1.0-dev.1 \
+  --out build/package
 python3 tools/bundle.py --pack build/package --out build/package.zip
 ```
 

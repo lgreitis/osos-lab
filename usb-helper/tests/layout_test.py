@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Offline partition and FAT32 boundary checks."""
 
 import ctypes

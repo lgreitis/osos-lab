@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
 [tool.ruff]
 required-version = "==0.12.12"
 target-version = "py310"

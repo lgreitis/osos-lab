@@ -117,8 +117,8 @@ impl Manifest {
         for (name, component) in &self.components {
             let (format, required): (&str, &[&str]) = match name.as_str() {
                 "usb_helper" => ("reprise-upload-v3", &["image", "descriptor"]),
-                "osos" => ("reprise-osos-recipe-v1", &["recipe", "data"]),
-                "companion" => ("reprise-companion-recipe-v1", &["recipe", "data"]),
+                "osos" => ("reprise-osos-recipe-v2", &["recipe", "data"]),
+                "companion" => ("reprise-companion-recipe-v2", &["recipe", "data"]),
                 "nor" => ("reprise-nor-template-v1", &["image", "descriptor"]),
                 _ => return Err(invalid("Unknown bundle component")),
             };

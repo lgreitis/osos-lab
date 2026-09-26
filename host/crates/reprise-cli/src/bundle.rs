@@ -9,6 +9,13 @@ use std::{
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Args {
+    ApplyRecipe {
+        recipe: String,
+        data: String,
+        inputs: String,
+        nor: Option<String>,
+        out: String,
+    },
     Assemble {
         directory: String,
         key: String,
@@ -36,13 +43,14 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
     let action = args
         .first()
         .map(String::as_str)
-        .ok_or("Expected bundle inspect, fetch, sign or assemble")?;
+        .ok_or("Expected bundle inspect, fetch, sign, assemble or apply-recipe")?;
     let allowed: &[&str] = match action {
+        "apply-recipe" => &["--recipe", "--data", "--inputs", "--nor", "--out"],
         "inspect" => &["--directory", "--key"],
         "fetch" => &["--url", "--key", "--cache", "--sha256"],
         "sign" => &["--directory", "--seed"],
         "assemble" => &["--directory", "--key", "--inputs", "--nor", "--out"],
-        _ => return Err("Expected bundle inspect, fetch, sign or assemble".into()),
+        _ => return Err("Expected bundle inspect, fetch, sign, assemble or apply-recipe".into()),
     };
     let options = parse_options(&args[1..], allowed)?;
     let required = |name: &str| {
@@ -52,6 +60,13 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
             .ok_or_else(|| format!("Missing {name}"))
     };
     Ok(match action {
+        "apply-recipe" => Args::ApplyRecipe {
+            recipe: required("--recipe")?,
+            data: required("--data")?,
+            inputs: required("--inputs")?,
+            nor: options.get("--nor").cloned(),
+            out: required("--out")?,
+        },
         "assemble" => Args::Assemble {
             directory: required("--directory")?,
             key: required("--key")?,
@@ -85,6 +100,39 @@ pub(super) fn trusted_key(path: &str) -> CliResult<TrustedKey> {
 
 pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
     let (directory, bundle) = match args {
+        Args::ApplyRecipe {
+            recipe,
+            data,
+            inputs,
+            nor,
+            out,
+        } => {
+            super::ensure_new_output(&out)?;
+            let recipe = read_bounded(recipe, 2 * 1024 * 1024)?;
+            let data = read_bounded(data, 0xc00000)?;
+            let image = match nor {
+                Some(nor) => reprise_bundle::assembly::assemble_local_companion(
+                    &recipe,
+                    &data,
+                    Path::new(&inputs),
+                    &read_bounded(nor, 0x100000)?,
+                )?,
+                None => {
+                    reprise_bundle::assembly::assemble_local(&recipe, &data, Path::new(&inputs))?
+                }
+            };
+            super::write_new_output(&out, &image)?;
+            if json {
+                print_json(&serde_json::json!({"output": out, "bytes": image.len()}))?;
+            } else {
+                writeln!(
+                    io::stdout().lock(),
+                    "Assembled {} bytes: {out}",
+                    image.len()
+                )?;
+            }
+            return Ok(0);
+        }
         Args::Assemble {
             directory,
             key,
@@ -195,9 +243,15 @@ mod tests {
             "fetch --key k --key other",
             "inspect --directory --key k",
             "assemble --directory dir --key k --inputs apple --out out",
+            "apply-recipe --recipe r --inputs apple --out out",
         ] {
             assert!(parse_line(line).is_err(), "{line}");
         }
+        assert!(parse_line("apply-recipe --recipe r --data d --inputs apple --out out").is_ok());
+        assert!(parse_line(
+            "apply-recipe --recipe r --data d --inputs apple --nor backup --out out"
+        )
+        .is_ok());
         assert!(parse_line("inspect --directory dir --key key").is_ok());
         assert!(parse_line("sign --directory dir --seed secret").is_ok());
         assert!(parse_line(

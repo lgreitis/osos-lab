@@ -1,6 +1,14 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
 #include "custom_eq.h"
 #include "eq_coefficients.h"
 #include "osos.h"
+#include "patch.h"
+
+PATCH_CALL(0x08271D0C, 0x08271BF0, cfw_eq_load);
+PATCH_CALL(0x08271D40, 0x08271BF0, cfw_eq_load);
+PATCH_POINTER(0x089A61DC, 0x08271F2C, cfw_eq_process);
+PATCH_WORD(0x08271CF8, 0xE3510017, 0xE3510018);
 
 static int32_t published[2][3][5];
 static volatile uint32_t generation;
@@ -15,9 +23,14 @@ int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS])
     for (unsigned int rate = 0; rate < 2; rate++) {
         for (unsigned int band = 0; band < 3; band++) {
             const uint32_t *v = &values[1 + band * 4];
-            if (!cfw_eq_coefficients(next[rate][band], v[0], cfw_eq_frequencies[v[1]],
-                                     v[2] + 3, (int)v[3] - 24,
-                                     band == 0 ? values[0] : 0, rate ? 48000 : 44100))
+            int gain = cfw_eq_gain[v[3]];
+            int precut = -cfw_eq_precut_values[values[CFW_EQ_PRECUT]];
+            /* UI values use tenths of dB; the DSP accepts half-dB steps. */
+            if (gain % 5 || precut % 5)
+                return 0;
+            if (!cfw_eq_coefficients(next[rate][band], cfw_eq_types[v[0]],
+                                     cfw_eq_frequencies[v[1]], cfw_eq_q[v[2]], gain / 5,
+                                     band == 0 ? precut / 5 : 0, rate ? 48000 : 44100))
                 return 0;
         }
     }
@@ -71,7 +84,7 @@ static int install_coefficients(void *state, int force)
     return 1;
 }
 
-void cfw_eq_load(void *state)
+PATCH_ARM void cfw_eq_load(void *state)
 {
     fade_remaining = 0;
     if (*(uint32_t *)((unsigned char *)state + 0xb4) == CFW_EQ_DSP_PRESET) {
@@ -82,8 +95,8 @@ void cfw_eq_load(void *state)
     }
 }
 
-void cfw_eq_process(void *state, int16_t *samples, uint32_t frames, int16_t **output,
-                    uint32_t *output_frames)
+PATCH_ARM void cfw_eq_process(void *state, int16_t *samples, uint32_t frames,
+                              int16_t **output, uint32_t *output_frames)
 {
     *output = samples;
     *output_frames = frames;
