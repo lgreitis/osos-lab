@@ -1,4 +1,4 @@
-RepriseOS
+RepriseOS {build_version}
 
 Custom firmware for iPod.
 

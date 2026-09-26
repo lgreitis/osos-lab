@@ -190,11 +190,28 @@ impl VerifiedBundle {
         let signature = read_file(&directory.join(SIGNATURE_FILE), 64)?;
         let manifest = authenticate(&raw, &signature, key, installer_version)?;
         let assets = load_assets(directory, &manifest)?;
-        Ok(Self {
+        Self {
             manifest,
             digest: sha256(&raw),
             assets,
-        })
+        }
+        .check_helper()
+    }
+
+    fn check_helper(self) -> Result<Self> {
+        if self.manifest.components.contains_key("usb_helper") {
+            let helper = reprise_device::UploadHelper::from_bytes(
+                self.file("usb_helper", "image")?,
+                self.file("usb_helper", "descriptor")?,
+            )
+            .map_err(|e| invalid(e.to_string()))?;
+            if !helper.supports_storage_inspection() {
+                return Err(invalid(
+                    "Package requires a v3 helper with storage inspection",
+                ));
+            }
+        }
+        Ok(self)
     }
 
     pub fn manifest(&self) -> &Manifest {
@@ -243,7 +260,13 @@ pub fn sign_directory(
     let raw = read_file(&directory.join(MANIFEST_FILE), MAX_MANIFEST_BYTES)?;
     let manifest: Manifest = serde_json::from_slice(&raw)?;
     manifest.validate(installer_version)?;
-    load_assets(directory, &manifest)?;
+    let assets = load_assets(directory, &manifest)?;
+    VerifiedBundle {
+        manifest,
+        digest: sha256(&raw),
+        assets,
+    }
+    .check_helper()?;
     let key = SigningKey::from_bytes(&decode_hex::<32>(secret_hex.trim())?);
     write_new(&directory.join(SIGNATURE_FILE), &key.sign(&raw).to_bytes())?;
     Ok(hex(&key.verifying_key().to_bytes()))

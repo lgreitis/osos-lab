@@ -7,7 +7,9 @@ from . import declarations, native_ui, osos
 from .toolchain import compile_payload
 
 
-def build_recipe(source, directory, target_path, prefix, jobs, revision):
+def build_recipe(
+    source, directory, target_path, prefix, jobs, revision, version="0.0.0-dev"
+):
     target = json.loads(target_path.read_text())
     fingerprint = target["inputs"]["osos.bin"]
     metadata = json.loads(
@@ -18,7 +20,7 @@ def build_recipe(source, directory, target_path, prefix, jobs, revision):
 
     resources = native_ui.Resources(metadata["resources"])
     generated = native_ui.generate(
-        resources, sorted(source.glob("*.ui")), directory, prefix, revision
+        resources, sorted(source.glob("*.ui")), directory, prefix, revision, version
     )
 
     units = [

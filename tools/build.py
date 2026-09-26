@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 
 import setup
+from version import identity
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from patching.companion import build_recipe as build_companion_recipe
@@ -22,17 +23,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 TARGET = ROOT / "targets/classic7g-2.0.4.json"
 WORK = ROOT / ".build"
-
-
-def source_revision():
-    try:
-        revision = run(["git", "rev-parse", "--short=8", "HEAD"], ROOT).strip()
-        changes = run(
-            ["git", "status", "--porcelain", "--untracked-files=normal"], ROOT
-        )
-    except (OSError, RuntimeError):
-        return "unknown"
-    return revision + ("-dirty" if changes.strip() else "")
 
 
 def assemble(files, out, inputs, jobs, companion=False):
@@ -67,10 +57,17 @@ def assemble(files, out, inputs, jobs, companion=False):
         image.replace(out)
 
 
-def build_osos(out, inputs, prefix, jobs, recipe_only=False):
+def build_osos(out, inputs, prefix, jobs, recipe_only=False, info=None):
     print("Building OSOS recipe...", flush=True)
+    info = info or identity(ROOT)
     recipe = build_recipe(
-        ROOT / "payload", WORK / "payload", TARGET, prefix, jobs, source_revision()
+        ROOT / "payload",
+        WORK / "payload",
+        TARGET,
+        prefix,
+        jobs,
+        info["revision"],
+        info["version"],
     )
     files = recipe.save(out, "osos")
     if not recipe_only:
@@ -156,6 +153,7 @@ def build_rockbox(out, rockbox, target, prefix, jobs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tag", help="Require a clean release tag at HEAD")
     parser.add_argument("--inputs", type=Path, default=ROOT / "inputs")
     parser.add_argument("--out", type=Path, default=ROOT / "build")
     parser.add_argument(
@@ -182,7 +180,14 @@ def main():
     ):
         parser.error("This target requires ARM GCC " + target["toolchain"]["gcc"])
     if args.target in ("all", "osos", "osos-recipe"):
-        build_osos(out, args.inputs, prefix, args.jobs, args.target == "osos-recipe")
+        build_osos(
+            out,
+            args.inputs,
+            prefix,
+            args.jobs,
+            args.target == "osos-recipe",
+            identity(ROOT, args.tag),
+        )
     if args.target in ("all", "loader", "loader-recipe"):
         build_apple(out, args.inputs, prefix, args.jobs, args.target == "loader-recipe")
     if args.target in ("all", "bootloader"):

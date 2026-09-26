@@ -4,6 +4,7 @@
 
 import copy
 import importlib.util
+import json
 import tempfile
 import unittest
 import zipfile
@@ -23,6 +24,18 @@ class ExportTests(unittest.TestCase):
         self.spec = bundle.helper_spec(
             ROOT / "usb-helper/tests/fixtures", "0.1.0-dev.1", "0.1.0"
         )
+
+    def test_helper_without_storage_inspection_is_rejected(self):
+        fixture = ROOT / "usb-helper/tests/fixtures"
+        image = (fixture / "upload.dfu").read_bytes()
+        descriptor = json.loads((fixture / "manifest.json").read_text())
+        for value in (None, False, "true"):
+            descriptor["storage_inspection"] = value
+            with (
+                self.subTest(value=value),
+                self.assertRaisesRegex(ValueError, "storage inspection"),
+            ):
+                bundle.validate_helper(image, json.dumps(descriptor).encode())
 
     def test_existing_output_is_preserved(self):
         output = self.root / "existing"

@@ -10,8 +10,8 @@ pub(crate) struct Fixture {
 impl Fixture {
     pub fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let image = b"synthetic image; not executable firmware";
-        let descriptor = b"synthetic descriptor";
+        let image = include_bytes!("../../../../usb-helper/tests/fixtures/upload.dfu");
+        let descriptor = include_bytes!("../../../../usb-helper/tests/fixtures/manifest.json");
         let image_hash = sha256(image);
         let descriptor_hash = sha256(descriptor);
         let manifest = serde_json::json!({

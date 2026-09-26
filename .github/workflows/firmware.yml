@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: GPL-3.0-only
+name: Firmware
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CROSS_COMPILE: ${{ github.workspace }}/toolchains/rockbox-arm/bin/arm-elf-eabi-
+      CARGO_BUILD_JOBS: '8'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex texinfo libtool-bin autoconf automake libusb-1.0-0-dev pkg-config
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt
+          rustup default 1.96.0
+          python -m pip install ruff==0.12.12
+          python tools/setup.py
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: toolchain
+        with:
+          path: toolchains/rockbox-arm
+          key: arm-gcc-9.5.0-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('dependencies.lock') }}
+      - name: Build pinned ARM toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: |
+          vendor/rockbox/tools/rockboxdev.sh --target=a \
+            --prefix="$GITHUB_WORKSPACE/toolchains/rockbox-arm" \
+            --builddir="$RUNNER_TEMP/rockbox-toolchain-build" \
+            --dlwhere="$RUNNER_TEMP/rockbox-toolchain-download" --makeflags=-j8
+      - name: Check and test
+        run: |
+          ruff check .
+          ruff format --check .
+          cargo fmt --manifest-path host/Cargo.toml --all -- --check
+          python -m unittest discover -s patching/tests
+          python -m unittest discover -s tools/tests
+          python -m unittest discover -s usb-helper/tests -p '*test.py'
+          cargo test --locked --manifest-path host/Cargo.toml -j 8
+      - name: Build complete bundle
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          release_args=()
+          if [[ "$REF_TYPE" == tag ]]; then
+            release_args+=(--tag "$REF_NAME")
+          fi
+          python tools/release.py "${release_args[@]}"
+          if [[ "$REF_TYPE" == tag ]]; then
+            cargo build --locked --release --manifest-path host/Cargo.toml -j 8 -p reprise-cli
+            cp host/target/release/reprise build/reprise
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: firmware
+          path: build/
+          if-no-files-found: error
+
+  draft-release:
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: firmware-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: firmware
+          path: build
+      - name: Sign and verify
+        env:
+          SIGNING_SEED: ${{ secrets.REPRISE_BUNDLE_SIGNING_SEED }}
+          PUBLIC_KEY: ${{ vars.REPRISE_BUNDLE_PUBLIC_KEY }}
+        run: |
+          test -n "$SIGNING_SEED"
+          test -n "$PUBLIC_KEY"
+          umask 077
+          seed_file=$(mktemp)
+          key_file=$(mktemp)
+          trap 'rm -f "$seed_file" "$key_file"' EXIT
+          printf '%s' "$SIGNING_SEED" > "$seed_file"
+          printf '%s' "$PUBLIC_KEY" > "$key_file"
+          unset SIGNING_SEED
+          chmod +x build/reprise
+          build/reprise bundle sign --directory build/package --seed "$seed_file"
+          build/reprise bundle inspect --directory build/package --key "$key_file"
+          rm build/repriseos.zip
+          python3 tools/bundle.py --pack build/package --out build/repriseos.zip
+      - name: Create draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cp COPYING build/package/COPYING
+          cp build/repriseos.zip build/*-source.tar.gz build/package/
+          (cd build/package && sha256sum manifest.json manifest.json.sig *.blob repriseos.zip *-source.tar.gz COPYING > SHA256SUMS)
+          release_args=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            release_args+=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" build/package/* --verify-tag --draft \
+            --title "RepriseOS $RELEASE_TAG" --generate-notes "${release_args[@]}"

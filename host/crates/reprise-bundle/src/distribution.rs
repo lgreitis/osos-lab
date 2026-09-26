@@ -128,7 +128,8 @@ fn fetch_with(
         manifest,
         digest: digest.clone(),
         assets,
-    };
+    }
+    .check_helper()?;
     match fs::rename(staging.path(), &directory) {
         Ok(()) => Ok((directory, bundle)),
         Err(_) if directory.try_exists()? => {

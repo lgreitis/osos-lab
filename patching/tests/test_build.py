@@ -131,8 +131,17 @@ class BuildTests(unittest.TestCase):
             )
             menu.write_text(text)
             recipe = build_recipe(
-                source, work, target / "classic7g-2.0.4.json", COMPILER[:-3], 8, "test"
+                source,
+                work,
+                target / "classic7g-2.0.4.json",
+                COMPILER[:-3],
+                8,
+                "test",
+                "0.1.0-alpha.1",
             )
+            self.assertIn(b"RepriseOS 0.1.0-alpha.1", recipe.data)
+            self.assertIn(b"Build: test", recipe.data)
+            self.assertNotIn(b"{build_version}", recipe.data)
             files = recipe.save(root / "out", "osos")
             spec = json.loads(Path(files["recipe"]).read_text())
             self.assertEqual(spec["schema"], 2)

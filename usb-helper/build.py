@@ -48,6 +48,7 @@ def wrap(body):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--jobs", type=int, choices=range(1, 9), default=8)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--rockbox", type=Path, required=True)
     parser.add_argument(
@@ -204,7 +205,7 @@ def main():
         )
     )
     run([source / "tools/configure", "--target=ipod6g", "--type=b"], "configure.log")
-    run(["make", "-j8"], "build.log")
+    run(["make", f"-j{args.jobs}"], "build.log")
     if "warning:" in (out / "build.log").read_text():
         raise ValueError("compiler warnings; inspect build.log")
     symbols_text = subprocess.check_output(

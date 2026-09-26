@@ -109,6 +109,8 @@ def export(spec, base, output):
                 raise ValueError("Bundle exceeds size limit")
             references[logical] = digest
             manifest["assets"][digest] = {"bytes": len(data)}
+        if name == "usb_helper":
+            validate_helper(blobs[references["image"]], blobs[references["descriptor"]])
         manifest["components"][name] = {"format": fmt, "files": references}
     raw = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
     if len(raw) > 256 * 1024:
@@ -134,17 +136,20 @@ def export(spec, base, output):
     return manifest
 
 
-def helper_spec(directory, version, minimum):
-    image = read(directory / "upload.dfu", 0x1F000)
-    descriptor = json.loads(read(directory / "manifest.json", 16384))
+def validate_helper(image, raw):
+    descriptor = json.loads(raw)
     if (
         descriptor.get("schema") != 3
+        or descriptor.get("storage_inspection") is not True
         or descriptor.get("mode") != "stream-file"
         or descriptor.get("rom_sha256") != COMPATIBILITY["bootrom_sha256"]
         or descriptor.get("bytes") != len(image)
         or descriptor.get("sha256") != hashlib.sha256(image).hexdigest()
     ):
-        raise ValueError("Helper image/descriptor mismatch")
+        raise ValueError("Expected a matching v3 helper with storage inspection")
+
+
+def helper_spec(directory, version, minimum):
     return {
         "purpose": "development",
         "version": version,

@@ -409,7 +409,7 @@ class MenuBuilder:
             ]
 
 
-def generate(resources, sources, directory, prefix, revision):
+def generate(resources, sources, directory, prefix, revision, version="0.0.0-dev"):
     lines = ['#include "resources.h"', '#include "ui.h"', '#include "patch.h"', ""]
     for source in sources:
         document = ui.compile(source, directory, prefix)
@@ -418,7 +418,12 @@ def generate(resources, sources, directory, prefix, revision):
             builder.menu(document.root)
         if document.root.kind == "text":
             text = (source.parent / document.root.text_file).read_text()
-            builder.text_page(text.replace("{build_revision}", revision))
+            display = "Development" if version.startswith("0.0.0-dev") else version
+            builder.text_page(
+                text.replace("{build_revision}", revision).replace(
+                    "{build_version}", display
+                )
+            )
 
         string_ids = {}
         for name, text in document.strings.items():
