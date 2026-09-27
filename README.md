@@ -1,6 +1,8 @@
 # osos-lab
 
-RepriseOS firmware, reverse engineering, and developer tools for iPod.
+RepriseOS adds features to Apple's original iPod firmware while retaining its
+familiar interface and playback system. This repository contains the patches,
+reverse engineering, and tools used to build and package it.
 
 > Current support: iPod Classic 7G Rev B, Apple 2.0.4, FAT32. Support for more models is planned.
 
