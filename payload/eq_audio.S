@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
-#include "osos.h"
-
 .syntax unified
 .cpu arm926ej-s
 .arm

@@ -25,6 +25,7 @@ class RecordKind(IntEnum):
     SETTINGS_ENTRY = 9
     TEXT = 10
     STRING = 11
+    SCREEN_EVENT = 12
 
 
 @dataclass
@@ -47,14 +48,22 @@ class Item:
 
 
 @dataclass
+class ScreenEvent:
+    screen: int
+    event: str
+    handler: str
+
+
+@dataclass
 class Document:
-    root: Item
+    root: Item | None
     values: dict
     fields: list
     actions: list
     after: int = 0
     open_action: str = ""
     strings: dict = field(default_factory=dict)
+    events: list[ScreenEvent] = field(default_factory=list)
 
 
 def parse(data):
@@ -64,6 +73,7 @@ def parse(data):
     values, stack, fields, actions, names = {}, [], [], [], set()
     root = group = entry = None
     strings_by_name = {}
+    events = []
     for index, raw in enumerate(RECORD.iter_unpack(data)):
         tag, *numbers = raw[:6]
         try:
@@ -180,10 +190,18 @@ def parse(data):
             if stack:
                 raise ValueError("Declare strings outside menus")
             strings_by_name[name] = text
+        elif kind == RecordKind.SCREEN_EVENT:
+            if stack or not name or not text:
+                raise ValueError("Declare screen events outside menus with a handler")
+            events.append(ScreenEvent(numbers[0], text, name))
         else:
             raise ValueError(f"Unknown UI record kind: {kind}")
 
-    if root is None or stack or group is not None:
+    if (
+        (root is None and not strings_by_name and not events)
+        or stack
+        or group is not None
+    ):
         raise ValueError("Incomplete UI declaration")
     for value in values.values():
         if not 1 <= len(value.labels) <= 100:
@@ -194,16 +212,23 @@ def parse(data):
     fields.sort(key=lambda item: item.slot)
     if [item.slot for item in fields] != list(range(len(fields))):
         raise ValueError("Settings slots must be unique and contiguous from zero")
-    return Document(root, values, fields, actions, *(entry or (0, "")), strings_by_name)
+    return Document(
+        root, values, fields, actions, *(entry or (0, "")), strings_by_name, events
+    )
 
 
 def header(document, string_ids=None):
-    prefix = document.root.name.lower()
-    guard = document.root.name.upper() + "_UI_GENERATED_H"
+    name = (
+        document.root.name
+        if document.root
+        else next(iter(document.strings), None) or document.events[0].handler
+    )
+    prefix = name.lower()
+    guard = name.upper() + "_UI_GENERATED_H"
     lines = [f"#ifndef {guard}", f"#define {guard}", '#include "ui.h"', "", "enum {"]
     lines.extend(f"    {item.name.upper()} = {item.slot}," for item in document.fields)
     lines += [
-        f"    {document.root.name.upper()}_FIELDS = {len(document.fields)}",
+        f"    {name.upper()}_FIELDS = {len(document.fields)}",
         "};",
         "",
     ]

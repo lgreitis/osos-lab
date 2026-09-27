@@ -13,6 +13,7 @@ from patching.native_ui import (
     MAIN_SCREEN,
     MenuBuilder,
     Resources,
+    event,
     pack_blocks,
 )
 from patching.ui_codegen import emit_bindings, emit_resources
@@ -45,6 +46,41 @@ def menu(rows):
 
 
 class UiTests(unittest.TestCase):
+    def test_screen_events_extend_each_layout_without_replacing_stock_events(self):
+        document = ui.parse(
+            record(0, numbers=(1,))
+            + record(12, "CFW_PlayNext", "contextualMenu.CFW_PlayNext", numbers=(10,))
+        )
+        stock = struct.pack("<I", 1) + event("button.menu.up", "navigator.PopTopScreen")
+        resources = Resources([])
+        resources.original = {
+            ("SLst", 10): pack_blocks(
+                [(0, struct.pack("<I", 20)), (0, struct.pack("<I", 21))]
+            ),
+            ("SEVT", 20): stock,
+            ("SEVT", 21): stock,
+        }
+        resources.bind_screen_event(document.events[0])
+        resources.bind_screen_event(ui.ScreenEvent(10, "test.other", "OtherHandler"))
+        for layout in (20, 21):
+            data = resources.added["SEVT", layout]
+            self.assertEqual(data.word(0), 3)
+            self.assertEqual(data.data[4 : len(stock)], stock[4:])
+            self.assertIn(b"contextualMenu.CFW_PlayNext1", data.data)
+            self.assertIn(b"CFW_PlayNext\0\0\0\0", data.data)
+            self.assertIn(b"test.other1", data.data)
+            self.assertEqual(resources.original["SEVT", layout], stock)
+
+    def test_standalone_strings_need_no_menu(self):
+        document = ui.parse(
+            record(0, numbers=(1,)) + record(11, "PLAY_NEXT", "Play next")
+        )
+        self.assertIsNone(document.root)
+        self.assertIn(
+            "#define PLAY_NEXT 0xcf00000u",
+            ui.header(document, {"PLAY_NEXT": 0xCF00000}),
+        )
+
     def test_text_pages_and_string_constants(self):
         data = (
             record(0, numbers=(1,))

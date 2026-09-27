@@ -2,6 +2,7 @@
 
 #include "custom_eq.h"
 #include "osos.h"
+#include "cfw.h"
 #include "patch.h"
 
 PATCH_CALL(0x080587EC, 0x0809C5E8, cfw_preferences_hook);
@@ -44,17 +45,6 @@ struct eq_file {
     uint32_t values[CFW_EQ_FIELDS];
     uint32_t checksum;
 };
-
-static int equal(const char *a, const char *b)
-{
-    if (!a)
-        return 0;
-    while (*a && *a == *b) {
-        a++;
-        b++;
-    }
-    return *a == *b;
-}
 
 static uint32_t checksum(const struct eq_file *file)
 {
@@ -118,12 +108,12 @@ PATCH_ARM int cfw_settings_action(void *controller, const char *action,
                                   uint32_t argument)
 {
     unsigned int field, value;
-    int open = equal(action, "CFW_EQ_Open");
-    int save = equal(action, "CFW_EQ_Save");
+    int open = cfw_string_equal(action, "CFW_EQ_Open");
+    int save = cfw_string_equal(action, "CFW_EQ_Save");
     int chosen = cfw_ui_selection("CFW_EQ_Set_", action, cfw_eq_fields, CFW_EQ_FIELDS,
                                   &field, &value);
     if (open || save || chosen) {
-        if (argument == 0xdeadbeef)
+        if (argument == OSOS_ACTION_SUPPORT_QUERY)
             return 1;
         if (!initialized)
             defaults();

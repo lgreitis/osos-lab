@@ -19,6 +19,15 @@ Boot selection: **no buttons → RepriseOS**, **Menu → Apple OS**,
 **Play/Pause → Rockbox**. RepriseOS loads `/osos-cfw.bin` and `/cfw-loader.bin`.
 See [boot sequence](docs/boot.md) and [host tools](host/README.md).
 
+## Features
+
+- Three-band custom EQ with adjustable filters, frequency, gain, Q, and precut.
+- Play next from song context menus during forward playback, with Shuffle and
+  Repeat One off.
+- Native homebrew games, including the [Doom port](doom/README.md).
+- CFW Info page in Settings with firmware build information.
+- Panic screen with exception details, registers, and stack data.
+
 ## Build
 
 Requires Python 3.10+, Git, Make, Perl, a host C compiler, and Rockbox's

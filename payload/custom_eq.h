@@ -7,6 +7,9 @@
 
 #define CFW_EQ_DSP_PRESET 23
 
+uint32_t cfw_irq_save(void);
+void cfw_irq_restore(uint32_t flags);
+
 int cfw_settings_action(void *controller, const char *action, uint32_t argument);
 void cfw_eq_load_preferences(void);
 int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS]);

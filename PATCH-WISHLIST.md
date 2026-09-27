@@ -5,10 +5,11 @@
 Investigate whether the EQ can support five custom bands instead of the current
 three.
 
-## Add to Queue / Play Next
+## Play next with shuffle
 
-Add a song menu action to play a track next or add it to the queue. Keep playback
-order and the prepared next track correct with shuffle and repeat enabled.
+Support Play next while shuffle is enabled, keeping the selected track next
+and preserving the remaining shuffled order. Play next in normal playback
+is already implemented.
 
 ## FairPlay DRM
 
@@ -25,7 +26,9 @@ Explore loading selected resources or fonts from regular files.
 
 ## Debug facilities
 
-Investigate whether RTXCbug or diagnostic interfaces can help with debugging.
+Re-enable Apple's debug menu, remove items that crash the device, and add an
+option to save debug output on the iPod using the native disk logger.
+Investigate USB log retrieval through the native control-transfer handler.
 
 ## FLAC and other audio formats
 

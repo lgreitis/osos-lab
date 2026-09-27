@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
+UI_STRING(CFW_PLAY_NEXT, "Play next")
+
+#define PLAY_NEXT_SCREEN(screen) \
+    UI_SCREEN_EVENT(screen, "contextualMenu.CFW_PlayNext", CFW_PlayNext)
+
+PLAY_NEXT_SCREEN(0x0DAD07B5) /* Songs */
+PLAY_NEXT_SCREEN(0x0DAD07D4) /* Nested playlists */
+PLAY_NEXT_SCREEN(0x0DAD0810) /* Genius */
+PLAY_NEXT_SCREEN(0x0DAD0814) /* Genius playlist */

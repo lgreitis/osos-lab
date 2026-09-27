@@ -99,6 +99,22 @@ class Resources:
             raise ValueError(f"Duplicate CFW resource {key}")
         self.added[key] = Resource(data)
 
+    def bind_screen_event(self, binding):
+        encoded = (
+            serialized_string(binding.event)
+            + b"1"
+            + serialized_string(binding.handler)
+            + struct.pack("<I", 0)
+        )
+        for _, layout in blocks(self.original["SLst", binding.screen]):
+            key = ("SEVT", word(layout, 0))
+            data = Resource(
+                self.added[key] if key in self.added else self.original[key]
+            )
+            put(data, 0, word(data, 0) + 1)
+            data.extend(encoded)
+            self.added[key] = data
+
     def source(self, text):
         string_id = self.allocate()
         source_id = self.allocate()
@@ -413,26 +429,30 @@ def generate(resources, sources, directory, prefix, revision, version="0.0.0-dev
     lines = ['#include "resources.h"', '#include "ui.h"', '#include "patch.h"', ""]
     for source in sources:
         document = ui.compile(source, directory, prefix)
-        builder = MenuBuilder(resources, document)
-        if document.root.kind == "menu":
-            builder.menu(document.root)
-        if document.root.kind == "text":
-            text = (source.parent / document.root.text_file).read_text()
-            display = "Development" if version.startswith("0.0.0-dev") else version
-            builder.text_page(
-                text.replace("{build_revision}", revision).replace(
-                    "{build_version}", display
+        for binding in document.events:
+            resources.bind_screen_event(binding)
+        if document.root:
+            builder = MenuBuilder(resources, document)
+            if document.root.kind == "menu":
+                builder.menu(document.root)
+            if document.root.kind == "text":
+                text = (source.parent / document.root.text_file).read_text()
+                display = "Development" if version.startswith("0.0.0-dev") else version
+                builder.text_page(
+                    text.replace("{build_revision}", revision).replace(
+                        "{build_version}", display
+                    )
                 )
-            )
 
         string_ids = {}
         for name, text in document.strings.items():
             string_ids[name] = resource_id = resources.allocate()
             resources.add("Str ", resource_id, text.encode("utf-8") + b"\0")
 
-        builder.insert_settings()
-        builder.finish_bindings()
-        lines.extend(emit_bindings(document, builder.fields, builder.actions))
+        if document.root:
+            builder.insert_settings()
+            builder.finish_bindings()
+            lines.extend(emit_bindings(document, builder.fields, builder.actions))
         (directory / (source.stem + "_ui.h")).write_text(
             ui.header(document, string_ids)
         )

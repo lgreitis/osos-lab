@@ -28,5 +28,6 @@ _Static_assert(sizeof(struct ui_record) == 248, "UI record layout changed");
 
 #define UI_TEXT(id, title, file) {10, {0}, #id, title, file},
 #define UI_STRING(id, text) {11, {0}, #id, text, ""},
+#define UI_SCREEN_EVENT(screen, event, handler) {12, {screen}, #handler, event, ""},
 
 #endif
