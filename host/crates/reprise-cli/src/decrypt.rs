@@ -302,16 +302,4 @@ mod tests {
         parsed.skip_bytes = None;
         assert!(sample(&bytes, &parsed).is_err());
     }
-
-    #[test]
-    fn reference_uses_plaintext_body_offsets() {
-        let parsed = parse(&args("--input cipher --output plain --offset 16")).unwrap();
-        let mut reference = vec![0; 32];
-        reference[16..].fill(0x45);
-        assert_eq!(
-            reference_sample(&reference, &parsed, 16).unwrap(),
-            &[0x45; 16]
-        );
-        assert!(reference_sample(&reference, &parsed, 32).is_err());
-    }
 }

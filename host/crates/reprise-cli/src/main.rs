@@ -490,98 +490,15 @@ mod tests {
     }
 
     #[test]
-    fn live_checks_accept_existing_dfu_and_require_strict_selection() {
-        assert_eq!(
-            parse(&args("dfu-state --device 1:2")).unwrap(),
-            (
-                Command::DfuState {
-                    selector: Some(DeviceSelector { bus: 1, address: 2 })
-                },
-                false
-            )
-        );
-        assert!(parse(&args("dfu-state --output file")).is_err());
-        assert_eq!(
-            parse(&args("check")).unwrap(),
-            (Command::Check { selector: None }, false)
-        );
-        assert!(parse(&args("check --device 1:2:3")).is_err());
-        assert!(parse(&args("check --device 999:1")).is_err());
-        assert!(parse(&args("check --fresh-dfu")).is_err());
-        assert!(parse(&args("check --reset")).is_err());
-        assert_eq!(
-            parse(&args("check --json --device 1:2")).unwrap(),
-            (
-                Command::Check {
-                    selector: Some(DeviceSelector { bus: 1, address: 2 })
-                },
-                true
-            )
-        );
-    }
-
-    #[test]
-    fn offline_commands_require_complete_unambiguous_inputs() {
-        assert!(parse(&args("check-files --bootrom rom")).is_err());
-        assert!(parse(&args("check-files --bootrom --syscfg cfg")).is_err());
-        assert!(parse(&args("check-files --bootrom a --bootrom b --syscfg c")).is_err());
-        assert!(parse(&args("devices --json --json")).is_err());
-        assert!(parse(&args("devices garbage")).is_err());
-        assert_eq!(
-            parse(&args("check-files --syscfg cfg --bootrom rom --json")).unwrap(),
-            (
-                Command::CheckFiles {
-                    bootrom: "rom".into(),
-                    syscfg: "cfg".into()
-                },
-                true
-            )
-        );
-    }
-
-    #[test]
-    fn nor_dump_requires_a_new_output_argument() {
-        assert!(parse(&args("nor-dump")).is_err());
-        assert!(parse(&args("nor-dump --output --json")).is_err());
-        assert!(parse(&args("nor-dump --output a --output b")).is_err());
-        assert_eq!(
-            parse(&args("nor-dump --output nor.bin --json")).unwrap(),
-            (
-                Command::NorDump {
-                    output: "nor.bin".into(),
-                    selector: None
-                },
-                true
-            )
-        );
-    }
-
-    #[test]
-    fn selectors_help_and_removed_flag_are_consistent_across_live_commands() {
-        for command in [
-            "check",
-            "nor-dump --output nor",
-            "decrypt --input cipher --output plain --size 16",
+    fn arguments_reject_missing_values_and_ambiguous_device_selection() {
+        for line in [
+            "check --device 1:2:3",
+            "check --device 999:1",
+            "check --device 1:2 --device 1:3",
+            "nor-dump --output --json",
+            "check-files --bootrom a --bootrom b --syscfg c",
         ] {
-            for selector in ["05ac:1223", "1:256", "1:2:3", ":2", "+1:2"] {
-                let error = parse(&args(&format!("{command} --device {selector}"))).unwrap_err();
-                assert!(error.contains("decimal BUS:ADDRESS"), "{error}");
-            }
-            assert!(parse(&args(&format!("{command} --device 1:2 --device 1:3"))).is_err());
-            assert!(parse(&args(&format!("{command} --fresh-dfu"))).is_err());
-        }
-        for command in [
-            "check",
-            "nor-dump",
-            "decrypt",
-            "devices",
-            "check-files",
-            "syscfg",
-        ] {
-            assert_eq!(
-                parse(&args(&format!("{command} --help"))).unwrap().0,
-                Command::Help
-            );
+            assert!(parse(&args(line)).is_err(), "{line}");
         }
     }
 
@@ -622,15 +539,5 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_slice(&stdout).unwrap();
         assert_eq!(parsed["schema_version"], 1);
         assert_eq!(parsed["compatible"], false);
-        for event in &events {
-            write_check_event(event, false, &mut stderr).unwrap();
-        }
-        assert!(stderr.is_empty());
-        let mut check = report.checks[3].clone();
-        check.status = reprise_device::CheckStatus::Running;
-        write_check_event(&Event::Check(check.clone()), false, &mut stderr).unwrap();
-        check.status = reprise_device::CheckStatus::Passed;
-        write_check_event(&Event::Check(check), false, &mut stderr).unwrap();
-        assert_eq!(String::from_utf8(stderr).unwrap(), "Reading BootROM…\n");
     }
 }

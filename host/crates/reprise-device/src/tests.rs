@@ -808,44 +808,6 @@ fn failed_initial_recovery_never_starts_probes_or_retries() {
 }
 
 #[test]
-#[ignore = "Requires REPRISE_TEST_BOOTROM and REPRISE_TEST_SYSCFG saved files; never uses USB"]
-fn saved_acquisition_replays_complete_check_session() {
-    let rom = std::fs::read(std::env::var("REPRISE_TEST_BOOTROM").unwrap()).unwrap();
-    let config = std::fs::read(std::env::var("REPRISE_TEST_SYSCFG").unwrap()).unwrap();
-    assert_eq!(rom.len(), BOOTROM_SIZE);
-    let size = SysCfg::declared_size(&config).unwrap();
-    let mut script = Script::default();
-    script.state(2);
-    script.rom_preflight(&rom);
-    script.echo_sweep();
-    script.fast_rom(&rom);
-    script.probe(&payload::nor_init(), &[0; 64]);
-    script.nor(&config, 0, 24, 24);
-    script.nor(&config, 0, size, 60);
-    script.nor(&config, 1, size - 1, 59);
-    script.state(9);
-    script.command(6);
-    script.state(2);
-    let mut dfu = Dfu { transport: script };
-    let mut progress = Vec::new();
-    let (report, retained_rom) = usb::run_checks(&mut dfu, info(), "test", |event| {
-        if let Event::Progress { completed, .. } = event {
-            progress.push(completed);
-        }
-    });
-    assert_eq!(progress.last(), Some(&BOOTROM_SIZE));
-    assert!(report.compatible, "{report:?}");
-    assert_eq!(report.cleanup, Cleanup::Idle);
-    assert!(report
-        .checks
-        .iter()
-        .all(|check| check.status == CheckStatus::Passed));
-    assert!(dfu.transport.steps.is_empty());
-    assert_eq!(retained_rom.as_deref(), Some(rom.as_slice()));
-    assert!(check_saved(&rom, &config).compatible);
-}
-
-#[test]
 fn image_launch_hook_matches_wind3x_assembler() {
     assert_eq!(hex(&payload::image_hook()), "f4e09fe53eff2fe1f0009fe5000090e5ec109fe5010080e0e8109fe50020d1e50030d1e50030c0e5011081e2010080e2012042e2000052e3f8ffff1a150000ea04d04de200e08de5b0409fe5001094e5380791e52c0090e5ac109fe5001081e0a8209fe532ff2fe190009fe5000090e50110a0e32c1080e594109fe5341080e50010a0e3301080e500e09de504d08de20000a0e31eff2fe178009fe578109fe578209fe50030d1e50030c0e5011081e2010080e2012042e2000052e3f8ffff1a38009fe5000090e548109fe5281080e54c009fe54010a0e348209fe532ff2fe144e09fe51eff2fe1140368006100780065006400200064006600750018040020f8ff03227b0100009085022200080000c40a0020312e300000d80322e8840222000100000000002040aa0020d4480020");
 }

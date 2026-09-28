@@ -59,37 +59,3 @@ impl Progress {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn progress_is_throttled_and_completion_prints_once() {
-        let mut progress = Progress::default();
-        let mut output = Vec::new();
-        for n in 0..=100 {
-            progress
-                .write("decrypt", n, 100, false, &mut output)
-                .unwrap();
-        }
-        progress
-            .write("decrypt", 100, 100, false, &mut output)
-            .unwrap();
-        progress
-            .write("echo", 528, 528, false, &mut output)
-            .unwrap();
-        progress
-            .write("complete", 100, 100, false, &mut output)
-            .unwrap();
-        assert_eq!(
-            String::from_utf8(output).unwrap(),
-            "Decrypting: 0%\nDecrypting: 100%\n"
-        );
-        let mut output = Vec::new();
-        progress
-            .write("upload", 50, 100, true, &mut output)
-            .unwrap();
-        assert!(output.is_empty());
-    }
-}

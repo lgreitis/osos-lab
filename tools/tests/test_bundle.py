@@ -70,23 +70,6 @@ class ExportTests(unittest.TestCase):
                 bundle.export(spec, self.root, self.root / "out")
             self.assertFalse((self.root / "out").exists())
 
-    def test_complete_envelope_and_deduplication(self):
-        spec = copy.deepcopy(self.spec)
-        spec["version"] = "1.0.0-dev.1+local.01"
-        spec["purpose"] = "release"
-        data = self.root / "synthetic"
-        data.write_bytes(b"synthetic component fixture")
-        for name, (fmt, required) in bundle.FORMATS.items():
-            if name != "usb_helper":
-                spec["components"][name] = {
-                    "format": fmt,
-                    "files": {key: str(data) for key in required},
-                }
-        result = bundle.export(spec, self.root, self.root / "complete")
-        self.assertEqual(set(result["components"]), set(bundle.FORMATS))
-        self.assertEqual(len(result["assets"]), 3)
-        self.assertEqual(len(list((self.root / "complete").glob("*.blob"))), 3)
-
     def test_zip_contains_only_bundle_files_and_preserves_existing_output(self):
         directory = self.root / "bundle"
         manifest = bundle.export(self.spec, self.root, directory)

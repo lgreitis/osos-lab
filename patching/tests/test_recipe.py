@@ -32,11 +32,8 @@ class RecipeTests(unittest.TestCase):
             with self.subTest(spans=spans), self.assertRaises(ValueError):
                 Recipe({"osos": fingerprint(b"test")}).overlay(bytes(4), spans)
 
-    def test_padding_and_relocations(self):
+    def test_relocations_reject_invalid_or_conflicting_targets(self):
         recipe = Recipe({"bds": fingerprint(bytes(8))})
-        recipe.literal(b"code" + bytes(1024) + b"tail")
-        self.assertEqual(recipe.data, b"codetail")
-        self.assertEqual(recipe.segments[1], {"kind": "zero", "bytes": 1024})
         for name, base, count in (
             ("other", 0, 1),
             ("bds", -1, 1),

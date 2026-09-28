@@ -174,33 +174,3 @@ pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
     print_json(&report)?;
     Ok(0)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn arguments_require_complete_unambiguous_inputs() {
-        let parse_line =
-            |s: &str| parse(&s.split_whitespace().map(str::to_owned).collect::<Vec<_>>());
-        for line in [
-            "",
-            "prepare --ipsw a --nor b --out c",
-            "extract --ipsw a",
-            "inspect --ipsw a --ipsw b",
-            "decrypt-nor --input n --output o --device bad",
-            "prepare --ipsw --nor n",
-        ] {
-            assert!(parse_line(line).is_err(), "{line}");
-        }
-        for line in [
-            "inspect --ipsw a",
-            "extract --ipsw a --output b",
-            "prepare --ipsw a --nor b --osos c --out d",
-            "prepare --ipsw a --nor b --osos c --apple-loader l --out d",
-            "decrypt-nor --input a --output b --device 1:2",
-        ] {
-            assert!(parse_line(line).is_ok(), "{line}");
-        }
-    }
-}

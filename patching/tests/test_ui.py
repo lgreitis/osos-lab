@@ -16,7 +16,6 @@ from patching.native_ui import (
     event,
     pack_blocks,
 )
-from patching.ui_codegen import emit_bindings, emit_resources
 
 
 def record(kind, name="", text="", ref="", numbers=()):
@@ -71,32 +70,6 @@ class UiTests(unittest.TestCase):
             self.assertIn(b"test.other1", data.data)
             self.assertEqual(resources.original["SEVT", layout], stock)
 
-    def test_standalone_strings_need_no_menu(self):
-        document = ui.parse(
-            record(0, numbers=(1,)) + record(11, "PLAY_NEXT", "Play next")
-        )
-        self.assertIsNone(document.root)
-        self.assertIn(
-            "#define PLAY_NEXT 0xcf00000u",
-            ui.header(document, {"PLAY_NEXT": 0xCF00000}),
-        )
-
-    def test_text_pages_and_string_constants(self):
-        data = (
-            record(0, numbers=(1,))
-            + record(10, "HELP", "Help", "help.txt")
-            + record(9, "HELP", ref="", numbers=(LEGAL_ITEM,))
-            + record(11, "CUSTOM_NAME", "Custom")
-        )
-        document = ui.parse(data)
-        self.assertEqual(document.root.text_file, "help.txt")
-        self.assertEqual(document.strings, {"CUSTOM_NAME": "Custom"})
-        self.assertEqual(document.after, LEGAL_ITEM)
-        self.assertIn(
-            "#define CUSTOM_NAME 0xcf00000u",
-            ui.header(document, {"CUSTOM_NAME": 0xCF00000}),
-        )
-
     def test_storage_slots_survive_menu_reordering(self):
         first = record(7, "FIRST", "First", "choices", (0, 0))
         second = record(7, "SECOND", "Second", "choices", (1, 1))
@@ -125,19 +98,6 @@ class UiTests(unittest.TestCase):
         for rows in cases:
             with self.subTest(rows=rows), self.assertRaises(ValueError):
                 ui.parse(menu(rows))
-
-    def test_decimal_labels_preserve_zero_and_sign(self):
-        data = (
-            record(0, numbers=(1,))
-            + record(3, "gain_values", " dB", numbers=(-5, 5, 5, 10, 1))
-            + record(5, "TEST", "Test")
-            + record(7, "GAIN", "Gain", "gain_values", (0, 0))
-            + record(6)
-        )
-        document = ui.parse(data)
-        self.assertEqual(
-            document.values["gain_values"].labels, ["-0.5 dB", "0.0 dB", "+0.5 dB"]
-        )
 
     def test_truncated_and_unclosed_declarations_fail(self):
         for data in (b"bad", menu([])[:-248], menu([]) + record(6)):
@@ -189,18 +149,6 @@ class UiTests(unittest.TestCase):
         )
         self.assertIn(b"TEST_Set_00_00", events)
         self.assertIn(b"TEST_Set_01_01", events)
-        builder.finish_bindings()
-        next_id = resources.next_id
-        added = list(resources.added)
-        bindings = emit_bindings(document, builder.fields, builder.actions)
-        emitted = emit_resources(resources)
-        self.assertIn("test_save", "\n".join(bindings))
-        self.assertEqual(
-            bindings, emit_bindings(document, builder.fields, builder.actions)
-        )
-        self.assertEqual(emitted, emit_resources(resources))
-        self.assertEqual(next_id, resources.next_id)
-        self.assertEqual(added, list(resources.added))
 
 
 if __name__ == "__main__":

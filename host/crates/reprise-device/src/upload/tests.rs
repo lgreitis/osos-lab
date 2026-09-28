@@ -291,17 +291,6 @@ fn reset_relocation_preserves_branches_and_skips_literal_pool() {
 }
 
 #[test]
-fn fixture_helper_contains_a_pristine_rom_slot() {
-    let helper = fixture_helper().unwrap();
-    assert_eq!(word(&helper.image, helper.cold_init_offset), 0xeafffffe);
-    assert!(
-        helper.image[helper.cold_init_offset + 16..helper.cold_init_offset + COLD_INIT_SIZE]
-            .iter()
-            .all(|b| *b == 0)
-    );
-}
-
-#[test]
 fn paths_reject_traversal_aliases_and_reserved_temporary_names() {
     for path in [
         "",

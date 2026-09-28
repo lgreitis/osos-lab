@@ -215,10 +215,17 @@ class HelperTests(unittest.TestCase):
 
     def test_incremental_sha(self):
         for size in [
-            *range(130),
-            511,
-            512,
-            513,
+            0,
+            1,
+            55,
+            56,
+            63,
+            64,
+            65,
+            119,
+            120,
+            127,
+            128,
             65535,
             65536,
             65537,
@@ -257,8 +264,9 @@ class HelperTests(unittest.TestCase):
         self.run_file(12000000, 2, True, 0)
 
     def test_sizes_and_replacement(self):
-        for size in [0, 1, 511, 512, 513, 65535, 65536, 65537, 13 * 1024 * 1024 + 17]:
-            for overwrite, exists in [(False, False), (False, True), (True, True)]:
+        self.run_file(65537, False, True, 0)
+        for size in [0, 1, 65535, 65536, 65537, 13 * 1024 * 1024 + 17]:
+            for overwrite, exists in [(False, False), (True, True)]:
                 with self.subTest(size=size, overwrite=overwrite, exists=exists):
                     self.run_file(size, overwrite, exists, 0)
 

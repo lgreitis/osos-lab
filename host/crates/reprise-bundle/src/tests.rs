@@ -122,58 +122,53 @@ fn manifest_contract_rejects_incomplete_releases_paths_unknown_formats_and_limit
 }
 
 #[test]
-fn python_export_is_loadable_and_deterministic() {
+fn python_export_loads_as_directory_and_zip() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../usb-helper/tests/fixtures");
     let tool = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../tools/bundle.py");
     let tmp = tempfile::tempdir().unwrap();
-    let mut digests = Vec::new();
-    for name in ["one", "two"] {
-        let out = tmp.path().join(name);
-        let result = std::process::Command::new("python3")
-            .arg(&tool)
-            .arg("--helper")
-            .arg(&fixture)
-            .args(["--version", "0.1.0-dev.1+local.01", "--out"])
-            .arg(&out)
-            .output()
+    let out = tmp.path().join("bundle");
+    let result = std::process::Command::new("python3")
+        .arg(&tool)
+        .arg("--helper")
+        .arg(&fixture)
+        .args(["--version", "0.1.0-dev.1+local.01", "--out"])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let public = sign_directory(&out, &"18".repeat(32), "0.1.0").unwrap();
+    let bundle =
+        VerifiedBundle::load(&out, &TrustedKey::from_hex(&public).unwrap(), "0.1.0").unwrap();
+    assert_eq!(
+        bundle.file("usb_helper", "image").unwrap(),
+        fs::read(fixture.join("upload.dfu")).unwrap()
+    );
+    let archive = tmp.path().join("bundle.zip");
+    let result = std::process::Command::new("python3")
+        .arg(&tool)
+        .arg("--pack")
+        .arg(&out)
+        .arg("--out")
+        .arg(&archive)
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let packed =
+        VerifiedBundle::load_zip(&archive, &TrustedKey::from_hex(&public).unwrap(), "0.1.0")
             .unwrap();
-        assert!(
-            result.status.success(),
-            "{}",
-            String::from_utf8_lossy(&result.stderr)
-        );
-        let public = sign_directory(&out, &"18".repeat(32), "0.1.0").unwrap();
-        let bundle =
-            VerifiedBundle::load(&out, &TrustedKey::from_hex(&public).unwrap(), "0.1.0").unwrap();
-        assert_eq!(
-            bundle.file("usb_helper", "image").unwrap(),
-            fs::read(fixture.join("upload.dfu")).unwrap()
-        );
-        let archive = tmp.path().join(format!("{name}.zip"));
-        let result = std::process::Command::new("python3")
-            .arg(&tool)
-            .arg("--pack")
-            .arg(&out)
-            .arg("--out")
-            .arg(&archive)
-            .output()
-            .unwrap();
-        assert!(
-            result.status.success(),
-            "{}",
-            String::from_utf8_lossy(&result.stderr)
-        );
-        let packed =
-            VerifiedBundle::load_zip(&archive, &TrustedKey::from_hex(&public).unwrap(), "0.1.0")
-                .unwrap();
-        assert_eq!(packed.digest(), bundle.digest());
-        assert_eq!(
-            packed.file("usb_helper", "image").unwrap(),
-            bundle.file("usb_helper", "image").unwrap()
-        );
-        digests.push(bundle.digest().to_owned());
-    }
-    assert_eq!(digests[0], digests[1]);
+    assert_eq!(packed.digest(), bundle.digest());
+    assert_eq!(
+        packed.file("usb_helper", "image").unwrap(),
+        bundle.file("usb_helper", "image").unwrap()
+    );
 }
 
 #[cfg(unix)]

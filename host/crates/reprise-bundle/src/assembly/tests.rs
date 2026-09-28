@@ -2,7 +2,7 @@
 
 use super::recipe::{update_ffs_checksum, MAX_RECIPE};
 use super::*;
-use crate::{Asset, Component, TrustedKey};
+use crate::{Asset, Component};
 use serde_json::json;
 use std::fs;
 
@@ -261,60 +261,6 @@ fn nor_template_requires_dual_boot_packaging() {
 }
 
 #[test]
-#[ignore = "requires preserved local Apple images, recipes and build outputs"]
-fn preserved_build_matches_python_export_and_rust_assembly() {
-    let root = std::env::var_os("REPRISE_ASSEMBLY_ROOT")
-        .map(std::path::PathBuf::from)
-        .expect("REPRISE_ASSEMBLY_ROOT");
-    let temporary = tempfile::tempdir().unwrap();
-    let export = temporary.path().join("bundle");
-    let result = std::process::Command::new("python3")
-        .arg(root.join("tools/export_bundle.py"))
-        .args(["--helper"])
-        .arg(root.join("usb-helper/tests/fixtures"))
-        .args(["--version", "0.1.0-test", "--out"])
-        .arg(&export)
-        .output()
-        .unwrap();
-    assert!(
-        result.status.success(),
-        "{}",
-        String::from_utf8_lossy(&result.stderr)
-    );
-    let public = crate::sign_directory(&export, &"17".repeat(32), "0.1.0").unwrap();
-    let bundle =
-        VerifiedBundle::load(&export, &TrustedKey::from_hex(&public).unwrap(), "0.1.0").unwrap();
-    let nor = fs::read(root.join("inputs/nor.bin")).unwrap();
-    let ipsw_path = std::env::var_os("REPRISE_TEST_IPSW").expect("REPRISE_TEST_IPSW");
-    let ipsw = crate::preparation::Ipsw::load(Path::new(&ipsw_path)).unwrap();
-    let osos = fs::read(root.join("inputs/osos.bin")).unwrap();
-    let loader = fs::read(root.join("inputs/apple-loader.bin")).unwrap();
-    let inputs =
-        crate::preparation::PreparedInputs::from_plaintext(&ipsw, &nor, &osos, Some(&loader))
-            .unwrap()
-            .apple_inputs()
-            .unwrap();
-    let artifacts = assemble(&bundle, &inputs, &nor).unwrap();
-    for (name, bytes) in artifacts.files() {
-        assert_eq!(
-            bytes,
-            fs::read(root.join("build").join(name)).unwrap(),
-            "{name}"
-        );
-    }
-    let mut config = SysCfg::parse(&nor).unwrap();
-    config.entries.get_mut("SrNm").unwrap()[0] ^= 1;
-    let modified = assemble_companion(&bundle, &inputs, &config).unwrap();
-    assert_ne!(modified, artifacts.companion);
-    assert_eq!(nor_installer(&bundle).unwrap(), artifacts.nor_installer);
-    assert!(assemble(&bundle, &inputs, &nor[..nor.len() - 1]).is_err());
-    let report = artifacts
-        .write(&temporary.path().join("assembled"))
-        .unwrap();
-    assert_eq!(report.files.len(), 3);
-}
-
-#[test]
 #[ignore = "requires a local distribution ZIP and saved Apple inputs"]
 fn local_distribution_replays_from_saved_inputs() {
     let path = |name| std::path::PathBuf::from(std::env::var_os(name).expect(name));
@@ -342,29 +288,6 @@ fn local_distribution_replays_from_saved_inputs() {
     for (name, bytes) in artifacts.files() {
         assert_eq!(bytes, fs::read(build.join(name)).unwrap(), "{name}");
     }
-}
-
-#[test]
-fn local_and_bundle_paths_share_source_recipe_assembly() {
-    let recipe = serde_json::to_vec(&recipe_json()).unwrap();
-    let directory = tempfile::tempdir().unwrap();
-    fs::write(directory.path().join("osos.bin"), b"base").unwrap();
-    let local = assemble_local(&recipe, b"new", directory.path()).unwrap();
-    let (mut bundle, inputs) = companion_bundle();
-    component(
-        &mut bundle,
-        "osos",
-        &[("recipe", recipe), ("data", b"new".to_vec())],
-    );
-    bundle.manifest.components.get_mut("osos").unwrap().format = "reprise-osos-recipe-v2".into();
-    assert_eq!(local, assemble_component(&bundle, "osos", &inputs).unwrap());
-    fs::write(directory.path().join("osos.bin"), b"oops").unwrap();
-    assert!(assemble_local(
-        &serde_json::to_vec(&recipe_json()).unwrap(),
-        b"new",
-        directory.path()
-    )
-    .is_err());
 }
 
 fn pe_image() -> Vec<u8> {

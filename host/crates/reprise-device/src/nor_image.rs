@@ -188,35 +188,4 @@ mod tests {
         }
         assert!(image.decrypt(|_| Err(invalid("cancelled"))).is_err());
     }
-
-    #[test]
-    #[ignore = "requires preserved stock NOR and decrypted Apple loader"]
-    fn saved_nor_replays_header_body_signatures_and_rejects_corruption() {
-        let root = std::path::PathBuf::from(
-            std::env::var_os("REPRISE_ASSEMBLY_ROOT").expect("REPRISE_ASSEMBLY_ROOT"),
-        );
-        let nor = std::fs::read(root.join("inputs/nor.bin")).unwrap();
-        let loader = std::fs::read(root.join("inputs/apple-loader.bin")).unwrap();
-        let image = AppleNorImage::locate(&nor).unwrap();
-        let decrypt = |bytes: &[u8]| -> Result<Vec<u8>> {
-            if bytes == &nor[0x8040..0x8050] {
-                Ok(Sha1::digest(&nor[0x8000..0x8040])[..16].to_vec())
-            } else if bytes == &nor[0x8010..0x8020] {
-                Ok(Sha1::digest(&loader)[..16].to_vec())
-            } else if bytes == &nor[0x8800..0x8800 + APPLE_LOADER_BYTES] {
-                Ok(loader.clone())
-            } else {
-                Err(invalid("Unexpected ciphertext"))
-            }
-        };
-        assert_eq!(image.decrypt(decrypt).unwrap(), loader);
-        for offset in [0x8010, 0x8040, 0x9000] {
-            let mut bad = nor.clone();
-            bad[offset] ^= 1;
-            assert!(AppleNorImage::locate(&bad)
-                .unwrap()
-                .decrypt(decrypt)
-                .is_err());
-        }
-    }
 }

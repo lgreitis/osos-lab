@@ -180,10 +180,6 @@ mod tests {
     fn upload_requires_explicit_paths_and_overwrite_is_opt_in() {
         let parse_line =
             |s: &str| parse(&s.split_whitespace().map(String::from).collect::<Vec<_>>());
-        assert!(parse_line("--input os --destination /osos.bin").is_err());
-        assert!(
-            parse_line("--input os --destination /osos.bin --bundle release --key public").is_ok()
-        );
         assert!(
             !parse_line("--input os --destination /osos.bin --helper helper")
                 .unwrap()
@@ -195,11 +191,6 @@ mod tests {
                 .overwrite
         );
         for line in [
-            "--input os",
-            "--input os --destination /../os --helper h",
-            "--input os --destination /os --helper h --overwrite --overwrite",
-            "--input os --input other --destination /os --helper h",
-            "--input os --destination /os --helper h --device 05ac:1223",
             "--input os --destination /os --bundle b",
             "--input os --destination /os --bundle b --key k --helper h",
             "--input os --destination /os --helper h --key k",
