@@ -122,6 +122,7 @@ struct Step {
     setup: (u8, u8, u16, u16),
     data: Vec<u8>,
     count: usize,
+    error: Option<rusb::Error>,
 }
 
 impl Script {
@@ -195,7 +196,7 @@ fn saved_rom_fast_failures_stop_before_nor_and_preserve_cleanup() {
         }
         script.idle_cleanup();
         let mut dfu = Dfu { transport: script };
-        let (report, retained_rom) = usb::run_checks(&mut dfu, info(), |_| {});
+        let (report, retained_rom) = usb::run_checks(&mut dfu, info(), "test", |_| {});
         assert_eq!(
             retained_rom.is_some(),
             report.compatible && report.cleanup == Cleanup::Idle
@@ -219,6 +220,7 @@ impl Script {
             setup,
             data: data.to_vec(),
             count: data.len(),
+            error: None,
         });
     }
 
@@ -263,6 +265,9 @@ impl Transport for Script {
         let step = self.steps.pop_front().expect("Unexpected USB read");
         assert_eq!(step.setup, (ty, req, val, idx));
         assert_eq!(step.data.len(), data.len());
+        if let Some(error) = step.error {
+            return Err(usb::usb_error("simulated read", error));
+        }
         if step.count == usize::MAX {
             return Err(Error::Usb {
                 operation: "simulated read",
@@ -277,6 +282,9 @@ impl Transport for Script {
         let step = self.steps.pop_front().expect("Unexpected USB write");
         assert_eq!(step.setup, (ty, req, val, idx));
         assert_eq!(step.data, data);
+        if let Some(error) = step.error {
+            return Err(usb::usb_error("simulated write", error));
+        }
         Ok(step.count)
     }
 }
@@ -703,7 +711,7 @@ fn unknown_bootrom_never_calls_nor_and_still_cleans_up() {
         script.state(final_state);
         let mut dfu = Dfu { transport: script };
         let mut progress = Vec::new();
-        let (report, retained_rom) = usb::run_checks(&mut dfu, info(), |event| {
+        let (report, retained_rom) = usb::run_checks(&mut dfu, info(), "test", |event| {
             if let Event::Progress { completed, .. } = event {
                 progress.push(completed);
             }
@@ -723,7 +731,7 @@ fn failure_paths_stop_probing_and_preserve_cleanup_result() {
     let mut script = Script::default();
     script.state(4); // dfuDNBUSY
     let mut dfu = Dfu { transport: script };
-    let (report, retained_rom) = usb::run_checks(&mut dfu, info(), |_| {});
+    let (report, retained_rom) = usb::run_checks(&mut dfu, info(), "test", |_| {});
     assert_eq!(
         retained_rom.is_some(),
         report.compatible && report.cleanup == Cleanup::Idle
@@ -740,7 +748,7 @@ fn failure_paths_stop_probing_and_preserve_cleanup_result() {
     script.command(4);
     script.state(2);
     let mut dfu = Dfu { transport: script };
-    let (report, retained_rom) = usb::run_checks(&mut dfu, info(), |_| {});
+    let (report, retained_rom) = usb::run_checks(&mut dfu, info(), "test", |_| {});
     assert_eq!(
         retained_rom.is_some(),
         report.compatible && report.cleanup == Cleanup::Idle
@@ -761,7 +769,7 @@ fn checks_recover_previous_transfers_before_probing() {
         script.rom_preflight(&vec![0; BOOTROM_SIZE]);
         script.idle_cleanup();
         let mut dfu = Dfu { transport: script };
-        let (report, retained_rom) = usb::run_checks(&mut dfu, info(), |_| {});
+        let (report, retained_rom) = usb::run_checks(&mut dfu, info(), "test", |_| {});
         assert_eq!(
             retained_rom.is_some(),
             report.compatible && report.cleanup == Cleanup::Idle
@@ -786,7 +794,7 @@ fn failed_initial_recovery_never_starts_probes_or_retries() {
             script.steps.back_mut().unwrap().count = if fault == "short" { 0 } else { usize::MAX };
         }
         let mut dfu = Dfu { transport: script };
-        let (report, retained_rom) = usb::run_checks(&mut dfu, info(), |_| {});
+        let (report, retained_rom) = usb::run_checks(&mut dfu, info(), "test", |_| {});
         assert_eq!(
             retained_rom.is_some(),
             report.compatible && report.cleanup == Cleanup::Idle
@@ -820,7 +828,7 @@ fn saved_acquisition_replays_complete_check_session() {
     script.state(2);
     let mut dfu = Dfu { transport: script };
     let mut progress = Vec::new();
-    let (report, retained_rom) = usb::run_checks(&mut dfu, info(), |event| {
+    let (report, retained_rom) = usb::run_checks(&mut dfu, info(), "test", |event| {
         if let Event::Progress { completed, .. } = event {
             progress.push(completed);
         }
@@ -963,5 +971,24 @@ fn nor_download_uses_stock_dfu_packets_and_stops_on_rejection() {
         assert!(Dfu { transport }
             .download_image(b"123456789", |_, _| {})
             .is_err());
+    }
+    for error in [
+        rusb::Error::NoDevice,
+        rusb::Error::Timeout,
+        rusb::Error::Access,
+    ] {
+        for step in 0..5 {
+            let mut transport = script();
+            transport.steps[step].error = Some(error);
+            transport.steps.truncate(step + 1);
+            let mut dfu = Dfu { transport };
+            let result = dfu.download_image(b"123456789", |_, _| {});
+            assert_eq!(
+                result.is_ok(),
+                step >= 3 && error != rusb::Error::Access,
+                "{error:?} at step {step}: {result:?}"
+            );
+            assert!(dfu.transport.steps.is_empty());
+        }
     }
 }

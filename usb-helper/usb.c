@@ -9,6 +9,7 @@
 #include "usb_class_driver.h"
 #include "string.h"
 #include "upload.h"
+#include "winusb.h"
 
 static struct event_queue events;
 static struct usb_class_driver_ep_allocation endpoints[] = {
@@ -19,6 +20,21 @@ static bool finished, receiving, stopping, start_pending, closed;
 static int pending_length = -1;
 static uint32_t activity, return_at;
 static uint8_t status_data[320] USB_DEVBSS_ATTR;
+
+bool upload_usb_control_request(struct usb_ctrlrequest *req, uint8_t *data, size_t capacity)
+{
+    const void *descriptor;
+    unsigned size = upload_os_descriptor(req->bRequestType, req->bRequest,
+                                        req->wValue, req->wIndex, &descriptor);
+    if (!size)
+        return false;
+    size = MIN(size, req->wLength);
+    if (size > capacity)
+        return false;
+    memcpy(data, descriptor, size);
+    usb_core_control_response(USB_CONTROL_ACK, data, size);
+    return true;
+}
 
 void usb_signal_transfer_completion(struct usb_transfer_completion_event_data *event)
 {
@@ -175,7 +191,10 @@ int upload_usb(void)
     usb_core_enable_driver(USB_DRIVER_MASS_STORAGE, true);
     activity = USEC_TIMER;
     while (!finished || (return_at && TIME_BEFORE(USEC_TIMER, return_at))) {
-        if (TIME_AFTER(USEC_TIMER, activity + 30000000)) {
+        /* Allow Windows to bind WinUSB on the first connection. */
+        unsigned timeout = (UPLOAD_RESULT->state == 1 || UPLOAD_RESULT->state == 4)
+                           ? 120000000 : 30000000;
+        if (TIME_AFTER(USEC_TIMER, activity + timeout)) {
             upload_fail(-415);
             break;
         }

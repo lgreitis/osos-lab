@@ -12,6 +12,11 @@ const APPLE: u16 = 0x05ac;
 const CLASSIC_DFU: u16 = 0x1223;
 const TIMEOUT: Duration = Duration::from_millis(50);
 
+#[cfg(windows)]
+mod apple;
+#[cfg(any(windows, test))]
+mod apple_packet;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceSelector {
     pub bus: u8,
@@ -76,22 +81,36 @@ pub fn discover() -> Result<Vec<DeviceInfo>> {
         .collect())
 }
 
+enum Handle {
+    Libusb(DeviceHandle<Context>),
+    #[cfg(windows)]
+    Apple(apple::AppleDfu),
+}
+
 pub(crate) struct UsbTransport {
-    pub(crate) handle: DeviceHandle<Context>,
+    handle: Handle,
     pub(crate) timeout: Duration,
 }
 
 impl Transport for UsbTransport {
     fn read(&mut self, ty: u8, req: u8, val: u16, idx: u16, data: &mut [u8]) -> Result<usize> {
-        self.handle
-            .read_control(ty, req, val, idx, data, self.timeout)
-            .map_err(|e| usb_error("control read", e))
+        match &mut self.handle {
+            Handle::Libusb(handle) => handle
+                .read_control(ty, req, val, idx, data, self.timeout)
+                .map_err(|e| usb_error("control read", e)),
+            #[cfg(windows)]
+            Handle::Apple(handle) => handle.read(ty, req, val, idx, data, self.timeout),
+        }
     }
 
     fn write(&mut self, ty: u8, req: u8, val: u16, idx: u16, data: &[u8]) -> Result<usize> {
-        self.handle
-            .write_control(ty, req, val, idx, data, self.timeout)
-            .map_err(|e| usb_error("control write", e))
+        match &mut self.handle {
+            Handle::Libusb(handle) => handle
+                .write_control(ty, req, val, idx, data, self.timeout)
+                .map_err(|e| usb_error("control write", e)),
+            #[cfg(windows)]
+            Handle::Apple(handle) => handle.write(ty, req, val, idx, data, self.timeout),
+        }
     }
 }
 
@@ -108,7 +127,13 @@ impl Session {
     /// Claim the selected DFU device, or the sole connected candidate.
     pub fn open(selector: Option<DeviceSelector>) -> Result<Self> {
         let context = Context::new().map_err(|e| usb_error("context", e))?;
-        let mut found: Vec<_> = candidates(&context)?
+        let candidates = candidates(&context)?;
+        #[cfg(windows)]
+        let dfu_count = candidates
+            .iter()
+            .filter(|(_, info)| info.dfu_candidate)
+            .count();
+        let mut found: Vec<_> = candidates
             .into_iter()
             .filter(|(_, info)| info.dfu_candidate && selector.is_none_or(|s| s == info.selector))
             .collect();
@@ -131,12 +156,27 @@ impl Session {
                 "Expected BootROM DFU interface 0, alternate setting 0",
             ));
         }
-        let handle = device
-            .open()
-            .map_err(|e| usb_error("open (check USB permissions/driver)", e))?;
-        handle
-            .claim_interface(0)
-            .map_err(|e| usb_error("claim interface 0 (close other USB tools)", e))?;
+        let open_libusb = || -> Result<Handle> {
+            let handle = device
+                .open()
+                .map_err(|e| usb_error("open (check USB permissions/driver)", e))?;
+            handle
+                .claim_interface(0)
+                .map_err(|e| usb_error("claim interface 0 (close other USB tools)", e))?;
+            Ok(Handle::Libusb(handle))
+        };
+        #[cfg(not(windows))]
+        let handle = open_libusb()?;
+        #[cfg(windows)]
+        let handle = match open_libusb() {
+            Ok(handle) => handle,
+            Err(libusb_error) => match apple::AppleDfu::open(dfu_count)? {
+                Some(handle) => Handle::Apple(handle),
+                None => return Err(invalid(format!(
+                    "{libusb_error}. Apple DFU driver not found; install Apple's iPod device support (included with iTunes), or restore it if Zadig replaced it."
+                ))),
+            },
+        };
         Ok(Self {
             info,
             dfu: Dfu {
@@ -153,6 +193,22 @@ impl Session {
 
     pub fn device(&self) -> &DeviceInfo {
         &self.info
+    }
+
+    pub fn usb_backend(&self) -> &'static str {
+        match &self.dfu.transport.handle {
+            Handle::Libusb(_) => "libusb",
+            #[cfg(windows)]
+            Handle::Apple(_) => "Apple DFU",
+        }
+    }
+
+    /// Read GETSTATE without resetting DFU or running a payload.
+    pub fn dfu_state(&mut self) -> Result<u8> {
+        self.dfu.transport.timeout = Duration::from_secs(2);
+        let result = self.dfu.state();
+        self.dfu.transport.timeout = TIMEOUT;
+        result
     }
 
     /// Read and cross-check 1 MiB of NOR.
@@ -262,7 +318,8 @@ impl Session {
         }
         self.checks_started = true;
         self.dfu.transport.timeout = Duration::from_secs(2);
-        let (report, rom) = run_checks(&mut self.dfu, self.info.clone(), emit);
+        let backend = self.usb_backend();
+        let (report, rom) = run_checks(&mut self.dfu, self.info.clone(), backend, emit);
         self.verified_rom = rom;
         self.dfu.transport.timeout = TIMEOUT;
         self.operation_ready = report.compatible && report.cleanup == Cleanup::Idle;
@@ -273,6 +330,7 @@ impl Session {
 pub(crate) fn run_checks<T: Transport>(
     dfu: &mut Dfu<T>,
     info: DeviceInfo,
+    backend: &str,
     mut emit: impl FnMut(Event),
 ) -> (CheckReport, Option<Vec<u8>>) {
     let mut verified_rom = None;
@@ -286,7 +344,7 @@ pub(crate) fn run_checks<T: Transport>(
     report.set(
         CheckId::Access,
         CheckStatus::Passed,
-        "USB interface 0 claimed",
+        format!("USB interface 0 opened via {backend}"),
         &mut emit,
     );
     let mut stage = CheckId::Dfu;

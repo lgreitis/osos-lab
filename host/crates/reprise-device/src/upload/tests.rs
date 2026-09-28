@@ -10,6 +10,31 @@ fn fixture_helper() -> Result<UploadHelper> {
     )
 }
 
+#[test]
+fn helper_identity_preserves_legacy_and_rejects_apple_winusb_alias() {
+    let legacy = fixture_helper().unwrap();
+    assert_eq!(
+        (legacy.usb.vendor_id, legacy.usb.product_id),
+        (0x05ac, 0x1261)
+    );
+    assert_eq!(legacy.validate_platform().is_err(), cfg!(windows));
+    let image = include_bytes!("../../../../../usb-helper/tests/fixtures/upload.dfu");
+    let mut manifest: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "../../../../../usb-helper/tests/fixtures/manifest.json"
+    ))
+    .unwrap();
+    manifest["usb"] =
+        serde_json::json!({"vendor_id": 0xf055, "product_id": 0x180d, "winusb": true});
+    let helper = UploadHelper::from_bytes(image, &serde_json::to_vec(&manifest).unwrap()).unwrap();
+    assert_eq!(
+        (helper.usb.vendor_id, helper.usb.product_id),
+        (0xf055, 0x180d)
+    );
+    helper.validate_platform().unwrap();
+    manifest["usb"]["vendor_id"] = serde_json::json!(0x05ac);
+    assert!(UploadHelper::from_bytes(image, &serde_json::to_vec(&manifest).unwrap()).is_err());
+}
+
 fn put(b: &mut [u8], offset: usize, value: u32) {
     b[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
 }

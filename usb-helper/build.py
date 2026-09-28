@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -80,6 +81,8 @@ def main():
         "main.c",
         "file.c",
         "usb.c",
+        "winusb.h",
+        "usb_identity.h",
         "upload.h",
         "record.h",
         "layout.h",
@@ -183,15 +186,30 @@ def main():
     )
     shutil.copyfile(out / "usb.c", source / "firmware/usbstack/usb_storage.c")
     shutil.copyfile(out / "upload.h", source / "firmware/usbstack/upload.h")
+    for name in ("winusb.h", "usb_identity.h"):
+        shutil.copyfile(out / name, source / "firmware/usbstack" / name)
     core = source / "firmware/usbstack/usb_core.c"
     text = core.read_text()
     if text.count("#elif (CONFIG_STORAGE & STORAGE_ATA)") != 2:
         raise ValueError("USB storage initialization changed")
-    core.write_text(
-        text.replace("#elif (CONFIG_STORAGE & STORAGE_ATA)", "#elif 0").replace(
-            "Rockbox media player", "Reprise file upload"
-        )
+    text = text.replace("#elif (CONFIG_STORAGE & STORAGE_ATA)", "#elif 0").replace(
+        "Rockbox media player", "Reprise file upload"
     )
+    entry = "static void usb_core_control_request_handler(struct usb_ctrlrequest* req, uint8_t* reqdata, size_t reqdata_size)\n{"
+    if text.count(entry) != 1:
+        raise ValueError("USB control hook insertion point changed")
+    text = text.replace(
+        entry,
+        entry
+        + "\n    extern bool upload_usb_control_request(struct usb_ctrlrequest *, uint8_t *, size_t);\n"
+        "    if (upload_usb_control_request(req, reqdata, reqdata_size)) return;\n",
+    )
+    for field in ("VENDOR", "PRODUCT"):
+        original = "= USB_" + field + "_ID,"
+        if text.count(original) != 1:
+            raise ValueError("USB identity insertion point changed")
+        text = text.replace(original, "= UPLOAD_USB_" + field + "_ID,")
+    core.write_text('#include "usb_identity.h"\n' + text)
     driver = source / "firmware/target/arm/s5l8702/ipod6g/storage_ata-6g.c"
     text = driver.read_text()
     entry = "static int ata_transfer_sectors(uint64_t sector, int count, void* buffer, int write)\n{"
@@ -245,9 +263,19 @@ def main():
     if cold_offset % 4:
         raise ValueError("unaligned ROM patch slot")
     (out / "upload.dfu").write_bytes(data)
+    usb_ids = {
+        field.lower() + "_id": int(value, 16)
+        for field, value in re.findall(
+            r"#define UPLOAD_USB_(VENDOR|PRODUCT)_ID (0x[0-9a-fA-F]+)",
+            (out / "usb_identity.h").read_text(),
+        )
+    }
+    if set(usb_ids) != {"vendor_id", "product_id"}:
+        raise ValueError("Missing helper USB identity")
     manifest = dict(
         schema=3,
         storage_inspection=True,
+        usb={**usb_ids, "winusb": True},
         mode="stream-file",
         rom_sha256=ROM_SHA,
         bytes=len(data),

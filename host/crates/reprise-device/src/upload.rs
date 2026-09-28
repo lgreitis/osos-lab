@@ -34,6 +34,25 @@ struct Manifest {
     cold_init_offset: usize,
     #[serde(default)]
     storage_inspection: bool,
+    #[serde(default)]
+    usb: UsbIdentity,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+struct UsbIdentity {
+    vendor_id: u16,
+    product_id: u16,
+    winusb: bool,
+}
+
+impl Default for UsbIdentity {
+    fn default() -> Self {
+        Self {
+            vendor_id: 0x05ac,
+            product_id: 0x1261,
+            winusb: false,
+        }
+    }
 }
 
 pub struct UploadHelper {
@@ -42,6 +61,7 @@ pub struct UploadHelper {
     config_offset: usize,
     cold_init_offset: usize,
     storage_inspection: bool,
+    usb: UsbIdentity,
 }
 
 impl UploadHelper {
@@ -49,6 +69,12 @@ impl UploadHelper {
     pub fn from_bytes(image: &[u8], manifest: &[u8]) -> Result<Self> {
         let m: Manifest = serde_json::from_slice(manifest)
             .map_err(|e| invalid(format!("Helper manifest: {e}")))?;
+        if m.usb.vendor_id == 0
+            || m.usb.product_id == 0
+            || (m.usb.winusb && m.usb.vendor_id == 0x05ac)
+        {
+            return Err(invalid("Invalid upload helper USB identity"));
+        }
         if m.schema != 3
             || m.mode != "stream-file"
             || m.rom_sha256 != SUPPORTED_BOOTROM_SHA256
@@ -82,11 +108,19 @@ impl UploadHelper {
             config_offset: m.config_offset,
             cold_init_offset: m.cold_init_offset,
             storage_inspection: m.storage_inspection,
+            usb: m.usb,
         })
     }
 
     pub fn supports_storage_inspection(&self) -> bool {
         self.storage_inspection
+    }
+
+    pub fn validate_platform(&self) -> Result<()> {
+        if cfg!(windows) && !self.usb.winusb {
+            return Err(invalid("This bundle's upload helper lacks Windows WinUSB support. Select a rebuilt firmware bundle."));
+        }
+        Ok(())
     }
 
     fn prepare(
@@ -371,9 +405,22 @@ fn same_port(a: &DeviceInfo, bus: u8, ports: &[u8]) -> bool {
     a.selector.bus == bus && a.port_path == ports && !ports.is_empty()
 }
 
-fn open_bulk(info: &DeviceInfo) -> Result<Bulk> {
+fn driver_pending(error: rusb::Error) -> bool {
+    cfg!(windows)
+        && matches!(
+            error,
+            rusb::Error::NotSupported
+                | rusb::Error::NoDevice
+                | rusb::Error::Access
+                | rusb::Error::Io
+                | rusb::Error::NotFound
+        )
+}
+
+fn open_bulk(info: &DeviceInfo, usb: UsbIdentity) -> Result<Bulk> {
     let context = Context::new().map_err(|e| usb_error("upload context", e))?;
-    let deadline = Instant::now() + Duration::from_secs(45);
+    let deadline = Instant::now() + Duration::from_secs(90);
+    let mut last_error = None;
     loop {
         for device in context
             .devices()
@@ -392,12 +439,17 @@ fn open_bulk(info: &DeviceInfo) -> Result<Bulk> {
             let desc = device
                 .device_descriptor()
                 .map_err(|e| usb_error("upload descriptor", e))?;
-            if desc.vendor_id() != 0x05ac || desc.product_id() != 0x1261 {
+            if desc.vendor_id() != usb.vendor_id || desc.product_id() != usb.product_id {
                 continue;
             }
-            let config = device
-                .active_config_descriptor()
-                .map_err(|e| usb_error("upload configuration", e))?;
+            let config = match device.active_config_descriptor() {
+                Ok(config) => config,
+                Err(error) if driver_pending(error) => {
+                    last_error = Some(error);
+                    continue;
+                }
+                Err(error) => return Err(usb_error("upload configuration", error)),
+            };
             let interface = config
                 .interfaces()
                 .flat_map(|i| i.descriptors())
@@ -416,16 +468,26 @@ fn open_bulk(info: &DeviceInfo) -> Result<Bulk> {
             {
                 return Err(invalid("Unexpected upload endpoint"));
             }
-            let handle = device.open().map_err(|e| usb_error("upload open", e))?;
-            handle
-                .claim_interface(0)
-                .map_err(|e| usb_error("upload claim", e))?;
+            let handle = match device.open().and_then(|handle| {
+                handle.claim_interface(0)?;
+                Ok(handle)
+            }) {
+                Ok(handle) => handle,
+                Err(error) if driver_pending(error) => {
+                    last_error = Some(error);
+                    continue;
+                }
+                Err(error) => return Err(usb_error("upload open/claim", error)),
+            };
             return Ok(Bulk {
                 handle,
                 endpoint: ep.address(),
             });
         }
         if Instant::now() >= deadline {
+            if let Some(error) = last_error {
+                return Err(invalid(format!("Upload helper {:04x}:{:04x} appeared, but Windows could not open its WinUSB interface: {error}", usb.vendor_id, usb.product_id)));
+            }
             return Err(invalid("Upload helper did not enumerate"));
         }
         std::thread::sleep(Duration::from_millis(100));
@@ -556,6 +618,7 @@ impl Session {
         let info = self.info.clone();
         let verified_rom = self.verified_rom.clone();
         let setup = (|| -> Result<(u32, [u8; 32], Vec<u8>)> {
+            helper.validate_platform()?;
             options.validate()?;
             if !self.operation_ready {
                 return Err(invalid("Upload requires successful checks on this session"));
@@ -611,7 +674,7 @@ impl Session {
         })();
         drop(self);
         let transfer_result = launch.and_then(|()| {
-            let mut bulk = open_bulk(&info)?;
+            let mut bulk = open_bulk(&info, helper.usb)?;
             let result = transfer(&mut bulk, input, &nonce, size, &mut emit);
             if result.is_err() {
                 let _ = bulk.command(0x55, &nonce);
@@ -705,6 +768,7 @@ impl Session {
         helper: &UploadHelper,
         required_bytes: u32,
     ) -> Result<(Self, StorageReport)> {
+        helper.validate_platform()?;
         if !helper.storage_inspection || !self.operation_ready || self.info.port_path.is_empty() {
             return Err(invalid(
                 "Storage inspection requires a current helper and checked DFU session",
@@ -735,7 +799,7 @@ impl Session {
         let launch = self.dfu.idle().and_then(|()| self.dfu.launch_image(&image));
         drop(self);
         let operation = launch.and_then(|()| {
-            let mut bulk = open_bulk(&info)?;
+            let mut bulk = open_bulk(&info, helper.usb)?;
             let status = bulk.status(&nonce, required_bytes)?;
             if status.state() != 4 {
                 let _ = bulk.command(0x55, &nonce);

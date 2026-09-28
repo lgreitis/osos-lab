@@ -40,6 +40,7 @@ Usage:
   reprise firmware decrypt-nor --input BACKUP --output NEW_FILE
     [--device BUS:ADDRESS] [--json]
   reprise devices [--json]
+  reprise dfu-state [--device BUS:ADDRESS] [--json]
   reprise check [--device BUS:ADDRESS] [--json]
   reprise nor-dump --output NEW_FILE [--device BUS:ADDRESS] [--json]
   reprise check-files --bootrom FILE --syscfg FILE [--json]
@@ -66,6 +67,8 @@ CBC uses the preceding ciphertext block for interior offsets, or --iv
 --reference compares against a plaintext body file at the same --offset.
 Output paths must be new.
 
+dfu-state opens the USB transport and reads GETSTATE without running a payload.
+
 check uses 512-byte BootROM replies after a small ROM/transport preflight,
 verifies the full 64 KiB fingerprint, then performs bounded
 NOR SysCfg reads. Connect in BootROM DFU (blank screen);
@@ -89,6 +92,9 @@ enum Command {
     Bundle(bundle::Args),
     Firmware(firmware::Args),
     Devices,
+    DfuState {
+        selector: Option<DeviceSelector>,
+    },
     Check {
         selector: Option<DeviceSelector>,
     },
@@ -138,6 +144,7 @@ fn parse(args: &[String]) -> Result<(Command, bool), String> {
         && matches!(
             args[0].as_str(),
             "devices"
+                | "dfu-state"
                 | "check"
                 | "nor-dump"
                 | "decrypt"
@@ -157,7 +164,7 @@ fn parse(args: &[String]) -> Result<(Command, bool), String> {
         Some("syscfg") if args.len() == 2 && !args[1].starts_with('-') => Command::Syscfg {
             path: args[1].clone(),
         },
-        Some("check" | "nor-dump") => {
+        Some("check" | "nor-dump" | "dfu-state") => {
             let nor_dump = args[0] == "nor-dump";
             let mut selector = None;
             let mut output = None;
@@ -184,6 +191,8 @@ fn parse(args: &[String]) -> Result<(Command, bool), String> {
                     output: output.ok_or("Missing --output NEW_FILE")?,
                     selector,
                 }
+            } else if args[0] == "dfu-state" {
+                Command::DfuState { selector }
             } else {
                 Command::Check { selector }
             }
@@ -355,6 +364,21 @@ fn run(command: Command, json: bool) -> CliResult<u8> {
                 }
             }
         }
+        Command::DfuState { selector } => {
+            let mut session = Session::open(selector)?;
+            let state = session.dfu_state()?;
+            if json {
+                print_json(
+                    &serde_json::json!({"backend": session.usb_backend(), "dfu_state": state, "device": session.device()}),
+                )?;
+            } else {
+                writeln!(
+                    io::stdout().lock(),
+                    "USB backend: {}\nDFU state: {state}",
+                    session.usb_backend()
+                )?;
+            }
+        }
         Command::Check { selector } => {
             let mut session = open_session(selector)?;
             let report = session.check(|event| {
@@ -467,6 +491,16 @@ mod tests {
 
     #[test]
     fn live_checks_accept_existing_dfu_and_require_strict_selection() {
+        assert_eq!(
+            parse(&args("dfu-state --device 1:2")).unwrap(),
+            (
+                Command::DfuState {
+                    selector: Some(DeviceSelector { bus: 1, address: 2 })
+                },
+                false
+            )
+        );
+        assert!(parse(&args("dfu-state --output file")).is_err());
         assert_eq!(
             parse(&args("check")).unwrap(),
             (Command::Check { selector: None }, false)
