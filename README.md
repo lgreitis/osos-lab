@@ -23,12 +23,12 @@ See [boot sequence](docs/boot.md) and [host tools](host/README.md).
 
 ## Features
 
-- Three-band custom EQ with adjustable filters, frequency, gain, Q, and precut.
-- Play next from song context menus during forward playback, with Shuffle and
-  Repeat One off.
-- Native homebrew games, including the [Doom port](doom/README.md).
-- CFW Info page in Settings with firmware build information.
-- Panic screen with exception details, registers, and stack data.
+- Three-band custom EQ with adjustable filter types, frequency, gain, Q and precut.
+- Play next from song context menus.
+- EU volume limit removal for European iPods.
+- An experimental [Doom port](doom/README.md).
+
+The Doom port currently has no audio or saving.
 
 ## Build
 

@@ -224,6 +224,7 @@ def export(args, manifest):
                 "-postScript",
                 "ExportAnalysis.java",
                 str(directory),
+                *(spec["path"] for spec in manifest["programs"]),
             ],
         )
         expected = {spec["path"] + ".sarif" for spec in manifest["programs"]}
@@ -231,7 +232,10 @@ def export(args, manifest):
             p.relative_to(directory).as_posix() for p in directory.rglob("*.sarif")
         }
         if actual != expected:
-            raise ValueError("Project programs differ from ghidra/programs.json")
+            raise ValueError(
+                f"Project programs differ from ghidra/programs.json: "
+                f"missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}"
+            )
         for spec in manifest["programs"]:
             sarif = directory / (spec["path"] + ".sarif")
             if sha(Path(str(sarif) + ".bytes").read_bytes()) != spec["memory_sha256"]:

@@ -1,0 +1,1 @@
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":0,"length":10599920}}}],"message":{"text":"MemorySection"},"properties":{"additionalProperties":{"isArtificial":false,"isVolatile":false,"kind":"rwx","location":"osos_decrypted.bin.sarif.bytes:0","name":"ram","type":"DEFAULT"}},"ruleId":"MEMORY_MAP"}

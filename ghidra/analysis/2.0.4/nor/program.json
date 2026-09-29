@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "properties": {},
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Ghidra",
+          "version": "12.1.3",
+          "informationUri": "https://github.com/NationalSecurityAgency/ghidra"
+        }
+      },
+      "artifacts": [
+        {
+          "location": {
+            "uri": "nor.bin"
+          },
+          "properties": {
+            "additionalProperties": {
+              "imageBase": "00000000"
+            }
+          },
+          "sourceLanguage": "ARM:BE:32:v5t",
+          "description": {
+            "text": "default"
+          }
+        }
+      ]
+    }
+  ]
+}
