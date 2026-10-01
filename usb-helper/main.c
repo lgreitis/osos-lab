@@ -137,7 +137,6 @@ void main(void)
         else
             upload_prepare(start, end, bytes);
         RECORD->storage_rc = upload_usb();
-        ata_sleepnow();
         RECORD->phase = 4;
     }
     return_to_dfu();

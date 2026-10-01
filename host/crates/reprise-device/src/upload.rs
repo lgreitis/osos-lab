@@ -806,14 +806,17 @@ impl Session {
                 return Err(invalid("Storage inspection did not complete"));
             }
             bulk.command(0x54, &nonce)?;
-            Ok(status)
-        });
-        let (mut session, record) = returned(&info, &nonce)?;
-        let result = (|| {
-            let status = operation?;
             if status.rc() != 0 {
                 return Err(helper_error(status.rc(), word(&status.raw, 56)));
             }
+            Ok(status)
+        });
+        let (mut session, record) = returned(&info, &nonce).map_err(|error| match &operation {
+            Err(original) => invalid(format!("{original}; {error}")),
+            Ok(_) => error,
+        })?;
+        let result = (|| {
+            let status = operation?;
             if word(&record, 8) != 4 || word(&record, 12) != 0 {
                 return Err(invalid("Storage helper failed during DFU return"));
             }

@@ -14,7 +14,7 @@
 
 const volatile struct upload_config upload_config = {.tag = "REPRISE-UPLOAD2"};
 static int fd = -1;
-static bool mounted, writes_enabled;
+static bool mounted, writes_enabled, closed;
 static uint64_t data_start, data_end;
 static char temporary[64];
 static struct sha256 hash;
@@ -63,6 +63,9 @@ void upload_fail(int rc)
 
 void upload_close(void)
 {
+    if (closed)
+        return;
+    closed = true;
     if (fd >= 0) {
         int result = close(fd);
         fd = -1;
@@ -159,6 +162,7 @@ static void begin_readback(void)
     upload_close();
     if (UPLOAD_RESULT->rc)
         return;
+    closed = false;
     int mounts = disk_mount_all();
     mounted = mounts > 0;
     if (mounts != 1) {

@@ -84,6 +84,13 @@ int test_rename(const char *a,const char *b) {assert(upload_write_allowed(394224
 off_t filesize(int fd) {struct stat s;assert(!fstat(fd,&s));return s.st_size;}
 static void original(void) {int fd=open("os.bin",O_RDONLY);assert(fd>=0);char b[4]={0};assert(read(fd,b,4)==3);assert(!memcmp(b,"old",3));assert(!close(fd));}
 static void pattern(uint32_t off,unsigned n) {for(unsigned i=0;i<n;i++)test_buffer[i]=(off+i)*37+(off+i)/11;}
+static void close_repeatedly(void) {
+    upload_close();
+    int before=sleeps;
+    upload_close();
+    upload_close();
+    assert(sleeps==before);
+}
 int main(int argc,char **argv)
 {
     assert(argc==5);
@@ -97,7 +104,7 @@ int main(int argc,char **argv)
     memset(test_result.nonce,7,16);
     upload_prepare(394224,1001390072,4096);
     if(fault==8){assert(test_result.rc==-322);assert(opens==0);upload_close();return 0;}
-    if(overwrite==2){assert(test_result.state==4);assert(!test_result.rc);assert(opens==0);assert(test_storage.start==394224);assert(test_storage.end==1001390072);assert(test_storage.free_bytes==1024000000);assert(!upload_write_allowed(394224,1));upload_close();return 0;}
+    if(overwrite==2){assert(test_result.state==4);assert(!test_result.rc);assert(opens==0);assert(test_storage.start==394224);assert(test_storage.end==1001390072);assert(test_storage.free_bytes==1024000000);assert(!upload_write_allowed(394224,1));close_repeatedly();assert(sleeps==1);return 0;}
     if(exists&&!overwrite){assert(test_result.rc==-304);assert(opens==0);original();upload_close();return 0;}
     assert(test_result.state==1);test_result.state=2;upload_start();
     for(unsigned off=0;off<size&&test_result.state==2;){
@@ -105,14 +112,14 @@ int main(int argc,char **argv)
         if(exists)original();
     }
     while(test_result.state==3){if(exists)original();upload_verify_step();}
-    upload_close();
+    close_repeatedly();
     assert(test_result.state==4);
     if(fault){assert(test_result.rc);if(exists)original();return 0;}
     assert(!test_result.rc);assert(!test_result.rejected);
     assert(test_result.received==size && test_result.written==size && test_result.verified==size);
     assert(!memcmp(test_result.source_sha256,upload_config.sha256,32));
     assert(!memcmp(test_result.disk_sha256,upload_config.sha256,32));
-    assert(mounts==2 && sleeps>=2);
+    assert(mounts==2 && sleeps==2);
     int f=open("os.bin",O_RDONLY);assert(f>=0);assert(filesize(f)==size);
     uint8_t readback[65536];
     for(unsigned off=0;off<size;){unsigned n=MIN(size-off,65536);assert(read(f,readback,n)==n);pattern(off,n);assert(!memcmp(test_buffer,readback,n));off+=n;}
