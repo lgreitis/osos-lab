@@ -3,8 +3,16 @@
 
 import unittest
 
-from patching.native import RECORD, Declaration, Kind, apply, arm_b, parse, thumb_bl
-from patching.recipe import Recipe
+from patching.recipes import Recipe
+from patching.recipes.native import (
+    RECORD,
+    Declaration,
+    Kind,
+    apply,
+    arm_b,
+    parse,
+    thumb_bl,
+)
 
 
 class NativeTests(unittest.TestCase):

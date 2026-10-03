@@ -4,8 +4,7 @@
 import struct
 import unittest
 
-from patching.native_ui import blocks, pack_blocks, put, word
-from patching.resource import Resource, Template
+from patching.ui.resources import Resource, Template, blocks, pack_blocks, put, word
 
 
 class ResourceTests(unittest.TestCase):

@@ -1,30 +1,36 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Emit C from constructed UI resources and bindings without allocating resources."""
+"""Emit C source and headers from compiled resources and bindings."""
 
-from dataclasses import dataclass, field
-
-from .resource import Resource
+from .resources import Resource
 
 
-@dataclass
-class FieldBinding:
-    parent_item: int
-    selector_table: int
-    default: int
-    labels: list[int]
-    marked: list[int]
-    summaries: list[int]
-    items: list[int]
-    parent_table: int = 0
-    parent_index: int = 0
-
-
-@dataclass
-class ActionBinding:
-    item: int
-    index: int
-    table: int = 0
-    labels: list[int] = field(default_factory=list)
+def emit_header(document, string_ids=None):
+    name = (
+        document.root.name
+        if document.root
+        else next(iter(document.strings), None) or document.events[0].handler
+    )
+    prefix = name.lower()
+    guard = name.upper() + "_UI_GENERATED_H"
+    lines = [f"#ifndef {guard}", f"#define {guard}", '#include "ui.h"', "", "enum {"]
+    lines.extend(f"    {item.name.upper()} = {item.slot}," for item in document.fields)
+    lines += [
+        f"    {name.upper()}_FIELDS = {len(document.fields)}",
+        "};",
+        "",
+    ]
+    if document.fields:
+        lines.append(
+            f"extern const struct cfw_ui_field {prefix}_fields[{len(document.fields)}];"
+        )
+    lines.extend(
+        f"#define {name} {value:#x}u" for name, value in (string_ids or {}).items()
+    )
+    for item in document.actions:
+        lines.append(f"extern const struct cfw_ui_action {item.name.lower()};")
+    for value in document.values.values():
+        lines.append(f"extern const int32_t {value.name}[{len(value.numbers)}];")
+    return "\n".join([*lines, "", "#endif", ""])
 
 
 def array(name, values, public=False, ctype="uint32_t"):

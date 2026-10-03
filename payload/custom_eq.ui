@@ -1,50 +1,77 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <values id="cfw_eq_types">
+    <value number="0" label="Off"/>
+    <value number="1" label="Peaking"/>
+    <value number="2" label="Low shelf"/>
+    <value number="3" label="High shelf"/>
+  </values>
+  <values id="cfw_eq_frequencies">
+    <value number="20" label="20 Hz"/>
+    <value number="25" label="25 Hz"/>
+    <value number="31" label="31 Hz"/>
+    <value number="40" label="40 Hz"/>
+    <value number="50" label="50 Hz"/>
+    <value number="60" label="60 Hz"/>
+    <value number="70" label="70 Hz"/>
+    <value number="80" label="80 Hz"/>
+    <value number="100" label="100 Hz"/>
+    <value number="125" label="125 Hz"/>
+    <value number="160" label="160 Hz"/>
+    <value number="200" label="200 Hz"/>
+    <value number="250" label="250 Hz"/>
+    <value number="315" label="315 Hz"/>
+    <value number="400" label="400 Hz"/>
+    <value number="500" label="500 Hz"/>
+    <value number="630" label="630 Hz"/>
+    <value number="800" label="800 Hz"/>
+    <value number="1000" label="1000 Hz"/>
+    <value number="1250" label="1250 Hz"/>
+    <value number="1600" label="1600 Hz"/>
+    <value number="2000" label="2000 Hz"/>
+    <value number="2500" label="2500 Hz"/>
+    <value number="3150" label="3150 Hz"/>
+    <value number="4000" label="4000 Hz"/>
+    <value number="5000" label="5000 Hz"/>
+    <value number="6300" label="6300 Hz"/>
+    <value number="8000" label="8000 Hz"/>
+    <value number="10000" label="10000 Hz"/>
+    <value number="12500" label="12500 Hz"/>
+    <value number="16000" label="16000 Hz"/>
+    <value number="20000" label="20000 Hz"/>
+  </values>
+  <range id="cfw_eq_precut_values" first="0" last="-100" step="-5" scale="10" suffix=" dB"/>
+  <range id="cfw_eq_q" first="3" last="40" step="1" scale="10"/>
+  <range id="cfw_eq_gain" first="-120" last="120" step="5" scale="10" suffix=" dB" signed="true"/>
+  <values id="cfw_eq_save_status">
+    <value number="0" label="Save settings"/>
+    <value number="1" label="Save failed - retry"/>
+    <value number="2" label="Invalid filter settings"/>
+  </values>
 
-UI_VALUES(cfw_eq_types)
-    UI_VALUE(0, "Off")
-    UI_VALUE(1, "Peaking")
-    UI_VALUE(2, "Low shelf")
-    UI_VALUE(3, "High shelf")
-UI_END_VALUES()
-
-#define HZ(value) UI_VALUE(value, #value " Hz")
-UI_VALUES(cfw_eq_frequencies)
-    HZ(20) HZ(25) HZ(31) HZ(40) HZ(50) HZ(60) HZ(70) HZ(80) HZ(100)
-    HZ(125) HZ(160) HZ(200) HZ(250) HZ(315) HZ(400) HZ(500)
-    HZ(630) HZ(800) HZ(1000) HZ(1250) HZ(1600) HZ(2000)
-    HZ(2500) HZ(3150) HZ(4000) HZ(5000) HZ(6300) HZ(8000)
-    HZ(10000) HZ(12500) HZ(16000) HZ(20000)
-UI_END_VALUES()
-#undef HZ
-
-UI_RANGE(cfw_eq_precut_values, 0, -100, -5, 10, " dB", 0)
-UI_RANGE(cfw_eq_q, 3, 40, 1, 10, "", 0)
-UI_RANGE(cfw_eq_gain, -120, 120, 5, 10, " dB", 1)
-
-UI_VALUES(cfw_eq_save_status)
-    UI_VALUE(0, "Save settings")
-    UI_VALUE(1, "Save failed - retry")
-    UI_VALUE(2, "Invalid filter settings")
-UI_END_VALUES()
-
-/* Slots and choice order are part of the version-1 saved EQ settings format. */
-#define BAND(number, slot, type, frequency) \
-    UI_MENU(CFW_EQ_Band##number, "Band " #number) \
-        UI_SELECTOR(CFW_EQ_Band##number##_Type, "Type", cfw_eq_types, slot, type) \
-        UI_SELECTOR(CFW_EQ_Band##number##_Frequency, "Frequency", cfw_eq_frequencies, slot + 1, frequency) \
-        UI_SELECTOR(CFW_EQ_Band##number##_Q, "Q", cfw_eq_q, slot + 2, 7) \
-        UI_SELECTOR(CFW_EQ_Band##number##_Gain, "Gain", cfw_eq_gain, slot + 3, 0) \
-    UI_END_MENU()
-
-UI_MENU(CFW_EQ, "Custom EQ")
-    UI_SELECTOR(CFW_EQ_Precut, "Precut", cfw_eq_precut_values, 0, 0)
-    BAND(1, 1, 2, 60)
-    BAND(2, 5, 1, 1000)
-    BAND(3, 9, 3, 8000)
-    UI_ACTION(CFW_EQ_Save, "Save settings", cfw_eq_save_status)
-UI_END_MENU()
-#undef BAND
-
-UI_SETTINGS_ENTRY(CFW_EQ, 0x0DAD0C39, "CFW_EQ_Open")
-
-UI_STRING(CFW_EQ_PRESET_NAME, "Custom")
+  <!-- Slots and choice order are part of the version-1 saved EQ settings format. -->
+  <menu id="CFW_EQ" title="Custom EQ">
+    <selector id="CFW_EQ_Precut" title="Precut" values="cfw_eq_precut_values" slot="0" default="0"/>
+    <menu id="CFW_EQ_Band1" title="Band 1">
+      <selector id="CFW_EQ_Band1_Type" title="Type" values="cfw_eq_types" slot="1" default="2"/>
+      <selector id="CFW_EQ_Band1_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="2" default="60"/>
+      <selector id="CFW_EQ_Band1_Q" title="Q" values="cfw_eq_q" slot="3" default="7"/>
+      <selector id="CFW_EQ_Band1_Gain" title="Gain" values="cfw_eq_gain" slot="4" default="0"/>
+    </menu>
+    <menu id="CFW_EQ_Band2" title="Band 2">
+      <selector id="CFW_EQ_Band2_Type" title="Type" values="cfw_eq_types" slot="5" default="1"/>
+      <selector id="CFW_EQ_Band2_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="6" default="1000"/>
+      <selector id="CFW_EQ_Band2_Q" title="Q" values="cfw_eq_q" slot="7" default="7"/>
+      <selector id="CFW_EQ_Band2_Gain" title="Gain" values="cfw_eq_gain" slot="8" default="0"/>
+    </menu>
+    <menu id="CFW_EQ_Band3" title="Band 3">
+      <selector id="CFW_EQ_Band3_Type" title="Type" values="cfw_eq_types" slot="9" default="3"/>
+      <selector id="CFW_EQ_Band3_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="10" default="8000"/>
+      <selector id="CFW_EQ_Band3_Q" title="Q" values="cfw_eq_q" slot="11" default="7"/>
+      <selector id="CFW_EQ_Band3_Gain" title="Gain" values="cfw_eq_gain" slot="12" default="0"/>
+    </menu>
+    <action id="CFW_EQ_Save" title="Save settings" values="cfw_eq_save_status"/>
+  </menu>
+  <settings-entry menu="CFW_EQ" after="0x0DAD0C39" open="CFW_EQ_Open"/>
+  <string id="CFW_EQ_PRESET_NAME" text="Custom"/>
+</ui>

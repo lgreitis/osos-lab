@@ -15,8 +15,8 @@ import setup
 from version import identity
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from patching.companion import build_recipe as build_companion_recipe
-from patching.osos_build import build_recipe
+from patching.recipes.companion import build_recipe as build_companion_recipe
+from patching.recipes.osos import build_recipe
 from patching.toolchain import run
 
 ROOT = Path(__file__).resolve().parents[1]

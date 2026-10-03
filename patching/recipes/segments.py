@@ -9,6 +9,20 @@ INTERFACE = "classic7g-file-v1"
 MAX_OUTPUT = 0xC00000
 
 
+def region_size(region):
+    return region.size if isinstance(region, Input) else len(region)
+
+
+def can_merge(previous, following):
+    if previous["kind"] != following["kind"]:
+        return False
+    if previous.get("name") != following.get("name"):
+        return False
+    return following["kind"] == "zero" or (
+        previous["offset"] + previous["bytes"] == following["offset"]
+    )
+
+
 def fingerprint(data):
     return {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
 
@@ -32,12 +46,10 @@ class Recipe:
 
     def overlay(self, original, replacements):
         """Emit a source region or compiled image with nonoverlapping replacements."""
-        size = original.size if isinstance(original, Input) else len(original)
+        size = region_size(original)
         position = 0
         for offset, replacement in sorted(replacements, key=lambda span: span[0]):
-            length = (
-                replacement.size if isinstance(replacement, Input) else len(replacement)
-            )
+            length = region_size(replacement)
             if offset < position or length <= 0 or offset + length > size:
                 raise ValueError(
                     f"Overlapping or out-of-range replacement at {offset:#x}"
@@ -67,20 +79,10 @@ class Recipe:
         size = segment["bytes"]
         if size <= 0 or self.size + size > MAX_OUTPUT:
             raise ValueError("Invalid recipe output size")
-        if self.segments:
-            previous = self.segments[-1]
-            if (
-                previous["kind"] == segment["kind"]
-                and previous.get("name") == segment.get("name")
-                and (
-                    segment["kind"] == "zero"
-                    or previous["offset"] + previous["bytes"] == segment["offset"]
-                )
-            ):
-                previous["bytes"] += size
-                self.size += size
-                return
-        self.segments.append(segment)
+        if self.segments and can_merge(self.segments[-1], segment):
+            self.segments[-1]["bytes"] += size
+        else:
+            self.segments.append(segment)
         self.size += size
 
     def source(self, name, offset, size):
@@ -97,21 +99,21 @@ class Recipe:
         # Emit long padding runs without storing them in the compiled-data asset.
         position = 0
         while position < len(data):
-            zero = data.find(bytes(32), position)
-            end = len(data) if zero < 0 else zero
-            literal = data[position:end]
-            if literal:
-                self._append(
-                    {"kind": "data", "offset": len(self.data), "bytes": len(literal)}
-                )
-                self.data.extend(literal)
-            if zero < 0:
+            zero_start = data.find(bytes(32), position)
+            literal_end = len(data) if zero_start < 0 else zero_start
+            self._literal_data(data[position:literal_end])
+            if zero_start < 0:
                 break
-            end = zero + 32
-            while end < len(data) and data[end] == 0:
-                end += 1
-            self.zero(end - zero)
-            position = end
+            zero_end = zero_start + 32
+            while zero_end < len(data) and data[zero_end] == 0:
+                zero_end += 1
+            self.zero(zero_end - zero_start)
+            position = zero_end
+
+    def _literal_data(self, data):
+        if data:
+            self._append({"kind": "data", "offset": len(self.data), "bytes": len(data)})
+            self.data.extend(data)
 
     def zero(self, size):
         if size:
@@ -127,10 +129,10 @@ class Recipe:
             raise ValueError("Expected bytes outside input")
         self.checks.append({"name": name, "offset": offset, "hex": data.hex()})
 
-    def save(self, directory, name):
+    def specification(self):
         if not self.segments:
             raise ValueError("Empty recipe")
-        spec = {
+        return {
             "schema": 2,
             "interface": INTERFACE,
             "inputs": self.inputs,
@@ -141,7 +143,12 @@ class Recipe:
             "ffs_checksums": self.ffs_checksums,
             "segments": self.segments,
         }
-        raw = json.dumps(spec, sort_keys=True, separators=(",", ":")) + "\n"
+
+    def save(self, directory, name):
+        raw = (
+            json.dumps(self.specification(), sort_keys=True, separators=(",", ":"))
+            + "\n"
+        )
         if len(raw.encode()) > 2 * 1024 * 1024:
             raise ValueError("Recipe exceeds 2 MiB")
         directory.mkdir(parents=True, exist_ok=True)

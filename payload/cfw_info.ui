@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
-
-UI_TEXT(CFW_Info, "CFW Info", "cfw_info.txt")
-UI_SETTINGS_ENTRY(CFW_Info, 0x0DAD0C3F, "")
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <text id="CFW_Info" title="CFW Info" file="cfw_info.txt"/>
+  <settings-entry menu="CFW_Info" after="0x0DAD0C3F"/>
+</ui>

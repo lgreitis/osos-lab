@@ -4,9 +4,9 @@
 import struct
 import unittest
 
-from patching import declarations, osos
+from patching import declarations
 from patching.declarations import Copy, Kind, Write
-from patching.recipe import fingerprint
+from patching.recipes import fingerprint, osos
 
 
 def word(kind, address, expected, symbol="", value=0):

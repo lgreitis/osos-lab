@@ -13,8 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from patching import native_ui
-from patching.resource import Resource, Template
+from patching.ui import Resources, generate
+from patching.ui.resources import BANK_OFFSET, Resource, Template
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,7 +24,7 @@ class Templates(Mapping):
         self.firmware = firmware
         self.index = {}
         self.used = {}
-        bank = native_ui.BANK_OFFSET
+        bank = BANK_OFFSET
         version, data_offset, count = struct.unpack_from("<III", firmware, bank)
         if (version, data_offset, count) != (3, 0x176D0, 27):
             raise ValueError("Unexpected FW2.0.4 resource bank")
@@ -63,12 +63,12 @@ class Templates(Mapping):
         return key in self.index
 
 
-def extract(firmware, sources, prefix):
-    resources = native_ui.Resources([])
+def extract(firmware, sources):
+    resources = Resources([])
     templates = Templates(firmware)
     resources.original = templates
     with tempfile.TemporaryDirectory(prefix="reprise-ui-metadata-") as directory:
-        native_ui.generate(resources, sources, Path(directory), prefix, "metadata")
+        generate(resources, sources, Path(directory), "metadata")
     return [
         {
             "kind": kind,
@@ -87,7 +87,6 @@ def main():
     parser.add_argument(
         "--out", type=Path, default=ROOT / "targets/classic7g-2.0.4-ui.json"
     )
-    parser.add_argument("--cross-prefix", default="arm-elf-eabi-")
     args = parser.parse_args()
     firmware = args.input.read_bytes()
     fingerprint = json.loads((ROOT / "targets/classic7g-2.0.4.json").read_text())[
@@ -101,9 +100,7 @@ def main():
     metadata = {
         "schema": 1,
         "input": fingerprint,
-        "resources": extract(
-            firmware, sorted((ROOT / "payload").glob("*.ui")), args.cross_prefix
-        ),
+        "resources": extract(firmware, sorted((ROOT / "payload").glob("*.ui"))),
     }
     args.out.write_text(json.dumps(metadata, indent=2) + "\n")
 

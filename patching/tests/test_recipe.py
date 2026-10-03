@@ -3,7 +3,7 @@
 
 import unittest
 
-from patching.recipe import Input, Recipe, fingerprint
+from patching.recipes import Input, Recipe, fingerprint
 
 
 class RecipeTests(unittest.TestCase):

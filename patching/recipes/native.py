@@ -5,9 +5,9 @@ import struct
 from dataclasses import dataclass
 from enum import IntEnum
 
-from .recipe import Input
-from .symbols import require
-from .toolchain import run
+from ..symbols import require
+from ..toolchain import run
+from .segments import Input
 
 RECORD = struct.Struct("<4I32s")
 
@@ -96,47 +96,58 @@ def arm_b(source, target):
     return struct.pack("<I", 0xEA000000 | ((delta >> 2) & 0xFFFFFF))
 
 
+def resolve_hook(declaration, name, start, code_size, patch_input, patch_base):
+    if name != patch_input or declaration.size != 4:
+        raise ValueError("Invalid native hook input or instruction size")
+    target = declaration.address
+    if declaration.kind == Kind.THUMB_CALL:
+        target &= ~1
+    if not start <= target < start + code_size:
+        raise ValueError("Native hook target outside linked image")
+    encode = thumb_bl if declaration.kind == Kind.THUMB_CALL else arm_b
+    source = patch_base + declaration.offset
+    return declaration.offset, encode(source, target)
+
+
+def register_checksum(recipe, declaration, name, patch_input):
+    if name != patch_input or declaration.size != 1:
+        raise ValueError("FFS checksum must belong to the patched image")
+    recipe.ffs_checksums.append(declaration.offset)
+
+
+def register_module(recipe, declaration, name):
+    if declaration.size != recipe.inputs[name]["bytes"]:
+        raise ValueError(f"Native module size differs from target: {name}")
+    recipe.relocate(name, declaration.address, declaration.offset)
+
+
+def resolve_copy(code, declaration, name, offset):
+    if any(code[offset : offset + declaration.size]):
+        raise ValueError(f"Native copy would overwrite compiled code: {name}")
+    return offset, Input(name, declaration.offset, declaration.size)
+
+
 def apply(recipe, code, symbols, declarations, patch_input=None, patch_base=0):
     start = require(symbols, "image_start")
-    replacements, writes = [], []
+    copies, writes = [], []
     for declaration in declarations:
         name = declaration.name.lower()
-        offset = declaration.address - start
         if declaration.kind == Kind.EXPECT:
             recipe.expect(name, declaration.offset, declaration.expected)
-            continue
-
-        if declaration.kind == Kind.FFS_CHECKSUM:
-            if name != patch_input or declaration.size != 1:
-                raise ValueError("FFS checksum must belong to the patched image")
-            recipe.ffs_checksums.append(declaration.offset)
-            continue
-
-        if declaration.kind in (Kind.THUMB_CALL, Kind.ARM_JUMP):
-            if name != patch_input or declaration.size != 4:
-                raise ValueError("Invalid native hook input or instruction size")
-            target = declaration.address
-            if declaration.kind == Kind.THUMB_CALL:
-                target &= ~1
-            if not start <= target < start + len(code):
-                raise ValueError("Native hook target outside linked image")
-            encode = thumb_bl if declaration.kind == Kind.THUMB_CALL else arm_b
+        elif declaration.kind == Kind.FFS_CHECKSUM:
+            register_checksum(recipe, declaration, name, patch_input)
+        elif declaration.kind in (Kind.THUMB_CALL, Kind.ARM_JUMP):
             writes.append(
-                (declaration.offset, encode(patch_base + declaration.offset, target))
+                resolve_hook(
+                    declaration, name, start, len(code), patch_input, patch_base
+                )
             )
-            continue
-
-        if offset < 0 or offset + declaration.size > len(code):
-            raise ValueError(f"Native slot outside linked image: {name}")
-        if declaration.kind == Kind.MODULE:
-            if declaration.size != recipe.inputs[name]["bytes"]:
-                raise ValueError(f"Native module size differs from target: {name}")
-            recipe.relocate(name, declaration.address, declaration.offset)
         else:
-            if any(code[offset : offset + declaration.size]):
-                raise ValueError(f"Native copy would overwrite compiled code: {name}")
-            replacements.append(
-                (offset, Input(name, declaration.offset, declaration.size))
-            )
-
-    return replacements, writes
+            offset = declaration.address - start
+            if offset < 0 or offset + declaration.size > len(code):
+                raise ValueError(f"Native slot outside linked image: {name}")
+            if declaration.kind == Kind.MODULE:
+                register_module(recipe, declaration, name)
+            else:
+                copies.append(resolve_copy(code, declaration, name, offset))
+    return copies, writes
