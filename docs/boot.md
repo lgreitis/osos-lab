@@ -49,6 +49,7 @@ bootloader builds share the file-loading and memory interface.
 The payload occupies 1 MiB at `0x08b33000`. The OSOS patch moves the heap start
 to `0x08c33000`, and the companion copies the appended payload into that reservation.
 
-Source: [bootloader patch](../patches/rockbox/0001-cfw-file-boot.patch),
-[Apple companion](../loader/apple/), [OSOS patcher](../patches/osos/patch_osos_payload.py),
-[payload](../payload/).
+Native driver initialization matters: Rockbox disk reads do not establish
+that Apple's ATA and OSOS state are initialized. The companion resumes DXE
+dispatch, then intercepts the transition to Bds selection. See [NOR drivers](nor.md)
+and [OSOS relocation](osos.md).

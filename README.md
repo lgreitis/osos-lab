@@ -19,7 +19,8 @@ reverse engineering, and tools used to build and package it.
 
 Boot selection: **no buttons → RepriseOS**, **Menu → Apple OS**,
 **Play/Pause → Rockbox**. RepriseOS loads `/osos-cfw.bin` and `/cfw-loader.bin`.
-See [boot sequence](docs/boot.md) and [host tools](host/README.md).
+See [firmware references](docs/README.md), [boot sequence](docs/boot.md)
+and [host tools](host/README.md).
 
 ## Features
 
