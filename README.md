@@ -25,7 +25,7 @@ and [host tools](host/README.md).
 ## Features
 
 - Three-band custom EQ with adjustable filter types, frequency, gain, Q and precut.
-- Play next from song context menus.
+- Play Next and Play Last from song context menus.
 - EU volume limit removal for European iPods.
 - An experimental [Doom port](doom/README.md).
 

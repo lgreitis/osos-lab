@@ -117,8 +117,23 @@ struct osos_media_entry {
     struct osos_media_entry *parent, *next, *previous;
     uint32_t id, reserved[2];
     uint8_t flags[4];
-    uint32_t contents[3];
+    union {
+        struct {
+            struct osos_media_record *record;
+            uint32_t shuffle_rank;
+            struct osos_media_entry *next_record_entry;
+        } song;
+        struct {
+            struct osos_media_entry *first, *last;
+            uint32_t name;
+        } group;
+    };
     uint16_t groups, tracks;
+};
+
+struct osos_media_order {
+    uint32_t reserved, capacity, bytes, count;
+    struct osos_media_entry *entries[];
 };
 
 struct osos_media_list {
@@ -132,6 +147,8 @@ struct osos_media_list {
     uint16_t repeat;
     uint8_t reserved_186[6];
     uint8_t flags, order_flags;
+    uint8_t reserved_18e[0x226];
+    struct osos_media_order *shuffle_index;
 };
 
 struct osos_media_record {
@@ -165,7 +182,12 @@ struct osos_player {
 struct osos_context_menu;
 
 _Static_assert(offsetof(struct osos_media_entry, tracks) == 0x2e, "Entry layout");
+_Static_assert(offsetof(struct osos_media_entry, song.shuffle_rank) == 0x24,
+               "Shuffle rank layout");
 _Static_assert(offsetof(struct osos_media_list, flags) == 0x18c, "List layout");
+_Static_assert(offsetof(struct osos_media_list, shuffle_index) == 0x3b4,
+               "Shuffle index layout");
+_Static_assert(offsetof(struct osos_media_order, entries) == 0x10, "Order layout");
 _Static_assert(offsetof(struct osos_player, playback) == 0x60, "Player layout");
 _Static_assert(offsetof(struct osos_player, playback_source) == 0x948,
                "Playback source layout");
@@ -250,6 +272,13 @@ static inline void osos_database_begin_update(void *database)
 {
     typedef void (*fn)(void *);
     ((fn)0x08051348)(database);
+}
+
+static inline void osos_media_list_invalidate_order(struct osos_media_list *list,
+                                                    unsigned order)
+{
+    typedef void (*fn)(struct osos_media_list *, unsigned);
+    ((fn)0x080d187c)(list, order);
 }
 
 static inline void osos_database_end_update(void *database)
