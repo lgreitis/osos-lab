@@ -1,5 +1,5 @@
 {
-  "ghidra_version": "12.1.3",
+  "ghidra_version": "12.1.4",
   "programs": [
     {
       "path": "2.0.4/NOR-analysis/Thumb/Aes-c0287dba-8a73-4ff1-98f1-455b97d4d480.pe32",
