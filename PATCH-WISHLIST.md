@@ -5,11 +5,10 @@
 Investigate whether the EQ can support five custom bands instead of the current
 three.
 
-## Play next with shuffle
+## Clicker output options
 
-Support Play next while shuffle is enabled, keeping the selected track next
-and preserving the remaining shuffled order. Play next in normal playback
-is already implemented.
+Add Off, Speaker, Headphones, and Both options for the click wheel sound, matching
+the iPod nano's Clicker settings.
 
 ## FairPlay DRM
 
