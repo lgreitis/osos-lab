@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::{
-    asset_filename, authenticate, check_asset, invalid, sha256, valid_hash, write_new, Result,
-    TrustedKey, VerifiedBundle, MANIFEST_FILE, MAX_MANIFEST_BYTES, SIGNATURE_FILE,
+    asset_filename, authenticate, check_asset, invalid, sha256, valid_hash, valid_target_name,
+    write_new, Result, TrustedKey, VerifiedBundle, MANIFEST_FILE, MAX_MANIFEST_BYTES,
+    SIGNATURE_FILE,
 };
 use reqwest::{blocking::Client, redirect::Policy, Url};
 use std::{
@@ -56,16 +57,21 @@ pub fn fetch(
 
 fn manifest_url_checked(value: &str) -> Result<Url> {
     let url = Url::parse(value).map_err(|_| invalid("Invalid bundle URL"))?;
+    let name = url.path().rsplit('/').next().unwrap_or_default();
+    let manifest_name = name == MANIFEST_FILE
+        || name
+            .strip_suffix("-manifest.json")
+            .is_some_and(valid_target_name);
     if url.scheme() != "https"
         || url.host_str().is_none()
         || !url.username().is_empty()
         || url.password().is_some()
         || url.query().is_some()
         || url.fragment().is_some()
-        || !url.path().ends_with("/manifest.json")
+        || !manifest_name
     {
         return Err(invalid(
-            "Bundle URL must be an HTTPS manifest.json URL without credentials, query or fragment",
+            "Bundle URL must be an HTTPS manifest.json or TARGET-manifest.json URL without credentials, query or fragment",
         ));
     }
     Ok(url)
@@ -79,6 +85,19 @@ fn fetch_with(
     installer_version: &str,
     mut get: impl FnMut(&Url, usize) -> Result<Vec<u8>>,
 ) -> Result<(PathBuf, VerifiedBundle)> {
+    let name = url.path().rsplit('/').next().unwrap_or_default();
+    let check_target = |manifest: &crate::Manifest| {
+        if name
+            .strip_suffix("-manifest.json")
+            .is_some_and(|target| target != manifest.compatibility.target)
+        {
+            Err(invalid(
+                "Manifest URL target differs from signed compatibility",
+            ))
+        } else {
+            Ok(())
+        }
+    };
     if expected_digest.is_some_and(|h| !valid_hash(h)) {
         return Err(invalid("Invalid pinned manifest SHA-256"));
     }
@@ -89,6 +108,7 @@ fn fetch_with(
             if bundle.digest() != hash {
                 return Err(invalid("Cached manifest digest mismatch"));
             }
+            check_target(bundle.manifest())?;
             return Ok((directory, bundle));
         }
     }
@@ -101,8 +121,9 @@ fn fetch_with(
         url.join(name)
             .map_err(|_| invalid("Invalid release asset URL"))
     };
-    let signature = get(&sibling(SIGNATURE_FILE)?, 64)?;
+    let signature = get(&sibling(&format!("{name}.sig"))?, 64)?;
     let manifest = authenticate(&raw, &signature, key, installer_version)?;
+    check_target(&manifest)?;
     let directory = cache.join(&digest);
     if directory.try_exists()? {
         let bundle = VerifiedBundle::load(&directory, key, installer_version)?;
@@ -156,6 +177,8 @@ mod tests {
             "https://example.org/manifest.json?key=1",
             "https://example.org/manifest.json#x",
             "https://example.org/other.json",
+            "https://example.org/-manifest.json",
+            "https://example.org/bad%20target-manifest.json",
             "file:///manifest.json",
         ] {
             assert!(manifest_url_checked(url).is_err(), "{url}");
@@ -164,6 +187,58 @@ mod tests {
             "https://github.com/owner/repo/releases/download/v1/manifest.json"
         )
         .is_ok());
+    }
+
+    #[test]
+    fn named_manifest_uses_its_own_signature_and_checks_target() {
+        let fixture = Fixture::new();
+        for target in ["classic7g-2.0.4", "classic6g-reva-2.0.1"] {
+            let name = format!("{target}-manifest.json");
+            let url = manifest_url_checked(&format!("https://example.org/v1/{name}")).unwrap();
+            let cache = tempfile::tempdir().unwrap();
+            let mut requested = Vec::new();
+            let result = fetch_with(
+                &url,
+                None,
+                &fixture.key,
+                cache.path(),
+                "0.1.0",
+                |url, limit| {
+                    let file = url.path_segments().unwrap().next_back().unwrap();
+                    requested.push(file.to_owned());
+                    let local = if file == name {
+                        MANIFEST_FILE
+                    } else if file == format!("{name}.sig") {
+                        SIGNATURE_FILE
+                    } else {
+                        file
+                    };
+                    read_file(&fixture.dir.path().join(local), limit)
+                },
+            );
+            assert_eq!(&requested[..2], &[name.clone(), format!("{name}.sig")]);
+            if target == "classic7g-2.0.4" {
+                let (path, bundle) = result.unwrap();
+                VerifiedBundle::load(&path, &fixture.key, "0.1.0").unwrap();
+                let wrong_url = manifest_url_checked(
+                    "https://example.org/v1/classic6g-reva-2.0.1-manifest.json",
+                )
+                .unwrap();
+                assert!(fetch_with(
+                    &wrong_url,
+                    Some(bundle.digest()),
+                    &fixture.key,
+                    cache.path(),
+                    "0.1.0",
+                    |_, _| panic!("cache should be offline"),
+                )
+                .is_err());
+            } else {
+                assert!(result.is_err());
+                assert_eq!(requested.len(), 2);
+                assert_eq!(fs::read_dir(cache.path()).unwrap().count(), 0);
+            }
+        }
     }
 
     #[test]

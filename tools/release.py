@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Build a complete recipe bundle without Apple firmware inputs."""
+"""Build target-specific release bundles without Apple firmware inputs."""
 
 import argparse
 import json
@@ -15,11 +15,12 @@ import bundle
 import export_bundle
 import setup
 import target_profiles
-from version import identity
+from version import identity, valid_version
 
 import build
 
 ROOT = build.ROOT
+RELEASE_TARGETS = ("classic6g-reva-2.0.1", "classic7g-2.0.4")
 
 
 def run(*args):
@@ -62,6 +63,56 @@ def publish(output, destination):
             raise
 
 
+def build_target(config, output, rockbox, info, minimum):
+    output.mkdir()
+    build.build_osos(config, output, None, recipe_only=True, info=info)
+    build.build_apple(config, output, None, recipe_only=True)
+    build.build_rockbox(config, output, rockbox)
+    helper = config.work / "helper"
+    run(
+        sys.executable,
+        ROOT / "usb-helper/build.py",
+        "--rockbox",
+        rockbox,
+        "--toolchain",
+        Path(config.prefix).parent,
+        "--out",
+        helper,
+        "--jobs",
+        config.jobs,
+    )
+    (output / "helper").mkdir()
+    for name in ("upload.dfu", "manifest.json"):
+        shutil.copyfile(helper / name, output / "helper" / name)
+    export_bundle.export(
+        output,
+        output / "helper",
+        info["version"],
+        minimum,
+        output / "package",
+        config.target["target"],
+    )
+    bundle.pack(output / "package", output / "repriseos.zip")
+
+
+def archive_sources(output, tag, rockbox, dependencies):
+    for repo, revision, name in (
+        (ROOT, tag, "osos-lab"),
+        (rockbox, dependencies["rockbox"]["commit"], "rockbox"),
+    ):
+        run(
+            "git",
+            "-C",
+            repo,
+            "archive",
+            "--format=tar.gz",
+            f"--prefix={name}/",
+            "--output",
+            output / f"{name}-source.tar.gz",
+            revision,
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", help="Require a clean vSemVer tag at HEAD")
@@ -69,13 +120,26 @@ def main():
         "--cross-prefix", default=os.environ.get("CROSS_COMPILE", "arm-elf-eabi-")
     )
     parser.add_argument("--jobs", type=int, choices=range(1, 9), default=8)
-    parser.add_argument("--firmware-target", default=target_profiles.DEFAULT_TARGET)
-    parser.add_argument("--out", type=Path, default=ROOT / "build")
+    parser.add_argument(
+        "--firmware-target",
+        choices=RELEASE_TARGETS,
+        help="Build only this target; the default builds all release targets",
+    )
+    parser.add_argument("--minimum-installer-version", default="0.1.0")
+    parser.add_argument("--out", type=Path, default=ROOT / "build/releases")
     args = parser.parse_args()
+    if not valid_version(args.minimum_installer_version):
+        parser.error("Minimum installer version must be SemVer")
     info = identity(ROOT, args.tag)
-    target = target_profiles.load(args.firmware_target)
-    target_path = target_profiles.DIRECTORY / f"{target['target']}.json"
-    prefix = build.compiler_prefix(args.cross_prefix, target["toolchain"]["gcc"])
+    targets = [
+        target_profiles.load(name)
+        for name in (
+            (args.firmware_target,) if args.firmware_target else RELEASE_TARGETS
+        )
+    ]
+    prefixes = [
+        build.compiler_prefix(args.cross_prefix, t["toolchain"]["gcc"]) for t in targets
+    ]
     dependencies = json.loads((ROOT / "dependencies.lock").read_text())
     rockbox = setup.verify("rockbox", dependencies["rockbox"])
     work = ROOT / ".build"
@@ -84,54 +148,25 @@ def main():
         staging = Path(temporary)
         output = staging / "output"
         output.mkdir()
-        config = build.BuildConfig(target_path, staging / "work", prefix, args.jobs)
-        build.build_osos(config, output, None, recipe_only=True, info=info)
-        build.build_apple(config, output, None, recipe_only=True)
-        build.build_rockbox(config, output, rockbox)
-        helper = staging / "helper"
-        run(
-            sys.executable,
-            ROOT / "usb-helper/build.py",
-            "--rockbox",
-            rockbox,
-            "--toolchain",
-            Path(prefix).parent,
-            "--out",
-            helper,
-            "--jobs",
-            args.jobs,
-        )
-        (output / "helper").mkdir()
-        for name in ("upload.dfu", "manifest.json"):
-            shutil.copyfile(helper / name, output / "helper" / name)
-        export_bundle.export(
-            output,
-            output / "helper",
-            info["version"],
-            "0.1.0",
-            output / "package",
-            args.firmware_target,
-        )
-        bundle.pack(output / "package", output / "repriseos.zip")
+        for target, prefix in zip(targets, prefixes, strict=True):
+            name = target["target"]
+            config = build.BuildConfig(
+                target_profiles.DIRECTORY / f"{name}.json",
+                staging / name,
+                prefix,
+                args.jobs,
+            )
+            build_target(
+                config, output / name, rockbox, info, args.minimum_installer_version
+            )
         if args.tag:
-            for repo, revision, name in (
-                (ROOT, args.tag, "osos-lab"),
-                (rockbox, dependencies["rockbox"]["commit"], "rockbox"),
-            ):
-                run(
-                    "git",
-                    "-C",
-                    repo,
-                    "archive",
-                    "--format=tar.gz",
-                    f"--prefix={name}/",
-                    "--output",
-                    output / f"{name}-source.tar.gz",
-                    revision,
-                )
+            archive_sources(output, args.tag, rockbox, dependencies)
         destination = args.out.absolute()
         publish(output, destination)
-    print(f"Built {info['version']}: {destination / 'repriseos.zip'}")
+    for target in targets:
+        print(
+            f"Built {info['version']}: {destination / target['target'] / 'repriseos.zip'}"
+        )
 
 
 if __name__ == "__main__":

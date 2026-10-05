@@ -68,7 +68,7 @@ jobs:
           python -m unittest discover -s tools/tests
           python -m unittest discover -s usb-helper/tests -p '*test.py'
           cargo test --locked --manifest-path host/Cargo.toml -j 8
-      - name: Build complete bundle
+      - name: Build all target bundles
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
@@ -80,12 +80,12 @@ jobs:
           python tools/release.py "${release_args[@]}"
           if [[ "$REF_TYPE" == tag ]]; then
             cargo build --locked --release --manifest-path host/Cargo.toml -j 8 -p reprise-cli
-            cp host/target/release/reprise build/reprise
+            cp host/target/release/reprise build/releases/reprise
           fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: firmware
-          path: build/
+          path: build/releases/
           if-no-files-found: error
 
   draft-release:
@@ -103,11 +103,12 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: firmware
-          path: build
+          path: build/releases
       - name: Sign and verify
         env:
           SIGNING_SEED: ${{ secrets.REPRISE_BUNDLE_SIGNING_SEED }}
           PUBLIC_KEY: ${{ vars.REPRISE_BUNDLE_PUBLIC_KEY }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           test -n "$SIGNING_SEED"
           test -n "$PUBLIC_KEY"
@@ -118,22 +119,18 @@ jobs:
           printf '%s' "$SIGNING_SEED" > "$seed_file"
           printf '%s' "$PUBLIC_KEY" > "$key_file"
           unset SIGNING_SEED
-          chmod +x build/reprise
-          build/reprise bundle sign --directory build/package --seed "$seed_file"
-          build/reprise bundle inspect --directory build/package --key "$key_file"
-          rm build/repriseos.zip
-          python3 tools/bundle.py --pack build/package --out build/repriseos.zip
+          chmod +x build/releases/reprise
+          python3 tools/release_assets.py --directory build/releases --out build/release-assets \
+            --reprise build/releases/reprise --seed "$seed_file" --key "$key_file" \
+            --version "${RELEASE_TAG#v}"
       - name: Create draft
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          cp COPYING build/package/COPYING
-          cp build/repriseos.zip build/*-source.tar.gz build/package/
-          (cd build/package && sha256sum manifest.json manifest.json.sig *.blob repriseos.zip *-source.tar.gz COPYING > SHA256SUMS)
           release_args=()
           if [[ "$RELEASE_TAG" == *-* ]]; then
             release_args+=(--prerelease)
           fi
-          gh release create "$RELEASE_TAG" build/package/* --verify-tag --draft \
+          gh release create "$RELEASE_TAG" build/release-assets/* --verify-tag --draft \
             --title "RepriseOS $RELEASE_TAG" --generate-notes "${release_args[@]}"
