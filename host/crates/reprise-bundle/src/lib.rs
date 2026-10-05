@@ -88,8 +88,15 @@ impl Manifest {
             .map_err(|_| invalid("Invalid minimum installer version"))?;
         let installer =
             Version::parse(installer_version).map_err(|_| invalid("Invalid installer version"))?;
-        if self.schema != 1 || installer < minimum {
-            return Err(invalid("Unsupported bundle schema or installer version"));
+        if installer < minimum {
+            return Err(invalid(format!(
+                "This firmware release requires installer {minimum} or newer. Update RepriseOS Installer, then try again."
+            )));
+        }
+        if self.schema != 1 {
+            return Err(invalid(
+                "This firmware package uses an unsupported format. Update RepriseOS Installer, then try again.",
+            ));
         }
         let c = &self.compatibility;
         if !valid_target_name(&c.target)

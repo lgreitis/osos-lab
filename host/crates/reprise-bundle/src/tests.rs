@@ -112,9 +112,30 @@ fn manifest_contract_rejects_incomplete_releases_paths_unknown_formats_and_limit
     let mut bad = original.clone();
     bad.compatibility.models = vec!["MC293".into(), "MC293".into()];
     assert!(bad.validate("0.1.0").is_err());
-    let mut bad = original;
-    bad.minimum_installer_version = "0.2.0".into();
-    assert!(bad.validate("0.1.0").is_err());
+}
+
+#[test]
+fn future_packages_explain_installer_requirements() {
+    let f = Fixture::new();
+    let mut manifest = f.load().unwrap().manifest().clone();
+    manifest.minimum_installer_version = "0.2.0".into();
+    let expected = "This firmware release requires installer 0.2.0 or newer. Update RepriseOS Installer, then try again.";
+    assert_eq!(
+        manifest.validate("0.1.2").unwrap_err().to_string(),
+        expected
+    );
+    assert!(manifest.validate("0.2.0").is_ok());
+    assert!(manifest.validate("0.2.1").is_ok());
+
+    manifest.schema = 2;
+    assert_eq!(
+        manifest.validate("0.1.2").unwrap_err().to_string(),
+        expected
+    );
+    assert_eq!(
+        manifest.validate("0.2.0").unwrap_err().to_string(),
+        "This firmware package uses an unsupported format. Update RepriseOS Installer, then try again."
+    );
 }
 
 #[test]
