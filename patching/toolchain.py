@@ -78,7 +78,18 @@ def compile_payload(
     if linker_path.suffix == ".S":
         linker_path = directory / (output + ".lds")
         linker_path.write_text(
-            run([prefix + "gcc", "-E", "-P", "-x", "c", source / linker], directory)
+            run(
+                [
+                    prefix + "gcc",
+                    "-E",
+                    "-P",
+                    "-x",
+                    "c",
+                    *[flag for path in includes for flag in ("-I", path)],
+                    source / linker,
+                ],
+                directory,
+            )
         )
     link = [
         prefix + "gcc",

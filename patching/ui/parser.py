@@ -204,7 +204,7 @@ class Parser:
         if not node.attrib["event"] or not node.attrib["handler"]:
             raise ValueError("Screen events require an event and handler")
         return ScreenEvent(
-            integer(node, "screen", minimum=0, maximum=0xFFFFFFFF),
+            resource_reference(node.attrib["screen"]),
             node.attrib["event"],
             node.attrib["handler"],
         )
@@ -215,8 +215,18 @@ class Parser:
         entry, document = self.entry, self.document
         if document.root is None or entry.attrib["menu"] != document.root.name:
             raise ValueError("Invalid Settings menu entry")
-        document.after = integer(entry, "after", minimum=0, maximum=0xFFFFFFFF)
+        document.after = resource_reference(entry.attrib["after"])
         document.open_action = entry.get("open", "")
+
+
+def resource_reference(value):
+    if value.startswith("0x") or value.isdecimal():
+        number = int(value, 16 if value.startswith("0x") else 10)
+        if 0 <= number <= 0xFFFFFFFF:
+            return number
+    elif re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+        return value
+    raise ValueError(f"Invalid native resource reference: {value}")
 
 
 def parse(data):

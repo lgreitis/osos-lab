@@ -16,7 +16,13 @@ def page_text(source, page, revision, version):
 
 def generate(resources, sources, directory, revision, version="0.0.0-dev"):
     directory.mkdir(parents=True, exist_ok=True)
-    lines = ['#include "resources.h"', '#include "ui.h"', '#include "patch.h"', ""]
+    lines = [
+        '#include "resources.h"',
+        '#include "ui.h"',
+        '#include "patch.h"',
+        '#include "osos.h"',
+        "",
+    ]
     for source in sources:
         document = read(source)
         text = ""

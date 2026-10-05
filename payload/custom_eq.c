@@ -5,12 +5,6 @@
 #include "cfw.h"
 #include "patch.h"
 
-PATCH_CALL(0x080587EC, 0x0809C5E8, cfw_preferences_hook);
-PATCH_POINTER(0x0899BF4C, 0x0821C690, cfw_settings_action);
-PATCH_POINTER(0x0899FE64, 0x0821C690, cfw_settings_action);
-PATCH_JUMP(0x080B27F4, 0xE2400064, 0xE3500015, cfw_eq_map_hook);
-PATCH_CALL_WORD(0x081732B4, 0xE350006B, cfw_eq_track_guard);
-
 /* Native preset index 23 / saved ID 122. Reuse Flat's preview. */
 const struct {
     uint32_t name, preview;
@@ -19,21 +13,10 @@ const struct {
 };
 
 const uint32_t cfw_eq_preset_ids[24] = {[23] = 122};
-PATCH_COPY(cfw_eq_presets, 0, 0x089CC500, 23 * 8);
-PATCH_COPY(cfw_eq_presets, 23 * 8 + 4, 0x089CC500 + 8 * 8 + 4, 4);
-PATCH_COPY(cfw_eq_preset_ids, 0, 0x083E2568, 23 * 4);
-PATCH_POINTER(0x0807BF14, 0x083E2568, cfw_eq_preset_ids);
-PATCH_POINTER(0x080BB408, 0x083E2568, cfw_eq_preset_ids);
-PATCH_POINTER(0x081E01A0, 0x089CC500, cfw_eq_presets);
-PATCH_POINTER(0x081E01E8, 0x089CC500, cfw_eq_presets);
-PATCH_POINTER(0x08293CF4, 0x089CC500, cfw_eq_presets);
 
-/* Preset provider counts and lookup bounds: 23 -> 24 entries. */
-PATCH_WORD(0x080BB3F4, 0xE3520017, 0xE3520018);
-PATCH_WORD(0x081E016C, 0xE3510017, 0xE3510018);
-PATCH_WORD(0x081E01B8, 0xE3510017, 0xE3510018);
-PATCH_WORD(0x081E0CC0, 0xE3A00017, 0xE3A00018);
-PATCH_WORD(0x08293B38, 0xE3550017, 0xE3550018);
+PATCH_COPY(cfw_eq_presets, 0, OSOS_EQ_PRESETS, 23 * 8);
+PATCH_COPY(cfw_eq_presets, 23 * 8 + 4, OSOS_EQ_PRESETS + 8 * 8 + 4, 4);
+PATCH_COPY(cfw_eq_preset_ids, 0, OSOS_EQ_PRESET_IDS, 23 * 4);
 
 static uint32_t settings[CFW_EQ_FIELDS];
 static int initialized;

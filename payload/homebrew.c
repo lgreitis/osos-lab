@@ -3,8 +3,6 @@
 #include "osos.h"
 #include "patch.h"
 
-PATCH_CALL(0x080F9360, 0x0825CCAC, cfw_game_manifest_reader);
-
 static int is_homebrew_manifest(const char *path)
 {
     static const char root[] = "iPod_Control/games_RO/";

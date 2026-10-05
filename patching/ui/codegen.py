@@ -98,10 +98,8 @@ def emit_resources(resources):
             )
         lines.append("};")
         for destination, offset, size in data.copies():
-            address = offset + 0x08000000 - 0xB6D8
-            lines.append(
-                f"PATCH_COPY(resource_{i}, {destination}, {address:#x}, {size});"
-            )
+            address = f"({offset:#x} + OSOS_RUNTIME_BASE - OSOS_LOAD_OFFSET)"
+            lines.append(f"PATCH_COPY(resource_{i}, {destination}, {address}, {size});")
         resource_type = int.from_bytes(kind.encode("ascii"), "big")
         entries.append(
             f"    {{{resource_type:#x}, {resource_id:#x}, sizeof(resource_{i}), resource_{i}}},"

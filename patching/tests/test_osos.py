@@ -15,10 +15,12 @@ def word(kind, address, expected, symbol="", value=0):
 
 class OsosTests(unittest.TestCase):
     def setUp(self):
-        self.original = bytearray(osos.LOAD_OFFSET + 256)
-        self.original[osos.LOAD_OFFSET : osos.LOAD_OFFSET + 8] = b"native!!"
+        self.load_offset = 0xB6D8
+        self.original = bytearray(self.load_offset + 256)
+        self.original[self.load_offset : self.load_offset + 8] = b"native!!"
         self.code = bytes(128)
         self.symbols = {
+            "__osos_load_offset": self.load_offset,
             "__payload_start": 0x08B33000,
             "__payload_end": 0x08B33080,
             "__payload_limit": 0x08B33100,
@@ -58,12 +60,12 @@ class OsosTests(unittest.TestCase):
         recipe = self.build(patches)
         image = self.replay(recipe)
         self.assertEqual(
-            image[osos.LOAD_OFFSET : osos.LOAD_OFFSET + 16].hex(),
+            image[self.load_offset : self.load_offset + 16].hex(),
             "2030b308fdcb2ceb04f01fe50030b308",
         )
         self.assertEqual(
             recipe.checks[0],
-            {"name": "osos", "offset": osos.LOAD_OFFSET, "hex": "78563412"},
+            {"name": "osos", "offset": self.load_offset, "hex": "78563412"},
         )
         for offset in (0xC, 0x10, 0x14):
             self.assertEqual(
@@ -78,6 +80,25 @@ class OsosTests(unittest.TestCase):
             image[len(self.original) + 32 : len(self.original) + 44], b"native!!CFW!"
         )
         self.assertNotIn(b"native!!", recipe.data)
+
+    def test_selected_image_mapping_controls_writes_and_copies(self):
+        self.symbols["__osos_load_offset"] = 0xB65C
+        self.original[0xB65C:0xB660] = b"201!"
+        recipe = self.build(
+            [
+                word(Kind.WORD, osos.BASE + 4, 0, value=42),
+                Copy("table", 0, 4, osos.BASE, 4),
+            ]
+        )
+        image = self.replay(recipe)
+        self.assertEqual(recipe.checks[0]["offset"], 0xB660)
+        self.assertEqual(image[0xB660:0xB664], struct.pack("<I", 42))
+        self.assertEqual(
+            image[len(self.original) + 32 : len(self.original) + 36], b"201!"
+        )
+        del self.symbols["__osos_load_offset"]
+        with self.assertRaisesRegex(ValueError, "Missing linked patch symbol"):
+            self.build([])
 
     def test_rejects_overlap_and_invalid_write_ranges(self):
         valid = word(Kind.WORD, osos.BASE, 0, value=42)

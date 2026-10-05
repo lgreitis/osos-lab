@@ -3,7 +3,7 @@
 #include "layout.h"
 #include "compat/nor/bds.h"
 #include "compat/nor/dxe.h"
-#include <osos-handoff.h>
+#include "compat/osos/handoff.h"
 
 #define HEADER ((unsigned char *)0x22036000u)
 #define SYSINFO ((unsigned char *)0x22034000u)

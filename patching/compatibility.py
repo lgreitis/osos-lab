@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Select firmware bindings once, before compiling the shared companion."""
+"""Select native firmware bindings before compiling payloads and companions."""
 
 import json
 from dataclasses import dataclass
@@ -34,5 +34,10 @@ def companion_shims(source, target_path):
     target = json.loads(target_path.read_text())
     selection = target["shims"]
     nor = shim_directory(source, "nor", selection["nor"], "nor-target.h")
-    osos = shim_directory(source, "osos", selection["osos"], "osos-handoff.h")
+    osos = payload_shim(source.parents[1] / "payload", target_path)
     return CompanionShims(nor, osos)
+
+
+def payload_shim(source, target_path):
+    target = json.loads(target_path.read_text())
+    return shim_directory(source, "osos", target["shims"]["osos"], "osos-target.h")

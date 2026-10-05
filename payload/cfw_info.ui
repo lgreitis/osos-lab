@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <ui>
   <text id="CFW_Info" title="CFW Info" file="cfw_info.txt"/>
-  <settings-entry menu="CFW_Info" after="0x0DAD0C3F"/>
+  <settings-entry menu="CFW_Info" after="SettingsMenu_ListItem_Legal"/>
 </ui>

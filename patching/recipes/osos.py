@@ -6,13 +6,13 @@ import struct
 from dataclasses import dataclass
 
 from .. import declarations, ui
+from ..compatibility import payload_shim
 from ..declarations import Copy, Kind
 from ..symbols import require
 from ..toolchain import compile_payload
 from .segments import Input, Recipe
 
 BASE = 0x08000000
-LOAD_OFFSET = 0xB6D8
 IMAGE_HEADER_SIZE = 0x800
 IMAGE_SIZE_FIELDS = (0xC, 0x10, 0x14)
 
@@ -22,6 +22,7 @@ class PayloadLayout:
     start: int
     end: int
     limit: int
+    load_offset: int
 
     @property
     def reserved_size(self):
@@ -59,14 +60,17 @@ def build_recipe(
     source, directory, target_path, prefix, jobs, revision, version="0.0.0-dev"
 ):
     fingerprint, templates = load_target(target_path)
+    shim = payload_shim(source, target_path)
+    bindings = json.loads((shim / "ui.json").read_text())["bindings"]
     generated_ui = ui.generate(
-        ui.Resources(templates),
+        ui.Resources(templates, bindings),
         sorted(source.glob("*.ui")),
         directory,
         revision,
         version,
     )
     units = payload_units(source, generated_ui)
+    units.append((str(shim.parent / "patches.c"), []))
     code, symbols = compile_payload(
         directory,
         source,
@@ -75,6 +79,7 @@ def build_recipe(
         "payload",
         prefix,
         jobs,
+        includes=(shim,),
         thumb_symbols=True,
     )
     patches = declarations.collect(directory, units, prefix)
@@ -86,6 +91,7 @@ def payload_layout(code, symbols, original_size):
         require(symbols, "__payload_start"),
         require(symbols, "__payload_end"),
         require(symbols, "__payload_limit"),
+        require(symbols, "__osos_load_offset"),
     )
     if require(symbols, "__payload_file_offset") != original_size:
         raise ValueError("Payload file offset does not match OSOS")
@@ -107,7 +113,7 @@ def resolve_copy(patch, symbols, layout):
     if patch.source < BASE:
         raise ValueError("Copy source outside native firmware")
     destination = require(symbols, patch.symbol) - layout.start + patch.offset
-    source = Input("osos", patch.source - BASE + LOAD_OFFSET, patch.size)
+    source = Input("osos", patch.source - BASE + layout.load_offset, patch.size)
     return destination, source
 
 
@@ -127,8 +133,8 @@ def resolve_write(patch, symbols, layout):
     after = struct.pack("<I", value)
     if patch.kind == Kind.JUMP:
         after = struct.pack("<II", 0xE51FF004, value)
-    offset = address - BASE + LOAD_OFFSET
-    if offset < LOAD_OFFSET or len(patch.expected) != len(after):
+    offset = address - BASE + layout.load_offset
+    if offset < layout.load_offset or len(patch.expected) != len(after):
         raise ValueError(f"Invalid native patch at {address:#x}")
     return offset, after
 

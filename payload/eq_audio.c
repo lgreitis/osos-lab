@@ -5,11 +5,6 @@
 #include "osos.h"
 #include "patch.h"
 
-PATCH_CALL(0x08271D0C, 0x08271BF0, cfw_eq_load);
-PATCH_CALL(0x08271D40, 0x08271BF0, cfw_eq_load);
-PATCH_POINTER(0x089A61DC, 0x08271F2C, cfw_eq_process);
-PATCH_WORD(0x08271CF8, 0xE3510017, 0xE3510018);
-
 static int32_t published[2][3][5];
 static volatile uint32_t generation;
 static void *current_state;

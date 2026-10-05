@@ -72,6 +72,6 @@
     </menu>
     <action id="CFW_EQ_Save" title="Save settings" values="cfw_eq_save_status"/>
   </menu>
-  <settings-entry menu="CFW_EQ" after="0x0DAD0C39" open="CFW_EQ_Open"/>
+  <settings-entry menu="CFW_EQ" after="SettingsMenu_ListItem_EQ" open="CFW_EQ_Open"/>
   <string id="CFW_EQ_PRESET_NAME" text="Custom"/>
 </ui>

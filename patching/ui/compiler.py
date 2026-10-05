@@ -5,13 +5,6 @@ import struct
 
 from .model import ActionBinding, CompiledDocument, FieldBinding
 from .resources import (
-    LEGAL_ITEM,
-    LEGAL_LAYOUT,
-    LEGAL_PREVIEW,
-    LEGAL_PREVIEW_LAYOUT,
-    LEGAL_SCREEN,
-    LEGAL_TEMPLATE,
-    MAIN_SCREEN,
     Resource,
     blocks,
     event,
@@ -28,8 +21,8 @@ class DocumentCompiler:
         self.prototype = next(
             (
                 data
-                for _, data in blocks(resources.original["ITEM", 0x41])
-                if word(data, 0x30) == LEGAL_ITEM
+                for _, data in blocks(resources.stock("ITEM", "SettingsMenu_Items"))
+                if word(data, 0x30) == resources.native("SettingsMenu_ListItem_Legal")
             ),
             None,
         )
@@ -47,21 +40,36 @@ class DocumentCompiler:
         title_source = resources.source(root.title)
         views = self.paragraph_views(text)
         resources.add("View", template_id, pack_blocks(views))
-        resources.add("TMLT", template_id, resources.original["TMLT", LEGAL_TEMPLATE])
+        resources.add(
+            "TMLT",
+            template_id,
+            resources.stock("TMLT", "Settings_Legal_Template"),
+        )
 
         resources.clone_layout(
-            LEGAL_LAYOUT, layout_id, title_source, {LEGAL_TEMPLATE: template_id}
+            resources.native("Settings_Legal_Screen_Default"),
+            layout_id,
+            title_source,
+            {resources.native("Settings_Legal_Template"): template_id},
         )
-        resources.add("SCST", screen_id, resources.original["SCST", LEGAL_SCREEN])
-        resources.add("CEVT", screen_id, resources.original["CEVT", LEGAL_SCREEN])
-        layouts = blocks(resources.original["SLst", LEGAL_SCREEN])
+        resources.add(
+            "SCST",
+            screen_id,
+            resources.stock("SCST", "Settings_Legal_Screen"),
+        )
+        resources.add(
+            "CEVT",
+            screen_id,
+            resources.stock("CEVT", "Settings_Legal_Screen"),
+        )
+        layouts = blocks(resources.stock("SLst", "Settings_Legal_Screen"))
         put(layouts[0][1], 0, layout_id)
         resources.add("SLst", screen_id, pack_blocks(layouts))
 
     def paragraph_views(self, text):
         resources = self.resources
         # Each Legal paragraph sizes itself to its text and anchors below its predecessor.
-        legal_views = blocks(resources.original["View", LEGAL_TEMPLATE])
+        legal_views = blocks(resources.stock("View", "Settings_Legal_Template"))
         views = []
         previous = 0
         paragraphs = [
@@ -106,11 +114,18 @@ class DocumentCompiler:
         table = resources.allocate()
         resources.add("ITEM", table, pack_blocks(rows))
         resources.clone_layout(
-            0x0DAD09C4, layout, resources.source(title), item_table=table
+            resources.native("Notes_List_Screen_Alt_Default"),
+            layout,
+            resources.source(title),
+            item_table=table,
         )
-        resources.add("SCST", screen, resources.original["SCST", MAIN_SCREEN])
+        resources.add(
+            "SCST",
+            screen,
+            resources.stock("SCST", "SettingsMenus_Main_Screen"),
+        )
         resources.add("CEVT", screen, struct.pack("<I", len(events)) + b"".join(events))
-        layouts = blocks(resources.original["SLst", 0x0DAD09C3])
+        layouts = blocks(resources.stock("SLst", "Notes_List_Screen_Alt"))
         put(layouts[0][1], 0, layout)
         resources.add("SLst", screen, pack_blocks(layouts))
         resources.replace(
@@ -212,45 +227,65 @@ class DocumentCompiler:
 
     def insert_settings_row(self, item):
         document, resources = self.document, self.resources
-        items = blocks(resources.current("ITEM", 0x41))
+        items = blocks(
+            resources.current("ITEM", resources.native("SettingsMenu_Items"))
+        )
         anchor = next(
             (
                 i
                 for i, (_, data) in enumerate(items)
-                if word(data, 0x30) == document.after
+                if word(data, 0x30) == resources.native(document.after)
             ),
             None,
         )
         if anchor is None:
             raise ValueError(
-                f"Settings anchor {document.after:#x} missing for {document.root.name}"
+                f"Settings anchor {document.after} missing for {document.root.name}"
             )
         items.insert(anchor + 1, item)
-        resources.replace("ITEM", 0x41, pack_blocks(items))
+        resources.replace(
+            "ITEM", resources.native("SettingsMenu_Items"), pack_blocks(items)
+        )
 
     def add_settings_preview(self, title):
         document, resources = self.document, self.resources
         preview = resources.allocate(document.root.name + "_Preview")
         preview_view = resources.allocate()
-        data = Resource(resources.original["VLyt", LEGAL_PREVIEW_LAYOUT])
+        data = Resource(
+            resources.original[
+                "VLyt", resources.native("SettingsInfo_Template_Legal_Layout")
+            ]
+        )
         put(data, 0x24, title)
         resources.add("VLyt", preview_view, data)
         resources.add(
-            "TEVT", preview_view, resources.original["TEVT", LEGAL_PREVIEW_LAYOUT]
+            "TEVT",
+            preview_view,
+            resources.original[
+                "TEVT", resources.native("SettingsInfo_Template_Legal_Layout")
+            ],
         )
         resources.clone_layout(
-            LEGAL_PREVIEW, preview, substitutions={LEGAL_PREVIEW_LAYOUT: preview_view}
+            resources.native("SettingsMenus_Legal_Layout"),
+            preview,
+            substitutions={
+                resources.native("SettingsInfo_Template_Legal_Layout"): preview_view
+            },
         )
 
-        layouts = blocks(resources.current("SLst", MAIN_SCREEN))
+        layouts = blocks(
+            resources.current("SLst", resources.native("SettingsMenus_Main_Screen"))
+        )
         kind, data = next(
             (kind, Resource(data))
             for kind, data in layouts
-            if word(data, 0) == LEGAL_PREVIEW
+            if word(data, 0) == resources.native("SettingsMenus_Legal_Layout")
         )
         put(data, 0, preview)
         layouts.append((kind, data))
-        resources.replace("SLst", MAIN_SCREEN, pack_blocks(layouts))
+        resources.replace(
+            "SLst", resources.native("SettingsMenus_Main_Screen"), pack_blocks(layouts)
+        )
 
     def bind_settings_events(self, item_id):
         document = self.document
@@ -264,7 +299,9 @@ class DocumentCompiler:
                 [document.root.name + "_Preview"],
             ),
         ]
-        self.resources.extend_events("CEVT", MAIN_SCREEN, events)
+        self.resources.extend_events(
+            "CEVT", self.resources.native("SettingsMenus_Main_Screen"), events
+        )
 
     def finish_bindings(self):
         for item in self.document.actions:

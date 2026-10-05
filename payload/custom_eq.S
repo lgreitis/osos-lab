@@ -12,7 +12,7 @@
 .type cfw_preferences_hook,%function
 cfw_preferences_hook:
     push {r4, lr}
-    ldr r12, =0x0809c5e8
+    ldr r12, =OSOS_PREFERENCES_LOAD
     blx r12
     bl cfw_eq_load_preferences
     pop {r4, pc}

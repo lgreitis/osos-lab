@@ -5,13 +5,6 @@
 #include "patch.h"
 #include "play_next_ui.h"
 
-PATCH_CALL(0x0822E754, 0x08161BCC, cfw_song_menu_cancel);
-PATCH_CALL(0x08218188, 0x08161BCC, cfw_song_menu_cancel);
-PATCH_CALL(0x0821BE08, 0x08161BCC, cfw_song_menu_cancel);
-PATCH_JUMP(0x0822D1B8, 0xE92D41F0, 0xE1A07001, cfw_playlist_action);
-PATCH_JUMP(0x082176C0, 0xE92D41F0, 0xE1A07001, cfw_song_action);
-PATCH_JUMP(0x0821AC80, 0xE92D41F0, 0xE1A07001, cfw_genius_action);
-
 int cfw_song_action_original(void *controller, const char *action, uint32_t argument);
 int cfw_playlist_action_original(void *controller, const char *action,
                                  uint32_t argument);
@@ -48,44 +41,34 @@ static int selected_item(void *controller, enum song_source source,
     return osos_media_item_valid(selected);
 }
 
-static int is_music(struct osos_media_item *item)
-{
-    struct osos_media_entry *entry = osos_media_item_entry(item);
-    return entry && !(entry->flags[1] & 1) &&
-           !osos_media_item_has_record_flag_8f_01(item) &&
-           !osos_media_item_has_kind_200000(item) &&
-           !osos_media_item_has_kind_8(item) && !osos_media_item_has_kind_8062(item);
-}
-
 static struct osos_media_entry *insert_song(struct osos_player *player,
                                             struct osos_media_entry *entry,
-                                            struct osos_media_entry *current,
-                                            int last)
+                                            struct osos_media_entry *current, int last)
 {
     struct osos_media_list *list = player->playback.list;
-    unsigned count = list->root->tracks;
-    int reverse = (list->order_flags & 4) != 0;
+    unsigned count = osos_list_root(list)->tracks;
+    int reverse = osos_list_is_reversed(list);
     unsigned position = last ? count : (unsigned)player->current_index + 1;
     unsigned rank = reverse ? count - position : position;
-    struct osos_media_entry *after = last ? list->root->group.last : current;
+    struct osos_media_entry *after = last ? osos_list_root(list)->group.last : current;
     if (reverse)
         after = last ? NULL : current->previous;
-    struct osos_media_entry *cursor[] = {list->root, after};
+    struct osos_media_entry *cursor[] = {osos_list_root(list), after};
 
-    osos_database_begin_update(list->database);
-    if (list->flags & 1) {
+    osos_database_begin_update(osos_list_database(list));
+    if (osos_list_is_shuffled(list)) {
         /* The native mode-2 index sorts song ranks at +0x24. Leave one slot open. */
-        struct osos_media_order *order = list->shuffle_index;
+        struct osos_media_order *order = osos_list_shuffle_index(list);
         for (unsigned i = 0; i < count; i++)
             order->entries[i]->song.shuffle_rank = i + (i >= rank);
     }
     struct osos_media_entry *inserted = osos_media_entry_copy(entry, list, cursor, 0);
-    if (inserted && (list->flags & 1)) {
+    if (inserted && osos_list_is_shuffled(list)) {
         inserted->song.shuffle_rank = rank;
         /* Copy notifications can rebuild indexes before the final rank is assigned. */
         osos_media_list_invalidate_order(list, 2);
     }
-    osos_database_end_update(list->database);
+    osos_database_end_update(osos_list_database(list));
     return inserted;
 }
 
@@ -102,15 +85,16 @@ static struct osos_media_entry *current_entry(struct osos_player *player)
         return NULL;
 
     struct osos_media_list *list = player->playback.list;
-    if (list->root->groups || list->root->tracks == UINT16_MAX)
+    if (osos_list_root(list)->groups || osos_list_root(list)->tracks == UINT16_MAX)
         return NULL;
 
     struct osos_media_entry *current =
         osos_playback_entry(&player->playback, player->current_index);
-    if (!current || current->parent != list->root)
+    if (!current || current->parent != osos_list_root(list))
         return NULL;
-    if ((list->flags & 1) &&
-        (!list->shuffle_index || list->shuffle_index->count != list->root->tracks))
+    if (osos_list_is_shuffled(list) &&
+        (!osos_list_shuffle_index(list) ||
+         osos_list_shuffle_index(list)->count != osos_list_root(list)->tracks))
         return NULL;
     return current;
 }
@@ -136,7 +120,8 @@ static void add_song(void *controller, enum song_source source, int last)
     struct osos_media_entry *current = current_entry(player);
     if (current) {
         struct osos_media_item selected;
-        if (selected_item(controller, source, &selected) && is_music(&selected)) {
+        if (selected_item(controller, source, &selected) &&
+            osos_media_item_is_music(&selected)) {
             struct osos_media_entry *inserted =
                 insert_song(player, osos_media_item_entry(&selected), current, last);
             if (inserted)

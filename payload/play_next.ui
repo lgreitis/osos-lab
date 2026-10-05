@@ -3,12 +3,12 @@
   <string id="CFW_PLAY_NEXT" text="Play next"/>
   <string id="CFW_PLAY_LAST" text="Play last"/>
   <!-- Songs, nested playlists, Genius, and Genius playlist. -->
-  <screen-event screen="0x0DAD07B5" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
-  <screen-event screen="0x0DAD07D4" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
-  <screen-event screen="0x0DAD0810" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
-  <screen-event screen="0x0DAD0814" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
-  <screen-event screen="0x0DAD07B5" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
-  <screen-event screen="0x0DAD07D4" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
-  <screen-event screen="0x0DAD0810" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
-  <screen-event screen="0x0DAD0814" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
+  <screen-event screen="MediaLists_Songs_Screen" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
+  <screen-event screen="MediaLists_NestedPlaylists_Screen" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
+  <screen-event screen="MediaLists_Genius_Screen" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
+  <screen-event screen="MediaLists_GeniusPlaylist_Screen" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
+  <screen-event screen="MediaLists_Songs_Screen" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
+  <screen-event screen="MediaLists_NestedPlaylists_Screen" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
+  <screen-event screen="MediaLists_Genius_Screen" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
+  <screen-event screen="MediaLists_GeniusPlaylist_Screen" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
 </ui>

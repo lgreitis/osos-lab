@@ -65,7 +65,7 @@ def build_osos(
     info = info or identity(ROOT)
     recipe = build_recipe(
         ROOT / "payload",
-        WORK / "payload",
+        WORK / "payload" / target_path.stem,
         target_path,
         prefix,
         jobs,

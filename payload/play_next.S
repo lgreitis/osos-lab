@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
+#include "osos.h"
+
 .syntax unified
 .cpu arm926ej-s
 .arm
@@ -15,7 +17,7 @@
     ldr pc, =\resume
 .endm
 
-action_original cfw_song_action_original, 0x082176c8
-action_original cfw_playlist_action_original, 0x0822d1c0
-action_original cfw_genius_action_original, 0x0821ac88
+action_original cfw_song_action_original, OSOS_SONG_ACTION_RESUME
+action_original cfw_playlist_action_original, OSOS_PLAYLIST_ACTION_RESUME
+action_original cfw_genius_action_original, OSOS_GENIUS_ACTION_RESUME
 .ltorg

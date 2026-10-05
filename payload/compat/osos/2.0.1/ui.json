@@ -1,0 +1,27 @@
+{
+  "bank_offset": 4176632,
+  "bank_header": [
+    3,
+    94584,
+    27
+  ],
+  "bindings": {
+    "SettingsMenus_Main_Screen": 229444604,
+    "SettingsMenu_ListItem_Legal": 229444621,
+    "Settings_Legal_Screen": 229444671,
+    "Settings_Legal_Screen_Default": 229444672,
+    "SettingsMenus_Legal_Layout": 229444640,
+    "Settings_Legal_Template": 229441599,
+    "SettingsInfo_Template_Legal_Layout": 229444563,
+    "SettingsMenu_ListItem_EQ": 229444615,
+    "Notes_List_Screen_Alt_Default": 229443989,
+    "Notes_List_Screen_Alt": 229443988,
+    "StatusBarWhite_Template": 229441894,
+    "StatusBarWhite_Text": 229441899,
+    "MediaLists_Songs_Screen": 229443475,
+    "MediaLists_NestedPlaylists_Screen": 229443502,
+    "MediaLists_Genius_Screen": 229443553,
+    "MediaLists_GeniusPlaylist_Screen": 229443557,
+    "SettingsMenu_Items": 63
+  }
+}

@@ -104,16 +104,6 @@ class Resource:
             position = end
 
 
-BANK_OFFSET = 0x40B930
-MAIN_SCREEN = 0x0DAD0C2E
-LEGAL_ITEM = 0x0DAD0C3F
-LEGAL_SCREEN = 0x0DAD0C71
-LEGAL_LAYOUT = 0x0DAD0C72
-LEGAL_PREVIEW = 0x0DAD0C52
-LEGAL_TEMPLATE = 0x0DAD0041
-LEGAL_PREVIEW_LAYOUT = 0x0DAD0C05
-
-
 def word(data, offset):
     return (data if isinstance(data, Resource) else Resource(data)).word(offset)
 
@@ -164,7 +154,8 @@ def menu_event(item, event, handler, action, arguments):
 
 
 class Resources:
-    def __init__(self, templates):
+    def __init__(self, templates, bindings=None):
+        self.bindings = bindings or {}
         self.original = {
             (entry["kind"], entry["id"]): Resource.template(
                 Template(
@@ -178,6 +169,12 @@ class Resources:
         self.added = {}
         self.names = {}
         self.next_id = 0x0CF00000
+
+    def native(self, name):
+        return self.bindings[name] if isinstance(name, str) else name
+
+    def stock(self, kind, name):
+        return self.original[kind, self.native(name)]
 
     def allocate(self, name=None):
         resource_id = self.next_id
@@ -209,7 +206,7 @@ class Resources:
             + serialized_string(binding.handler)
             + struct.pack("<I", 0)
         )
-        for _, layout in blocks(self.original["SLst", binding.screen]):
+        for _, layout in blocks(self.original["SLst", self.native(binding.screen)]):
             self.extend_events("SEVT", word(layout, 0), [encoded])
 
     def source(self, text):
@@ -273,9 +270,13 @@ class Resources:
             self.add(kind, new_id, data)
 
     def rebind_view(self, data, instance, title_source, item_table):
-        if title_source is not None and word(instance, 4) == 0x0DAD016D:
+        if title_source is not None and word(instance, 4) == self.native(
+            "StatusBarWhite_Template"
+        ):
             bindings = blocks(data)
-            if len(bindings) != 1 or bindings[0][0] != 0x0DAD0172:
+            if len(bindings) != 1 or bindings[0][0] != self.native(
+                "StatusBarWhite_Text"
+            ):
                 raise ValueError("Unexpected Legal title binding")
             put(bindings[0][1], 12, title_source)
             data = pack_blocks(bindings)

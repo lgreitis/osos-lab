@@ -4,9 +4,6 @@
 #include "osos.h"
 #include "patch.h"
 
-PATCH_CALL(0x081C7410, OSOS_RESOURCE_BANK_INIT_OVERRIDES, cfw_resource_hook);
-PATCH_CALL(0x081AEDD8, 0x08111E0C, cfw_next_template);
-
 PATCH_ARM const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size)
 {
     uint32_t start = 0;

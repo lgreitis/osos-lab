@@ -12,12 +12,13 @@ from patching.ui.codegen import emit_header
 from patching.ui.compiler import DocumentCompiler
 from patching.ui.model import ScreenEvent
 from patching.ui.resources import (
-    LEGAL_ITEM,
-    MAIN_SCREEN,
     Resources,
     event,
     pack_blocks,
 )
+
+LEGAL_ITEM = 100
+MAIN_SCREEN = 101
 
 
 def selector(name, slot, default=0, values="choices"):
@@ -36,6 +37,21 @@ def menu(rows):
 
 
 class UiTests(unittest.TestCase):
+    def test_named_screen_uses_selected_binding_and_rejects_missing_names(self):
+        document = parser.parse(
+            '<ui><screen-event screen="Songs" event="select" handler="Select"/></ui>'
+        )
+        resources = Resources([], {"Songs": 10})
+        resources.original = {
+            ("SLst", 10): pack_blocks([(0, struct.pack("<I", 20))]),
+            ("SEVT", 20): struct.pack("<I", 0),
+        }
+        resources.bind_screen_event(document.events[0])
+        self.assertEqual(resources.added["SEVT", 20].word(0), 1)
+        resources.bindings.clear()
+        with self.assertRaises(KeyError):
+            resources.bind_screen_event(document.events[0])
+
     def test_screen_events_extend_each_layout_without_replacing_stock_events(self):
         document = parser.parse(
             '<ui><screen-event screen="10" event="contextualMenu.CFW_PlayNext" '
@@ -158,7 +174,16 @@ class UiTests(unittest.TestCase):
                 ]
             )
         )
-        resources = Resources.__new__(Resources)
+        resources = Resources(
+            [],
+            {
+                "SettingsMenu_ListItem_Legal": LEGAL_ITEM,
+                "SettingsMenu_Items": 0x41,
+                "SettingsMenus_Main_Screen": MAIN_SCREEN,
+                "Notes_List_Screen_Alt": 0x0DAD09C3,
+                "Notes_List_Screen_Alt_Default": 0x0DAD09C4,
+            },
+        )
         row = bytearray(0x98)
         struct.pack_into("<I", row, 0x30, LEGAL_ITEM)
         resources.original = {

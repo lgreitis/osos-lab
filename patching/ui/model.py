@@ -25,7 +25,7 @@ class Item:
 
 @dataclass
 class ScreenEvent:
-    screen: int
+    screen: str | int
     event: str
     handler: str
 
@@ -36,7 +36,7 @@ class Document:
     values: dict[str, Values]
     fields: list[Item]
     actions: list[Item]
-    after: int = 0
+    after: str | int = ""
     open_action: str = ""
     strings: dict[str, str] = field(default_factory=dict)
     events: list[ScreenEvent] = field(default_factory=list)

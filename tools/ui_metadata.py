@@ -13,21 +13,23 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import target_profiles
+
+from patching.compatibility import payload_shim
 from patching.ui import Resources, generate
-from patching.ui.resources import BANK_OFFSET, Resource, Template
+from patching.ui.resources import Resource, Template
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class Templates(Mapping):
-    def __init__(self, firmware):
+    def __init__(self, firmware, bank, expected_header):
         self.firmware = firmware
         self.index = {}
         self.used = {}
-        bank = BANK_OFFSET
         version, data_offset, count = struct.unpack_from("<III", firmware, bank)
-        if (version, data_offset, count) != (3, 0x176D0, 27):
-            raise ValueError("Unexpected FW2.0.4 resource bank")
+        if (version, data_offset, count) != tuple(expected_header):
+            raise ValueError("Resource bank does not match the selected OSOS shim")
         for i in range(count):
             kind, entries, _, table = struct.unpack_from(
                 "<IIII", firmware, bank + 12 + i * 16
@@ -63,9 +65,9 @@ class Templates(Mapping):
         return key in self.index
 
 
-def extract(firmware, sources):
-    resources = Resources([])
-    templates = Templates(firmware)
+def extract(firmware, sources, shim):
+    resources = Resources([], shim["bindings"])
+    templates = Templates(firmware, shim["bank_offset"], shim["bank_header"])
     resources.original = templates
     with tempfile.TemporaryDirectory(prefix="reprise-ui-metadata-") as directory:
         generate(resources, sources, Path(directory), "metadata")
@@ -84,14 +86,16 @@ def extract(firmware, sources):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=ROOT / "inputs/osos.bin")
-    parser.add_argument(
-        "--out", type=Path, default=ROOT / "targets/classic7g-2.0.4-ui.json"
-    )
+    parser.add_argument("--firmware-target", default=target_profiles.DEFAULT_TARGET)
+    parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     firmware = args.input.read_bytes()
-    fingerprint = json.loads((ROOT / "targets/classic7g-2.0.4.json").read_text())[
-        "inputs"
-    ]["osos.bin"]
+    profile = target_profiles.load(args.firmware_target)
+    target_path = target_profiles.DIRECTORY / f"{profile['target']}.json"
+    fingerprint = profile["inputs"]["osos.bin"]
+    shim = json.loads(
+        (payload_shim(ROOT / "payload", target_path) / "ui.json").read_text()
+    )
     if fingerprint != {
         "bytes": len(firmware),
         "sha256": hashlib.sha256(firmware).hexdigest(),
@@ -100,9 +104,10 @@ def main():
     metadata = {
         "schema": 1,
         "input": fingerprint,
-        "resources": extract(firmware, sorted((ROOT / "payload").glob("*.ui"))),
+        "resources": extract(firmware, sorted((ROOT / "payload").glob("*.ui")), shim),
     }
-    args.out.write_text(json.dumps(metadata, indent=2) + "\n")
+    out = args.out or target_path.with_name(target_path.stem + "-ui.json")
+    out.write_text(json.dumps(metadata, indent=2) + "\n")
 
 
 if __name__ == "__main__":
