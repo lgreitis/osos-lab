@@ -12,7 +12,7 @@
 #include "upload.h"
 #include "sha256.h"
 
-const volatile struct upload_config upload_config = {.tag = "REPRISE-UPLOAD2"};
+UPLOAD_CONFIG_QUALIFIER struct upload_config upload_config = {.tag = "REPRISE-UPLOAD2"};
 static int fd = -1;
 static bool mounted, writes_enabled, closed;
 static uint64_t data_start, data_end;

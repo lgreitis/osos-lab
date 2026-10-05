@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import setup
@@ -22,12 +23,36 @@ from patching.toolchain import run
 
 ROOT = Path(__file__).resolve().parents[1]
 
-TARGET = ROOT / "targets/classic7g-2.0.4.json"
-WORK = ROOT / ".build"
+
+@dataclass(frozen=True)
+class BuildConfig:
+    target_path: Path
+    work: Path
+    prefix: str
+    jobs: int
+
+    @property
+    def target(self):
+        return json.loads(self.target_path.read_text())
 
 
-def assemble(files, out, inputs, jobs, companion=False):
-    with tempfile.TemporaryDirectory(prefix="reprise-assemble-", dir=WORK) as temporary:
+def compiler_prefix(value, version):
+    compiler = shutil.which(value + "gcc")
+    if not compiler:
+        raise ValueError(
+            "ARM GCC missing; supply --cross-prefix /path/to/arm-elf-eabi-"
+        )
+    prefix = str(Path(compiler).absolute())[:-3]
+    if run([prefix + "gcc", "-dumpfullversion"], ROOT).strip() != version:
+        raise ValueError("This target requires ARM GCC " + version)
+    return prefix
+
+
+def assemble(config, files, out, inputs, companion=False):
+    config.work.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix="reprise-assemble-", dir=config.work
+    ) as temporary:
         image = Path(temporary) / out.name
         command = [
             "cargo",
@@ -37,7 +62,7 @@ def assemble(files, out, inputs, jobs, companion=False):
             "--manifest-path",
             str(ROOT / "host/Cargo.toml"),
             "-j",
-            str(jobs),
+            str(config.jobs),
             "-p",
             "reprise-cli",
             "--",
@@ -58,49 +83,55 @@ def assemble(files, out, inputs, jobs, companion=False):
         image.replace(out)
 
 
-def build_osos(
-    out, inputs, prefix, jobs, recipe_only=False, info=None, target_path=TARGET
-):
+def build_osos(config, out, inputs, recipe_only=False, info=None):
     print("Building OSOS recipe...", flush=True)
     info = info or identity(ROOT)
     recipe = build_recipe(
         ROOT / "payload",
-        WORK / "payload" / target_path.stem,
-        target_path,
-        prefix,
-        jobs,
+        config.work / "payload" / config.target_path.stem,
+        config.target_path,
+        config.prefix,
+        config.jobs,
         info["revision"],
         info["version"],
     )
     files = recipe.save(out, "osos")
     if not recipe_only:
-        assemble(files, out / "osos-cfw.bin", inputs, jobs)
+        assemble(config, files, out / "osos-cfw.bin", inputs)
 
 
-def build_apple(out, inputs, prefix, jobs, recipe_only=False, target_path=TARGET):
+def build_apple(config, out, inputs, recipe_only=False):
     print("Building Apple companion recipe...", flush=True)
     recipe = build_companion_recipe(
         ROOT / "loader/apple",
-        WORK / "companion" / target_path.stem,
-        target_path,
-        prefix,
-        jobs,
+        config.work / "companion" / config.target_path.stem,
+        config.target_path,
+        config.prefix,
+        config.jobs,
     )
     files = recipe.save(out, "companion")
     if not recipe_only:
-        assemble(files, out / "cfw-loader.bin", inputs, jobs, companion=True)
+        assemble(config, files, out / "cfw-loader.bin", inputs, companion=True)
 
 
-def build_rockbox(out, rockbox, target, prefix, jobs):
+def build_rockbox(config, out, rockbox):
+    target, prefix, jobs = config.target, config.prefix, config.jobs
     print("Building Rockbox bootloader...", flush=True)
-    if not (rockbox / "bootloader/cfw-file-ipod6g.c").is_file():
-        raise ValueError("Rockbox patch missing; run tools/setup.py")
-    directory = WORK / "rockbox"
+    directory = config.work / "rockbox"
     directory.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env["PATH"] = str(Path(prefix).parent) + os.pathsep + env.get("PATH", "")
     env["VERSION"] = target["rockbox_version"]
     makefile = directory / "Makefile"
+    configuration = {
+        "source": str(rockbox.resolve()),
+        "prefix": prefix,
+        "version": target["rockbox_version"],
+    }
+    stamp = directory / "configuration.json"
+    if not stamp.is_file() or json.loads(stamp.read_text()) != configuration:
+        shutil.rmtree(directory)
+        directory.mkdir()
     if not makefile.exists():
         (directory / "configure.log").write_text(
             run(
@@ -116,12 +147,13 @@ def build_rockbox(out, rockbox, target, prefix, jobs):
             if line.startswith("export EXTRA_DEFINES=")
         )
         makefile.write_text(text.replace(line, line + " -DIPOD_CFW_FILE_BOOT", 1))
+    stamp.write_text(json.dumps(configuration, sort_keys=True) + "\n")
     (directory / "build.log").write_text(run(["make", f"-j{jobs}"], directory, env))
     shutil.copyfile(
         directory / "bootloader-ipod6g.ipod", out / "bootloader-ipod6g.ipod"
     )
 
-    packager = WORK / "packager"
+    packager = config.work / "packager"
     packager.mkdir(parents=True, exist_ok=True)
     sources = rockbox / "utils/mks5lboot"
     command = [
@@ -189,38 +221,25 @@ def main():
         )
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
-    compiler = shutil.which(args.cross_prefix + "gcc")
-    if not compiler:
-        parser.error("ARM GCC missing; supply --cross-prefix /path/to/arm-elf-eabi-")
-    prefix = str(Path(compiler).absolute())[:-3]
-    if (
-        run([prefix + "gcc", "-dumpfullversion"], ROOT).strip()
-        != target["toolchain"]["gcc"]
-    ):
-        parser.error("This target requires ARM GCC " + target["toolchain"]["gcc"])
+    try:
+        prefix = compiler_prefix(args.cross_prefix, target["toolchain"]["gcc"])
+    except ValueError as error:
+        parser.error(str(error))
+    config = BuildConfig(target_path, ROOT / ".build", prefix, args.jobs)
     if args.target in ("all", "osos", "osos-recipe"):
         build_osos(
+            config,
             out,
             args.inputs,
-            prefix,
-            args.jobs,
             args.target == "osos-recipe",
             identity(ROOT, args.tag),
-            target_path,
         )
     if args.target in ("all", "loader", "loader-recipe"):
-        build_apple(
-            out,
-            args.inputs,
-            prefix,
-            args.jobs,
-            args.target == "loader-recipe",
-            target_path,
-        )
+        build_apple(config, out, args.inputs, args.target == "loader-recipe")
     if args.target in ("all", "bootloader"):
         dependencies = json.loads((ROOT / "dependencies.lock").read_text())
         rockbox = setup.verify("rockbox", dependencies["rockbox"])
-        build_rockbox(out, rockbox, target, prefix, args.jobs)
+        build_rockbox(config, out, rockbox)
     print(f"Built {args.target}: {out}")
 
 

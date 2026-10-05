@@ -9,6 +9,15 @@ use std::{
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Args {
+    Export {
+        spec: String,
+        base: String,
+        out: String,
+    },
+    Pack {
+        directory: String,
+        out: String,
+    },
     ApplyRecipe {
         recipe: String,
         data: String,
@@ -43,14 +52,21 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
     let action = args
         .first()
         .map(String::as_str)
-        .ok_or("Expected bundle inspect, fetch, sign, assemble or apply-recipe")?;
+        .ok_or("Expected bundle inspect, fetch, sign, assemble, apply-recipe, export or pack")?;
     let allowed: &[&str] = match action {
+        "export" => &["--spec", "--base", "--out"],
+        "pack" => &["--directory", "--out"],
         "apply-recipe" => &["--recipe", "--data", "--inputs", "--nor", "--out"],
         "inspect" => &["--directory", "--key"],
         "fetch" => &["--url", "--key", "--cache", "--sha256"],
         "sign" => &["--directory", "--seed"],
         "assemble" => &["--directory", "--key", "--inputs", "--nor", "--out"],
-        _ => return Err("Expected bundle inspect, fetch, sign, assemble or apply-recipe".into()),
+        _ => {
+            return Err(
+                "Expected bundle inspect, fetch, sign, assemble, apply-recipe, export or pack"
+                    .into(),
+            )
+        }
     };
     let options = parse_options(&args[1..], allowed)?;
     let required = |name: &str| {
@@ -60,6 +76,15 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
             .ok_or_else(|| format!("Missing {name}"))
     };
     Ok(match action {
+        "export" => Args::Export {
+            spec: required("--spec")?,
+            base: required("--base")?,
+            out: required("--out")?,
+        },
+        "pack" => Args::Pack {
+            directory: required("--directory")?,
+            out: required("--out")?,
+        },
         "apply-recipe" => Args::ApplyRecipe {
             recipe: required("--recipe")?,
             data: required("--data")?,
@@ -98,8 +123,33 @@ pub(super) fn trusted_key(path: &str) -> CliResult<TrustedKey> {
     )?)?)?)
 }
 
+fn report_export(manifest: &reprise_bundle::Manifest, out: &str, json: bool) -> CliResult<u8> {
+    if json {
+        print_json(manifest)?;
+    } else {
+        writeln!(
+            io::stdout().lock(),
+            "Exported bundle {}: {out}",
+            manifest.version
+        )?;
+    }
+    Ok(0)
+}
+
 pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
     let (directory, bundle) = match args {
+        Args::Export { spec, base, out } => {
+            let manifest = reprise_bundle::export::export(
+                Path::new(&spec),
+                Path::new(&base),
+                Path::new(&out),
+            )?;
+            return report_export(&manifest, &out, json);
+        }
+        Args::Pack { directory, out } => {
+            let manifest = reprise_bundle::export::pack(Path::new(&directory), Path::new(&out))?;
+            return report_export(&manifest, &out, json);
+        }
         Args::ApplyRecipe {
             recipe,
             data,

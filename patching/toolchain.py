@@ -51,6 +51,8 @@ def compile_payload(
     commands, objects = [], []
     for name, defines in units:
         obj = Path(name).name + ".o"
+        if obj in objects:
+            raise ValueError(f"Duplicate compilation unit basename: {obj}")
         objects.append(obj)
         options = ["-mthumb", "-std=c99"] if name.endswith(".c") else []
         commands.append(

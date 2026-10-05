@@ -4,10 +4,9 @@
 #define REPRISE_UPLOAD_H
 
 #include <stdint.h>
+#include "memory.h"
 
 #define UPLOAD_CHUNK 65536u
-#define UPLOAD_DATA ((uint8_t *)0x09800000u)
-#define UPLOAD_RESULT ((struct upload_result *)0x2201fa80u)
 #define UPLOAD_LIMIT 0x7fffffffu
 
 struct upload_config {
@@ -31,10 +30,7 @@ struct upload_result {
 _Static_assert(sizeof(struct upload_config) == 248, "upload config");
 _Static_assert(sizeof(struct upload_result) == 320, "upload result");
 
-extern const volatile struct upload_config upload_config;
-
-#define STORAGE_RESULT ((struct storage_result *)0x2201fbc0u)
-
+extern UPLOAD_CONFIG_QUALIFIER struct upload_config upload_config;
 
 struct storage_result {
     uint64_t start, end, free_bytes;

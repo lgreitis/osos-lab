@@ -16,34 +16,19 @@ class LayoutTests(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         root = Path(cls.tmp.name)
-        source = (HERE / "main.c").read_text()
-        validator = source[
-            source.index("static bool file_layout_ok") : source.index(
-                "static void return_to_dfu"
-            )
-        ]
         (root / "layout.c").write_text(
             """
-#include <stdint.h>
-#include <stdbool.h>
+#include "layout.h"
 #include <string.h>
-static struct { uint32_t sectors_high, sectors_low; } record;
-#define RECORD (&record)
-static struct { uint8_t sectors[5][512]; uint32_t lba[4], mask; } layout;
-static uint32_t le32(const uint8_t *p) { return p[0] | (uint32_t)p[1]<<8 | (uint32_t)p[2]<<16 | (uint32_t)p[3]<<24; }
-"""
-            + validator
-            + """
+static struct disk_layout layout;
 int validate(const uint8_t *mbr, const uint8_t *bpb, uint64_t capacity, unsigned slot) {
     memset(&layout, 0, sizeof(layout));
-    record.sectors_low = capacity;
-    record.sectors_high = capacity >> 32;
     memcpy(layout.sectors[0], mbr, 512);
     memcpy(layout.sectors[slot+1], bpb, 512);
     layout.mask = 1 | (1u << (slot+1));
     layout.lba[slot] = le32(mbr+454+slot*16) * (bpb[11] | (unsigned)bpb[12]<<8) / 512;
     uint64_t start, end; unsigned bytes;
-    return file_layout_ok(&start, &end, &bytes);
+    return file_layout_ok(&layout, capacity, &start, &end, &bytes);
 }
 """
         )
@@ -56,6 +41,8 @@ int validate(const uint8_t *mbr, const uint8_t *bpb, uint64_t capacity, unsigned
                 "-Wall",
                 "-Wextra",
                 "-Werror",
+                "-I" + str(HERE),
+                str(HERE / "layout.c"),
                 str(root / "layout.c"),
                 "-o",
                 str(library),

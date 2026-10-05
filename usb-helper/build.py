@@ -18,6 +18,8 @@ sys.path.insert(0, str(HERE.parent / "tools"))
 
 import target_profiles  # noqa: E402
 
+from build import compiler_prefix  # noqa: E402
+
 ROM_SHA = target_profiles.load()["compatibility"]["bootrom_sha256"]
 NONCE = b"REPRISE-NONCE-01"
 COLD_TAG = b"\xfe\xff\xff\xeaREPRISE-ROM\0"
@@ -66,10 +68,18 @@ def main():
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
-    prefix = str(args.toolchain.resolve() / "arm-elf-eabi-")
-    env = dict(
-        os.environ, PATH=str(args.toolchain.resolve()) + ":" + os.environ["PATH"]
+    prefix = compiler_prefix(
+        str(args.toolchain.resolve() / "arm-elf-eabi-"),
+        target_profiles.load()["toolchain"]["gcc"],
     )
+    blob, cold_offset = build_return(out, prefix)
+    source = prepare_source(out, args.rockbox.resolve())
+    symbols = compile_helper(out, source, prefix, args.jobs)
+    write_image(out, symbols, blob, cold_offset)
+
+
+def build_runner(out, prefix):
+    env = dict(os.environ, PATH=str(Path(prefix).parent) + ":" + os.environ["PATH"])
 
     def run(command, log):
         with (out / log).open("w") as stream:
@@ -82,6 +92,11 @@ def main():
                 check=True,
             )
 
+    return run
+
+
+def build_return(out, prefix):
+    run = build_runner(out, prefix)
     for name in (
         "main.c",
         "file.c",
@@ -95,16 +110,11 @@ def main():
         "return.S",
         "sha256.c",
         "sha256.h",
-        "build.py",
+        "layout.c",
+        "memory.h",
+        "return.lds",
     ):
         shutil.copyfile(HERE / name, out / name)
-    (out / "return.lds").write_text(
-        "ENTRY(return_start)\nSECTIONS {\n"
-        " . = 0x22010000; .text : { *(.start) *(.text*) *(.rodata*) }\n"
-        " .data : { *(.data*) } .bss : { *(.bss*) *(COMMON) }\n"
-        ' ASSERT(SIZEOF(.bss) == 0, "return BSS")\n'
-        ' ASSERT(. < 0x22014000, "return size")\n}\n'
-    )
     flags = [
         "-mcpu=arm926ej-s",
         "-marm",
@@ -150,8 +160,11 @@ def main():
         + ",".join(hex(b) for b in blob)
         + "\n};\n"
     )
+    return blob, cold_offset
+
+
+def prepare_source(out, rockbox):
     source = out / "rockbox"
-    rockbox = args.rockbox.resolve()
     files = subprocess.check_output(
         [
             "git",
@@ -173,7 +186,7 @@ def main():
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
     (source / "bootloader/SOURCES").write_text(
-        "common.c\nformat.c\nsnprintf.c\nipod-s5l87xx.c\nupload-file.c\nsha256.c\n"
+        "common.c\nformat.c\nsnprintf.c\nipod-s5l87xx.c\nupload-file.c\nsha256.c\nlayout.c\n"
     )
     for src, dst in [
         ("main.c", "ipod-s5l87xx.c"),
@@ -183,6 +196,8 @@ def main():
         ("upload.h", "upload.h"),
         ("record.h", "record.h"),
         ("layout.h", "layout.h"),
+        ("layout.c", "layout.c"),
+        ("memory.h", "memory.h"),
         ("return_blob.h", "return_blob.h"),
     ]:
         shutil.copyfile(out / src, source / "bootloader" / dst)
@@ -191,54 +206,37 @@ def main():
     )
     shutil.copyfile(out / "usb.c", source / "firmware/usbstack/usb_storage.c")
     shutil.copyfile(out / "upload.h", source / "firmware/usbstack/upload.h")
-    for name in ("winusb.h", "usb_identity.h"):
+    for name in ("winusb.h", "usb_identity.h", "memory.h"):
         shutil.copyfile(out / name, source / "firmware/usbstack" / name)
-    core = source / "firmware/usbstack/usb_core.c"
-    text = core.read_text()
-    if text.count("#elif (CONFIG_STORAGE & STORAGE_ATA)") != 2:
-        raise ValueError("USB storage initialization changed")
-    text = text.replace("#elif (CONFIG_STORAGE & STORAGE_ATA)", "#elif 0").replace(
-        "Rockbox media player", "Reprise file upload"
-    )
-    entry = "static void usb_core_control_request_handler(struct usb_ctrlrequest* req, uint8_t* reqdata, size_t reqdata_size)\n{"
-    if text.count(entry) != 1:
-        raise ValueError("USB control hook insertion point changed")
-    text = text.replace(
-        entry,
-        entry
-        + "\n    extern bool upload_usb_control_request(struct usb_ctrlrequest *, uint8_t *, size_t);\n"
-        "    if (upload_usb_control_request(req, reqdata, reqdata_size)) return;\n",
-    )
-    for field in ("VENDOR", "PRODUCT"):
-        original = "= USB_" + field + "_ID,"
-        if text.count(original) != 1:
-            raise ValueError("USB identity insertion point changed")
-        text = text.replace(original, "= UPLOAD_USB_" + field + "_ID,")
-    core.write_text('#include "usb_identity.h"\n' + text)
-    driver = source / "firmware/target/arm/s5l8702/ipod6g/storage_ata-6g.c"
-    text = driver.read_text()
-    entry = "static int ata_transfer_sectors(uint64_t sector, int count, void* buffer, int write)\n{"
-    if text.count(entry) != 1:
-        raise ValueError("ATA write guard insertion point changed")
-    driver.write_text(
-        text.replace(
-            entry,
-            entry + "\n    extern int upload_write_allowed(uint64_t, int);\n"
-            "    if (write && !upload_write_allowed(sector, count)) return -1;\n",
+    # The copy may be inside osos-lab; do not discover its parent Git checkout.
+    env = dict(os.environ, GIT_CEILING_DIRECTORIES=str(out))
+    for flags in (["--check"], []):
+        subprocess.run(
+            ["git", "apply", *flags, str(HERE / "rockbox.patch")],
+            cwd=source,
+            env=env,
+            check=True,
         )
-    )
+    return source
+
+
+def compile_helper(out, source, prefix, jobs):
+    run = build_runner(out, prefix)
     run([source / "tools/configure", "--target=ipod6g", "--type=b"], "configure.log")
-    run(["make", f"-j{args.jobs}"], "build.log")
+    run(["make", f"-j{jobs}"], "build.log")
     if "warning:" in (out / "build.log").read_text():
         raise ValueError("compiler warnings; inspect build.log")
-    symbols_text = subprocess.check_output(
-        [prefix + "nm", "-n", str(out / "bootloader.elf")], text=True
-    )
-    symbols = {
-        v[2]: int(v[0], 16)
-        for line in symbols_text.splitlines()
-        if len(v := line.split()) == 3
+    return read_symbols(prefix, out / "bootloader.elf")
+
+
+def read_symbols(prefix, image):
+    text = subprocess.check_output([prefix + "nm", "-n", str(image)], text=True)
+    return {
+        v[2]: int(v[0], 16) for line in text.splitlines() if len(v := line.split()) == 3
     }
+
+
+def write_image(out, symbols, blob, cold_offset):
     if (
         not {
             "upload_write_allowed",

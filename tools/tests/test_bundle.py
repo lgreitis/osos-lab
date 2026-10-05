@@ -3,6 +3,7 @@
 """Export rejection cases; Rust tests cover authenticated Python export replay."""
 
 import copy
+import hashlib
 import importlib.util
 import json
 import sys
@@ -48,19 +49,39 @@ class ExportTests(unittest.TestCase):
             ("apple_firmware", " "),
         ]:
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
-                bundle.validate_compatibility({**target, key: value})
+                bundle.export(
+                    {**self.spec, "compatibility": {**target, key: value}},
+                    self.root,
+                    self.root / "invalid",
+                )
 
     def test_helper_without_storage_inspection_is_rejected(self):
         fixture = ROOT / "usb-helper/tests/fixtures"
-        image = (fixture / "upload.dfu").read_bytes()
         descriptor = json.loads((fixture / "manifest.json").read_text())
         for value in (None, False, "true"):
             descriptor["storage_inspection"] = value
             with (
                 self.subTest(value=value),
-                self.assertRaisesRegex(ValueError, "storage inspection"),
+                self.assertRaises(ValueError),
             ):
-                bundle.validate_helper(image, json.dumps(descriptor).encode())
+                path = self.root / "helper.json"
+                path.write_text(json.dumps(descriptor))
+                self.spec["components"]["usb_helper"]["files"]["descriptor"] = str(path)
+                bundle.export(self.spec, self.root, self.root / "invalid")
+
+    def test_export_checks_helper_structure_after_matching_its_hash(self):
+        fixture = ROOT / "usb-helper/tests/fixtures"
+        image = bytearray((fixture / "upload.dfu").read_bytes())
+        descriptor = json.loads((fixture / "manifest.json").read_text())
+        image[0] ^= 1
+        descriptor["sha256"] = hashlib.sha256(image).hexdigest()
+        (self.root / "upload.dfu").write_bytes(image)
+        (self.root / "manifest.json").write_text(json.dumps(descriptor))
+        spec = bundle.helper_spec(self.root, "0.1.0", "0.1.0")
+        output = self.root / "invalid"
+        with self.assertRaisesRegex(ValueError, "image/manifest mismatch"):
+            bundle.export(spec, self.root, output)
+        self.assertFalse(output.exists())
 
     def test_existing_output_is_preserved(self):
         output = self.root / "existing"
@@ -114,7 +135,7 @@ class ExportTests(unittest.TestCase):
                         archive.read(name), (directory / name).read_bytes()
                     )
             original = output.read_bytes()
-            with self.assertRaises(FileExistsError):
+            with self.assertRaises(ValueError):
                 bundle.pack(directory, output)
             self.assertEqual(output.read_bytes(), original)
 

@@ -14,19 +14,35 @@ def git(directory, *args):
     return subprocess.check_output(["git", "-C", str(directory), *args], text=True)
 
 
-def verify(name, spec):
+def verify(name, spec, *, patches=True):
     directory = ROOT / "vendor" / name
     if not (directory / ".git").exists():
         raise ValueError(f"{name}: checkout missing; run tools/setup.py")
     if git(directory, "rev-parse", "HEAD").strip() != spec["commit"]:
         raise ValueError(f"{name}: checkout revision differs from dependencies.lock")
+    if patches:
+        for patch in spec["patches"]:
+            if not patch_applied(directory, ROOT / patch):
+                raise ValueError(
+                    f"{name}: required patch missing or changed: {patch}; run tools/setup.py"
+                )
     return directory
+
+
+def patch_applied(directory, path):
+    return (
+        subprocess.run(
+            ["git", "-C", str(directory), "apply", "--reverse", "--check", str(path)],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
 
 
 def prepare(name, spec, source=None):
     directory = ROOT / "vendor" / name
     if directory.exists():
-        verify(name, spec)
+        verify(name, spec, patches=False)
     else:
         directory.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
@@ -44,11 +60,7 @@ def prepare(name, spec, source=None):
         git(directory, "checkout", "--detach", spec["commit"])
     for patch in spec["patches"]:
         path = str(ROOT / patch)
-        applied = subprocess.run(
-            ["git", "-C", str(directory), "apply", "--reverse", "--check", path],
-            capture_output=True,
-        )
-        if applied.returncode:
+        if not patch_applied(directory, path):
             git(directory, "apply", "--check", path)
             git(directory, "apply", path)
     print(f"{name}: ready")

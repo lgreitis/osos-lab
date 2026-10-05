@@ -1,9 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Resolve firmware identity from the checked-out source."""
 
+import re
 import subprocess
 
-from bundle import valid_version
+
+def valid_version(value):
+    number = r"(?:0|[1-9][0-9]*)"
+    if not isinstance(value, str) or not re.fullmatch(
+        rf"{number}\.{number}\.{number}(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?",
+        value,
+    ):
+        return False
+    prerelease = value.partition("+")[0].partition("-")[2]
+    return all(
+        not p.isdigit() or p == "0" or not p.startswith("0")
+        for p in prerelease.split(".")
+    )
 
 
 def identity(root, tag=None):

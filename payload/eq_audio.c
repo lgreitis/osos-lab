@@ -3,13 +3,14 @@
 #include "custom_eq.h"
 #include "eq_coefficients.h"
 #include "osos.h"
+#include "compat/osos/eq-layout.h"
 #include "patch.h"
 
 static int32_t published[2][3][5];
 static volatile uint32_t generation;
 static void *current_state;
 static uint32_t current_generation;
-static uint32_t old_state[0xb8 / 4] __attribute__((aligned(8)));
+static uint32_t old_state[OSOS_EQ_STATE_BYTES / 4] __attribute__((aligned(8)));
 static unsigned int fade_remaining;
 
 int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS])
@@ -43,10 +44,10 @@ int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS])
 static int install_coefficients(void *state, int force)
 {
     unsigned char *eq = state;
-    unsigned int rate = *(uint32_t *)(eq + 4);
+    unsigned int rate = *(uint32_t *)(eq + OSOS_EQ_RATE_OFFSET);
     int32_t coefficients[3][5];
     if (rate != 44100 && rate != 48000) {
-        eq[8] = 0;
+        eq[OSOS_EQ_ENABLED_OFFSET] = 0;
         return 0;
     }
     uint32_t flags = cfw_irq_save();
@@ -61,18 +62,9 @@ static int install_coefficients(void *state, int force)
                 version ? published[rate == 48000][band][c] : (c == 0 ? 1 << 24 : 0);
     cfw_irq_restore(flags);
 
-    for (unsigned int band = 0; band < 3; band++) {
-        unsigned char *stage = eq + band * 0x38;
-        *(int32_t *)(stage + 0x14) = coefficients[band][0];
-        *(int32_t *)(stage + 0x18) = coefficients[band][1];
-        *(int32_t *)(stage + 0x1c) = coefficients[band][2];
-        *(int32_t *)(stage + 0x0c) = coefficients[band][3];
-        *(int32_t *)(stage + 0x10) = coefficients[band][4];
-        stage[0x40] = coefficients[band][0] == (1 << 24) && !coefficients[band][1] &&
-                      !coefficients[band][2] && !coefficients[band][3] &&
-                      !coefficients[band][4];
-    }
-    eq[8] = 1;
+    for (unsigned int band = 0; band < 3; band++)
+        osos_eq_set_stage(state, band, coefficients[band]);
+    eq[OSOS_EQ_ENABLED_OFFSET] = 1;
     osos_eq_reset(state);
     current_state = state;
     current_generation = version;
@@ -82,7 +74,7 @@ static int install_coefficients(void *state, int force)
 PATCH_ARM void cfw_eq_load(void *state)
 {
     fade_remaining = 0;
-    if (*(uint32_t *)((unsigned char *)state + 0xb4) == CFW_EQ_DSP_PRESET) {
+    if (osos_eq_preset(state) == CFW_EQ_DSP_PRESET) {
         install_coefficients(state, 1);
     } else {
         current_state = 0;
@@ -95,7 +87,7 @@ PATCH_ARM void cfw_eq_process(void *state, int16_t *samples, uint32_t frames,
 {
     *output = samples;
     *output_frames = frames;
-    if (*(uint32_t *)((unsigned char *)state + 0xb4) != CFW_EQ_DSP_PRESET) {
+    if (osos_eq_preset(state) != CFW_EQ_DSP_PRESET) {
         osos_eq_process(state, samples, frames, output, output_frames);
         return;
     }

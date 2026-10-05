@@ -25,6 +25,8 @@ Usage:
   reprise upload --input FILE --destination /PATH
     (--helper BUILD_DIRECTORY | --bundle DIRECTORY --key PUBLIC_KEY_FILE)
     [--overwrite] [--device BUS:ADDRESS] [--json]
+  reprise bundle export --spec FILE --base DIR --out NEW_DIR [--json]
+  reprise bundle pack --directory DIR --out NEW_ZIP [--json]
   reprise bundle inspect --directory DIR --key PUBLIC_KEY_FILE [--json]
   reprise bundle fetch --url HTTPS_MANIFEST_URL --key PUBLIC_KEY_FILE
     --cache DIR [--sha256 MANIFEST_SHA256] [--json]
@@ -169,26 +171,17 @@ fn parse(args: &[String]) -> Result<(Command, bool), String> {
         },
         Some("check" | "nor-dump" | "dfu-state") => {
             let nor_dump = args[0] == "nor-dump";
-            let mut selector = None;
-            let mut output = None;
-            let mut rest = args[1..].iter();
-            while let Some(arg) = rest.next() {
-                match arg.as_str() {
-                    "--output" if nor_dump && output.is_none() => {
-                        output = Some(
-                            rest.next()
-                                .filter(|p| !p.starts_with('-'))
-                                .ok_or("--output needs a new file path")?
-                                .clone(),
-                        );
-                    }
-                    "--device" if selector.is_none() => {
-                        let value = rest.next().ok_or("--device needs BUS:ADDRESS")?;
-                        selector = Some(parse_selector(value)?);
-                    }
-                    _ => return Err(format!("Unknown or duplicate {} argument: {arg}", args[0])),
-                }
-            }
+            let allowed: &[&str] = if nor_dump {
+                &["--device", "--output"]
+            } else {
+                &["--device"]
+            };
+            let mut options = parse_options(&args[1..], allowed)?;
+            let selector = options
+                .get("--device")
+                .map(|value| parse_selector(value))
+                .transpose()?;
+            let output = options.remove("--output");
             if nor_dump {
                 Command::NorDump {
                     output: output.ok_or("Missing --output NEW_FILE")?,
@@ -205,26 +198,12 @@ fn parse(args: &[String]) -> Result<(Command, bool), String> {
         Some("upload") => Command::Upload(upload::parse(&args[1..])?),
         Some("decrypt") => Command::Decrypt(decrypt::parse(&args[1..])?),
         Some("check-files") => {
-            let mut bootrom = None;
-            let mut syscfg = None;
-            let mut rest = args[1..].iter();
-            while let Some(arg) = rest.next() {
-                let slot = match arg.as_str() {
-                    "--bootrom" if bootrom.is_none() => &mut bootrom,
-                    "--syscfg" if syscfg.is_none() => &mut syscfg,
-                    _ => return Err(format!("Unknown or duplicate check-files argument: {arg}")),
-                };
-                let path = rest.next().ok_or_else(|| format!("{arg} needs a path"))?;
-                if path.starts_with('-') {
-                    return Err(format!(
-                        "{arg} needs a path (prefix option-like filenames with ./)"
-                    ));
-                }
-                *slot = Some(path.clone());
-            }
+            let mut options = parse_options(&args[1..], &["--bootrom", "--syscfg"])?;
             Command::CheckFiles {
-                bootrom: bootrom.ok_or("Missing --bootrom FILE")?,
-                syscfg: syscfg.ok_or("Missing --syscfg FILE")?,
+                bootrom: options
+                    .remove("--bootrom")
+                    .ok_or("Missing --bootrom FILE")?,
+                syscfg: options.remove("--syscfg").ok_or("Missing --syscfg FILE")?,
             }
         }
         _ => return Err("Invalid command; use reprise --help".into()),

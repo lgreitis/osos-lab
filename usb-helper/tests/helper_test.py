@@ -171,32 +171,15 @@ class HelperTests(unittest.TestCase):
             "ata.h",
         ]:
             (p / name).write_text('#include "mock.h"\n')
-        header = (
-            (HERE / "upload.h")
-            .read_text()
-            .replace(
-                "#define UPLOAD_DATA ((uint8_t *)0x09800000u)",
-                "extern uint8_t test_buffer[65536] __attribute__((aligned(32)));\n#define UPLOAD_DATA test_buffer",
-            )
-            .replace(
-                "#define UPLOAD_RESULT ((struct upload_result *)0x2201fa80u)",
-                "extern struct upload_result test_result;\n#define UPLOAD_RESULT (&test_result)",
-            )
-            .replace(
-                "extern const volatile struct upload_config",
-                "extern struct upload_config",
-            )
-        )
-        header = header.replace(
-            "#define STORAGE_RESULT ((struct storage_result *)0x2201fbc0u)",
-            "extern struct storage_result test_storage;\n#define STORAGE_RESULT (&test_storage)",
-        )
-        (p / "upload.h").write_text(header)
-        (p / "file.c").write_text(
-            (HERE / "file.c")
-            .read_text()
-            .replace("const volatile struct upload_config", "struct upload_config")
-        )
+        (p / "test_memory.h").write_text("""
+#define UPLOAD_CONFIG_QUALIFIER
+extern uint8_t test_buffer[65536] __attribute__((aligned(32)));
+extern struct upload_result test_result;
+extern struct storage_result test_storage;
+#define UPLOAD_DATA test_buffer
+#define UPLOAD_RESULT (&test_result)
+#define STORAGE_RESULT (&test_storage)
+""")
         (p / "harness.c").write_text(HARNESS)
         subprocess.run(
             [
@@ -208,7 +191,8 @@ class HelperTests(unittest.TestCase):
                 "-I" + str(p),
                 "-I" + str(HERE),
                 str(p / "harness.c"),
-                str(p / "file.c"),
+                "-DUPLOAD_TEST_MEMORY",
+                str(HERE / "file.c"),
                 str(HERE / "sha256.c"),
                 "-o",
                 str(p / "file-test"),

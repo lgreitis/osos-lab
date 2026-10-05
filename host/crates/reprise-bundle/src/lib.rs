@@ -4,6 +4,7 @@
 mod archive;
 pub mod assembly;
 mod distribution;
+pub mod export;
 pub mod preparation;
 
 #[cfg(test)]
@@ -198,6 +199,9 @@ impl VerifiedBundle {
                 self.file("usb_helper", "descriptor")?,
             )
             .map_err(|e| invalid(e.to_string()))?;
+            if helper.bootrom_sha256() != self.manifest.compatibility.bootrom_sha256 {
+                return Err(invalid("Helper BootROM differs from bundle target"));
+            }
             if !helper.supports_storage_inspection() {
                 return Err(invalid(
                     "Package requires a v3 helper with storage inspection",

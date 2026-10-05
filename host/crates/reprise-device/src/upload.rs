@@ -1,197 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use crate::{exact, invalid, targets, usb::usb_error, Cleanup, DeviceInfo, Error, Result, Session};
-use rusb::{Context, DeviceHandle, UsbContext};
-use serde::{Deserialize, Serialize};
+mod image;
+mod protocol;
+mod transport;
+use crate::{exact, invalid, Cleanup, DeviceInfo, Error, Result, Session};
+pub use image::UploadHelper;
+use protocol::{
+    helper_error, word, Status, ACKNOWLEDGE, CANCEL, COMPLETE, READY, RESULT_ADDR, RESULT_SIZE,
+    START, VERIFYING,
+};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
     io::{Read, Seek, SeekFrom},
     time::{Duration, Instant},
 };
+use transport::{open_bulk, same_port, BulkTransport};
 
 pub const MAX_UPLOAD_SIZE: u64 = 0x7fff_ffff;
 const CHUNK: usize = 65536;
-const COLD_INIT_SIZE: usize = 1024;
-const COLD_INIT_TAG: &[u8] = b"\xfe\xff\xff\xeaREPRISE-ROM\0";
-const ROM_START: usize = 0xc0;
-const ROM_END: usize = 0x284;
-const RESULT_ADDR: u32 = 0x2201fa80;
-const RESULT_SIZE: usize = 320;
-const TIMEOUT: Duration = Duration::from_secs(15);
-
-#[derive(Deserialize)]
-struct Manifest {
-    schema: u32,
-    mode: String,
-    rom_sha256: String,
-    bytes: usize,
-    sha256: String,
-    nonce_offset: usize,
-    config_offset: usize,
-    cold_init_offset: usize,
-    #[serde(default)]
-    storage_inspection: bool,
-    #[serde(default)]
-    usb: UsbIdentity,
-}
-
-#[derive(Clone, Copy, Deserialize)]
-struct UsbIdentity {
-    vendor_id: u16,
-    product_id: u16,
-    winusb: bool,
-}
-
-impl Default for UsbIdentity {
-    fn default() -> Self {
-        Self {
-            vendor_id: 0x05ac,
-            product_id: 0x1261,
-            winusb: false,
-        }
-    }
-}
-
-pub struct UploadHelper {
-    bootrom_sha256: String,
-    image: Vec<u8>,
-    nonce_offset: usize,
-    config_offset: usize,
-    cold_init_offset: usize,
-    storage_inspection: bool,
-    usb: UsbIdentity,
-}
-
-impl UploadHelper {
-    /// Load an image and its build manifest before opening USB.
-    pub fn from_bytes(image: &[u8], manifest: &[u8]) -> Result<Self> {
-        let m: Manifest = serde_json::from_slice(manifest)
-            .map_err(|e| invalid(format!("Helper manifest: {e}")))?;
-        if m.usb.vendor_id == 0
-            || m.usb.product_id == 0
-            || (m.usb.winusb && m.usb.vendor_id == 0x05ac)
-        {
-            return Err(invalid("Invalid upload helper USB identity"));
-        }
-        if m.schema != 3
-            || m.mode != "stream-file"
-            || !targets::supports_bootrom(&m.rom_sha256)
-            || !(0x810..=0x1eff0).contains(&image.len())
-            || !image.len().is_multiple_of(16)
-            || m.bytes != image.len()
-            || m.sha256 != format!("{:x}", Sha256::digest(image))
-            || &image[..8] != b"87021.0\x02"
-            || word(image, 8) != 0
-            || word(image, 12) as usize != image.len() - 0x800
-        {
-            return Err(invalid("Helper image/manifest mismatch"));
-        }
-        slot(image, m.nonce_offset, b"REPRISE-NONCE-01", 16)?;
-        slot(image, m.config_offset, b"REPRISE-UPLOAD2\0", 248)?;
-        slot(image, m.cold_init_offset, COLD_INIT_TAG, COLD_INIT_SIZE)?;
-        let mut slots = [
-            (m.nonce_offset, 16),
-            (m.config_offset, 248),
-            (m.cold_init_offset, COLD_INIT_SIZE),
-        ];
-        slots.sort_unstable();
-        if !m.cold_init_offset.is_multiple_of(4)
-            || slots.windows(2).any(|s| s[0].0 + s[0].1 > s[1].0)
-        {
-            return Err(invalid("Misaligned or overlapping helper slots"));
-        }
-        Ok(Self {
-            bootrom_sha256: m.rom_sha256,
-            image: image.to_vec(),
-            nonce_offset: m.nonce_offset,
-            config_offset: m.config_offset,
-            cold_init_offset: m.cold_init_offset,
-            storage_inspection: m.storage_inspection,
-            usb: m.usb,
-        })
-    }
-
-    pub fn supports_storage_inspection(&self) -> bool {
-        self.storage_inspection
-    }
-
-    pub fn validate_platform(&self) -> Result<()> {
-        if cfg!(windows) && !self.usb.winusb {
-            return Err(invalid("This bundle's upload helper lacks Windows WinUSB support. Select a rebuilt firmware bundle."));
-        }
-        Ok(())
-    }
-
-    fn prepare(
-        &self,
-        rom: &[u8],
-        nonce: &[u8; 16],
-        size: u32,
-        sha: &[u8; 32],
-        options: &UploadOptions,
-    ) -> Result<Vec<u8>> {
-        exact("BootROM image", rom.len(), crate::BOOTROM_SIZE)?;
-        if format!("{:x}", Sha256::digest(rom)) != self.bootrom_sha256 {
-            return Err(invalid("Unsupported BootROM for upload helper"));
-        }
-        let cold_init = relocate_cold_init(rom)?;
-        let mut image = self.image.clone();
-        image[self.cold_init_offset..self.cold_init_offset + COLD_INIT_SIZE]
-            .copy_from_slice(&cold_init);
-        image[self.nonce_offset..self.nonce_offset + 16].copy_from_slice(nonce);
-        let config = &mut image[self.config_offset..self.config_offset + 248];
-        config[16..20].copy_from_slice(&size.to_le_bytes());
-        config[20..24].copy_from_slice(&u32::from(options.overwrite).to_le_bytes());
-        config[24..56].copy_from_slice(sha);
-        config[56..56 + options.destination.len()].copy_from_slice(options.destination.as_bytes());
-        Ok(image)
-    }
-}
-
-// Keep instruction positions for internal branches; place literal data after a jump.
-fn relocate_cold_init(rom: &[u8]) -> Result<[u8; COLD_INIT_SIZE]> {
-    exact("BootROM image", rom.len(), crate::BOOTROM_SIZE)?;
-    let code_size = ROM_END - ROM_START;
-    let mut out = [0; COLD_INIT_SIZE];
-    let mut pool = code_size + 4;
-    for off in (ROM_START..ROM_END).step_by(4) {
-        let mut instruction = word(rom, off);
-        let pos = off - ROM_START;
-        if instruction & 0xffff0000 == 0xe59f0000 {
-            let source = off + 8 + (instruction & 0xfff) as usize;
-            if source + 4 > rom.len() || pool + 4 > out.len() {
-                return Err(invalid("BootROM literal outside relocation bounds"));
-            }
-            out[pool..pool + 4].copy_from_slice(&rom[source..source + 4]);
-            instruction = (instruction & !0xfff) | (pool - pos - 8) as u32;
-            pool += 4;
-        } else if instruction & 0x0e000000 == 0x0a000000 {
-            let delta = ((instruction << 8) as i32) >> 6;
-            let target = off as i32 + 8 + delta;
-            if !(ROM_START as i32..=ROM_END as i32).contains(&target) {
-                return Err(invalid("BootROM branch outside reset sequence"));
-            }
-        }
-        out[pos..pos + 4].copy_from_slice(&instruction.to_le_bytes());
-    }
-    let skip_pool = 0xea000000 | ((COLD_INIT_SIZE - code_size - 8) / 4) as u32;
-    out[code_size..code_size + 4].copy_from_slice(&skip_pool.to_le_bytes());
-    Ok(out)
-}
-
-fn slot(image: &[u8], offset: usize, tag: &[u8], size: usize) -> Result<()> {
-    if offset < 0x800
-        || offset.checked_add(size).is_none_or(|end| end > image.len())
-        || image.windows(tag.len()).filter(|w| *w == tag).count() != 1
-        || &image[offset..offset + tag.len()] != tag
-        || image[offset + tag.len()..offset + size]
-            .iter()
-            .any(|b| *b != 0)
-    {
-        return Err(invalid("Invalid helper patch slot"));
-    }
-    Ok(())
-}
 
 #[derive(Clone, Debug)]
 pub struct UploadOptions {
@@ -251,98 +78,6 @@ pub struct UploadFailure {
     pub cleanup: Cleanup,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Status {
-    raw: Vec<u8>,
-}
-
-impl Status {
-    fn parse(raw: &[u8], nonce: &[u8; 16], size: u32) -> Result<Self> {
-        exact("Upload status", raw.len(), RESULT_SIZE)?;
-        if word(raw, 0) != 0x55504c32
-            || word(raw, 4) != 2
-            || &raw[8..24] != nonce
-            || word(raw, 32) != size
-            || word(raw, 36) > size
-            || word(raw, 40) > word(raw, 36)
-            || word(raw, 44) > size
-            || !(1..=4).contains(&word(raw, 24))
-            || word(raw, 48) == 0
-            || word(raw, 48) > 15
-            || word(raw, 52) > 1
-        {
-            return Err(invalid("Upload session identity/progress mismatch"));
-        }
-        Ok(Self { raw: raw.to_vec() })
-    }
-
-    fn state(&self) -> u32 {
-        word(&self.raw, 24)
-    }
-
-    fn rc(&self) -> i32 {
-        word(&self.raw, 28) as i32
-    }
-
-    fn complete(&self, sha: &[u8; 32], options: &UploadOptions) -> Result<()> {
-        let b = &self.raw;
-        if self.rc() != 0 {
-            return Err(helper_error(self.rc(), word(b, 56)));
-        }
-        if self.state() != 4
-            || self.rc() != 0
-            || word(b, 56) != 0
-            || word(b, 60) != 0
-            || [36, 40, 44].iter().any(|at| word(b, *at) != word(b, 32))
-            || &b[64..96] != sha
-            || &b[96..128] != sha
-        {
-            return Err(invalid(format!(
-                "Upload verification failed: state={}, rc={}, errno={}, written={}, verified={}",
-                self.state(),
-                self.rc(),
-                word(b, 56),
-                word(b, 40),
-                word(b, 44)
-            )));
-        }
-        let mut path = [0u8; 192];
-        path[..options.destination.len()].copy_from_slice(options.destination.as_bytes());
-        if b[128..] != path {
-            return Err(invalid("Upload destination mismatch"));
-        }
-        Ok(())
-    }
-}
-
-fn helper_error(rc: i32, errno: u32) -> Error {
-    let reason = match rc {
-        -301 | -303 => "Disk layout does not match the supported data partition",
-        -302 => "Invalid upload path or size",
-        -304 => "Destination exists; use --overwrite to replace it",
-        -305 => "Uploaded content differs from the input hash",
-        -306 => "Failed to flush the temporary file",
-        -307 | -315 | -320 => "Failed to close the file",
-        -308 | -321 => "Failed to mount or unmount the data partition",
-        -309 => "Temporary file could not be reopened with the expected size",
-        -310 => "Temporary file could not be created",
-        -311 | -312 => "Failed to write the temporary file",
-        -313 | -314 => "Disk readback verification failed",
-        -322 => "Not enough free space on the data partition",
-        -316 => "Failed to replace the destination",
-        -411 => "USB disconnected during upload",
-        -412 => "Incomplete USB transfer",
-        -415 => "Upload helper timed out",
-        -416 => "Upload aborted",
-        _ => "Upload helper failed",
-    };
-    invalid(format!("{reason} (code {rc}, errno {errno})"))
-}
-
-fn word(b: &[u8], at: usize) -> u32 {
-    u32::from_le_bytes(b[at..at + 4].try_into().unwrap())
-}
-
 fn io_error(e: std::io::Error) -> Error {
     invalid(format!("Upload input: {e}"))
 }
@@ -360,137 +95,30 @@ fn progress(
     });
 }
 
-struct Bulk {
-    handle: DeviceHandle<Context>,
-    endpoint: u8,
-}
-trait BulkTransport {
-    fn endpoint(&self) -> u8;
-    fn status(&mut self, nonce: &[u8; 16], size: u32) -> Result<Status>;
-    fn command(&mut self, request: u8, nonce: &[u8; 16]) -> Result<()>;
-    fn send(&mut self, data: &[u8]) -> Result<usize>;
-}
-
-impl BulkTransport for Bulk {
-    fn endpoint(&self) -> u8 {
-        self.endpoint
+fn hash_input(
+    input: &mut (impl Read + Seek),
+    emit: &mut impl FnMut(UploadProgress),
+) -> Result<(u64, [u8; 32])> {
+    let size = input.seek(SeekFrom::End(0)).map_err(io_error)?;
+    if size > MAX_UPLOAD_SIZE {
+        return Err(invalid(
+            "Upload exceeds the 2 GiB minus 1 byte filesystem limit",
+        ));
     }
-
-    fn send(&mut self, data: &[u8]) -> Result<usize> {
-        self.handle
-            .write_bulk(self.endpoint, data, TIMEOUT)
-            .map_err(|e| usb_error("file upload", e))
+    input.seek(SeekFrom::Start(0)).map_err(io_error)?;
+    let mut hash = Sha256::new();
+    let mut buffer = [0; CHUNK];
+    let mut left = size;
+    while left > 0 {
+        let n = CHUNK.min(left as usize);
+        input.read_exact(&mut buffer[..n]).map_err(io_error)?;
+        hash.update(&buffer[..n]);
+        left -= n as u64;
+        progress(emit, "hash", size - left, size);
     }
-
-    fn status(&mut self, nonce: &[u8; 16], size: u32) -> Result<Status> {
-        let mut b = [0; RESULT_SIZE];
-        let n = self
-            .handle
-            .read_control(0xa1, 0x52, 0, 0, &mut b, TIMEOUT)
-            .map_err(|e| usb_error("upload status", e))?;
-        Status::parse(&b[..n], nonce, size)
-    }
-
-    fn command(&mut self, request: u8, nonce: &[u8; 16]) -> Result<()> {
-        let n = self
-            .handle
-            .write_control(0x21, request, 0, 0, nonce, TIMEOUT)
-            .map_err(|e| usb_error("upload command", e))?;
-        exact("Upload command", n, 16)
-    }
-}
-
-fn same_port(a: &DeviceInfo, bus: u8, ports: &[u8]) -> bool {
-    a.selector.bus == bus && a.port_path == ports && !ports.is_empty()
-}
-
-fn driver_pending(error: rusb::Error) -> bool {
-    cfg!(windows)
-        && matches!(
-            error,
-            rusb::Error::NotSupported
-                | rusb::Error::NoDevice
-                | rusb::Error::Access
-                | rusb::Error::Io
-                | rusb::Error::NotFound
-        )
-}
-
-fn open_bulk(info: &DeviceInfo, usb: UsbIdentity) -> Result<Bulk> {
-    let context = Context::new().map_err(|e| usb_error("upload context", e))?;
-    let deadline = Instant::now() + Duration::from_secs(90);
-    let mut last_error = None;
-    loop {
-        for device in context
-            .devices()
-            .map_err(|e| usb_error("upload enumeration", e))?
-            .iter()
-        {
-            if !same_port(
-                info,
-                device.bus_number(),
-                &device
-                    .port_numbers()
-                    .map_err(|e| usb_error("upload port", e))?,
-            ) {
-                continue;
-            }
-            let desc = device
-                .device_descriptor()
-                .map_err(|e| usb_error("upload descriptor", e))?;
-            if desc.vendor_id() != usb.vendor_id || desc.product_id() != usb.product_id {
-                continue;
-            }
-            let config = match device.active_config_descriptor() {
-                Ok(config) => config,
-                Err(error) if driver_pending(error) => {
-                    last_error = Some(error);
-                    continue;
-                }
-                Err(error) => return Err(usb_error("upload configuration", error)),
-            };
-            let interface = config
-                .interfaces()
-                .flat_map(|i| i.descriptors())
-                .find(|d| {
-                    d.interface_number() == 0
-                        && d.setting_number() == 0
-                        && d.class_code() == 0xff
-                        && d.sub_class_code() == 0x52
-                        && d.protocol_code() == 2
-                        && d.num_endpoints() == 1
-                })
-                .ok_or_else(|| invalid("Unexpected upload USB interface"))?;
-            let ep = interface.endpoint_descriptors().next().unwrap();
-            if ep.direction() != rusb::Direction::Out
-                || ep.transfer_type() != rusb::TransferType::Bulk
-            {
-                return Err(invalid("Unexpected upload endpoint"));
-            }
-            let handle = match device.open().and_then(|handle| {
-                handle.claim_interface(0)?;
-                Ok(handle)
-            }) {
-                Ok(handle) => handle,
-                Err(error) if driver_pending(error) => {
-                    last_error = Some(error);
-                    continue;
-                }
-                Err(error) => return Err(usb_error("upload open/claim", error)),
-            };
-            return Ok(Bulk {
-                handle,
-                endpoint: ep.address(),
-            });
-        }
-        if Instant::now() >= deadline {
-            if let Some(error) = last_error {
-                return Err(invalid(format!("Upload helper {:04x}:{:04x} appeared, but Windows could not open its WinUSB interface: {error}", usb.vendor_id, usb.product_id)));
-            }
-            return Err(invalid("Upload helper did not enumerate"));
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
+    let sha: [u8; 32] = hash.finalize().into();
+    input.seek(SeekFrom::Start(0)).map_err(io_error)?;
+    Ok((size, sha))
 }
 
 fn transfer(
@@ -502,19 +130,19 @@ fn transfer(
 ) -> Result<Status> {
     let ready = bulk.status(nonce, size)?;
     if ready.rc() != 0 {
-        return Err(helper_error(ready.rc(), word(&ready.raw, 56)));
+        return Err(helper_error(ready.rc(), ready.error_no()));
     }
-    if ready.state() != 1
+    if ready.state() != READY
         || ready.rc() != 0
-        || word(&ready.raw, 36) != 0
-        || word(&ready.raw, 48) != u32::from(bulk.endpoint())
+        || ready.received() != 0
+        || ready.endpoint() != u32::from(bulk.endpoint())
     {
         return Err(invalid(format!(
             "Upload helper not ready: rc={}",
             ready.rc()
         )));
     }
-    bulk.command(0x53, nonce)?;
+    bulk.command(START, nonce)?;
     let mut buffer = [0; CHUNK];
     let mut sent = 0u32;
     while sent < size {
@@ -537,23 +165,27 @@ fn transfer(
     let mut deadline = Instant::now() + Duration::from_secs(30);
     loop {
         let status = bulk.status(nonce, size)?;
-        let now = (status.state(), word(&status.raw, 40), word(&status.raw, 44));
+        let now = (status.state(), status.written(), status.verified());
         if now != last {
             deadline = Instant::now() + Duration::from_secs(30);
             last = now;
         }
-        if status.state() == 4 {
-            bulk.command(0x54, nonce)?;
+        if status.state() == COMPLETE {
+            bulk.command(ACKNOWLEDGE, nonce)?;
             return Ok(status);
         }
         progress(
             emit,
-            if status.state() == 3 {
+            if status.state() == VERIFYING {
                 "verify"
             } else {
                 "write"
             },
-            u64::from(if status.state() == 3 { now.2 } else { now.1 }),
+            u64::from(if status.state() == VERIFYING {
+                now.2
+            } else {
+                now.1
+            }),
             u64::from(size),
         );
         if Instant::now() >= deadline {
@@ -602,17 +234,46 @@ fn returned(info: &DeviceInfo, nonce: &[u8; 16]) -> Result<(Session, [u8; 64])> 
 }
 
 impl Session {
+    fn launch_helper(mut self, image: &[u8], before_launch: impl FnOnce()) -> (Result<()>, bool) {
+        self.operation_ready = false;
+        self.dfu.transport.timeout = Duration::from_secs(2);
+        let mut launched = false;
+        let result = self.dfu.idle().and_then(|()| {
+            before_launch();
+            launched = true;
+            self.dfu.launch_image(image)
+        });
+        (result, launched)
+    }
+
+    fn verify_helper_result(
+        &mut self,
+        status: &Status,
+        nonce: &[u8; 16],
+        size: u32,
+        operation: &str,
+    ) -> Result<()> {
+        let data = self.dfu.read_memory(RESULT_ADDR, RESULT_SIZE)?;
+        if Status::parse(&data, nonce, size)? != *status {
+            return Err(invalid(format!(
+                "{operation} result changed during DFU return"
+            )));
+        }
+        Ok(())
+    }
+}
+
+impl Session {
     /// Consumes checked DFU and returns a newly claimed session after the upload.
     /// Progress callbacks report activity; cancellation must not interrupt disk cleanup.
     pub fn upload(
-        mut self,
+        self,
         helper: &UploadHelper,
         input: &mut (impl Read + Seek),
         options: UploadOptions,
         mut emit: impl FnMut(UploadProgress),
     ) -> std::result::Result<Uploaded, UploadFailure> {
         let started = Instant::now();
-        let mut launched = false;
         let mut nonce = [0; 16];
         let info = self.info.clone();
         let verified_rom = self.verified_rom.clone();
@@ -625,25 +286,7 @@ impl Session {
             if info.port_path.is_empty() {
                 return Err(invalid("Upload requires a stable USB port path"));
             }
-            let size = input.seek(SeekFrom::End(0)).map_err(io_error)?;
-            if size > MAX_UPLOAD_SIZE {
-                return Err(invalid(
-                    "Upload exceeds the 2 GiB minus 1 byte filesystem limit",
-                ));
-            }
-            input.seek(SeekFrom::Start(0)).map_err(io_error)?;
-            let mut hash = Sha256::new();
-            let mut buffer = [0; CHUNK];
-            let mut left = size;
-            while left > 0 {
-                let n = CHUNK.min(left as usize);
-                input.read_exact(&mut buffer[..n]).map_err(io_error)?;
-                hash.update(&buffer[..n]);
-                left -= n as u64;
-                progress(&mut emit, "hash", size - left, size);
-            }
-            let sha: [u8; 32] = hash.finalize().into();
-            input.seek(SeekFrom::Start(0)).map_err(io_error)?;
+            let (size, sha) = hash_input(input, &mut emit)?;
             getrandom::fill(&mut nonce).map_err(|e| invalid(format!("Upload nonce: {e}")))?;
             Ok((
                 size as u32,
@@ -663,20 +306,12 @@ impl Session {
             message: e.to_string(),
             cleanup: Cleanup::NotAttempted,
         })?;
-        self.operation_ready = false;
-        self.dfu.transport.timeout = Duration::from_secs(2);
-        let launch = (|| {
-            self.dfu.idle()?;
-            progress(&mut emit, "launch", 0, 1);
-            launched = true;
-            self.dfu.launch_image(&image)
-        })();
-        drop(self);
+        let (launch, launched) = self.launch_helper(&image, || progress(&mut emit, "launch", 0, 1));
         let transfer_result = launch.and_then(|()| {
             let mut bulk = open_bulk(&info, helper.usb)?;
             let result = transfer(&mut bulk, input, &nonce, size, &mut emit);
             if result.is_err() {
-                let _ = bulk.command(0x55, &nonce);
+                let _ = bulk.command(CANCEL, &nonce);
             }
             result
         });
@@ -707,12 +342,8 @@ impl Session {
                     word(&record, 12) as i32
                 )));
             }
-            let data = session.dfu.read_memory(RESULT_ADDR, RESULT_SIZE)?;
-            let preserved = Status::parse(&data, &nonce, size)?;
-            if preserved != status {
-                return Err(invalid("Upload result changed during DFU return"));
-            }
-            preserved.complete(&sha, &options)
+            session.verify_helper_result(&status, &nonce, size, "Upload")?;
+            status.complete(&sha, &options)
         })();
         let cleanup = match session.return_to_idle() {
             Ok(()) => Cleanup::Idle,
@@ -779,34 +410,20 @@ impl Session {
             .verified_rom
             .as_deref()
             .ok_or_else(|| invalid("Missing checked BootROM"))?;
-        let mut image = helper.prepare(
-            rom,
-            &nonce,
-            required_bytes,
-            &[0; 32],
-            &UploadOptions {
-                destination: "/cfw-loader.bin".into(),
-                overwrite: true,
-            },
-        )?;
-        image[helper.config_offset + 20..helper.config_offset + 24]
-            .copy_from_slice(&2u32.to_le_bytes());
+        let image = helper.prepare_inspection(rom, &nonce, required_bytes)?;
         let info = self.info.clone();
         let verified_rom = self.verified_rom.take();
-        self.operation_ready = false;
-        self.dfu.transport.timeout = Duration::from_secs(2);
-        let launch = self.dfu.idle().and_then(|()| self.dfu.launch_image(&image));
-        drop(self);
+        let (launch, _) = self.launch_helper(&image, || {});
         let operation = launch.and_then(|()| {
             let mut bulk = open_bulk(&info, helper.usb)?;
             let status = bulk.status(&nonce, required_bytes)?;
-            if status.state() != 4 {
-                let _ = bulk.command(0x55, &nonce);
+            if status.state() != COMPLETE {
+                let _ = bulk.command(CANCEL, &nonce);
                 return Err(invalid("Storage inspection did not complete"));
             }
-            bulk.command(0x54, &nonce)?;
+            bulk.command(ACKNOWLEDGE, &nonce)?;
             if status.rc() != 0 {
-                return Err(helper_error(status.rc(), word(&status.raw, 56)));
+                return Err(helper_error(status.rc(), status.error_no()));
             }
             Ok(status)
         });
@@ -819,10 +436,7 @@ impl Session {
             if word(&record, 8) != 4 || word(&record, 12) != 0 {
                 return Err(invalid("Storage helper failed during DFU return"));
             }
-            let preserved = session.dfu.read_memory(RESULT_ADDR, RESULT_SIZE)?;
-            if Status::parse(&preserved, &nonce, required_bytes)? != status {
-                return Err(invalid("Storage result changed during DFU return"));
-            }
+            session.verify_helper_result(&status, &nonce, required_bytes, "Storage")?;
             let data = session.dfu.read_memory(0x2201fbc0, 32)?;
             let quad = |offset| u64::from_le_bytes(data[offset..offset + 8].try_into().unwrap());
             let report = StorageReport {

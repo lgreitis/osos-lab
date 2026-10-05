@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use super::image::{relocate_cold_init, COLD_INIT_SIZE, COLD_INIT_TAG, ROM_END, ROM_START};
 use super::*;
+use crate::targets;
 use std::io::Cursor;
 
 fn fixture_helper() -> Result<UploadHelper> {

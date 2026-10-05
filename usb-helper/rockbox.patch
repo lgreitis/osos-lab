@@ -1,0 +1,67 @@
+--- a/firmware/usbstack/usb_core.c
++++ b/firmware/usbstack/usb_core.c
+@@ -1,3 +1,4 @@
++#include "usb_identity.h"
+ /***************************************************************************
+  *             __________               __   ___.
+  *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
+@@ -72,7 +73,7 @@
+ #include "ocotp-imx233.h"
+ #elif defined(SANSA_CONNECT)
+ #include "cryptomem-sansaconnect.h"
+-#elif (CONFIG_STORAGE & STORAGE_ATA)
++#elif 0
+ #include "ata.h"
+ #endif
+
+@@ -103,8 +104,8 @@
+     .bDeviceSubClass    = 0,
+     .bDeviceProtocol    = 0,
+     .bMaxPacketSize0    = 64,
+-    .idVendor           = USB_VENDOR_ID,
+-    .idProduct          = USB_PRODUCT_ID,
++    .idVendor           = UPLOAD_USB_VENDOR_ID,
++    .idProduct          = UPLOAD_USB_PRODUCT_ID,
+     .bcdDevice          = 0x0100,
+     .iManufacturer      = USB_STRING_INDEX_MANUFACTURER,
+     .iProduct           = USB_STRING_INDEX_PRODUCT,
+@@ -142,7 +143,7 @@
+ USB_STRING_INITIALIZER(u"Rockbox.org");
+
+ static const struct usb_string_descriptor usb_string_iProduct =
+-USB_STRING_INITIALIZER(u"Rockbox media player");
++USB_STRING_INITIALIZER(u"Reprise file upload");
+
+ static struct usb_string_descriptor usb_string_iSerial =
+ USB_STRING_INITIALIZER(u"00000000000000000000000000000000000000000");
+@@ -373,7 +374,7 @@
+         device_descriptor.iSerialNumber = 0;
+     }
+ }
+-#elif (CONFIG_STORAGE & STORAGE_ATA)
++#elif 0
+ /* If we don't know the device serial number, use the one
+  * from the disk */
+ static void set_serial_descriptor(void)
+@@ -1132,6 +1133,9 @@
+ /* Handling USB requests starts here */
+ static void usb_core_control_request_handler(struct usb_ctrlrequest* req, uint8_t* reqdata, size_t reqdata_size)
+ {
++    extern bool upload_usb_control_request(struct usb_ctrlrequest *, uint8_t *, size_t);
++    if (upload_usb_control_request(req, reqdata, reqdata_size)) return;
++
+ #ifdef HAVE_USB_CHARGING_ENABLE
+     timeout_cancel(&usb_no_host_timeout);
+     if(usb_no_host) {
+--- a/firmware/target/arm/s5l8702/ipod6g/storage_ata-6g.c
++++ b/firmware/target/arm/s5l8702/ipod6g/storage_ata-6g.c
+@@ -910,6 +910,9 @@
+
+ static int ata_transfer_sectors(uint64_t sector, int count, void* buffer, int write)
+ {
++    extern int upload_write_allowed(uint64_t, int);
++    if (write && !upload_write_allowed(sector, count)) return -1;
++
+     if (!ata_powered)
+         ata_power_up();
+     if (sector + count > total_sectors)
