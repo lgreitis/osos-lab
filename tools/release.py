@@ -125,7 +125,7 @@ def main():
         choices=RELEASE_TARGETS,
         help="Build only this target; the default builds all release targets",
     )
-    parser.add_argument("--minimum-installer-version", default="0.1.0")
+    parser.add_argument("--minimum-installer-version", default="0.1.1")
     parser.add_argument("--out", type=Path, default=ROOT / "build/releases")
     args = parser.parse_args()
     if not valid_version(args.minimum_installer_version):
