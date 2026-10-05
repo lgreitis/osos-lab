@@ -1,6 +1,17 @@
 {
   "ghidra_version": "12.1.4",
   "prepared": true,
+  "language": "ARM:LE:32:v5t",
+  "targets": [
+    {
+      "target": "classic7g-2.0.4",
+      "inputs": "."
+    },
+    {
+      "target": "classic6g-reva-2.0.1",
+      "inputs": "MB565-2.0.1"
+    }
+  ],
   "programs": [
     {
       "path": "2.0.4/osos.elf",
@@ -22,6 +33,13 @@
       ],
       "memory_sha256": "50402fb44389901a0c20f7f83b2015a7556e527231476cdd47d701ace08630bc",
       "entry": 570425344,
+      "entry_points": [
+        {
+          "address": 570425344,
+          "thumb": false
+        }
+      ],
+      "thumb_regions": [],
       "provenance": {
         "input": "osos.bin",
         "sha256": "5841de6479f3a655102745fdb20e153ef99c4ef413314ccdb9a4721cace9a36e"
@@ -72,6 +90,12 @@
           "initialized": 0,
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         }
+      ],
+      "verify_functions": [
+        135735692,
+        136763616,
+        570454448,
+        570443488
       ]
     },
     {
@@ -102,6 +126,15 @@
       ],
       "memory_sha256": "228a18e9af94abeb7a26a81ee77509849f554677a21d3d5e088bc38cfb0514dd",
       "entry": 579,
+      "entry_points": [
+        {
+          "address": 578,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 37536,
         "file": "DxeMain-35b898ca-b6a9-49ce-8c72-904735cc49b7.pe32",
@@ -188,6 +221,15 @@
       ],
       "memory_sha256": "2508bb3cf843f67508b04e0bbb8bc3654b782964927ad43644b3a3ba9a4d2cff",
       "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 5376,
         "file": "Bds-2ed6d875-3da4-462c-b201-7c557027a5ba.pe32",
@@ -274,6 +316,15 @@
       ],
       "memory_sha256": "40f4ca2b5f061b8637226f730e417402f667992f557823539a45ca805cd226d2",
       "entry": 741,
+      "entry_points": [
+        {
+          "address": 740,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1824,
         "file": "ImageManagerSecurity-a3f1a310-0ad9-42e3-8918-3c81d2e3008c.pe32",
@@ -360,6 +411,15 @@
       ],
       "memory_sha256": "4b1b52afabf5d0ccc28923115c940e57719e2094550574881c1d487768296251",
       "entry": 885,
+      "entry_points": [
+        {
+          "address": 884,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2016,
         "file": "Display-c7e0e649-e9b3-4842-b28a-43b5a81b7e56.pe32",
@@ -446,6 +506,15 @@
       ],
       "memory_sha256": "1e1ce5802d8428e04729fe9cfb9ef3dc9878fdc4436fc6f46497975c8e4c7220",
       "entry": 1069,
+      "entry_points": [
+        {
+          "address": 1068,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2144,
         "file": "TouchWheel-8439034b-13a6-4897-ba01-cd5cf39aa3bb.pe32",
@@ -532,6 +601,15 @@
       ],
       "memory_sha256": "67aff762061cf9aed3e7369328587f2e077a4ca17d474f09ac779ba6f4e9e8ea",
       "entry": 667,
+      "entry_points": [
+        {
+          "address": 666,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1696,
         "file": "MemoryAllocator-a11a6554-9815-45a9-80c2-28d1412b498b.pe32",
@@ -618,6 +696,15 @@
       ],
       "memory_sha256": "8bf8692fbc8ef3a218be22c3d2f8001d2c3dd51d9ef8525d94ec22baa89b7768",
       "entry": 549,
+      "entry_points": [
+        {
+          "address": 548,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1504,
         "file": "DxeStatusCode-02013c96-98a6-4ef2-8879-7e7daac0ee86.pe32",
@@ -704,6 +791,15 @@
       ],
       "memory_sha256": "1eb78d48e513b98d7ae6ecf156a1ed293b912a4b74893aae43c73caf9d432bea",
       "entry": 4789,
+      "entry_points": [
+        {
+          "address": 4788,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 9504,
         "file": "JpegDecoder-051eb0df-da79-4468-b1cd-e8f2e09f1696.pe32",
@@ -790,6 +886,15 @@
       ],
       "memory_sha256": "fd2f47698247f66bbbf0fd128cccba1bee5438c4df428cbbacd3d75993a5e629",
       "entry": 745,
+      "entry_points": [
+        {
+          "address": 744,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 6880,
         "file": "DrawJpeg-2bfd4382-cdb3-4867-b5bd-6f446696cc6b.pe32",
@@ -876,6 +981,15 @@
       ],
       "memory_sha256": "8d1ecfbfb036e0b3c330834d39997b43aec72914e90f8251e8ae123b0e706299",
       "entry": 865,
+      "entry_points": [
+        {
+          "address": 864,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1920,
         "file": "FileSystemRead-508868d2-0a1d-44af-8ff7-50740641698d.pe32",
@@ -962,6 +1076,15 @@
       ],
       "memory_sha256": "39ccf93c1264879441455adef2bbc21f442692479a49beff730098aefb20bbfd",
       "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 3200,
         "file": "DiskIo-ca261a26-7718-4b9b-8a07-5178b1ae3a02.pe32",
@@ -1048,6 +1171,15 @@
       ],
       "memory_sha256": "724e28e3f5c80b456b83f3baa8b00664a3f96ce73de9b359c69b9eabc78e8fa5",
       "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 9536,
         "file": "Partition-43b93232-afbe-11d4-bd0f-0080c73c8881.pe32",
@@ -1134,6 +1266,15 @@
       ],
       "memory_sha256": "126f53e349a11b715b000363fcdb72d6a03a95376c6f801e93329080850e112b",
       "entry": 1047,
+      "entry_points": [
+        {
+          "address": 1046,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2272,
         "file": "SystemConfig-5d020c3c-c01b-4010-8aea-aa24235c0c97.pe32",
@@ -1220,6 +1361,15 @@
       ],
       "memory_sha256": "cfcc01522fd77f2d558e84098dee7a2723fd45cde2b08eb438208673623e4623",
       "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1504,
         "file": "DetectReset-ffa17ac1-fd9f-4bad-a24a-2133ff21df26.pe32",
@@ -1306,6 +1456,15 @@
       ],
       "memory_sha256": "a13506a845ef3eea289b8c1b82a42fcf28d4821208fb2d6e4ee6e8f7c0252889",
       "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1536,
         "file": "DrawLogo-9fb23d03-d0ba-4510-8828-012e0ab9ee19.pe32",
@@ -1392,6 +1551,15 @@
       ],
       "memory_sha256": "1eaa4e3f45abcb7664faaf7542b989a1eb96d19ac0721e3dc45e5cc4ddbc1f3a",
       "entry": 1029,
+      "entry_points": [
+        {
+          "address": 1028,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 4928,
         "file": "IpodFirmwareFS-81b6cb09-0d19-4b56-bc42-df9c35fbe21f.pe32",
@@ -1478,6 +1646,15 @@
       ],
       "memory_sha256": "d9ba8165ad807d810450b5b8fd94f3abc6bb563f115dc32f55d3e841da63685b",
       "entry": 1069,
+      "entry_points": [
+        {
+          "address": 1068,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2912,
         "file": "DisplayPlatform-0a52cfac-f5c4-4220-9957-84625622e056.pe32",
@@ -1564,6 +1741,15 @@
       ],
       "memory_sha256": "3c7e2a33ca7ec88b49532912236ba8efba549d543e6efa3c893c3bbf11d273fd",
       "entry": 579,
+      "entry_points": [
+        {
+          "address": 578,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1536,
         "file": "SoftwareVersion-0e2bee84-a47c-4d0c-8271-97f42cdbcc76.pe32",
@@ -1650,6 +1836,15 @@
       ],
       "memory_sha256": "c6f0b2b1310c9009fe34de53cc1c6b1e755c21907702010a2dcbf59f310e9033",
       "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2176,
         "file": "BatteryTrap-e1061e8d-77f2-48a3-a57d-3e728ee0c4a5.pe32",
@@ -1736,6 +1931,15 @@
       ],
       "memory_sha256": "f9c03cf6418511a1b7cb2ec4fd3c10d52b9fbc5a6e2e089ced14ba2d1ab97138",
       "entry": 851,
+      "entry_points": [
+        {
+          "address": 850,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2528,
         "file": "Cpu-3e755d4a-45ca-4902-b188-c9bd64bfee68.pe32",
@@ -1822,6 +2026,15 @@
       ],
       "memory_sha256": "fc1cf31e5089ceedf6f212067f4b43cea2649a4fd68579f22450043e6ed916b4",
       "entry": 987,
+      "entry_points": [
+        {
+          "address": 986,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1920,
         "file": "Aes-c0287dba-8a73-4ff1-98f1-455b97d4d480.pe32",
@@ -1908,6 +2121,15 @@
       ],
       "memory_sha256": "7ba8a4d15094ed0a25ed6370464549e46b5c5768f197a5463c54811537629dee",
       "entry": 703,
+      "entry_points": [
+        {
+          "address": 702,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1696,
         "file": "ChipId-8d1a1104-d045-46f2-b1aa-c05ed24929f6.pe32",
@@ -1994,6 +2216,15 @@
       ],
       "memory_sha256": "ecb6dbd1aa4e26a86667f2856fa0c14049a12aa33031df490b445a05d2fa156a",
       "entry": 735,
+      "entry_points": [
+        {
+          "address": 734,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2112,
         "file": "ClockAndReset-66dc435a-b860-4e39-9614-c79685060159.pe32",
@@ -2080,6 +2311,15 @@
       ],
       "memory_sha256": "30c36c2290b22e15f4af6fad77afcff546bb22a29167a456a2e7e40d960f157c",
       "entry": 1271,
+      "entry_points": [
+        {
+          "address": 1270,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 3808,
         "file": "Lcd-3c3134b6-91b6-427f-b512-56851970a5ea.pe32",
@@ -2166,6 +2406,15 @@
       ],
       "memory_sha256": "e7891d4c91baa5cc739ef45ae4c91f65707db66f0f1136efbcc4ad267b601be8",
       "entry": 2153,
+      "entry_points": [
+        {
+          "address": 2152,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 5600,
         "file": "ROM-773641a1-cc51-41b7-b121-943bd7c5fc3f.pe32",
@@ -2252,6 +2501,15 @@
       ],
       "memory_sha256": "770b765877cbbf373c7fad792208c73495dc878a7d5c444ae7f1fd2e58afe1cc",
       "entry": 1149,
+      "entry_points": [
+        {
+          "address": 1148,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2112,
         "file": "Sha1-e32d4869-bb45-4a55-9c2b-5834f812fe44.pe32",
@@ -2338,6 +2596,15 @@
       ],
       "memory_sha256": "431785fae78a2cddde8e0b6081bfa2de8e4b224d4d9662ca60f8e7ef7c928faf",
       "entry": 889,
+      "entry_points": [
+        {
+          "address": 888,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1824,
         "file": "Spi-cb828b1e-62d0-4672-aae6-c5313cb12aa6.pe32",
@@ -2424,6 +2691,15 @@
       ],
       "memory_sha256": "88c36c26fc4fb2d56170a210498b0fdd8f8c4a59eca588dfdc85e9906839e9de",
       "entry": 599,
+      "entry_points": [
+        {
+          "address": 598,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1504,
         "file": "Usb-c758bbd3-f449-4669-8c6a-8fb59c441051.pe32",
@@ -2510,6 +2786,15 @@
       ],
       "memory_sha256": "21438830bf395cdd55596b68cb9f344cc53cb4485773819ed2b663046ffcec15",
       "entry": 903,
+      "entry_points": [
+        {
+          "address": 902,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1952,
         "file": "DxeSmbus-6b5d64fa-8658-4573-a8aa-a8bd6277360d.pe32",
@@ -2596,6 +2881,15 @@
       ],
       "memory_sha256": "46fa1d0d1327a47e318995c5554a34628dff6c05c585ac7263ed5c8b32fdb7a4",
       "entry": 1627,
+      "entry_points": [
+        {
+          "address": 1626,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 3200,
         "file": "DmaLight-677f62dd-81ab-4d29-827a-d48550b5c69f.pe32",
@@ -2682,6 +2976,15 @@
       ],
       "memory_sha256": "c8a696da38cc619f81b87c8547ba202bb5c9a15477d5351694cc7e1d9af1b84e",
       "entry": 635,
+      "entry_points": [
+        {
+          "address": 634,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1568,
         "file": "Gpio-e9266bd1-dc4e-482b-9d2e-d5940cc4897b.pe32",
@@ -2768,6 +3071,15 @@
       ],
       "memory_sha256": "8d56615fafedf5b812c4d6009ce326bf0283454c4d4758d62a40cf9d3a1968d5",
       "entry": 913,
+      "entry_points": [
+        {
+          "address": 912,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2272,
         "file": "InterruptController-659d6b6f-6e34-4f7e-a55c-43c5f2f3a1e2.pe32",
@@ -2854,6 +3166,15 @@
       ],
       "memory_sha256": "9117f47e120a2298962ae2cca3d2e920e0235f70ccdb354f320d37fbf52ee14d",
       "entry": 561,
+      "entry_points": [
+        {
+          "address": 560,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1504,
         "file": "S5L8900Metronome-435969da-a170-4265-ae8c-290b241d5e1c.pe32",
@@ -2940,6 +3261,15 @@
       ],
       "memory_sha256": "a11b9c735786e82554c8038b6275875aff443a48778b599bea72fa3b3e094296",
       "entry": 585,
+      "entry_points": [
+        {
+          "address": 584,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1568,
         "file": "SystemTimer-4a39ef02-6276-4f08-a510-6df54aaa1186.pe32",
@@ -3026,6 +3356,15 @@
       ],
       "memory_sha256": "0ae4b116729d60cc0b141cee7a8712770f62cc51bc931abdca6b42f13f8a11f4",
       "entry": 747,
+      "entry_points": [
+        {
+          "address": 746,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1920,
         "file": "S5L8900Timer-ce608178-dd25-4c9d-b954-4f09eb584f98.pe32",
@@ -3112,6 +3451,15 @@
       ],
       "memory_sha256": "5f0618342fe2c155124e4c509ad03493a92b09e7d13858d065b2a0b680ca5532",
       "entry": 743,
+      "entry_points": [
+        {
+          "address": 742,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 12128,
         "file": "Ata-084239de-b440-4046-af54-31ca8b9a6b7f.pe32",
@@ -3198,6 +3546,15 @@
       ],
       "memory_sha256": "1f7ca1d7e0dc6c85017a69960cbba17ae8373ab70785addff7a4a82c9c97702c",
       "entry": 1519,
+      "entry_points": [
+        {
+          "address": 1518,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 4288,
         "file": "DxePcf50635-4c8b3791-8858-4de9-8cac-7aee7d214678.pe32",
@@ -3284,6 +3641,15 @@
       ],
       "memory_sha256": "386fb1d7d145a81bf578d3c2c77ea7c9c7fceb0331ada6268c830f04e4d1bdbe",
       "entry": 653,
+      "entry_points": [
+        {
+          "address": 652,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 1696,
         "file": "DxeLtc4066-0c86dbf6-3fd4-40b0-82b7-0f1c12b98d4c.pe32",
@@ -3370,6 +3736,15 @@
       ],
       "memory_sha256": "9e5311a55376dd88eae48e4b5874a8d711dd87c9aba08ec18a9f0d16197a50d3",
       "entry": 1227,
+      "entry_points": [
+        {
+          "address": 1226,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
       "provenance": {
         "bytes": 2496,
         "file": "DxeSst25-abc3ba70-fa6b-43c9-8532-7ffc7c785c54.pe32",
@@ -3484,6 +3859,23 @@
       ],
       "memory_sha256": "04bef844458614f8fe62b5695a82618dfe1b17663c9a1fb0b7cfcf3cb09a3aa2",
       "entry": 570425344,
+      "entry_points": [
+        {
+          "address": 570425344,
+          "thumb": false
+        },
+        {
+          "address": 570492236,
+          "thumb": true
+        },
+        {
+          "address": 570553908,
+          "thumb": false
+        }
+      ],
+      "thumb_regions": [
+        ".preefi.text"
+      ],
       "provenance": {
         "input": "apple-loader.bin",
         "sha256": "7caf3863376cf7890adc73601d24fbf11bc9ce89c7b40366fd61b45a1d6633e8",
@@ -3619,6 +4011,4008 @@
       "verify_functions": [
         570425344,
         570492236,
+        570553908
+      ]
+    },
+    {
+      "path": "2.0.1/osos.elf",
+      "input": "2.0.1/osos.elf",
+      "input_sha256": "b4cbfb60469c1d23ae8ad14deca5eb911fc2f860cfe50a813744998d7e5e2042",
+      "segments": [
+        [
+          212,
+          10464592
+        ],
+        [
+          10464804,
+          2692
+        ],
+        [
+          10467496,
+          44636
+        ]
+      ],
+      "memory_sha256": "f52d1aa6de928e5e0ce5821d0cc4c9d9085a3c0001a9299daaf0c91e6b313af3",
+      "entry": 570425344,
+      "entry_points": [
+        {
+          "address": 570425344,
+          "thumb": false
+        }
+      ],
+      "thumb_regions": [],
+      "provenance": {
+        "input": "osos.bin",
+        "sha256": "220913cb8569af0538a7e828f1aaa08d9313bf9a5c2b0a7a7e6e2dc0bee5f16e"
+      },
+      "regions": [
+        {
+          "name": ".dram",
+          "address": 134217728,
+          "size": 10464592,
+          "flags": 7,
+          "source": 46684,
+          "initialized": 10464592,
+          "sha256": "be334b2f7da6079afa0cea7fb1bc5d311435bfe00d88a4418c29a435f2265ddf"
+        },
+        {
+          "name": ".dram.data",
+          "address": 144682320,
+          "size": 2692,
+          "flags": 6,
+          "source": 10511276,
+          "initialized": 2692,
+          "sha256": "cb2c1889f628e76c38b0ab619e1a8cd548c4ea2c4bb762c1e211460a1c69fc5e"
+        },
+        {
+          "name": ".dram.bss",
+          "address": 144685012,
+          "size": 1205852,
+          "flags": 6,
+          "source": null,
+          "initialized": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": ".iram",
+          "address": 570425344,
+          "size": 44636,
+          "flags": 7,
+          "source": 2048,
+          "initialized": 44636,
+          "sha256": "253768b705d891f1495a7901ed34104211dd182cbb180215640cbaa503a3ffc6"
+        },
+        {
+          "name": ".iram.bss",
+          "address": 570469980,
+          "size": 22808,
+          "flags": 6,
+          "source": null,
+          "initialized": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "verify_functions": [
+        570425344,
+        570460232,
+        570443440,
+        570443704,
+        137688932
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DxeMain-35b898ca-b6a9-49ce-8c72-904735cc49b7.elf",
+      "input": "2.0.1/NOR/modules/DxeMain-35b898ca-b6a9-49ce-8c72-904735cc49b7.elf",
+      "input_sha256": "978e61f4fdb82c2534db6af15096ddc5701019848f328d9c61f2417387741f10",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          28412
+        ],
+        [
+          29168,
+          7780
+        ],
+        [
+          36948,
+          672
+        ],
+        [
+          37620,
+          128
+        ]
+      ],
+      "memory_sha256": "312d9c5fc3036df35c933d8e4c64d151aabc8c7ad1e46448f0ab0ef313f6a502",
+      "entry": 579,
+      "entry_points": [
+        {
+          "address": 578,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 37536,
+        "file": "DxeMain-35b898ca-b6a9-49ce-8c72-904735cc49b7.pe32",
+        "format": "pe32",
+        "guid": "35b898ca-b6a9-49ce-8c72-904735cc49b7",
+        "loader_file_offset": 328,
+        "name": "DxeMain",
+        "sha256": "312d9c5fc3036df35c933d8e4c64d151aabc8c7ad1e46448f0ab0ef313f6a502",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "832b5c89df52ccae5dc924a884f5ac813a31b78d71478795a186de78e0aec6d0"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 28412,
+          "flags": 5,
+          "source": 544,
+          "initialized": 28412,
+          "sha256": "031bedaef8a7211a98b646ae05fe03202d8a8589ee37afdb92510a5290299d05"
+        },
+        {
+          "name": ".data",
+          "address": 28956,
+          "size": 7780,
+          "flags": 6,
+          "source": 28956,
+          "initialized": 7780,
+          "sha256": "cb9b03e2f1a299b88db1508c2cfac0d2cad1335e067889ccff34fb5d9a542b8b"
+        },
+        {
+          "name": ".reloc",
+          "address": 36736,
+          "size": 672,
+          "flags": 4,
+          "source": 36736,
+          "initialized": 672,
+          "sha256": "5f375cc38cfb96c4c4d0370fc3f6c30c85d950d0024b5914e672081615618d94"
+        },
+        {
+          "name": ".debug",
+          "address": 37408,
+          "size": 128,
+          "flags": 4,
+          "source": 37408,
+          "initialized": 128,
+          "sha256": "fe61fa5da9d15ed9f4ce0fdfd4f5792674fb316111500c6b30af55a731eb9a1e"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Bds-2ed6d875-3da4-462c-b201-7c557027a5ba.elf",
+      "input": "2.0.1/NOR/modules/Bds-2ed6d875-3da4-462c-b201-7c557027a5ba.elf",
+      "input_sha256": "12871218ae6dfb0b92854b93489ef700381be886e8ab3346239b108ac12ccdfa",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          4124
+        ],
+        [
+          4880,
+          452
+        ],
+        [
+          5332,
+          128
+        ],
+        [
+          5460,
+          128
+        ]
+      ],
+      "memory_sha256": "3098db1612edfc87180a52ec9fc9c5fbd8430e0e21d7afe19749f09dfec87e6a",
+      "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 5376,
+        "file": "Bds-2ed6d875-3da4-462c-b201-7c557027a5ba.pe32",
+        "format": "pe32",
+        "guid": "2ed6d875-3da4-462c-b201-7c557027a5ba",
+        "loader_file_offset": 23904,
+        "name": "Bds",
+        "sha256": "3098db1612edfc87180a52ec9fc9c5fbd8430e0e21d7afe19749f09dfec87e6a",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "1b5a7620fa1e147cffc3f9596518f12c5693254b05b0f98b7b0028f124b06af0"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 4124,
+          "flags": 5,
+          "source": 544,
+          "initialized": 4124,
+          "sha256": "6c54d0377735135897d4929e4927a5d7ae0358d7975db7e3f83b8b8cd1ba4305"
+        },
+        {
+          "name": ".data",
+          "address": 4668,
+          "size": 452,
+          "flags": 6,
+          "source": 4668,
+          "initialized": 452,
+          "sha256": "05e502890830be2be7344cb7c33a9604a6555788f05dc6d334e73b2f2982c64d"
+        },
+        {
+          "name": ".reloc",
+          "address": 5120,
+          "size": 128,
+          "flags": 4,
+          "source": 5120,
+          "initialized": 128,
+          "sha256": "9c3b35582b775c4ba50d0df04083e93f3e3e358f33bd75f66c7a533995f879fa"
+        },
+        {
+          "name": ".debug",
+          "address": 5248,
+          "size": 128,
+          "flags": 4,
+          "source": 5248,
+          "initialized": 128,
+          "sha256": "d7a13afaba69932d139726804c4b019b0fc9ca1845e6b55e7eb0f95affa702b2"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/ImageManagerSecurity-a3f1a310-0ad9-42e3-8918-3c81d2e3008c.elf",
+      "input": "2.0.1/NOR/modules/ImageManagerSecurity-a3f1a310-0ad9-42e3-8918-3c81d2e3008c.elf",
+      "input_sha256": "926f08b9d1419e1b61c96c203177ec9046dda1d21f1c4d388219c2e048e246ca",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1004
+        ],
+        [
+          1760,
+          84
+        ],
+        [
+          1844,
+          32
+        ],
+        [
+          1876,
+          160
+        ]
+      ],
+      "memory_sha256": "60f62b0b3eed5202ba25f7cce13caab478eb79bb924365e4c7edca6ad745c2ce",
+      "entry": 741,
+      "entry_points": [
+        {
+          "address": 740,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1824,
+        "file": "ImageManagerSecurity-a3f1a310-0ad9-42e3-8918-3c81d2e3008c.pe32",
+        "format": "pe32",
+        "guid": "a3f1a310-0ad9-42e3-8918-3c81d2e3008c",
+        "loader_file_offset": 27592,
+        "name": "ImageManagerSecurity",
+        "sha256": "60f62b0b3eed5202ba25f7cce13caab478eb79bb924365e4c7edca6ad745c2ce",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "94fb8eba589e4555726e16cdce9464d53487b1feaff583c5adfe02c96692ad45"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1004,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1004,
+          "sha256": "197280b7fb10dc4ea55e863667287bf10829a7bd212e90001d591906efb5d655"
+        },
+        {
+          "name": ".data",
+          "address": 1548,
+          "size": 84,
+          "flags": 6,
+          "source": 1548,
+          "initialized": 84,
+          "sha256": "f310b98a76975f373ca59941be47e94ff0f42a5988de8c6f0464c86f1a4856c5"
+        },
+        {
+          "name": ".reloc",
+          "address": 1632,
+          "size": 32,
+          "flags": 4,
+          "source": 1632,
+          "initialized": 32,
+          "sha256": "1705e8ad38a8ee5e2d4e5cc6afd42280618374f99b43a2e969ef44aa6bef8415"
+        },
+        {
+          "name": ".debug",
+          "address": 1664,
+          "size": 160,
+          "flags": 4,
+          "source": 1664,
+          "initialized": 160,
+          "sha256": "6fe6646f5661282ab198a1b2dcbc31a90ff3dbf0b16cfaa5297f61051da329de"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Display-c7e0e649-e9b3-4842-b28a-43b5a81b7e56.elf",
+      "input": "2.0.1/NOR/modules/Display-c7e0e649-e9b3-4842-b28a-43b5a81b7e56.elf",
+      "input_sha256": "84e74e522657455377496803790b3d1214865c6d4452271578e077902b5a2a9d",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1136
+        ],
+        [
+          1892,
+          144
+        ],
+        [
+          2036,
+          64
+        ],
+        [
+          2100,
+          128
+        ]
+      ],
+      "memory_sha256": "9bfec40b836f8a16e8a92709da1d91329dc30bfe93374052e64fb87f47596905",
+      "entry": 885,
+      "entry_points": [
+        {
+          "address": 884,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2016,
+        "file": "Display-c7e0e649-e9b3-4842-b28a-43b5a81b7e56.pe32",
+        "format": "pe32",
+        "guid": "c7e0e649-e9b3-4842-b28a-43b5a81b7e56",
+        "loader_file_offset": 28808,
+        "name": "Display",
+        "sha256": "9bfec40b836f8a16e8a92709da1d91329dc30bfe93374052e64fb87f47596905",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "31757ea3e6223e18c2c275400eb04e0ca571c92e280d9ae41e62e2aa49929d0e"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1136,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1136,
+          "sha256": "1acd53a53eee2d11e5318ef63acccf9bf7c60baced34eab5c94ed4682facdc8f"
+        },
+        {
+          "name": ".data",
+          "address": 1680,
+          "size": 144,
+          "flags": 6,
+          "source": 1680,
+          "initialized": 144,
+          "sha256": "5641c524e6df9a90c46a0da3fa82913675a6474d97c0a95e77916b807c7506ee"
+        },
+        {
+          "name": ".reloc",
+          "address": 1824,
+          "size": 64,
+          "flags": 4,
+          "source": 1824,
+          "initialized": 64,
+          "sha256": "44b2452076630b71b1f14902f16aa024edd4afb25e90e2acbf16c2f206e14356"
+        },
+        {
+          "name": ".debug",
+          "address": 1888,
+          "size": 128,
+          "flags": 4,
+          "source": 1888,
+          "initialized": 128,
+          "sha256": "83916896fd515e3e59c0d8acd3a3107cf9fcf0a8c67873339dfb61b42886548b"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/TouchWheel-8439034b-13a6-4897-ba01-cd5cf39aa3bb.elf",
+      "input": "2.0.1/NOR/modules/TouchWheel-8439034b-13a6-4897-ba01-cd5cf39aa3bb.elf",
+      "input_sha256": "dc51a76eeab641ef5afbcf04a09adf15153fd7066c05d8a0a877ef385d670969",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1296
+        ],
+        [
+          2052,
+          112
+        ],
+        [
+          2164,
+          32
+        ],
+        [
+          2196,
+          160
+        ]
+      ],
+      "memory_sha256": "85b99df57d29da87c36e402d882f567973c78ab68f25e770d9d7326d048a5da0",
+      "entry": 1069,
+      "entry_points": [
+        {
+          "address": 1068,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2144,
+        "file": "TouchWheel-8439034b-13a6-4897-ba01-cd5cf39aa3bb.pe32",
+        "format": "pe32",
+        "guid": "8439034b-13a6-4897-ba01-cd5cf39aa3bb",
+        "loader_file_offset": 30176,
+        "name": "TouchWheel",
+        "sha256": "85b99df57d29da87c36e402d882f567973c78ab68f25e770d9d7326d048a5da0",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "feddb508341701104baaeb5cd3b4a45d5e1ea928e9d00ff9efdd22b7b0912d3a"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1296,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1296,
+          "sha256": "9d1e92fc3929c4b64ec9b746546f5e52637fd4388b28031cfd18ebdb331c0e43"
+        },
+        {
+          "name": ".data",
+          "address": 1840,
+          "size": 112,
+          "flags": 6,
+          "source": 1840,
+          "initialized": 112,
+          "sha256": "c24926e60c236373d7ce2ba4c405281224450e7444b244945294e8614f6c7388"
+        },
+        {
+          "name": ".reloc",
+          "address": 1952,
+          "size": 32,
+          "flags": 4,
+          "source": 1952,
+          "initialized": 32,
+          "sha256": "9b1a695b07bcc085f1c9bb066c409b0b5d48f75d5b9b0e34af50fa74579cb9b1"
+        },
+        {
+          "name": ".debug",
+          "address": 1984,
+          "size": 160,
+          "flags": 4,
+          "source": 1984,
+          "initialized": 160,
+          "sha256": "44ab609eb3c140d7518a5f441f4884bd36592013c05ae88928a02c2fb6c4a89d"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/MemoryAllocator-a11a6554-9815-45a9-80c2-28d1412b498b.elf",
+      "input": "2.0.1/NOR/modules/MemoryAllocator-a11a6554-9815-45a9-80c2-28d1412b498b.elf",
+      "input_sha256": "27226dbead7401606f441e57083d969679bf9e8e8cf0db76520a1039927325cc",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          844
+        ],
+        [
+          1600,
+          84
+        ],
+        [
+          1684,
+          64
+        ],
+        [
+          1748,
+          160
+        ]
+      ],
+      "memory_sha256": "3ea08b6a409d67b8d14fb99dfc6272f93d4429da460dd402279dddf6952975b5",
+      "entry": 667,
+      "entry_points": [
+        {
+          "address": 666,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1696,
+        "file": "MemoryAllocator-a11a6554-9815-45a9-80c2-28d1412b498b.pe32",
+        "format": "pe32",
+        "guid": "a11a6554-9815-45a9-80c2-28d1412b498b",
+        "loader_file_offset": 31552,
+        "name": "MemoryAllocator",
+        "sha256": "3ea08b6a409d67b8d14fb99dfc6272f93d4429da460dd402279dddf6952975b5",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "eb97816a9e0cc583dcda04979c141b8b785343eb18229b4e7a6e21951717aa25"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 844,
+          "flags": 5,
+          "source": 544,
+          "initialized": 844,
+          "sha256": "da158c51ebcd1c2899180f29a6d4bd76448ec173239edcacf49896b12bd1d2fb"
+        },
+        {
+          "name": ".data",
+          "address": 1388,
+          "size": 84,
+          "flags": 6,
+          "source": 1388,
+          "initialized": 84,
+          "sha256": "0f6e47a8a064ca72469b9f5ad018056791bbfcef75ff670498fd9f39b7f7cad6"
+        },
+        {
+          "name": ".reloc",
+          "address": 1472,
+          "size": 64,
+          "flags": 4,
+          "source": 1472,
+          "initialized": 64,
+          "sha256": "dfa1fb2b51e04507d9285165b4bac4da6206c2b15fb60e0627fb052d0d0f10d1"
+        },
+        {
+          "name": ".debug",
+          "address": 1536,
+          "size": 160,
+          "flags": 4,
+          "source": 1536,
+          "initialized": 160,
+          "sha256": "1c19586c7cbc01a8306c0bdeb300a692a33e86c08a3b01ef26ab1fa24eb1a241"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DxeStatusCode-02013c96-98a6-4ef2-8879-7e7daac0ee86.elf",
+      "input": "2.0.1/NOR/modules/DxeStatusCode-02013c96-98a6-4ef2-8879-7e7daac0ee86.elf",
+      "input_sha256": "faed396bdd0a120884e21f8c3bf528d20ae72f17151915b4aa380d932b7bfac3",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          716
+        ],
+        [
+          1472,
+          52
+        ],
+        [
+          1524,
+          32
+        ],
+        [
+          1556,
+          160
+        ]
+      ],
+      "memory_sha256": "b447c27aa357c3f63f46463a8c76a92283b457eadd05e6e2fee228adadb3ad14",
+      "entry": 549,
+      "entry_points": [
+        {
+          "address": 548,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1504,
+        "file": "DxeStatusCode-02013c96-98a6-4ef2-8879-7e7daac0ee86.pe32",
+        "format": "pe32",
+        "guid": "02013c96-98a6-4ef2-8879-7e7daac0ee86",
+        "loader_file_offset": 32624,
+        "name": "DxeStatusCode",
+        "sha256": "b447c27aa357c3f63f46463a8c76a92283b457eadd05e6e2fee228adadb3ad14",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "37f900b33251aee40b147876c87dfd4462e5ba45ab8d2bcfacd67463975382f5"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 716,
+          "flags": 5,
+          "source": 544,
+          "initialized": 716,
+          "sha256": "f76ba8fc0695ad485b458a33a56387907d7137a085007f3bf3ed8718931539eb"
+        },
+        {
+          "name": ".data",
+          "address": 1260,
+          "size": 52,
+          "flags": 6,
+          "source": 1260,
+          "initialized": 52,
+          "sha256": "cbbec2e75061397af82c92cb95f21ea64d4050e1e09950c5d82dc1125f8aa2ff"
+        },
+        {
+          "name": ".reloc",
+          "address": 1312,
+          "size": 32,
+          "flags": 4,
+          "source": 1312,
+          "initialized": 32,
+          "sha256": "1518da4e18829141074dd7d75707bf61eb9a4e9ff981f15623104ef69f4f6fcf"
+        },
+        {
+          "name": ".debug",
+          "address": 1344,
+          "size": 160,
+          "flags": 4,
+          "source": 1344,
+          "initialized": 160,
+          "sha256": "31a09b8ac6cf7ca72a67dfbd820ce07a62df616a0f3dd2bcb7e864c36473940a"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/JpegDecoder-051eb0df-da79-4468-b1cd-e8f2e09f1696.elf",
+      "input": "2.0.1/NOR/modules/JpegDecoder-051eb0df-da79-4468-b1cd-e8f2e09f1696.elf",
+      "input_sha256": "c10b76e417df2957aa182400f62ab05f4d8f5761daeab324b50a3f37ded49e97",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          6476
+        ],
+        [
+          7232,
+          2260
+        ],
+        [
+          9492,
+          64
+        ],
+        [
+          9556,
+          160
+        ]
+      ],
+      "memory_sha256": "813e982866d68603a25ddb5db458bd128f090a0648b844e5de1c5bac98bbdc82",
+      "entry": 4789,
+      "entry_points": [
+        {
+          "address": 4788,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 9504,
+        "file": "JpegDecoder-051eb0df-da79-4468-b1cd-e8f2e09f1696.pe32",
+        "format": "pe32",
+        "guid": "051eb0df-da79-4468-b1cd-e8f2e09f1696",
+        "loader_file_offset": 33544,
+        "name": "JpegDecoder",
+        "sha256": "813e982866d68603a25ddb5db458bd128f090a0648b844e5de1c5bac98bbdc82",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "9c34df4e7b402d5afebdd0567666b4357e38dd26842325266749483a6ee1e1f9"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 6476,
+          "flags": 5,
+          "source": 544,
+          "initialized": 6476,
+          "sha256": "dc6c104a2578bd45fee7022403698eeb6ac182a68aa07e639527adfe9dd0d4d4"
+        },
+        {
+          "name": ".data",
+          "address": 7020,
+          "size": 2260,
+          "flags": 6,
+          "source": 7020,
+          "initialized": 2260,
+          "sha256": "2a5204af499b4e6222052e3e86b12ca2bbac9e5ae8e6fb93a828ddea672f447b"
+        },
+        {
+          "name": ".reloc",
+          "address": 9280,
+          "size": 64,
+          "flags": 4,
+          "source": 9280,
+          "initialized": 64,
+          "sha256": "7897167ed81ce013404db32622cf54d0573765cfc9ac81b92b1b84d4fca81706"
+        },
+        {
+          "name": ".debug",
+          "address": 9344,
+          "size": 160,
+          "flags": 4,
+          "source": 9344,
+          "initialized": 160,
+          "sha256": "b3c4387a1ca41ab5def2de74a3a5bede1211179e60717d032a8892e6e5f293de"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DrawJpeg-2bfd4382-cdb3-4867-b5bd-6f446696cc6b.elf",
+      "input": "2.0.1/NOR/modules/DrawJpeg-2bfd4382-cdb3-4867-b5bd-6f446696cc6b.elf",
+      "input_sha256": "f5e17b939ea9d7c5ae8addeaca756f305992638174d68a752031cf5f8873c9d6",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          924
+        ],
+        [
+          1680,
+          5220
+        ],
+        [
+          6900,
+          64
+        ],
+        [
+          6964,
+          128
+        ]
+      ],
+      "memory_sha256": "c9741ef712fc2af1ec47641e37066f51ada924a3bfc6ebf943be99493da06ea6",
+      "entry": 745,
+      "entry_points": [
+        {
+          "address": 744,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 6880,
+        "file": "DrawJpeg-2bfd4382-cdb3-4867-b5bd-6f446696cc6b.pe32",
+        "format": "pe32",
+        "guid": "2bfd4382-cdb3-4867-b5bd-6f446696cc6b",
+        "loader_file_offset": 38744,
+        "name": "DrawJpeg",
+        "sha256": "c9741ef712fc2af1ec47641e37066f51ada924a3bfc6ebf943be99493da06ea6",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "3fc2ef138f771581cfeab32adc249689c1098836532e91bf1f3ba7ed622e09ae"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 924,
+          "flags": 5,
+          "source": 544,
+          "initialized": 924,
+          "sha256": "b399792e2859d3ccb78b864ff8a5fdabfbe513cdfb45fb1ee2b9deae6ffd5c8a"
+        },
+        {
+          "name": ".data",
+          "address": 1468,
+          "size": 5220,
+          "flags": 6,
+          "source": 1468,
+          "initialized": 5220,
+          "sha256": "b7cb73f7181a464235246a23685cec4557217269179637ceb9fae5740e330c41"
+        },
+        {
+          "name": ".reloc",
+          "address": 6688,
+          "size": 64,
+          "flags": 4,
+          "source": 6688,
+          "initialized": 64,
+          "sha256": "9d412978fc2b55f06080e6a4aab770aa932861d37c673090c1d88401fdf13e6d"
+        },
+        {
+          "name": ".debug",
+          "address": 6752,
+          "size": 128,
+          "flags": 4,
+          "source": 6752,
+          "initialized": 128,
+          "sha256": "1281b1ef799787f9317052d12e28b44957c8ec71b497f6c051e2eced92be8781"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/FileSystemRead-508868d2-0a1d-44af-8ff7-50740641698d.elf",
+      "input": "2.0.1/NOR/modules/FileSystemRead-508868d2-0a1d-44af-8ff7-50740641698d.elf",
+      "input_sha256": "4c31f9b7cc942c1cec9bc3f2a710ecbda0bf4bd815aec91627fe84058e285be3",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1040
+        ],
+        [
+          1796,
+          112
+        ],
+        [
+          1908,
+          64
+        ],
+        [
+          1972,
+          160
+        ]
+      ],
+      "memory_sha256": "d45610222a3a67240f0f5e7ee67a9d5a136e69744db48c647292cfe9ca9d4629",
+      "entry": 865,
+      "entry_points": [
+        {
+          "address": 864,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1920,
+        "file": "FileSystemRead-508868d2-0a1d-44af-8ff7-50740641698d.pe32",
+        "format": "pe32",
+        "guid": "508868d2-0a1d-44af-8ff7-50740641698d",
+        "loader_file_offset": 40856,
+        "name": "FileSystemRead",
+        "sha256": "d45610222a3a67240f0f5e7ee67a9d5a136e69744db48c647292cfe9ca9d4629",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "6062cf641d15a6fdd8f56be2443d9deab5db300ea4ab2b612010d6bfc52fc99e"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1040,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1040,
+          "sha256": "0018c3662e89a25cc8a56869663ef5ccb4b9a42ae5675405b7646bd06308fd38"
+        },
+        {
+          "name": ".data",
+          "address": 1584,
+          "size": 112,
+          "flags": 6,
+          "source": 1584,
+          "initialized": 112,
+          "sha256": "68eb170cb44285c5e12726f9bb98be9a9e98044e7bb00a0bb173915e40a6b6d0"
+        },
+        {
+          "name": ".reloc",
+          "address": 1696,
+          "size": 64,
+          "flags": 4,
+          "source": 1696,
+          "initialized": 64,
+          "sha256": "84a9045ed53d3b6504d6878bca8b823ffa52075c86e807da0ca62455f0464d44"
+        },
+        {
+          "name": ".debug",
+          "address": 1760,
+          "size": 160,
+          "flags": 4,
+          "source": 1760,
+          "initialized": 160,
+          "sha256": "cf9ee120b425abd23343908e3ad4cec981747fa0de70dc5f0e6d2557a10b06e4"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DiskIo-ca261a26-7718-4b9b-8a07-5178b1ae3a02.elf",
+      "input": "2.0.1/NOR/modules/DiskIo-ca261a26-7718-4b9b-8a07-5178b1ae3a02.elf",
+      "input_sha256": "cbec3dd42764761c3abd69287a469a26f3b619785c7d7a6a93032dc44893c6b0",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          2260
+        ],
+        [
+          3016,
+          204
+        ],
+        [
+          3220,
+          64
+        ],
+        [
+          3284,
+          128
+        ]
+      ],
+      "memory_sha256": "c6c95c9ade58edf85bf64e4df7cd1cf9649e610fc1493fb23eba7862023712de",
+      "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 3200,
+        "file": "DiskIo-ca261a26-7718-4b9b-8a07-5178b1ae3a02.pe32",
+        "format": "pe32",
+        "guid": "ca261a26-7718-4b9b-8a07-5178b1ae3a02",
+        "loader_file_offset": 42144,
+        "name": "DiskIo",
+        "sha256": "c6c95c9ade58edf85bf64e4df7cd1cf9649e610fc1493fb23eba7862023712de",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "fc929425628754b15494ac732d866f0901998918cf6b6da158ac0fbad2872ce2"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 2260,
+          "flags": 5,
+          "source": 544,
+          "initialized": 2260,
+          "sha256": "0b52ee8c129bf3685809555a3f422cda7ed4e118a97b85bd077146e37d5048e2"
+        },
+        {
+          "name": ".data",
+          "address": 2804,
+          "size": 204,
+          "flags": 6,
+          "source": 2804,
+          "initialized": 204,
+          "sha256": "d86f454affdd316dd6984fbc00d8d346e118d112dd39a2a749cfbfb59088b1f2"
+        },
+        {
+          "name": ".reloc",
+          "address": 3008,
+          "size": 64,
+          "flags": 4,
+          "source": 3008,
+          "initialized": 64,
+          "sha256": "2a2dded2bbc8843d4a7118601ecfbd112bebb55d3d7c7d2995505cb0b6d7e00c"
+        },
+        {
+          "name": ".debug",
+          "address": 3072,
+          "size": 128,
+          "flags": 4,
+          "source": 3072,
+          "initialized": 128,
+          "sha256": "3032c2172143edef77688124bb96425a1219559b04ceebb9883c9c88c2cdc112"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Partition-43b93232-afbe-11d4-bd0f-0080c73c8881.elf",
+      "input": "2.0.1/NOR/modules/Partition-43b93232-afbe-11d4-bd0f-0080c73c8881.elf",
+      "input_sha256": "a09e44c99dbed265e790dd410744ae0a179520306655e1f55807330d03a02889",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          8476
+        ],
+        [
+          9232,
+          228
+        ],
+        [
+          9460,
+          128
+        ],
+        [
+          9588,
+          160
+        ]
+      ],
+      "memory_sha256": "94418301ae10046d07860e6be35cd24572f75b81fbdc716842aa937aaf922a86",
+      "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 9536,
+        "file": "Partition-43b93232-afbe-11d4-bd0f-0080c73c8881.pe32",
+        "format": "pe32",
+        "guid": "43b93232-afbe-11d4-bd0f-0080c73c8881",
+        "loader_file_offset": 44264,
+        "name": "Partition",
+        "sha256": "94418301ae10046d07860e6be35cd24572f75b81fbdc716842aa937aaf922a86",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "95ec40a1425bf1c43d3d2cf9a507bcbb88d77219b035a84d00b0e9430afaf06e"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 8476,
+          "flags": 5,
+          "source": 544,
+          "initialized": 8476,
+          "sha256": "f9df59bcb4bad8e2d308b4b7a28b46536ba71df3090c37a35414adab36c20b91"
+        },
+        {
+          "name": ".data",
+          "address": 9020,
+          "size": 228,
+          "flags": 6,
+          "source": 9020,
+          "initialized": 228,
+          "sha256": "21f4bbad4070795fc883563cf4adbb92f492f1f7edf81e22d8b20cb1aa0e71f2"
+        },
+        {
+          "name": ".reloc",
+          "address": 9248,
+          "size": 128,
+          "flags": 4,
+          "source": 9248,
+          "initialized": 128,
+          "sha256": "ff147fb0ae3ea6dfb4a0ab3ab238c679f7cddad3e10c95e774253f03188e81b6"
+        },
+        {
+          "name": ".debug",
+          "address": 9376,
+          "size": 160,
+          "flags": 4,
+          "source": 9376,
+          "initialized": 160,
+          "sha256": "22d3b76d7e2a1423bbf848af6fc6ebb93b8f2643c9ff040382b6e132e6fff2b8"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/SystemConfig-5d020c3c-c01b-4010-8aea-aa24235c0c97.elf",
+      "input": "2.0.1/NOR/modules/SystemConfig-5d020c3c-c01b-4010-8aea-aa24235c0c97.elf",
+      "input_sha256": "77a3f1ce125ef6f371c068afae2c78091f22897b4286640083ec909bec19b828",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1436
+        ],
+        [
+          2192,
+          100
+        ],
+        [
+          2292,
+          32
+        ],
+        [
+          2324,
+          160
+        ]
+      ],
+      "memory_sha256": "a5a1ba289b15b5f3bba4c0affcd70afb755633711bfaa53e313227f720a07138",
+      "entry": 1047,
+      "entry_points": [
+        {
+          "address": 1046,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2272,
+        "file": "SystemConfig-5d020c3c-c01b-4010-8aea-aa24235c0c97.pe32",
+        "format": "pe32",
+        "guid": "5d020c3c-c01b-4010-8aea-aa24235c0c97",
+        "loader_file_offset": 50808,
+        "name": "SystemConfig",
+        "sha256": "a5a1ba289b15b5f3bba4c0affcd70afb755633711bfaa53e313227f720a07138",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "84d7e4e30c624e5579f5f6433e801dcab480bc7fed3e7a4570815874369698d3"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1436,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1436,
+          "sha256": "5429b72be0d45f8b1d4e068f28b81fb895d15f52b4d010aa91d2c1df381a9236"
+        },
+        {
+          "name": ".data",
+          "address": 1980,
+          "size": 100,
+          "flags": 6,
+          "source": 1980,
+          "initialized": 100,
+          "sha256": "931356002fa2990b6f7fd226acde4bd75fb4f7ae6044781693dd67df8009fbe2"
+        },
+        {
+          "name": ".reloc",
+          "address": 2080,
+          "size": 32,
+          "flags": 4,
+          "source": 2080,
+          "initialized": 32,
+          "sha256": "03c08ffad7e7c20a1aaaf82a7a63353f0fb646f00df404832a1f5cfeeb22d3fd"
+        },
+        {
+          "name": ".debug",
+          "address": 2112,
+          "size": 160,
+          "flags": 4,
+          "source": 2112,
+          "initialized": 160,
+          "sha256": "1890a02db88b0df33a0b16ad5dd7326ddbe9c8d05f7868dfa4515aef39cde578"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DetectReset-ffa17ac1-fd9f-4bad-a24a-2133ff21df26.elf",
+      "input": "2.0.1/NOR/modules/DetectReset-ffa17ac1-fd9f-4bad-a24a-2133ff21df26.elf",
+      "input_sha256": "e83bb89a83bafab366852815424bc5f7e9b62f988bc1700bfbc3b2ae610956c5",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          728
+        ],
+        [
+          1484,
+          40
+        ],
+        [
+          1524,
+          32
+        ],
+        [
+          1556,
+          160
+        ]
+      ],
+      "memory_sha256": "107a9ee58d2fabc7ce1770bfd9c0524cf314a10d763214c39adc6393cbdbd3ec",
+      "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1504,
+        "file": "DetectReset-ffa17ac1-fd9f-4bad-a24a-2133ff21df26.pe32",
+        "format": "pe32",
+        "guid": "ffa17ac1-fd9f-4bad-a24a-2133ff21df26",
+        "loader_file_offset": 52400,
+        "name": "DetectReset",
+        "sha256": "107a9ee58d2fabc7ce1770bfd9c0524cf314a10d763214c39adc6393cbdbd3ec",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "68366d83b53c4714d0207b8852eab2affd4f83ca360392a618f61cfdbc8c7b4b"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 728,
+          "flags": 5,
+          "source": 544,
+          "initialized": 728,
+          "sha256": "aea02a3016b90c9e593037403712184fc781ae09b2e08f237a2199c51c0a72a9"
+        },
+        {
+          "name": ".data",
+          "address": 1272,
+          "size": 40,
+          "flags": 6,
+          "source": 1272,
+          "initialized": 40,
+          "sha256": "981b3fa1796f1b74612873cad7f68e05754affe60396fa62e9a0b00a2cb89e97"
+        },
+        {
+          "name": ".reloc",
+          "address": 1312,
+          "size": 32,
+          "flags": 4,
+          "source": 1312,
+          "initialized": 32,
+          "sha256": "89ffcbd0282fede1f7ac1ecc2dedd1bdb85b2a4ee14d29653610fab2c5bc2ab0"
+        },
+        {
+          "name": ".debug",
+          "address": 1344,
+          "size": 160,
+          "flags": 4,
+          "source": 1344,
+          "initialized": 160,
+          "sha256": "f5021d9931d48d4baef7d6145b0223b1b5f2abea3bd4b5a0ce4cee2cb922ea71"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DrawLogo-9fb23d03-d0ba-4510-8828-012e0ab9ee19.elf",
+      "input": "2.0.1/NOR/modules/DrawLogo-9fb23d03-d0ba-4510-8828-012e0ab9ee19.elf",
+      "input_sha256": "9dab9fd4265d0da0dd5f2692823c83dada86698f16bafe5ccd4b5504a1c3f555",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          764
+        ],
+        [
+          1520,
+          68
+        ],
+        [
+          1588,
+          32
+        ],
+        [
+          1620,
+          128
+        ]
+      ],
+      "memory_sha256": "3d5ae765acc38ce2e6ee602db14bf425b83d3ae0241b9a2df51c5a490b18a39a",
+      "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1536,
+        "file": "DrawLogo-9fb23d03-d0ba-4510-8828-012e0ab9ee19.pe32",
+        "format": "pe32",
+        "guid": "9fb23d03-d0ba-4510-8828-012e0ab9ee19",
+        "loader_file_offset": 53344,
+        "name": "DrawLogo",
+        "sha256": "3d5ae765acc38ce2e6ee602db14bf425b83d3ae0241b9a2df51c5a490b18a39a",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "d11a720bdfef2fb3bd5ab9ef8bae76aabe7ab6e36433b46ffd935ab8b4e60e99"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 764,
+          "flags": 5,
+          "source": 544,
+          "initialized": 764,
+          "sha256": "7785508e27aacfc47d44b5df93b18fd2b7e16ac16be3c6cffeecdabba6c49924"
+        },
+        {
+          "name": ".data",
+          "address": 1308,
+          "size": 68,
+          "flags": 6,
+          "source": 1308,
+          "initialized": 68,
+          "sha256": "f5d4b2c2d01ef74b43c817617fc67d4689460c54bf0a8e5693183da3cd184fdf"
+        },
+        {
+          "name": ".reloc",
+          "address": 1376,
+          "size": 32,
+          "flags": 4,
+          "source": 1376,
+          "initialized": 32,
+          "sha256": "a85a9fc9a31de718ef775d2824a699353067c8ab1afa95be19f8dce7b1d88f85"
+        },
+        {
+          "name": ".debug",
+          "address": 1408,
+          "size": 128,
+          "flags": 4,
+          "source": 1408,
+          "initialized": 128,
+          "sha256": "17906c7ac3542d9880c9f1a887798b2aaedceeebcfbd075b09936b2dd3857691"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/IpodFirmwareFS-81b6cb09-0d19-4b56-bc42-df9c35fbe21f.elf",
+      "input": "2.0.1/NOR/modules/IpodFirmwareFS-81b6cb09-0d19-4b56-bc42-df9c35fbe21f.elf",
+      "input_sha256": "8c04187e131ce3d2b0e3b2cf27e111e3aeafc42525b5a906635543108ff0082c",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          3880
+        ],
+        [
+          4636,
+          248
+        ],
+        [
+          4884,
+          96
+        ],
+        [
+          4980,
+          160
+        ]
+      ],
+      "memory_sha256": "6e9fceb9753df6b5552ffdc5f03869c7fd8cef12ded7af5f430266d1897f6652",
+      "entry": 1029,
+      "entry_points": [
+        {
+          "address": 1028,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 4928,
+        "file": "IpodFirmwareFS-81b6cb09-0d19-4b56-bc42-df9c35fbe21f.pe32",
+        "format": "pe32",
+        "guid": "81b6cb09-0d19-4b56-bc42-df9c35fbe21f",
+        "loader_file_offset": 54352,
+        "name": "IpodFirmwareFS",
+        "sha256": "6e9fceb9753df6b5552ffdc5f03869c7fd8cef12ded7af5f430266d1897f6652",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "977a9f67026271728fa065bedf6bff24e63a89a7446c2650d8125c6fa398deb1"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 3880,
+          "flags": 5,
+          "source": 544,
+          "initialized": 3880,
+          "sha256": "c2d1cded37cd709e20c7ae82f8d301f4b3b49d6c787236adfbbea59bc0eb450d"
+        },
+        {
+          "name": ".data",
+          "address": 4424,
+          "size": 248,
+          "flags": 6,
+          "source": 4424,
+          "initialized": 248,
+          "sha256": "0defaac0f70f1eb84597a45c2061a1483049dbd3bc223fc08a7a674ebdb6aefa"
+        },
+        {
+          "name": ".reloc",
+          "address": 4672,
+          "size": 96,
+          "flags": 4,
+          "source": 4672,
+          "initialized": 96,
+          "sha256": "9999dc951a61587c2c87434c85a4084d4289e9251613054862715b5ef28e8195"
+        },
+        {
+          "name": ".debug",
+          "address": 4768,
+          "size": 160,
+          "flags": 4,
+          "source": 4768,
+          "initialized": 160,
+          "sha256": "6c11d3e7e67d148ea7ad092ec7f67c45c63db34f25946f824742566a7c28b2f0"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DisplayPlatform-0a52cfac-f5c4-4220-9957-84625622e056.elf",
+      "input": "2.0.1/NOR/modules/DisplayPlatform-0a52cfac-f5c4-4220-9957-84625622e056.elf",
+      "input_sha256": "196e97ee2835127d3304352c0eb6b884cdac6af1f6b9ef52407eba2c4ae3339c",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1332
+        ],
+        [
+          2088,
+          780
+        ],
+        [
+          2868,
+          64
+        ],
+        [
+          2932,
+          160
+        ]
+      ],
+      "memory_sha256": "4d96d3e19745eec6c78a6111f00ddced6a203c42b452a2ff8b1d359907e75827",
+      "entry": 1063,
+      "entry_points": [
+        {
+          "address": 1062,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2880,
+        "file": "DisplayPlatform-0a52cfac-f5c4-4220-9957-84625622e056.pe32",
+        "format": "pe32",
+        "guid": "0a52cfac-f5c4-4220-9957-84625622e056",
+        "loader_file_offset": 67896,
+        "name": "DisplayPlatform",
+        "sha256": "4d96d3e19745eec6c78a6111f00ddced6a203c42b452a2ff8b1d359907e75827",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "c334ebfdecfcea49c08983b391800cf206c2b5910d0bf7f862f945edc1086209"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1332,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1332,
+          "sha256": "b9b6439917e077d3cb7979e1b9ca811ef962f630ec299ce91e588cd1b1f4765a"
+        },
+        {
+          "name": ".data",
+          "address": 1876,
+          "size": 780,
+          "flags": 6,
+          "source": 1876,
+          "initialized": 780,
+          "sha256": "a4904a2c1c03d6f1a9116229adb0944790f542bb9467bd7f27a0d19ad6f6b6d2"
+        },
+        {
+          "name": ".reloc",
+          "address": 2656,
+          "size": 64,
+          "flags": 4,
+          "source": 2656,
+          "initialized": 64,
+          "sha256": "93514f935f61bed9327ed225500160d638b6a63d45efb9ad17e4463a53b6f339"
+        },
+        {
+          "name": ".debug",
+          "address": 2720,
+          "size": 160,
+          "flags": 4,
+          "source": 2720,
+          "initialized": 160,
+          "sha256": "f430a1c24891238a70ef7f38ab30bcef3c296d6c7a8edde44a34f478bc7b74c6"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/SoftwareVersion-0e2bee84-a47c-4d0c-8271-97f42cdbcc76.elf",
+      "input": "2.0.1/NOR/modules/SoftwareVersion-0e2bee84-a47c-4d0c-8271-97f42cdbcc76.elf",
+      "input_sha256": "dce6e557b2266a1dd0b1a59097b4aeb5727cb8ab9a4c3608f78a140b8c3cc577",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          740
+        ],
+        [
+          1496,
+          60
+        ],
+        [
+          1556,
+          32
+        ],
+        [
+          1588,
+          160
+        ]
+      ],
+      "memory_sha256": "764884600386290a4b76a3ffcddd6596b94b96090fd0f516dd104ed6eaac4c1f",
+      "entry": 577,
+      "entry_points": [
+        {
+          "address": 576,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1536,
+        "file": "SoftwareVersion-0e2bee84-a47c-4d0c-8271-97f42cdbcc76.pe32",
+        "format": "pe32",
+        "guid": "0e2bee84-a47c-4d0c-8271-97f42cdbcc76",
+        "loader_file_offset": 69784,
+        "name": "SoftwareVersion",
+        "sha256": "764884600386290a4b76a3ffcddd6596b94b96090fd0f516dd104ed6eaac4c1f",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "9466fe3190e5849292912263ce8aabe2368d63d85a250539e391a5d30ed0fdc2"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 740,
+          "flags": 5,
+          "source": 544,
+          "initialized": 740,
+          "sha256": "cabae6d0d5bae4601cb694b12552d488a9051f53e3b389f4e2ea183df0cb9560"
+        },
+        {
+          "name": ".data",
+          "address": 1284,
+          "size": 60,
+          "flags": 6,
+          "source": 1284,
+          "initialized": 60,
+          "sha256": "f89ad7d1fa53540f6faf6e7dd55003d2d001c5fda22e0f660b62596b673dba65"
+        },
+        {
+          "name": ".reloc",
+          "address": 1344,
+          "size": 32,
+          "flags": 4,
+          "source": 1344,
+          "initialized": 32,
+          "sha256": "e1e917c1520af88d440a7a6db8a0162395248c3af524d1801def3648f6f5c32b"
+        },
+        {
+          "name": ".debug",
+          "address": 1376,
+          "size": 160,
+          "flags": 4,
+          "source": 1376,
+          "initialized": 160,
+          "sha256": "16409684b344cc17ba19ee3d4400d19ab08251e3fde85a793a0e3fdf7f20ebb3"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/BatteryTrap-e1061e8d-77f2-48a3-a57d-3e728ee0c4a5.elf",
+      "input": "2.0.1/NOR/modules/BatteryTrap-e1061e8d-77f2-48a3-a57d-3e728ee0c4a5.elf",
+      "input_sha256": "8bb26004d211d436f290706a2994a64238685f246b501788c1d36038bece9217",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1192
+        ],
+        [
+          1948,
+          216
+        ],
+        [
+          2164,
+          64
+        ],
+        [
+          2228,
+          160
+        ]
+      ],
+      "memory_sha256": "92deaba4ed7e6cb4a06b9680e0ab874e8d5ba7bfeec683958dabf788871072f4",
+      "entry": 545,
+      "entry_points": [
+        {
+          "address": 544,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2176,
+        "file": "BatteryTrap-e1061e8d-77f2-48a3-a57d-3e728ee0c4a5.pe32",
+        "format": "pe32",
+        "guid": "e1061e8d-77f2-48a3-a57d-3e728ee0c4a5",
+        "loader_file_offset": 70728,
+        "name": "BatteryTrap",
+        "sha256": "92deaba4ed7e6cb4a06b9680e0ab874e8d5ba7bfeec683958dabf788871072f4",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "540eb7d973013df7074011e7a179ce898d8532a742b9c8f09f19b72d9e1ed763"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1192,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1192,
+          "sha256": "cf7d446101ddb81e61d482e39cd15ef7ff0a4c5eeff708afd22777f0b4046177"
+        },
+        {
+          "name": ".data",
+          "address": 1736,
+          "size": 216,
+          "flags": 6,
+          "source": 1736,
+          "initialized": 216,
+          "sha256": "4d0154d3db93f3dcc6562a096504de8488ecd8958a04a7fb7ce9ccf202428479"
+        },
+        {
+          "name": ".reloc",
+          "address": 1952,
+          "size": 64,
+          "flags": 4,
+          "source": 1952,
+          "initialized": 64,
+          "sha256": "5159321b23f0f67d4fc167a3e9f8206537026db90ce8cccce6e66182b7c11d1b"
+        },
+        {
+          "name": ".debug",
+          "address": 2016,
+          "size": 160,
+          "flags": 4,
+          "source": 2016,
+          "initialized": 160,
+          "sha256": "35cfdd55b5df622be5f25071eb25ec1572453d15c07458e63b6cb150afcdb773"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Cpu-3e755d4a-45ca-4902-b188-c9bd64bfee68.elf",
+      "input": "2.0.1/NOR/modules/Cpu-3e755d4a-45ca-4902-b188-c9bd64bfee68.elf",
+      "input_sha256": "102d345acb3d332c822829ae56566a49513ac2954033e0feba61329f8ee97ad6",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1652
+        ],
+        [
+          2408,
+          140
+        ],
+        [
+          2548,
+          64
+        ],
+        [
+          2612,
+          128
+        ]
+      ],
+      "memory_sha256": "3505afa7515be1b236e9d40ccd49dbd3e4903a49cfd8372d9e2f3174d47c4e22",
+      "entry": 851,
+      "entry_points": [
+        {
+          "address": 850,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2528,
+        "file": "Cpu-3e755d4a-45ca-4902-b188-c9bd64bfee68.pe32",
+        "format": "pe32",
+        "guid": "3e755d4a-45ca-4902-b188-c9bd64bfee68",
+        "loader_file_offset": 72128,
+        "name": "Cpu",
+        "sha256": "3505afa7515be1b236e9d40ccd49dbd3e4903a49cfd8372d9e2f3174d47c4e22",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "98829a77adf416666dbbb6f8d935bb824c2588d393ef9683eca0a97633a3fb8c"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1652,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1652,
+          "sha256": "c9bddd8af3ed0159ee7ec1d418d3246fda44e8b0c5e3aec14b9223a2066c9ffc"
+        },
+        {
+          "name": ".data",
+          "address": 2196,
+          "size": 140,
+          "flags": 6,
+          "source": 2196,
+          "initialized": 140,
+          "sha256": "d477c20385b72105c095b9f99778ea5b097121ec58424511f3a1e8c31af56c61"
+        },
+        {
+          "name": ".reloc",
+          "address": 2336,
+          "size": 64,
+          "flags": 4,
+          "source": 2336,
+          "initialized": 64,
+          "sha256": "a9530885f422622d27227a6807daa052b49cb635d55c1dfa72c4de212f4afaab"
+        },
+        {
+          "name": ".debug",
+          "address": 2400,
+          "size": 128,
+          "flags": 4,
+          "source": 2400,
+          "initialized": 128,
+          "sha256": "7e40285befd0ca91347fbfc9540cd6a6747c842ae6fa3cb8e7867cd20a391994"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Aes-c0287dba-8a73-4ff1-98f1-455b97d4d480.elf",
+      "input": "2.0.1/NOR/modules/Aes-c0287dba-8a73-4ff1-98f1-455b97d4d480.elf",
+      "input_sha256": "1829b5fe26fbbfceb3de56c7492eae418cfa82d35365a07f369a155df540a12a",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1156
+        ],
+        [
+          1912,
+          60
+        ],
+        [
+          1972,
+          32
+        ],
+        [
+          2004,
+          128
+        ]
+      ],
+      "memory_sha256": "2b33412da5edd8a2056f6308914a9de86eb45da1cf9ad8d675207325b9ecd774",
+      "entry": 987,
+      "entry_points": [
+        {
+          "address": 986,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1920,
+        "file": "Aes-c0287dba-8a73-4ff1-98f1-455b97d4d480.pe32",
+        "format": "pe32",
+        "guid": "c0287dba-8a73-4ff1-98f1-455b97d4d480",
+        "loader_file_offset": 73720,
+        "name": "Aes",
+        "sha256": "2b33412da5edd8a2056f6308914a9de86eb45da1cf9ad8d675207325b9ecd774",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "19b06c17c0663cda7d6ab46c5b5b8fa621549eb499a3d832a3cefe5740cefa05"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1156,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1156,
+          "sha256": "ed9e69362f876a81c854304dacd0b8cf590a2bb19d09b452e11c09e13036d0eb"
+        },
+        {
+          "name": ".data",
+          "address": 1700,
+          "size": 60,
+          "flags": 6,
+          "source": 1700,
+          "initialized": 60,
+          "sha256": "330ad8fe6214d580c2a13eec62c93bad2c62b79825b1a483a8d2f2c65666cffb"
+        },
+        {
+          "name": ".reloc",
+          "address": 1760,
+          "size": 32,
+          "flags": 4,
+          "source": 1760,
+          "initialized": 32,
+          "sha256": "3e10895b55d660b2f0b19ed088e9dff1125cbdd21a7ccfa42b148eb95315fba5"
+        },
+        {
+          "name": ".debug",
+          "address": 1792,
+          "size": 128,
+          "flags": 4,
+          "source": 1792,
+          "initialized": 128,
+          "sha256": "ce23b1f3c68210dd4a7278869e270706f2fad092341a9a9c7aeca46fa4ad0af8"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/ChipId-8d1a1104-d045-46f2-b1aa-c05ed24929f6.elf",
+      "input": "2.0.1/NOR/modules/ChipId-8d1a1104-d045-46f2-b1aa-c05ed24929f6.elf",
+      "input_sha256": "09a72c68722bf0d643664c6bbaffa86d3b21c890c0f88458c260e386ce1d68e7",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          928
+        ],
+        [
+          1684,
+          64
+        ],
+        [
+          1748,
+          32
+        ],
+        [
+          1780,
+          128
+        ]
+      ],
+      "memory_sha256": "7a32953455d93b8544fdd873eb8ab56358e1d81a79a7ac6b4c1355435b5fd234",
+      "entry": 703,
+      "entry_points": [
+        {
+          "address": 702,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1696,
+        "file": "ChipId-8d1a1104-d045-46f2-b1aa-c05ed24929f6.pe32",
+        "format": "pe32",
+        "guid": "8d1a1104-d045-46f2-b1aa-c05ed24929f6",
+        "loader_file_offset": 74960,
+        "name": "ChipId",
+        "sha256": "7a32953455d93b8544fdd873eb8ab56358e1d81a79a7ac6b4c1355435b5fd234",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "b80d1bff65c17df33e7a52937f522f2b7c7bf2062894b3eed2d4da835ce27b73"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 928,
+          "flags": 5,
+          "source": 544,
+          "initialized": 928,
+          "sha256": "975edc47dfb1737dfc71f494546eb0d622d04932c2eadc984c29d8f42da5e30d"
+        },
+        {
+          "name": ".data",
+          "address": 1472,
+          "size": 64,
+          "flags": 6,
+          "source": 1472,
+          "initialized": 64,
+          "sha256": "0135e7e90465519fc0f566a70f6e7866fe0ec83a2ef4cfebe05960d266d58dfa"
+        },
+        {
+          "name": ".reloc",
+          "address": 1536,
+          "size": 32,
+          "flags": 4,
+          "source": 1536,
+          "initialized": 32,
+          "sha256": "f4a89338fb219d90dc02b2ba544a18a6425607b31b0e3b5aa7935b402bdd3029"
+        },
+        {
+          "name": ".debug",
+          "address": 1568,
+          "size": 128,
+          "flags": 4,
+          "source": 1568,
+          "initialized": 128,
+          "sha256": "087bb05f9fa9c2f3c3a7473a98649b7c63445d7cc0393128874c855c0e26ab53"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/ClockAndReset-66dc435a-b860-4e39-9614-c79685060159.elf",
+      "input": "2.0.1/NOR/modules/ClockAndReset-66dc435a-b860-4e39-9614-c79685060159.elf",
+      "input_sha256": "224128bd082eb5c55f9fbb4182f65cb875e18e5b4f260ec2329f84f7d30dd266",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1292
+        ],
+        [
+          2048,
+          84
+        ],
+        [
+          2132,
+          32
+        ],
+        [
+          2164,
+          160
+        ]
+      ],
+      "memory_sha256": "cc3f6c5e4a62b95eb3ae16bcbaac08ccb162cde343e2318687effee8ac8efe5f",
+      "entry": 735,
+      "entry_points": [
+        {
+          "address": 734,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2112,
+        "file": "ClockAndReset-66dc435a-b860-4e39-9614-c79685060159.pe32",
+        "format": "pe32",
+        "guid": "66dc435a-b860-4e39-9614-c79685060159",
+        "loader_file_offset": 76056,
+        "name": "ClockAndReset",
+        "sha256": "cc3f6c5e4a62b95eb3ae16bcbaac08ccb162cde343e2318687effee8ac8efe5f",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "73244df831bbb56d14c8bd7953735f787bd6a38304a2d1a1b44f2b2d105f5dea"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1292,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1292,
+          "sha256": "1cb33a53f67c03eb74e66b3a618a0c9ed1ffaf66a7f341847d3f5777a6fa3d96"
+        },
+        {
+          "name": ".data",
+          "address": 1836,
+          "size": 84,
+          "flags": 6,
+          "source": 1836,
+          "initialized": 84,
+          "sha256": "b9ee33e018c9724db525ef99a636cf443b4ef47fe972e654ecf9f2ee6646a81f"
+        },
+        {
+          "name": ".reloc",
+          "address": 1920,
+          "size": 32,
+          "flags": 4,
+          "source": 1920,
+          "initialized": 32,
+          "sha256": "1430a9bfd30c2fed245d0237a02e1b9a69ab9912b57e49eb36fcf51bb71fc4d4"
+        },
+        {
+          "name": ".debug",
+          "address": 1952,
+          "size": 160,
+          "flags": 4,
+          "source": 1952,
+          "initialized": 160,
+          "sha256": "ac95efa767ef601587066784db1fed17c6257d7f44c7cf2df23b4589146e20e0"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Lcd-3c3134b6-91b6-427f-b512-56851970a5ea.elf",
+      "input": "2.0.1/NOR/modules/Lcd-3c3134b6-91b6-427f-b512-56851970a5ea.elf",
+      "input_sha256": "77d448d91c475932834892ff3be90b4845663df16c2860375a2851bace3d5e00",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          2944
+        ],
+        [
+          3700,
+          128
+        ],
+        [
+          3828,
+          64
+        ],
+        [
+          3892,
+          128
+        ]
+      ],
+      "memory_sha256": "9bcfdefcdc762dd9757c9beb9ef375cd198c6123c12dec881c1b0812d6539990",
+      "entry": 1271,
+      "entry_points": [
+        {
+          "address": 1270,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 3808,
+        "file": "Lcd-3c3134b6-91b6-427f-b512-56851970a5ea.pe32",
+        "format": "pe32",
+        "guid": "3c3134b6-91b6-427f-b512-56851970a5ea",
+        "loader_file_offset": 77336,
+        "name": "Lcd",
+        "sha256": "9bcfdefcdc762dd9757c9beb9ef375cd198c6123c12dec881c1b0812d6539990",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "e79adecce760e2e61b5fe9fe4f3fed420f290464e4cc1ef7d4011ae270203b00"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 2944,
+          "flags": 5,
+          "source": 544,
+          "initialized": 2944,
+          "sha256": "ef4e082addf17391f59852f82cf1e052639fb3f8a6094f3793690f14debf02e9"
+        },
+        {
+          "name": ".data",
+          "address": 3488,
+          "size": 128,
+          "flags": 6,
+          "source": 3488,
+          "initialized": 128,
+          "sha256": "01c10e6708ed31943770c4937c987a4b63b87da1e99ff2103a576699eef0931c"
+        },
+        {
+          "name": ".reloc",
+          "address": 3616,
+          "size": 64,
+          "flags": 4,
+          "source": 3616,
+          "initialized": 64,
+          "sha256": "412dfc5bbb8ce818bffdb16b034df90570ca524ae1e87bd09cfd1402a527b24f"
+        },
+        {
+          "name": ".debug",
+          "address": 3680,
+          "size": 128,
+          "flags": 4,
+          "source": 3680,
+          "initialized": 128,
+          "sha256": "872b893e43d1bdede337f26799baeb058f92307fadbea806c7d24c9ab28a7f3c"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/ROM-773641a1-cc51-41b7-b121-943bd7c5fc3f.elf",
+      "input": "2.0.1/NOR/modules/ROM-773641a1-cc51-41b7-b121-943bd7c5fc3f.elf",
+      "input_sha256": "af87432d247b0432ef5ef9f439ceff72fb2119e1f258867587217e7538b92eea",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          4496
+        ],
+        [
+          5252,
+          368
+        ],
+        [
+          5620,
+          64
+        ],
+        [
+          5684,
+          128
+        ]
+      ],
+      "memory_sha256": "b40292cb19cf8830172d3671d96cb4ae0eb720287ff37ef85698456aa0d29959",
+      "entry": 2153,
+      "entry_points": [
+        {
+          "address": 2152,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 5600,
+        "file": "ROM-773641a1-cc51-41b7-b121-943bd7c5fc3f.pe32",
+        "format": "pe32",
+        "guid": "773641a1-cc51-41b7-b121-943bd7c5fc3f",
+        "loader_file_offset": 79680,
+        "name": "ROM",
+        "sha256": "b40292cb19cf8830172d3671d96cb4ae0eb720287ff37ef85698456aa0d29959",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "10af0e00a88b24658b1c2ededc4e6b64b7eb7c6c317256a29d0fa786fe422914"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 4496,
+          "flags": 5,
+          "source": 544,
+          "initialized": 4496,
+          "sha256": "a46388d2c71fd1be0818096c354aec21de763faa57fe38fa98d5c8107a3de9e3"
+        },
+        {
+          "name": ".data",
+          "address": 5040,
+          "size": 368,
+          "flags": 6,
+          "source": 5040,
+          "initialized": 368,
+          "sha256": "a140aec7befa5e6af9721c7b8d97bdb6bf666a7e3854cdb5ddd85f9245436f5b"
+        },
+        {
+          "name": ".reloc",
+          "address": 5408,
+          "size": 64,
+          "flags": 4,
+          "source": 5408,
+          "initialized": 64,
+          "sha256": "f4778cb769461c1db81c66b070df6c042bdc66287d300f0f226085a2a3af8aa2"
+        },
+        {
+          "name": ".debug",
+          "address": 5472,
+          "size": 128,
+          "flags": 4,
+          "source": 5472,
+          "initialized": 128,
+          "sha256": "4f97c9ebbcc532ae28644a12b4c2665fa9ee53c2e004c8289a6177525232a922"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Sha1-e32d4869-bb45-4a55-9c2b-5834f812fe44.elf",
+      "input": "2.0.1/NOR/modules/Sha1-e32d4869-bb45-4a55-9c2b-5834f812fe44.elf",
+      "input_sha256": "a272408a76417c07802282450546031a989f9bf8818e9f5ea092c1ca590f5a2d",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1332
+        ],
+        [
+          2088,
+          76
+        ],
+        [
+          2164,
+          32
+        ],
+        [
+          2196,
+          128
+        ]
+      ],
+      "memory_sha256": "be8a23f0a84fab183f3116c2683f41a3a7ac3b9266e12f99adfb9ecbcf9e5540",
+      "entry": 1149,
+      "entry_points": [
+        {
+          "address": 1148,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2112,
+        "file": "Sha1-e32d4869-bb45-4a55-9c2b-5834f812fe44.pe32",
+        "format": "pe32",
+        "guid": "e32d4869-bb45-4a55-9c2b-5834f812fe44",
+        "loader_file_offset": 83216,
+        "name": "Sha1",
+        "sha256": "be8a23f0a84fab183f3116c2683f41a3a7ac3b9266e12f99adfb9ecbcf9e5540",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "f5a7cef71291412f148cd910f4218827fb76aee7073ee16b68183ec316ba8366"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1332,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1332,
+          "sha256": "bb1e29387028b63d14d4be1970fb11d545f871997d333c76de10931771c4413e"
+        },
+        {
+          "name": ".data",
+          "address": 1876,
+          "size": 76,
+          "flags": 6,
+          "source": 1876,
+          "initialized": 76,
+          "sha256": "d7896d6d71262c8f91fde789505e378d9796a75e3ce86bb6d685885b830f4583"
+        },
+        {
+          "name": ".reloc",
+          "address": 1952,
+          "size": 32,
+          "flags": 4,
+          "source": 1952,
+          "initialized": 32,
+          "sha256": "041219f750351a69a70a132f02774c1dda47f4418cc2a78a212b368e153a5fa5"
+        },
+        {
+          "name": ".debug",
+          "address": 1984,
+          "size": 128,
+          "flags": 4,
+          "source": 1984,
+          "initialized": 128,
+          "sha256": "222bfe35b1b10e99f1b7d6dfbac44d5b5d0623a06b4b5208730293575ee64fd2"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Spi-cb828b1e-62d0-4672-aae6-c5313cb12aa6.elf",
+      "input": "2.0.1/NOR/modules/Spi-cb828b1e-62d0-4672-aae6-c5313cb12aa6.elf",
+      "input_sha256": "8a4bf126e08edef28a323bf16420c7ec94daddda49f2a0b6dd04d54f87d1c7d8",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1060
+        ],
+        [
+          1816,
+          60
+        ],
+        [
+          1876,
+          32
+        ],
+        [
+          1908,
+          128
+        ]
+      ],
+      "memory_sha256": "82407c8ac7c03e173f38c773d02b4ee674faf7a8a4f569ba2d7a14818c5a3d33",
+      "entry": 889,
+      "entry_points": [
+        {
+          "address": 888,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1824,
+        "file": "Spi-cb828b1e-62d0-4672-aae6-c5313cb12aa6.pe32",
+        "format": "pe32",
+        "guid": "cb828b1e-62d0-4672-aae6-c5313cb12aa6",
+        "loader_file_offset": 84600,
+        "name": "Spi",
+        "sha256": "82407c8ac7c03e173f38c773d02b4ee674faf7a8a4f569ba2d7a14818c5a3d33",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "ed6f67d8fb2f9325c9499b9df6c68e9707309a3434f6ef8b923da498c343c9ae"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1060,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1060,
+          "sha256": "3d1fd7bd885bd09433a119058c0723e76a30a2dcb499e04a75aeb8b1b13acdde"
+        },
+        {
+          "name": ".data",
+          "address": 1604,
+          "size": 60,
+          "flags": 6,
+          "source": 1604,
+          "initialized": 60,
+          "sha256": "b0ed6738e2a7bd0bfa41ce61cea2da077ceb0763c1ed4493178cba8c9b96c715"
+        },
+        {
+          "name": ".reloc",
+          "address": 1664,
+          "size": 32,
+          "flags": 4,
+          "source": 1664,
+          "initialized": 32,
+          "sha256": "c82dcb530ce673e1ee7dc5072d9bb3d42a4393b7cd8cf09475c0751163af5648"
+        },
+        {
+          "name": ".debug",
+          "address": 1696,
+          "size": 128,
+          "flags": 4,
+          "source": 1696,
+          "initialized": 128,
+          "sha256": "8e212ad07441d4006c9438311d6db7505d461709bcc82c66cbbe3c2d3d52545f"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Usb-c758bbd3-f449-4669-8c6a-8fb59c441051.elf",
+      "input": "2.0.1/NOR/modules/Usb-c758bbd3-f449-4669-8c6a-8fb59c441051.elf",
+      "input_sha256": "82f49e9432c925a8b73d3f69b80516d94025ef766988f0f36808e36ca9f77a80",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          768
+        ],
+        [
+          1524,
+          32
+        ],
+        [
+          1556,
+          32
+        ],
+        [
+          1588,
+          128
+        ]
+      ],
+      "memory_sha256": "d6a332954b778948689800d85aac6d6c3c0c20d45541f7d831a1b6ad1ee412ab",
+      "entry": 599,
+      "entry_points": [
+        {
+          "address": 598,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1504,
+        "file": "Usb-c758bbd3-f449-4669-8c6a-8fb59c441051.pe32",
+        "format": "pe32",
+        "guid": "c758bbd3-f449-4669-8c6a-8fb59c441051",
+        "loader_file_offset": 85768,
+        "name": "Usb",
+        "sha256": "d6a332954b778948689800d85aac6d6c3c0c20d45541f7d831a1b6ad1ee412ab",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "e56b7fd98c181d45c5183d8ed3ed40c64a2a52ee1d88eafb5dd626de4711a552"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 768,
+          "flags": 5,
+          "source": 544,
+          "initialized": 768,
+          "sha256": "4ae0c9a0ae6a87cc3d315a639ae74a8f8ae37f24c501172caa3dce0b42c90acb"
+        },
+        {
+          "name": ".data",
+          "address": 1312,
+          "size": 32,
+          "flags": 6,
+          "source": 1312,
+          "initialized": 32,
+          "sha256": "9e5fc290f5b295592c183b3b2da86e48f57b4c93d63e4b1afa6cd66f8f80f2d3"
+        },
+        {
+          "name": ".reloc",
+          "address": 1344,
+          "size": 32,
+          "flags": 4,
+          "source": 1344,
+          "initialized": 32,
+          "sha256": "c7f64208c8d3c8f2903487b52be33d57092dd9f5c1376c397db9a519e05ea457"
+        },
+        {
+          "name": ".debug",
+          "address": 1376,
+          "size": 128,
+          "flags": 4,
+          "source": 1376,
+          "initialized": 128,
+          "sha256": "076793fbc1d07bbf2845cf663a7d5980eafb04b584f2ef6120167e7ff3b6c178"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DxeSmbus-6b5d64fa-8658-4573-a8aa-a8bd6277360d.elf",
+      "input": "2.0.1/NOR/modules/DxeSmbus-6b5d64fa-8658-4573-a8aa-a8bd6277360d.elf",
+      "input_sha256": "36dbd7c86b31f6482d8b69f89fa7a9e946f96439a855de191086a8d2e0226593",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1176
+        ],
+        [
+          1932,
+          72
+        ],
+        [
+          2004,
+          32
+        ],
+        [
+          2036,
+          128
+        ]
+      ],
+      "memory_sha256": "1a20bfe1a9d287e5b8d5f887f5d1fc08e422b7454ef5a9d1cd7ad8d6d4c1a26d",
+      "entry": 903,
+      "entry_points": [
+        {
+          "address": 902,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1952,
+        "file": "DxeSmbus-6b5d64fa-8658-4573-a8aa-a8bd6277360d.pe32",
+        "format": "pe32",
+        "guid": "6b5d64fa-8658-4573-a8aa-a8bd6277360d",
+        "loader_file_offset": 86712,
+        "name": "DxeSmbus",
+        "sha256": "1a20bfe1a9d287e5b8d5f887f5d1fc08e422b7454ef5a9d1cd7ad8d6d4c1a26d",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "2d2af2a7f53f2341a538c623b48a92f91e0d25b24e9580d165d6b39e5b96e20a"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1176,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1176,
+          "sha256": "d99d98017fe918e335fd33bb1353fe93df2d38ddc5b9e38939e491d251025648"
+        },
+        {
+          "name": ".data",
+          "address": 1720,
+          "size": 72,
+          "flags": 6,
+          "source": 1720,
+          "initialized": 72,
+          "sha256": "a65503c1c7f8ef41faa4736c8e7902dbd03f05035ef46704040b73a3e85ba14f"
+        },
+        {
+          "name": ".reloc",
+          "address": 1792,
+          "size": 32,
+          "flags": 4,
+          "source": 1792,
+          "initialized": 32,
+          "sha256": "29c22b70c53a1032820b57eaed6ac78ed5e29e7312f701b03e3901701731d440"
+        },
+        {
+          "name": ".debug",
+          "address": 1824,
+          "size": 128,
+          "flags": 4,
+          "source": 1824,
+          "initialized": 128,
+          "sha256": "1d78cef2e34713d0881fff53f6861c84af638b3cab9caa5cc43bb1efb8253c15"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DmaLight-677f62dd-81ab-4d29-827a-d48550b5c69f.elf",
+      "input": "2.0.1/NOR/modules/DmaLight-677f62dd-81ab-4d29-827a-d48550b5c69f.elf",
+      "input_sha256": "dd2d0281df9bce8470f8aa1cc263aae90a3772f2962a3354abead6d0883f559b",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1828
+        ],
+        [
+          2584,
+          636
+        ],
+        [
+          3220,
+          64
+        ],
+        [
+          3284,
+          128
+        ]
+      ],
+      "memory_sha256": "f8c11bfa4b5f0aaf7b245c09349d98166b02323f6f5711b0413abe87d9044c17",
+      "entry": 1627,
+      "entry_points": [
+        {
+          "address": 1626,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 3200,
+        "file": "DmaLight-677f62dd-81ab-4d29-827a-d48550b5c69f.pe32",
+        "format": "pe32",
+        "guid": "677f62dd-81ab-4d29-827a-d48550b5c69f",
+        "loader_file_offset": 87992,
+        "name": "DmaLight",
+        "sha256": "f8c11bfa4b5f0aaf7b245c09349d98166b02323f6f5711b0413abe87d9044c17",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "011d49ae1d9e650c8cb55457280b59057a4d505943d82f39b07bff44ad06a090"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1828,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1828,
+          "sha256": "58c290bb227296111bfec6e94889722334348ca074b9227d84c732bbce91b9d8"
+        },
+        {
+          "name": ".data",
+          "address": 2372,
+          "size": 636,
+          "flags": 6,
+          "source": 2372,
+          "initialized": 636,
+          "sha256": "f8f1e8c1b5836a7a6df601d67b03f43cc3cf40f30178a6ac5bb8858dec919ae5"
+        },
+        {
+          "name": ".reloc",
+          "address": 3008,
+          "size": 64,
+          "flags": 4,
+          "source": 3008,
+          "initialized": 64,
+          "sha256": "46d31c032c02daef5ae3db300830b9163be877c84cca5bd057fd4d2b5cb01f08"
+        },
+        {
+          "name": ".debug",
+          "address": 3072,
+          "size": 128,
+          "flags": 4,
+          "source": 3072,
+          "initialized": 128,
+          "sha256": "2f0944a0f9845a48d2f3d65bb46e71162318fb3d8a60d39123cbbbb00fde41aa"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Gpio-e9266bd1-dc4e-482b-9d2e-d5940cc4897b.elf",
+      "input": "2.0.1/NOR/modules/Gpio-e9266bd1-dc4e-482b-9d2e-d5940cc4897b.elf",
+      "input_sha256": "1b775673fa4e5e6e855879709ee1f7051ac390a8378f4e11cc966f49d299a78b",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          804
+        ],
+        [
+          1560,
+          60
+        ],
+        [
+          1620,
+          32
+        ],
+        [
+          1652,
+          128
+        ]
+      ],
+      "memory_sha256": "0b7520d3d019be8848ffdd3a49d7d1610efcda47889c332eaaabd52b07e651a0",
+      "entry": 635,
+      "entry_points": [
+        {
+          "address": 634,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1568,
+        "file": "Gpio-e9266bd1-dc4e-482b-9d2e-d5940cc4897b.pe32",
+        "format": "pe32",
+        "guid": "e9266bd1-dc4e-482b-9d2e-d5940cc4897b",
+        "loader_file_offset": 90080,
+        "name": "Gpio",
+        "sha256": "0b7520d3d019be8848ffdd3a49d7d1610efcda47889c332eaaabd52b07e651a0",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "2b45e3df9f43bdbcf5ea8d99a0912a45ac9cb870a8f95652bb7864ef0e1102e0"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 804,
+          "flags": 5,
+          "source": 544,
+          "initialized": 804,
+          "sha256": "2594df2ef543cd60e3a8131873329c270423ef01f982ce548a5ecd7709f6949f"
+        },
+        {
+          "name": ".data",
+          "address": 1348,
+          "size": 60,
+          "flags": 6,
+          "source": 1348,
+          "initialized": 60,
+          "sha256": "96169aafe1de99f4dc58b22ce551c79c962816e3322723358dc69f78922b28ce"
+        },
+        {
+          "name": ".reloc",
+          "address": 1408,
+          "size": 32,
+          "flags": 4,
+          "source": 1408,
+          "initialized": 32,
+          "sha256": "80c5b514a7592b96b71d43d32f48eae6831619bd3860096b547d070278aca49f"
+        },
+        {
+          "name": ".debug",
+          "address": 1440,
+          "size": 128,
+          "flags": 4,
+          "source": 1440,
+          "initialized": 128,
+          "sha256": "9f71fbb38025990479fb3bdc753166dbcb30ae555d0eb9b26da69b86b29d1474"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/InterruptController-659d6b6f-6e34-4f7e-a55c-43c5f2f3a1e2.elf",
+      "input": "2.0.1/NOR/modules/InterruptController-659d6b6f-6e34-4f7e-a55c-43c5f2f3a1e2.elf",
+      "input_sha256": "a690765c9ae4fce60ed94cf774d88bf5e4c22a601ddb7a24590f3bfbc62df669",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1172
+        ],
+        [
+          1928,
+          332
+        ],
+        [
+          2260,
+          64
+        ],
+        [
+          2324,
+          160
+        ]
+      ],
+      "memory_sha256": "04b8c67565d9c7162ece4a6bd8468c2291cc6b40ba0854aa66706bf47fab8cdd",
+      "entry": 913,
+      "entry_points": [
+        {
+          "address": 912,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2272,
+        "file": "InterruptController-659d6b6f-6e34-4f7e-a55c-43c5f2f3a1e2.pe32",
+        "format": "pe32",
+        "guid": "659d6b6f-6e34-4f7e-a55c-43c5f2f3a1e2",
+        "loader_file_offset": 91064,
+        "name": "InterruptController",
+        "sha256": "04b8c67565d9c7162ece4a6bd8468c2291cc6b40ba0854aa66706bf47fab8cdd",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "28ccf554d5a13a01d15c3568a2c9417e4a23cfd652e603b634dcc0078c753c95"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1172,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1172,
+          "sha256": "86dc6e4fefc48be187a7daafa800e9f2424ee71b332532025ce391399e15441d"
+        },
+        {
+          "name": ".data",
+          "address": 1716,
+          "size": 332,
+          "flags": 6,
+          "source": 1716,
+          "initialized": 332,
+          "sha256": "ee3e1767275bf2ef11b678dcf76244db9ba72d2461a96970aa179d7dd2ca0c0d"
+        },
+        {
+          "name": ".reloc",
+          "address": 2048,
+          "size": 64,
+          "flags": 4,
+          "source": 2048,
+          "initialized": 64,
+          "sha256": "c22d484508479689058fb9150cf69efe5ffbe7da13fc4d833f22dfc25b3830da"
+        },
+        {
+          "name": ".debug",
+          "address": 2112,
+          "size": 160,
+          "flags": 4,
+          "source": 2112,
+          "initialized": 160,
+          "sha256": "674be93d2a17a2ec75522f23ed6a30f65ff7f2228c2a731fc2c46f9ea3cb785c"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/S5L8900Metronome-435969da-a170-4265-ae8c-290b241d5e1c.elf",
+      "input": "2.0.1/NOR/modules/S5L8900Metronome-435969da-a170-4265-ae8c-290b241d5e1c.elf",
+      "input_sha256": "d532c63e5af0125f37d46b1260f371cf163d0e336e3d1baa8351ba1b2f275af9",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          720
+        ],
+        [
+          1476,
+          48
+        ],
+        [
+          1524,
+          32
+        ],
+        [
+          1556,
+          160
+        ]
+      ],
+      "memory_sha256": "62aa3c6448bc5bb78f05477790969ad7e37314828fbbb1a21d8fb66244d60d19",
+      "entry": 561,
+      "entry_points": [
+        {
+          "address": 560,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1504,
+        "file": "S5L8900Metronome-435969da-a170-4265-ae8c-290b241d5e1c.pe32",
+        "format": "pe32",
+        "guid": "435969da-a170-4265-ae8c-290b241d5e1c",
+        "loader_file_offset": 92376,
+        "name": "S5L8900Metronome",
+        "sha256": "62aa3c6448bc5bb78f05477790969ad7e37314828fbbb1a21d8fb66244d60d19",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "0d9faeae73810ea51876e33e6ce7bf5f1cc449b928bc4baca8b12e7a6b9652ee"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 720,
+          "flags": 5,
+          "source": 544,
+          "initialized": 720,
+          "sha256": "5d91e76328c06f105215fadb14e650129409bf965f3c7ab174663686ea2fbc34"
+        },
+        {
+          "name": ".data",
+          "address": 1264,
+          "size": 48,
+          "flags": 6,
+          "source": 1264,
+          "initialized": 48,
+          "sha256": "2b32684f8abd3d805683814e2550e8fb24dd7a2ed116dfffff5e64ea6c190caa"
+        },
+        {
+          "name": ".reloc",
+          "address": 1312,
+          "size": 32,
+          "flags": 4,
+          "source": 1312,
+          "initialized": 32,
+          "sha256": "5aa8bcf0c1a670aa65a78e0605fdde635702dc3d834812102f236052bb1554a9"
+        },
+        {
+          "name": ".debug",
+          "address": 1344,
+          "size": 160,
+          "flags": 4,
+          "source": 1344,
+          "initialized": 160,
+          "sha256": "f991c52585444f06fb4626c4a4cff28a9dbbc7ab12ab3d053caebd9f81903046"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/SystemTimer-4a39ef02-6276-4f08-a510-6df54aaa1186.elf",
+      "input": "2.0.1/NOR/modules/SystemTimer-4a39ef02-6276-4f08-a510-6df54aaa1186.elf",
+      "input_sha256": "25bb6751e8901c547049bc87f03743271aeace33d8d3efe333a7fdf584bd1178",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          772
+        ],
+        [
+          1528,
+          60
+        ],
+        [
+          1588,
+          32
+        ],
+        [
+          1620,
+          160
+        ]
+      ],
+      "memory_sha256": "242b9a14ea9fa64b880082efe0c0094a371ce080d872c061144c614b8822e229",
+      "entry": 585,
+      "entry_points": [
+        {
+          "address": 584,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1568,
+        "file": "SystemTimer-4a39ef02-6276-4f08-a510-6df54aaa1186.pe32",
+        "format": "pe32",
+        "guid": "4a39ef02-6276-4f08-a510-6df54aaa1186",
+        "loader_file_offset": 93312,
+        "name": "SystemTimer",
+        "sha256": "242b9a14ea9fa64b880082efe0c0094a371ce080d872c061144c614b8822e229",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "81fc12d84dd2297b8f1a7f1e86d16abc730999bb806730f6effdb9a4f6a1f8a8"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 772,
+          "flags": 5,
+          "source": 544,
+          "initialized": 772,
+          "sha256": "8168f0f44f839c1fdb4cfa28178af49a3d3e1e59f31c9d63bb3c0d2572b126cb"
+        },
+        {
+          "name": ".data",
+          "address": 1316,
+          "size": 60,
+          "flags": 6,
+          "source": 1316,
+          "initialized": 60,
+          "sha256": "fe56fe78112cc8f5d341383edcd64e8f04ca3d486cf90d2deb1075f99cbc8664"
+        },
+        {
+          "name": ".reloc",
+          "address": 1376,
+          "size": 32,
+          "flags": 4,
+          "source": 1376,
+          "initialized": 32,
+          "sha256": "904c02d3b064039354f318a436c2e47c3e0fce534610cf60a38368e03d9c0e0c"
+        },
+        {
+          "name": ".debug",
+          "address": 1408,
+          "size": 160,
+          "flags": 4,
+          "source": 1408,
+          "initialized": 160,
+          "sha256": "b263e6828ad4c30f9dcac3a80bcbc6d44c6bae920f60ba1d506662ea6ce1b7db"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/S5L8900Timer-ce608178-dd25-4c9d-b954-4f09eb584f98.elf",
+      "input": "2.0.1/NOR/modules/S5L8900Timer-ce608178-dd25-4c9d-b954-4f09eb584f98.elf",
+      "input_sha256": "e582e4fc10cf67f5a6f1700a6fd0e02a054ed4566f7d53b53a8d344edbea412a",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1060
+        ],
+        [
+          1816,
+          92
+        ],
+        [
+          1908,
+          64
+        ],
+        [
+          1972,
+          160
+        ]
+      ],
+      "memory_sha256": "36a6e7a9918e3bacd981ef5a74c2638075b45141f763c2d238167fed214be96e",
+      "entry": 747,
+      "entry_points": [
+        {
+          "address": 746,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1920,
+        "file": "S5L8900Timer-ce608178-dd25-4c9d-b954-4f09eb584f98.pe32",
+        "format": "pe32",
+        "guid": "ce608178-dd25-4c9d-b954-4f09eb584f98",
+        "loader_file_offset": 94288,
+        "name": "S5L8900Timer",
+        "sha256": "36a6e7a9918e3bacd981ef5a74c2638075b45141f763c2d238167fed214be96e",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "ada63adae20d4391a0a94db6492ef220a7f81892e43de4914d374bffe79a39cf"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1060,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1060,
+          "sha256": "a9db98072bf63d0cf685ae9dce517528f129232c6609852d01f8ef5e87680e41"
+        },
+        {
+          "name": ".data",
+          "address": 1604,
+          "size": 92,
+          "flags": 6,
+          "source": 1604,
+          "initialized": 92,
+          "sha256": "c10fc1b9ea3a0d1f823f37cd69b6e11f7cd011c58ea4b208f9b38ce27cd71715"
+        },
+        {
+          "name": ".reloc",
+          "address": 1696,
+          "size": 64,
+          "flags": 4,
+          "source": 1696,
+          "initialized": 64,
+          "sha256": "716c659dffbcb28a9f783aac1126951c4362bbd38dadadfdae9cf55c2b3cfdb1"
+        },
+        {
+          "name": ".debug",
+          "address": 1760,
+          "size": 160,
+          "flags": 4,
+          "source": 1760,
+          "initialized": 160,
+          "sha256": "d68e2af424c26c3fc08f972db2b71a5874eacabb13a571239c56e558e2478338"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/Ata-084239de-b440-4046-af54-31ca8b9a6b7f.elf",
+      "input": "2.0.1/NOR/modules/Ata-084239de-b440-4046-af54-31ca8b9a6b7f.elf",
+      "input_sha256": "b45bc8129648703ccaa7e3b75b457edd96da3a6703bd8bc5d87341de33594346",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          9612
+        ],
+        [
+          10368,
+          1684
+        ],
+        [
+          12052,
+          160
+        ],
+        [
+          12212,
+          128
+        ]
+      ],
+      "memory_sha256": "8e6bcda99b53f7f10547da5a6833781fa65113a564783ef75ff9b2dd324492cc",
+      "entry": 743,
+      "entry_points": [
+        {
+          "address": 742,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 12128,
+        "file": "Ata-084239de-b440-4046-af54-31ca8b9a6b7f.pe32",
+        "format": "pe32",
+        "guid": "084239de-b440-4046-af54-31ca8b9a6b7f",
+        "loader_file_offset": 95536,
+        "name": "Ata",
+        "sha256": "8e6bcda99b53f7f10547da5a6833781fa65113a564783ef75ff9b2dd324492cc",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "df073da76b6842f5efd87526dc2f72dd35083fe9e9d981134da5744eeb11eacf"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 9612,
+          "flags": 5,
+          "source": 544,
+          "initialized": 9612,
+          "sha256": "b62ff817fc96429ee427fc943675ba04250608981cd8086b22a496ef83a7aaa9"
+        },
+        {
+          "name": ".data",
+          "address": 10156,
+          "size": 1684,
+          "flags": 6,
+          "source": 10156,
+          "initialized": 1684,
+          "sha256": "1c2f96ee60907617209cfbe9161f5f4f7a157b9b5f25fc7407462e59b937dc4e"
+        },
+        {
+          "name": ".reloc",
+          "address": 11840,
+          "size": 160,
+          "flags": 4,
+          "source": 11840,
+          "initialized": 160,
+          "sha256": "eab72473d69a6d7113dd9624d656c2fa7255d6d117eb0442232fbf478a7a14b9"
+        },
+        {
+          "name": ".debug",
+          "address": 12000,
+          "size": 128,
+          "flags": 4,
+          "source": 12000,
+          "initialized": 128,
+          "sha256": "86138adf91fb0952184cc49347ca0e28787223d32b6083ac1e746ec7d5b8da85"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DxePcf50635-4c8b3791-8858-4de9-8cac-7aee7d214678.elf",
+      "input": "2.0.1/NOR/modules/DxePcf50635-4c8b3791-8858-4de9-8cac-7aee7d214678.elf",
+      "input_sha256": "ec3598c0615ce5de1fc3a641396af2449007618c2c9c95a9017674c954c66d0a",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          3284
+        ],
+        [
+          4040,
+          236
+        ],
+        [
+          4276,
+          64
+        ],
+        [
+          4340,
+          160
+        ]
+      ],
+      "memory_sha256": "e461487380c597e15e2dbe49be81dd27f4850e39d16515d0cd71cfce0eb07899",
+      "entry": 1503,
+      "entry_points": [
+        {
+          "address": 1502,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 4288,
+        "file": "DxePcf50635-4c8b3791-8858-4de9-8cac-7aee7d214678.pe32",
+        "format": "pe32",
+        "guid": "4c8b3791-8858-4de9-8cac-7aee7d214678",
+        "loader_file_offset": 102768,
+        "name": "DxePcf50635",
+        "sha256": "e461487380c597e15e2dbe49be81dd27f4850e39d16515d0cd71cfce0eb07899",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "93a0e9c482b4f03c068dd5ad6daafdf1ea157a073c72bad7ed372c663f1a0ebb"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 3284,
+          "flags": 5,
+          "source": 544,
+          "initialized": 3284,
+          "sha256": "e2e39af2d573670405a69048415f65981270f733a132b6593bbcf6a5b4d356ba"
+        },
+        {
+          "name": ".data",
+          "address": 3828,
+          "size": 236,
+          "flags": 6,
+          "source": 3828,
+          "initialized": 236,
+          "sha256": "fb04dc2209f79ec441b6d52f42fe39763d4855d8f52550f8750cb7cf7c90e26a"
+        },
+        {
+          "name": ".reloc",
+          "address": 4064,
+          "size": 64,
+          "flags": 4,
+          "source": 4064,
+          "initialized": 64,
+          "sha256": "c80eece6e53216b7966fb76f6ce712b98b7132d6edf0ad23f510f8a5bde83c5a"
+        },
+        {
+          "name": ".debug",
+          "address": 4128,
+          "size": 160,
+          "flags": 4,
+          "source": 4128,
+          "initialized": 160,
+          "sha256": "9f356d56fc9c5a025bc3d67d76b07d94f18d3997ebc97d280511c0a56b7c5dbd"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DxeLtc4066-0c86dbf6-3fd4-40b0-82b7-0f1c12b98d4c.elf",
+      "input": "2.0.1/NOR/modules/DxeLtc4066-0c86dbf6-3fd4-40b0-82b7-0f1c12b98d4c.elf",
+      "input_sha256": "43364c1487361ad75436c57e35191acb28b8f7aa9084041cb1031558c40187f1",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          864
+        ],
+        [
+          1620,
+          96
+        ],
+        [
+          1716,
+          32
+        ],
+        [
+          1748,
+          160
+        ]
+      ],
+      "memory_sha256": "7c4f5acca9e8a0d37b8cdc37dcccdf804688325c1e5ff648730d6d29ed2ade90",
+      "entry": 653,
+      "entry_points": [
+        {
+          "address": 652,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 1696,
+        "file": "DxeLtc4066-0c86dbf6-3fd4-40b0-82b7-0f1c12b98d4c.pe32",
+        "format": "pe32",
+        "guid": "0c86dbf6-3fd4-40b0-82b7-0f1c12b98d4c",
+        "loader_file_offset": 105544,
+        "name": "DxeLtc4066",
+        "sha256": "7c4f5acca9e8a0d37b8cdc37dcccdf804688325c1e5ff648730d6d29ed2ade90",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "aa0c1b9288a3e3af0028eaa172fa8f8f7be90ff001e6099c81da242295207c51"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 864,
+          "flags": 5,
+          "source": 544,
+          "initialized": 864,
+          "sha256": "64b67bfd30fda9826e80c2bc55d998f4da37b7b811b252be8e776ccceee96378"
+        },
+        {
+          "name": ".data",
+          "address": 1408,
+          "size": 96,
+          "flags": 6,
+          "source": 1408,
+          "initialized": 96,
+          "sha256": "319763c6447f6fc71ce092a14f2a5df09e13e31ee6337643a3811bdca0512823"
+        },
+        {
+          "name": ".reloc",
+          "address": 1504,
+          "size": 32,
+          "flags": 4,
+          "source": 1504,
+          "initialized": 32,
+          "sha256": "7c831ccc304f53077e06a88d8064c81ae15a9653db69670b51448eeec1a8a837"
+        },
+        {
+          "name": ".debug",
+          "address": 1536,
+          "size": 160,
+          "flags": 4,
+          "source": 1536,
+          "initialized": 160,
+          "sha256": "a7120bedc281e42295bd4e87776cb1f7ab8d0d74d15652b78a33fb822af2338a"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/modules/DxeSst25-abc3ba70-fa6b-43c9-8532-7ffc7c785c54.elf",
+      "input": "2.0.1/NOR/modules/DxeSst25-abc3ba70-fa6b-43c9-8532-7ffc7c785c54.elf",
+      "input_sha256": "0d0ea511840c88b276fb40c589a3e27bbfec01bce1f476e4e0f17b246ddd52a5",
+      "segments": [
+        [
+          212,
+          544
+        ],
+        [
+          756,
+          1688
+        ],
+        [
+          2444,
+          104
+        ],
+        [
+          2548,
+          32
+        ],
+        [
+          2580,
+          128
+        ]
+      ],
+      "memory_sha256": "73b3ecbd24d515c71e960d57816ac023cfda1552518e66a7946bfdfcaf78f386",
+      "entry": 1227,
+      "entry_points": [
+        {
+          "address": 1226,
+          "thumb": true
+        }
+      ],
+      "thumb_regions": [
+        ".text"
+      ],
+      "provenance": {
+        "bytes": 2496,
+        "file": "DxeSst25-abc3ba70-fa6b-43c9-8532-7ffc7c785c54.pe32",
+        "format": "pe32",
+        "guid": "abc3ba70-fa6b-43c9-8532-7ffc7c785c54",
+        "loader_file_offset": 106616,
+        "name": "DxeSst25",
+        "sha256": "73b3ecbd24d515c71e960d57816ac023cfda1552518e66a7946bfdfcaf78f386",
+        "address_basis": "image header; zero base is module-relative"
+      },
+      "regions": [
+        {
+          "name": ".headers",
+          "address": 0,
+          "size": 544,
+          "flags": 4,
+          "source": 0,
+          "initialized": 544,
+          "sha256": "9c71d7b1126cf467501ba3cb8761358f164ad6427dfeeff8a6c068a11f20c570"
+        },
+        {
+          "name": ".text",
+          "address": 544,
+          "size": 1688,
+          "flags": 5,
+          "source": 544,
+          "initialized": 1688,
+          "sha256": "8678067813507fdf0b8c334a094a50858a69856cc089d674952d63ae1c2ca367"
+        },
+        {
+          "name": ".data",
+          "address": 2232,
+          "size": 104,
+          "flags": 6,
+          "source": 2232,
+          "initialized": 104,
+          "sha256": "8fdd0a6c3754cbafe25b8b826c2a76d7bcb45f9a8246c36c72fbccaf9dd2515a"
+        },
+        {
+          "name": ".reloc",
+          "address": 2336,
+          "size": 32,
+          "flags": 4,
+          "source": 2336,
+          "initialized": 32,
+          "sha256": "0846080c8e434645389161c675cc679e8f1a2232b3249bfd531cb8693c7a372c"
+        },
+        {
+          "name": ".debug",
+          "address": 2368,
+          "size": 128,
+          "flags": 4,
+          "source": 2368,
+          "initialized": 128,
+          "sha256": "8970b55dbbe95556f81fd08650d7c331f1f6aa0c41947c4a96ba9aaf990c1dd1"
+        }
+      ]
+    },
+    {
+      "path": "2.0.1/NOR/boot.elf",
+      "input": "2.0.1/NOR/boot.elf",
+      "input_sha256": "7dd0da4a40da0a359d375714eebbe9d6b5d6cd50f1bf6a704eedb4e5d9069fe1",
+      "segments": [
+        [
+          436,
+          256
+        ],
+        [
+          692,
+          544
+        ],
+        [
+          1236,
+          8936
+        ],
+        [
+          10172,
+          344
+        ],
+        [
+          10516,
+          96
+        ],
+        [
+          10612,
+          128
+        ],
+        [
+          10740,
+          200
+        ],
+        [
+          10940,
+          260
+        ],
+        [
+          11200,
+          28
+        ],
+        [
+          11228,
+          32
+        ],
+        [
+          11260,
+          128
+        ],
+        [
+          11388,
+          68
+        ]
+      ],
+      "memory_sha256": "caef951aec400959db97a4ad5b09a2cf553c036b050cf4c384d5637d687f537d",
+      "entry": 570425344,
+      "entry_points": [
+        {
+          "address": 570425344,
+          "thumb": false
+        },
+        {
+          "address": 570492228,
+          "thumb": true
+        },
+        {
+          "address": 570553908,
+          "thumb": false
+        }
+      ],
+      "thumb_regions": [
+        ".preefi.text"
+      ],
+      "provenance": {
+        "input": "apple-loader.bin",
+        "sha256": "8d028296d20d7162eb109d062239ba510fe842510e006178040caacbabead1b8",
+        "modules": [
+          {
+            "bytes": 10048,
+            "file": "PreEfi-eb956406-45f2-4b96-8442-3565daa862f9.pe32",
+            "format": "pe32",
+            "guid": "eb956406-45f2-4b96-8442-3565daa862f9",
+            "loader_file_offset": 57816,
+            "name": "PreEfi"
+          },
+          {
+            "bytes": 656,
+            "file": "SecCore-1ba0062e-c779-4582-8566-336ae8f78f09.te",
+            "format": "te",
+            "guid": "1ba0062e-c779-4582-8566-336ae8f78f09",
+            "loader_file_offset": 128272,
+            "name": "SecCore"
+          }
+        ]
+      },
+      "regions": [
+        {
+          "name": ".vectors",
+          "address": 570425344,
+          "size": 256,
+          "flags": 5,
+          "source": 0,
+          "initialized": 256,
+          "sha256": "29233128ab032f89da3c77d3876795f0e0049e7d76c65e296b5c6cad3cb0fd99"
+        },
+        {
+          "name": ".handoff",
+          "address": 570554300,
+          "size": 68,
+          "flags": 5,
+          "source": 128956,
+          "initialized": 68,
+          "sha256": "119bb2709dfdb4ff97ec6adc06ec3885ff6195ae601564d6ad5dd5772dffcd8a"
+        },
+        {
+          "name": ".preefi.headers",
+          "address": 570483188,
+          "size": 544,
+          "flags": 4,
+          "source": 57844,
+          "initialized": 544,
+          "sha256": "c559cf742113f179a0f1f5cb622da49dac8db11606e1d8cc1175b8edee2b2c5f"
+        },
+        {
+          "name": ".preefi.text",
+          "address": 570483732,
+          "size": 8936,
+          "flags": 5,
+          "source": 58388,
+          "initialized": 8936,
+          "sha256": "7ea15baa7e8a89e09aeb5ddd09bf585c0f4a4f510751c98f3fa9280a6210547e"
+        },
+        {
+          "name": ".preefi.data",
+          "address": 570492668,
+          "size": 344,
+          "flags": 6,
+          "source": 67324,
+          "initialized": 344,
+          "sha256": "54c343cf828f5bc51b58e57c099e7fbd7de21268c695ac74326e97017db3c597"
+        },
+        {
+          "name": ".preefi.reloc",
+          "address": 570493012,
+          "size": 96,
+          "flags": 4,
+          "source": 67668,
+          "initialized": 96,
+          "sha256": "8f8b31268cbf7eb3b2e674c38197ffd118ad8d103a45d2d87a73b3563d86aa02"
+        },
+        {
+          "name": ".preefi.debug",
+          "address": 570493108,
+          "size": 128,
+          "flags": 4,
+          "source": 67764,
+          "initialized": 128,
+          "sha256": "457ef3bf94c498efa03818fcfbbc2838dc3180e52e83f9409e5133357279e382"
+        },
+        {
+          "name": ".seccore.headers",
+          "address": 570553644,
+          "size": 200,
+          "flags": 4,
+          "source": 128300,
+          "initialized": 200,
+          "sha256": "7f5e83addccdd7942053c2c782bfeefeb59f4d917fcc99a72e1bb63ebc5d9570"
+        },
+        {
+          "name": ".seccore.text",
+          "address": 570553852,
+          "size": 260,
+          "flags": 5,
+          "source": 128508,
+          "initialized": 260,
+          "sha256": "01ecc84b83ea9c967b23a910a4c708ecc2f4722b7489e1ef21d730ff0524a41d"
+        },
+        {
+          "name": ".seccore.data",
+          "address": 570554112,
+          "size": 28,
+          "flags": 6,
+          "source": 128768,
+          "initialized": 28,
+          "sha256": "f8d0d5164bc365af51fb12e7da413985d7d13d7dd5c8e965f8a79e7369bc3d78"
+        },
+        {
+          "name": ".seccore.reloc",
+          "address": 570554140,
+          "size": 32,
+          "flags": 4,
+          "source": 128796,
+          "initialized": 32,
+          "sha256": "6968d48c686923115729a613c192d5c28f25efa21ac40e5e3064ff9734819c3d"
+        },
+        {
+          "name": ".seccore.debug",
+          "address": 570554172,
+          "size": 128,
+          "flags": 0,
+          "source": 128828,
+          "initialized": 128,
+          "sha256": "4f029424ca6735488bcf4b847092ee40bedb9846a8a10d52b262c8d1c8dc3276"
+        }
+      ],
+      "verify_functions": [
+        570425344,
+        570492228,
         570553908
       ]
     }

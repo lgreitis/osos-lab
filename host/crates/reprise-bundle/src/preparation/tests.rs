@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use super::*;
-use std::{fs, io::Write};
+use std::{
+    fs,
+    io::{Cursor, Write},
+};
 
 fn metadata() -> FirmwareMetadata {
     FirmwareMetadata {
@@ -37,6 +40,14 @@ fn archive(metadata: FirmwareMetadata, firmware: &[u8]) -> Vec<u8> {
 fn metadata_reports_version_and_rejects_wrong_families_and_builds() {
     assert_eq!(metadata().version(), "2.0.4");
     metadata().require_supported().unwrap();
+    let mut mb565 = metadata();
+    mb565.updater_family_id = 33;
+    mb565.build_id = 0x09018000;
+    mb565.visible_build_id = 0x02018000;
+    assert_eq!(mb565.version(), "2.0.1");
+    mb565.require_supported().unwrap();
+    mb565.updater_family_id = 35;
+    assert!(mb565.require_supported().is_err());
     for change in 0..4 {
         let mut m = metadata();
         match change {
@@ -100,31 +111,39 @@ fn preserved_ipsw_and_nor_prepare_identical_assembly_inputs() {
     );
     let ipsw_path = std::env::var_os("REPRISE_TEST_IPSW").expect("REPRISE_TEST_IPSW");
     let ipsw = Ipsw::load(Path::new(&ipsw_path)).unwrap();
-    assert_eq!(ipsw.metadata.version(), "2.0.4");
-    assert_eq!(ipsw.metadata.updater_family_id, 35);
-    let nor = fs::read(root.join("inputs/nor.bin")).unwrap();
-    let loader = fs::read(root.join("inputs/apple-loader.bin")).unwrap();
-    let osos = fs::read(root.join("inputs/osos.bin")).unwrap();
+    let target = ipsw.metadata.target().unwrap();
+    let inputs = std::env::var_os("REPRISE_TEST_INPUTS")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.join("inputs"));
+    let nor = fs::read(inputs.join("nor.bin")).unwrap();
+    let loader = fs::read(inputs.join("apple-loader.bin")).unwrap();
+    let osos = fs::read(inputs.join("osos.bin")).unwrap();
     assert_eq!(ipsw.wrap_plaintext(&osos[0x800..]).unwrap(), osos);
     let original = AppleNorImage::locate(&nor).unwrap();
     assert!(original.encrypted());
     assert_eq!(original.offset, 0x8000);
     let prepared = PreparedInputs::from_plaintext(&ipsw, &nor, &osos, Some(&loader)).unwrap();
-    let target: serde_json::Value =
-        serde_json::from_slice(&fs::read(root.join("targets/classic7g-2.0.4.json")).unwrap())
-            .unwrap();
     for (name, bytes) in &prepared.files {
-        assert_eq!(
-            bytes,
-            &fs::read(root.join("inputs").join(name)).unwrap(),
-            "{name}"
-        );
-        assert_eq!(
-            sha256(bytes),
-            target["inputs"][name]["sha256"].as_str().unwrap(),
-            "{name}"
-        );
+        assert_eq!(bytes, &fs::read(inputs.join(name)).unwrap(), "{name}");
+        assert!(target.inputs[name].matches(bytes), "{name}");
     }
+    let mut corrupt = osos.clone();
+    *corrupt.last_mut().unwrap() ^= 1;
+    assert!(ipsw.validate_plaintext(&corrupt).is_err());
+    let other = reprise_device::targets::all()
+        .iter()
+        .find(|other| other.target != target.target)
+        .unwrap();
+    let mut mismatched_nor = nor.clone();
+    let size = reprise_device::SysCfg::parse(&nor).unwrap().size;
+    for record in mismatched_nor[24..size].chunks_exact_mut(20) {
+        if &record[..4] == b"#doM" {
+            record[4..].fill(0);
+            let model = other.compatibility.models[0].as_bytes();
+            record[4..4 + model.len()].copy_from_slice(model);
+        }
+    }
+    assert!(PreparedInputs::from_plaintext(&ipsw, &mismatched_nor, &osos, Some(&loader)).is_err());
     let mut rockboxed = nor.clone();
     let offset = 0xa000;
     rockboxed[0x8000..0x8800].fill(0);

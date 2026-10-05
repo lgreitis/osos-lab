@@ -17,11 +17,7 @@ impl Fixture {
         let manifest = serde_json::json!({
             "schema": 1, "purpose": "development", "version": "0.1.0",
             "minimum_installer_version": "0.1.0",
-            "compatibility": {
-                "target": "classic7g-2.0.4", "models": ["MC293", "MC297"],
-                "hardware_version": 0x00130200, "apple_firmware": "2.0.4",
-                "bootrom_sha256": "69c087afc5753d7f0f11f09b141b372af753a854bc526673ea444c486d6003e4"
-            },
+            "compatibility": reprise_device::targets::find("classic7g-2.0.4").unwrap().compatibility,
             "components": {"usb_helper": {"format": "reprise-upload-v3", "files": {"image": image_hash, "descriptor": descriptor_hash}}},
             "assets": {image_hash.clone(): {"bytes": image.len()}, descriptor_hash.clone(): {"bytes": descriptor.len()}}
         });

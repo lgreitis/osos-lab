@@ -11,6 +11,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+import target_profiles
+
 MAX_ASSET = 32 * 1024 * 1024
 MAX_TOTAL = 64 * 1024 * 1024
 FORMATS = {
@@ -19,12 +21,12 @@ FORMATS = {
     "companion": ("reprise-companion-recipe-v2", {"recipe", "data"}),
     "nor": ("reprise-nor-template-v1", {"image", "descriptor"}),
 }
-COMPATIBILITY = {
-    "target": "classic7g-2.0.4",
-    "models": ["MC293", "MC297"],
-    "hardware_version": 0x00130200,
-    "apple_firmware": "2.0.4",
-    "bootrom_sha256": "69c087afc5753d7f0f11f09b141b372af753a854bc526673ea444c486d6003e4",
+COMPATIBILITY_FIELDS = {
+    "target",
+    "models",
+    "hardware_version",
+    "apple_firmware",
+    "bootrom_sha256",
 }
 
 
@@ -53,6 +55,29 @@ def valid_version(value):
     )
 
 
+def validate_compatibility(value):
+    if not isinstance(value, dict) or set(value) != COMPATIBILITY_FIELDS:
+        raise ValueError("Invalid bundle target fields")
+    models = value["models"]
+    names = [value["target"], *models] if isinstance(models, list) else []
+    if (
+        not names
+        or not models
+        or any(
+            not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", name)
+            for name in names
+        )
+        or len(models) != len(set(models))
+        or type(value["hardware_version"]) is not int
+        or not 0 < value["hardware_version"] <= 0xFFFFFFFF
+        or not isinstance(value["apple_firmware"], str)
+        or not re.fullmatch(r"[\x21-\x7e]{1,16}", value["apple_firmware"])
+        or not isinstance(value["bootrom_sha256"], str)
+        or not re.fullmatch(r"[0-9a-f]{64}", value["bootrom_sha256"])
+    ):
+        raise ValueError("Invalid bundle target")
+
+
 def export(spec, base, output):
     required = {
         "purpose",
@@ -71,17 +96,7 @@ def export(spec, base, output):
         valid_version(spec[k]) for k in ("version", "minimum_installer_version")
     ):
         raise ValueError("Versions must be SemVer")
-    compatibility = dict(spec["compatibility"])
-    models = compatibility.pop("models", [])
-    expected = {k: v for k, v in COMPATIBILITY.items() if k != "models"}
-    if (
-        compatibility != expected
-        or not isinstance(models, list)
-        or not models
-        or any(model not in ("MC293", "MC297") for model in models)
-        or len(models) != len(set(models))
-    ):
-        raise ValueError("Unsupported bundle target")
+    validate_compatibility(spec["compatibility"])
     components = spec["components"]
     if not components or not set(components) <= FORMATS.keys():
         raise ValueError("Unknown or empty component set")
@@ -110,7 +125,11 @@ def export(spec, base, output):
             references[logical] = digest
             manifest["assets"][digest] = {"bytes": len(data)}
         if name == "usb_helper":
-            validate_helper(blobs[references["image"]], blobs[references["descriptor"]])
+            validate_helper(
+                blobs[references["image"]],
+                blobs[references["descriptor"]],
+                spec["compatibility"]["bootrom_sha256"],
+            )
         manifest["components"][name] = {"format": fmt, "files": references}
     raw = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
     if len(raw) > 256 * 1024:
@@ -136,25 +155,27 @@ def export(spec, base, output):
     return manifest
 
 
-def validate_helper(image, raw):
+def validate_helper(image, raw, bootrom=None):
+    if bootrom is None:
+        bootrom = target_profiles.load()["compatibility"]["bootrom_sha256"]
     descriptor = json.loads(raw)
     if (
         descriptor.get("schema") != 3
         or descriptor.get("storage_inspection") is not True
         or descriptor.get("mode") != "stream-file"
-        or descriptor.get("rom_sha256") != COMPATIBILITY["bootrom_sha256"]
+        or descriptor.get("rom_sha256") != bootrom
         or descriptor.get("bytes") != len(image)
         or descriptor.get("sha256") != hashlib.sha256(image).hexdigest()
     ):
         raise ValueError("Expected a matching v3 helper with storage inspection")
 
 
-def helper_spec(directory, version, minimum):
+def helper_spec(directory, version, minimum, target=target_profiles.DEFAULT_TARGET):
     return {
         "purpose": "development",
         "version": version,
         "minimum_installer_version": minimum,
-        "compatibility": COMPATIBILITY,
+        "compatibility": target_profiles.load(target)["compatibility"],
         "components": {
             "usb_helper": {
                 "format": "reprise-upload-v3",
@@ -221,16 +242,25 @@ def main():
     source.add_argument(
         "--pack", type=Path, help="Package an exported directory as a ZIP"
     )
+    parser.add_argument(
+        "--target",
+        default=target_profiles.DEFAULT_TARGET,
+        help="Target profile for --helper",
+    )
     parser.add_argument("--version", help="Required with --helper")
     parser.add_argument("--minimum-installer-version", default="0.1.0")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if not args.helper and args.target != target_profiles.DEFAULT_TARGET:
+            parser.error(
+                "--target requires --helper; other sources carry their own compatibility"
+            )
         if args.helper:
             if not args.version:
                 parser.error("--helper requires --version")
             spec = helper_spec(
-                args.helper, args.version, args.minimum_installer_version
+                args.helper, args.version, args.minimum_installer_version, args.target
             )
             base = Path.cwd()
         elif args.spec:

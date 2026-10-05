@@ -115,7 +115,10 @@ pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
             &identity.model,
             identity.hardware_version,
             &identity.recorded_firmware,
-            reprise_device::SUPPORTED_BOOTROM_SHA256,
+            checks
+                .bootrom_sha256
+                .as_deref()
+                .ok_or("Missing checked BootROM")?,
         )?;
     }
     let mut progress = Progress::default();

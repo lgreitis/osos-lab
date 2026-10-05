@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "layout.h"
+#include "compat/nor/dxe.h"
+#include "compat/nor/drivers.h"
 
-#define ROM 0x2201c300u
-#define CLOCK 0x2201d900u
-#define CPU 0x2201e180u
-#define IRQ 0x2201eb80u
 #define HEADER 0x22036000u
 #define ARENA_BYTES 0x5000u
 #define FIRST_BYTES 0x73cu
@@ -56,32 +54,27 @@ static uint32_t retain(void *self, void *block)
 
 static uint32_t cpu_state(void *self, unsigned char *enabled)
 {
-    typedef uint32_t (*fn)(void *, unsigned char *);
-    return ((fn)(CPU + 0x26f))(self, enabled);
+    return apple_cpu_state(self, enabled);
 }
 
 static uint32_t cpu_disable(void *self)
 {
-    typedef uint32_t (*fn)(void *);
-    return ((fn)(CPU + 0x25d))(self);
+    return apple_cpu_disable(self);
 }
 
 static uint32_t frequency(void *self, uint32_t selector)
 {
-    typedef uint32_t (*fn)(void *, uint32_t);
-    return ((fn)(CLOCK + 0x2cb))(self, selector);
+    return apple_clock_frequency(self, selector);
 }
 
 static uint32_t gates(void *self, uint64_t mask, uint32_t enable)
 {
-    typedef uint32_t (*fn)(void *, uint64_t, uint32_t);
-    return ((fn)(CLOCK + 0x2cf))(self, mask, enable);
+    return apple_clock_gates(self, mask, enable);
 }
 
 static uint32_t mapping(void *self, uint32_t irq, uint32_t *bank, uint32_t *bit)
 {
-    typedef uint32_t (*fn)(void *, uint32_t, uint32_t *, uint32_t *);
-    return ((fn)(IRQ + 0x221))(self, irq, bank, bit);
+    return apple_irq_mapping(self, irq, bank, bit);
 }
 
 /* The relocated ROM module enters here after installing its hardware context. */
@@ -113,10 +106,9 @@ void prepare_loaded(uint32_t dxe_base)
 #endif
     for (unsigned i = 0; i < sizeof(*C); i++)
         ((unsigned char *)C)[i] = 0;
-    typedef uint32_t (*pages_fn)(uint32_t, uint32_t, uint32_t, uint64_t *);
     uint64_t address = ARENA & 0x7fffffffu;
     uint32_t result =
-        ((pages_fn)(dxe_base + 0x220d))(2, 4, ARENA_BYTES / 0x1000, &address);
+        apple_allocate_pages(dxe_base, 2, 4, ARENA_BYTES / 0x1000, &address);
     if (result || address != (ARENA & 0x7fffffffu))
         probe_finish(4);
     probe_flush();
@@ -142,10 +134,7 @@ void prepare_loaded(uint32_t dxe_base)
         C->allocator[i] = (uint32_t)unsupported;
     C->allocator[1] = (uint32_t)alloc;
     C->allocator[4] = (uint32_t)retain;
-    REG(ROM + 0x13b4) = (uint32_t)C->cpu;
-    REG(ROM + 0x13b8) = (uint32_t)C->clock;
-    REG(ROM + 0x13bc) = (uint32_t)C->irq;
-    REG(ROM + 0x13c0) = (uint32_t)C->allocator;
+    apple_rom_bind(C->cpu, C->clock, C->irq, C->allocator);
     C->usb_context = REG(0x2203fffc);
     C->eint = REG(0x39a000c0);
     probe_flush();
@@ -153,9 +142,7 @@ void prepare_loaded(uint32_t dxe_base)
     REG(0x2203900c) = (uint32_t)rom_plaintext_gate;
     REG(0x22039010) = 2;
 #endif
-    typedef uint32_t (*prepare_fn)(void *, const void *, const void *);
-    result = ((prepare_fn)(ROM + 0x7f5))((void *)(ROM + 0x13cc), (void *)HEADER,
-                                         (void *)BODY);
+    result = apple_rom_prepare((void *)HEADER, (void *)BODY);
 #ifndef STARTUP_CONTEXT
     REG(0x22039010) = 0;
 #endif

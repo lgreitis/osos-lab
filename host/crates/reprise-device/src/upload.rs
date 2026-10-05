@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use crate::{
-    exact, invalid, usb::usb_error, Cleanup, DeviceInfo, Error, Result, Session,
-    SUPPORTED_BOOTROM_SHA256,
-};
+use crate::{exact, invalid, targets, usb::usb_error, Cleanup, DeviceInfo, Error, Result, Session};
 use rusb::{Context, DeviceHandle, UsbContext};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -56,6 +53,7 @@ impl Default for UsbIdentity {
 }
 
 pub struct UploadHelper {
+    bootrom_sha256: String,
     image: Vec<u8>,
     nonce_offset: usize,
     config_offset: usize,
@@ -77,7 +75,7 @@ impl UploadHelper {
         }
         if m.schema != 3
             || m.mode != "stream-file"
-            || m.rom_sha256 != SUPPORTED_BOOTROM_SHA256
+            || !targets::supports_bootrom(&m.rom_sha256)
             || !(0x810..=0x1eff0).contains(&image.len())
             || !image.len().is_multiple_of(16)
             || m.bytes != image.len()
@@ -103,6 +101,7 @@ impl UploadHelper {
             return Err(invalid("Misaligned or overlapping helper slots"));
         }
         Ok(Self {
+            bootrom_sha256: m.rom_sha256,
             image: image.to_vec(),
             nonce_offset: m.nonce_offset,
             config_offset: m.config_offset,
@@ -132,7 +131,7 @@ impl UploadHelper {
         options: &UploadOptions,
     ) -> Result<Vec<u8>> {
         exact("BootROM image", rom.len(), crate::BOOTROM_SIZE)?;
-        if format!("{:x}", Sha256::digest(rom)) != SUPPORTED_BOOTROM_SHA256 {
+        if format!("{:x}", Sha256::digest(rom)) != self.bootrom_sha256 {
             return Err(invalid("Unsupported BootROM for upload helper"));
         }
         let cold_init = relocate_cold_init(rom)?;

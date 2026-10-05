@@ -66,10 +66,14 @@ fn syscfg_rejects_malformed_bounds_duplicates_and_text() {
 }
 
 #[test]
-fn compatibility_requires_model_hardware_and_recorded_version() {
+fn compatibility_matches_target_profiles() {
     for (model, hw, version, compatible) in [
         ("MC293", 0x00130200u32, "2.0.4", true),
         ("MC297", 0x00130200, "2.0.4", true),
+        ("MB562", 0x00130100, "2.0", true),
+        ("MB565", 0x00130100, "2.0", true),
+        ("MB565", 0x12345678, "2.0", false),
+        ("MB565", 0x00130100, "2.0.4", false),
         ("MD717", 0x00130200, "2.0.4", false),
         ("MC293", 0x00130100, "2.0.4", false),
         ("MC293", 0x00130200, "2.0.5", false),

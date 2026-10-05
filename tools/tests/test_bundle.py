@@ -5,12 +5,14 @@
 import copy
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
 MODULE = importlib.util.spec_from_file_location("bundle", ROOT / "tools/bundle.py")
 bundle = importlib.util.module_from_spec(MODULE)
 MODULE.loader.exec_module(bundle)
@@ -24,6 +26,29 @@ class ExportTests(unittest.TestCase):
         self.spec = bundle.helper_spec(
             ROOT / "usb-helper/tests/fixtures", "0.1.0-dev.1", "0.1.0"
         )
+
+    def test_rev_a_models_are_carried_into_the_bundle(self):
+        self.spec = bundle.helper_spec(
+            ROOT / "usb-helper/tests/fixtures",
+            "0.1.0-dev.1",
+            "0.1.0",
+            "classic6g-reva-2.0.1",
+        )
+        target = self.spec["compatibility"]
+        self.assertEqual(target["models"], ["MB562", "MB565"])
+        self.assertEqual(target["apple_firmware"], "2.0")
+        manifest = bundle.export(self.spec, self.root, self.root / "mb565")
+        self.assertEqual(manifest["compatibility"], target)
+        for key, value in [
+            ("models", ["MB565", "MB565"]),
+            ("models", []),
+            ("target", "../escape"),
+            ("hardware_version", 0),
+            ("bootrom_sha256", "unknown"),
+            ("apple_firmware", " "),
+        ]:
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                bundle.validate_compatibility({**target, key: value})
 
     def test_helper_without_storage_inspection_is_rejected(self):
         fixture = ROOT / "usb-helper/tests/fixtures"

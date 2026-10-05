@@ -42,5 +42,88 @@
   "toolchain": {
     "gcc": "9.5.0"
   },
-  "rockbox_version": "10ec9bd530M-260914"
+  "rockbox_version": "10ec9bd530M-260914",
+  "compatibility": {
+    "target": "classic7g-2.0.4",
+    "models": [
+      "MC293",
+      "MC297"
+    ],
+    "hardware_version": 1245696,
+    "apple_firmware": "2.0.4",
+    "bootrom_sha256": "69c087afc5753d7f0f11f09b141b372af753a854bc526673ea444c486d6003e4"
+  },
+  "ipsw": {
+    "version": "2.0.4",
+    "family_id": 11,
+    "updater_family_id": 35,
+    "visible_build_id": 33849344,
+    "build_id": 151289856,
+    "encrypted_osos": {
+      "bytes": 10599920,
+      "sha256": "206ddcfd838ca2876e557cabb14501296b28e445ba4495a660fa3c745ce36fd9"
+    }
+  },
+  "analysis": {
+    "startup_constants": {
+      "0x4f88": 570425344,
+      "0x4f8c": 44760,
+      "0x4f90": 570470104,
+      "0x4f94": 22684,
+      "0x4fa0": 134217728,
+      "0x4fa4": 10550408,
+      "0x4fa8": 144768136,
+      "0x4fac": 2692,
+      "0x5034": 144770828,
+      "0x5038": 1188940
+    },
+    "osos_regions": [
+      {
+        "name": ".dram",
+        "address": 134217728,
+        "size": 10550408,
+        "source": 46808,
+        "flags": 7
+      },
+      {
+        "name": ".dram.data",
+        "address": 144768136,
+        "size": 2692,
+        "source": 10597216,
+        "flags": 6
+      },
+      {
+        "name": ".dram.bss",
+        "address": 144770828,
+        "size": 1188940,
+        "source": null,
+        "flags": 6
+      },
+      {
+        "name": ".iram",
+        "address": 570425344,
+        "size": 44760,
+        "source": 2048,
+        "flags": 7
+      },
+      {
+        "name": ".iram.bss",
+        "address": 570470104,
+        "size": 22684,
+        "source": null,
+        "flags": 6
+      }
+    ],
+    "nor_handoff_offset": 128956,
+    "osos_verify_functions": [
+      135735692,
+      136763616,
+      570454448,
+      570443488
+    ]
+  },
+  "shims": {
+    "nor": "2.0.4",
+    "osos": "2.0.4"
+  }
 }

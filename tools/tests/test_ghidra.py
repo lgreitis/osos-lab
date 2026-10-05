@@ -3,10 +3,12 @@
 
 import importlib.util
 import struct
+import sys
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
 
 
 def load(name):
@@ -17,6 +19,7 @@ def load(name):
 
 
 images = load("ghidra_images")
+target_profiles = load("target_profiles")
 
 
 class PreparationTests(unittest.TestCase):
@@ -53,8 +56,8 @@ class PreparationTests(unittest.TestCase):
         self.assertIn((0x50, 0x30, entry), mappings)
 
     def test_unknown_firmware_and_overlapping_regions_are_rejected(self):
-        with self.assertRaisesRegex(ValueError, "Unknown OSOS layout"):
-            images.osos_regions(bytes(0x10000))
+        with self.assertRaisesRegex(ValueError, "Input does not match target profile"):
+            images.osos_regions(bytes(0x10000), target_profiles.load())
         with self.assertRaisesRegex(ValueError, "Overlapping"):
             images.elf(
                 [images.region("a", 0, b"1234"), images.region("b", 2, b"56")], 0

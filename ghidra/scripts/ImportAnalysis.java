@@ -6,6 +6,7 @@ import com.google.gson.*;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.disassemble.Disassembler;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.data.*;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.listing.*;
@@ -25,8 +26,12 @@ public class ImportAnalysis extends GhidraScript {
         .getOptions(Program.DISASSEMBLER_PROPERTIES)
         .setBoolean(Disassembler.RESTRICT_DISASSEMBLY_TO_EXECUTE_MEMORY_PROPERTY, true);
     restoreTypes(read(directory, "datatype"));
-    restoreFunctions(read(directory, "functions"));
+    List<JsonObject> functions = read(directory, "functions");
+    restoreFunctions(functions);
     restoreComments(read(directory, "comments"));
+    verifyFunctions(functions);
+    verifyCode(read(directory, "code"));
+    restoreBookmarks(read(directory, "bookmarks"));
     currentProgram.setName(currentProgram.getName().replaceFirst("\\.sarif$", ""));
     println("Analysis imported: " + currentProgram.getName());
   }
@@ -150,7 +155,9 @@ public class ImportAnalysis extends GhidraScript {
     for (JsonObject row : rows) {
       JsonObject p = properties(row);
       Function function = getFunctionAt(toAddr(p.get("location").getAsString()));
-      if (function == null) continue;
+      if (function == null)
+        throw new IllegalStateException("Missing saved function " + p.get("location"));
+      if (p.has("callFixup")) function.setCallFixup(p.get("callFixup").getAsString());
       boolean internalThunk =
           p.has("thunkAddress") && p.get("thunkAddress").getAsString().matches("[0-9a-fA-F]{8}");
       if (internalThunk) {
@@ -175,6 +182,66 @@ public class ImportAnalysis extends GhidraScript {
       }
       if (p.get("isStackPurgeSizeValid").getAsBoolean())
         function.setStackPurgeSize(p.getAsJsonObject("stack").get("purgeSize").getAsInt());
+    }
+  }
+
+  private void verifyFunctions(List<JsonObject> rows) {
+    for (JsonObject row : rows) {
+      JsonObject p = properties(row);
+      Function function = getFunctionAt(toAddr(p.get("location").getAsString()));
+      if (function == null || !function.getName().equals(p.get("name").getAsString()))
+        throw new IllegalStateException("Function name differs: " + p.get("location"));
+      String fixup = p.has("callFixup") ? p.get("callFixup").getAsString() : null;
+      String comment = p.has("comment") ? p.get("comment").getAsString() : null;
+      if (!Objects.equals(fixup, function.getCallFixup())
+          || !Objects.equals(comment, function.getComment()))
+        throw new IllegalStateException("Function annotations differ: " + function.getName());
+      AddressSet body = ranges(List.of(row));
+      if (!body.equals(function.getBody()))
+        throw new IllegalStateException("Function body differs: " + function.getName());
+    }
+    if (rows.size() != currentProgram.getFunctionManager().getFunctionCount())
+      throw new IllegalStateException("Function count differs");
+  }
+
+  private AddressSet ranges(List<JsonObject> rows) {
+    AddressSet addresses = new AddressSet();
+    for (JsonObject row : rows) {
+      for (JsonElement element : row.getAsJsonArray("locations")) {
+        var address =
+            element
+                .getAsJsonObject()
+                .getAsJsonObject("physicalLocation")
+                .getAsJsonObject("address");
+        var start = toAddr(address.get("absoluteAddress").getAsLong());
+        addresses.add(start, start.add(address.get("length").getAsLong() - 1));
+      }
+    }
+    return addresses;
+  }
+
+  private void verifyCode(List<JsonObject> rows) {
+    AddressSet actual = new AddressSet();
+    for (Instruction instruction : currentProgram.getListing().getInstructions(true))
+      actual.add(instruction.getMinAddress(), instruction.getMaxAddress());
+    if (!ranges(rows).equals(actual))
+      throw new IllegalStateException("Disassembled ranges differ from saved analysis");
+  }
+
+  private void restoreBookmarks(List<JsonObject> rows) {
+    // SARIF disassembly adds diagnostics even when the saved code ranges match.
+    // Restore the saved bookmarks only after verifying the reconstructed listing.
+    var manager = currentProgram.getBookmarkManager();
+    List<Bookmark> existing = new ArrayList<>();
+    manager.getBookmarksIterator().forEachRemaining(existing::add);
+    for (Bookmark bookmark : existing) manager.removeBookmark(bookmark);
+    for (JsonObject row : rows) {
+      JsonObject p = properties(row);
+      manager.setBookmark(
+          location(row),
+          p.get("kind").getAsString(),
+          p.get("name").getAsString(),
+          p.get("comment").getAsString());
     }
   }
 

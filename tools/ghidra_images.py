@@ -4,6 +4,8 @@
 import hashlib
 import struct
 
+from target_profiles import verify
+
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -106,43 +108,22 @@ def finish_elf(data, headers, sections, names, entry):
     return bytes(data)
 
 
-def osos_regions(data):
-    if sha(data) != "5841de6479f3a655102745fdb20e153ef99c4ef413314ccdb9a4721cace9a36e":
-        raise ValueError(
-            "Unknown OSOS layout: preparation currently supports the saved 2.0.4 input"
-        )
-    expected = {
-        0x4F88: 0x22000000,
-        0x4F8C: 0xAED8,
-        0x4F90: 0x2200AED8,
-        0x4F94: 0x589C,
-        0x4FA0: 0x08000000,
-        0x4FA4: 0xA0FC88,
-        0x4FA8: 0x08A0FC88,
-        0x4FAC: 0xA84,
-        0x5034: 0x08A1070C,
-        0x5038: 0x12244C,
-    }
-    if any(word(data, offset) != value for offset, value in expected.items()):
+def osos_regions(data, profile):
+    verify(data, profile["inputs"]["osos.bin"], "osos.bin")
+    layout = profile["analysis"]
+    if any(
+        word(data, int(offset, 0)) != value
+        for offset, value in layout["startup_constants"].items()
+    ):
         raise ValueError("OSOS startup copy/clear constants differ")
-    return [
-        region(
-            ".dram",
-            0x08000000,
-            data[0xB6D8 : 0xB6D8 + 0xA0FC88],
-            flags=7,
-            source=0xB6D8,
-        ),
-        region(
-            ".dram.data",
-            0x08A0FC88,
-            data[0xB6D8 + 0xA0FC88 : 0xB6D8 + 0xA1070C],
-            source=0xB6D8 + 0xA0FC88,
-        ),
-        region(".dram.bss", 0x08A1070C, size=0x12244C),
-        region(".iram", 0x22000000, data[0x800:0xB6D8], flags=7, source=0x800),
-        region(".iram.bss", 0x2200AED8, size=0x589C),
-    ]
+    regions = []
+    for spec in layout["osos_regions"]:
+        source, size = spec["source"], spec["size"]
+        contents = b"" if source is None else data[source : source + size]
+        if source is not None and len(contents) != size:
+            raise ValueError("OSOS region outside input")
+        regions.append(region(data=contents, **spec))
+    return regions
 
 
 def executable_header(data):

@@ -170,7 +170,7 @@ fn companion_uses_the_supplied_device_and_rejects_incompatible_config() {
 }
 
 #[test]
-fn local_and_bundle_companions_share_sysinfo_and_layout_checks() {
+fn local_companion_requires_target_inputs_and_preserves_personalization() {
     let (bundle, inputs) = companion_bundle();
     let config = cfg();
     let mut nor = vec![0; 0x100000];
@@ -201,9 +201,22 @@ fn local_and_bundle_companions_share_sysinfo_and_layout_checks() {
         )
     };
     assert_eq!(
-        local(&nor).unwrap(),
+        personalize_companion(
+            assemble_local(
+                bundle.file("companion", "recipe").unwrap(),
+                bundle.file("companion", "data").unwrap(),
+                directory.path(),
+            )
+            .unwrap(),
+            &SysCfg::parse(&nor).unwrap(),
+        )
+        .unwrap(),
         assemble_companion(&bundle, &inputs, &config).unwrap()
     );
+    assert!(local(&nor)
+        .unwrap_err()
+        .to_string()
+        .contains("different targets"));
     assert!(local(&nor[..nor.len() - 1]).is_err());
     nor[0] ^= 1;
     assert!(local(&nor).is_err());

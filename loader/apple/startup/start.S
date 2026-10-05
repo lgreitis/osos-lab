@@ -3,6 +3,8 @@
 .syntax unified
 .cpu arm926ej-s
 #include "common/recipe.inc"
+#include <nor-target.h>
+#include "compat/nor/s5l8702/layout.h"
 .arm
 .section .text.entry,"ax",%progbits
 .equ RESULT, 0x2203c000
@@ -57,7 +59,7 @@ probe_start:
     blx prepare_files
     /* Preserve Rockbox-preloaded DRAM; original PreEfi initializes hardware. */
     stage 4
-    ldr r12, =0x2201054d
+    ldr r12, =APPLE_PREEFI_ENTRY
     blx r12
     b .Lapple_error /* An unexpected return enters the fault handler. */
 
@@ -98,7 +100,7 @@ probe_flush:
     pop {r4, pc}
 .ltorg
 
-native_thumb_call apple_loader, 0x10574, cold_guard, 0x6a, 0x46, 0x02, 0xa9
+native_thumb_call apple_loader, APPLE_COLD_GUARD_PATCH, cold_guard, 0x6a, 0x46, 0x02, 0xa9
 .thumb
 .thumb_func
 .global cold_guard
@@ -138,7 +140,7 @@ import_capture:
     str r3, [r0, #4]
     ldr r3, =0x2203c060 /* DXE base recorded by before_dxe. */
     ldr r3, [r3]
-    add r3, r3, #0x290
+    add r3, r3, #APPLE_DXE_IMPORT_OFFSET
     str r3, [r0, #8]
     add r3, sp, #56
     str r3, [r0]

@@ -10,10 +10,15 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROM_SHA = "69c087afc5753d7f0f11f09b141b372af753a854bc526673ea444c486d6003e4"
+sys.path.insert(0, str(HERE.parent / "tools"))
+
+import target_profiles  # noqa: E402
+
+ROM_SHA = target_profiles.load()["compatibility"]["bootrom_sha256"]
 NONCE = b"REPRISE-NONCE-01"
 COLD_TAG = b"\xfe\xff\xff\xeaREPRISE-ROM\0"
 

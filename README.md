@@ -33,18 +33,18 @@ The Doom port currently has no audio or saving.
 
 ## Build
 
-Requires Python 3.10+, Git, Make, Perl, a host C compiler, and Rockbox's
+Requires Python 3.11+, Git, Make, Perl, a host C compiler, and Rockbox's
 `arm-elf-eabi-` GCC 9.5.0 toolchain. Rust tools require Cargo, libusb, and
 pkg-config. Use Xcode Command Line Tools on macOS or libusb development headers
 on Linux.
 
 ```sh
-python3 tools/setup.py
-python3 tools/import_inputs.py --osos /path/to/osos.bin \
+python3.11 tools/setup.py
+cargo build --manifest-path host/Cargo.toml --release -j 8
+python3.11 tools/import_inputs.py --osos /path/to/osos.bin \
   --apple-loader /path/to/apple-loader.bin --nor /path/to/nor.bin \
   --modules /path/to/modules
-python3 tools/build.py --cross-prefix /path/to/bin/arm-elf-eabi-
-cargo build --manifest-path host/Cargo.toml --release -j 8
+python3.11 tools/build.py --cross-prefix /path/to/bin/arm-elf-eabi-
 ```
 
 Firmware builds use the inputs in [the target manifest](targets/classic7g-2.0.4.json).
@@ -71,8 +71,24 @@ USB helper. The desktop installer combines them with the user's IPSW and NOR
 backup. Local ZIPs use compatibility and hash checks; downloaded releases use
 signed manifests. Compatible firmware components are interchangeable.
 
-All tools expose `--help`. Ghidra tooling targets 12.1.3 and uses
-`GHIDRA_INSTALL_DIR` and `JAVA_HOME`.
+## Ghidra
+
+Ghidra tooling requires 12.1.4 and JDK 21+;
+set `GHIDRA_INSTALL_DIR` and `JAVA_HOME`, then build `reprise-cli` as above.
+
+```sh
+python3.11 tools/ghidra.py import --target classic7g-2.0.4 \
+  --inputs /path/to/decrypted-inputs --project /path/to/new-project
+python3.11 tools/ghidra.py export --project /path/to/new-project
+```
+
+Import restores saved annotations by default; `--fresh` creates new analysis.
+Alternatively supply `--ipsw FILE --nor FILE --osos DECRYPTED_FILE` and, for
+an encrypted NOR, `--apple-loader DECRYPTED_FILE`; the IPSW selects the target.
+Preparation is offline and requires supported plaintext firmware. Import verifies
+a temporary project before publishing it and requires a new destination directory.
+Save and close Ghidra before exporting. Use `--analysis DIR` for a separate
+annotation directory. Logs are in `.build/ghidra-*.log`; all tools expose `--help`.
 
 ## Credits
 

@@ -2,7 +2,7 @@
 //! Assemble disk firmware and the dual-boot installer from local Apple inputs.
 
 use crate::{invalid, read_file, sha256, write_directory, Result, VerifiedBundle};
-use reprise_device::SysCfg;
+use reprise_device::{targets, SysCfg};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
@@ -29,6 +29,10 @@ pub(crate) const INPUT_FILES: &[(&str, &str)] = &[
 /// Only the Apple inputs named by the recipe are loaded.
 pub fn assemble_local(recipe: &[u8], data: &[u8], directory: &Path) -> Result<Vec<u8>> {
     let recipe = Recipe::parse(recipe)?;
+    assemble_local_recipe(&recipe, data, directory)
+}
+
+fn assemble_local_recipe(recipe: &Recipe, data: &[u8], directory: &Path) -> Result<Vec<u8>> {
     let mut inputs = BTreeMap::new();
     for name in recipe.inputs.keys() {
         let (_, filename) = INPUT_FILES.iter().find(|(key, _)| *key == name).unwrap();
@@ -51,13 +55,23 @@ pub fn assemble_local_companion(
     }
     let syscfg = SysCfg::parse(nor).map_err(|e| invalid(e.to_string()))?;
     let identity = syscfg.identity().map_err(|e| invalid(e.to_string()))?;
-    if !matches!(identity.model.as_str(), "MC293" | "MC297")
-        || identity.hardware_version != 0x00130200
-        || identity.recorded_firmware != "2.0.4"
-    {
-        return Err(invalid("SysCfg is incompatible with this companion"));
+    let target = targets::for_identity(
+        &identity.model,
+        identity.hardware_version,
+        &identity.recorded_firmware,
+    )
+    .ok_or_else(|| invalid("NOR SysCfg is not a supported companion target"))?;
+    let recipe = Recipe::parse(recipe)?;
+    for (name, fingerprint) in &recipe.inputs {
+        let (_, filename) = INPUT_FILES.iter().find(|(key, _)| *key == name).unwrap();
+        let expected = &target.inputs[*filename];
+        if fingerprint.bytes != expected.bytes || fingerprint.sha256 != expected.sha256 {
+            return Err(invalid(
+                "Companion recipe and NOR belong to different targets",
+            ));
+        }
     }
-    personalize_companion(assemble_local(recipe, data, directory)?, &syscfg)
+    personalize_companion(assemble_local_recipe(&recipe, data, directory)?, &syscfg)
 }
 
 /// Local, decrypted Apple images used by the assembly recipes.

@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Import already-decrypted baseline inputs, checking every hash before copying."""
+"""Import already-decrypted baseline inputs, checking firmware hashes and NOR identity before copying."""
 
 import argparse
-import hashlib
-import json
 import shutil
 from pathlib import Path
+
+import target_profiles
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target", default=target_profiles.DEFAULT_TARGET)
     parser.add_argument("--osos", required=True, type=Path)
     parser.add_argument("--apple-loader", required=True, type=Path)
     parser.add_argument("--nor", required=True, type=Path)
@@ -22,9 +23,12 @@ def main():
         type=Path,
         help="Extracted PE modules, named Name.pe32 or Name-GUID.pe32",
     )
+    parser.add_argument(
+        "--reprise", type=Path, default=ROOT / "host/target/release/reprise"
+    )
     parser.add_argument("--out", type=Path, default=ROOT / "inputs")
     args = parser.parse_args()
-    target = json.loads((ROOT / "targets/classic7g-2.0.4.json").read_text())
+    target = target_profiles.load(args.target)
     sources = {
         "osos.bin": args.osos,
         "apple-loader.bin": args.apple_loader,
@@ -42,12 +46,10 @@ def main():
     # Complete validation before writing any destination.
     for name, source in sources.items():
         data = source.read_bytes()
-        expected = target["inputs"][name]
-        if (
-            len(data) != expected["bytes"]
-            or hashlib.sha256(data).hexdigest() != expected["sha256"]
-        ):
-            raise ValueError(f"Input mismatch: {name}")
+        if name == "nor.bin":
+            target_profiles.verify_nor(source, target, args.reprise)
+        else:
+            target_profiles.verify(data, target["inputs"][name], name)
         destination = args.out / name
         if destination.exists() and destination.read_bytes() != data:
             raise ValueError(f"Refusing to overwrite differing input: {destination}")

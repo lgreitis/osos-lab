@@ -10,6 +10,7 @@ mod nor;
 mod nor_image;
 mod payload;
 mod syscfg;
+pub mod targets;
 
 #[cfg(test)]
 mod tests;
@@ -23,7 +24,7 @@ pub use upload::{
 pub use decrypt::{DecryptOptions, DecryptProgress, DecryptReport, Decrypted};
 pub use img1::classic_img1_body_range;
 pub use nor::{NorDump, NorProgress, NorReport, NOR_SIZE};
-pub use nor_image::{AppleNorImage, APPLE_LOADER_BYTES, APPLE_LOADER_SHA256};
+pub use nor_image::{AppleNorImage, APPLE_LOADER_BYTES};
 pub use syscfg::{Identity, SysCfg};
 pub use usb::{discover, DeviceInfo, DeviceSelector, Session};
 
@@ -31,8 +32,6 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 pub const BOOTROM_SIZE: usize = 0x10000;
-pub const SUPPORTED_BOOTROM_SHA256: &str =
-    "69c087afc5753d7f0f11f09b141b372af753a854bc526673ea444c486d6003e4";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -185,7 +184,7 @@ impl CheckReport {
         exact("BootROM image", bytes.len(), BOOTROM_SIZE)?;
         let hash = format!("{:x}", Sha256::digest(bytes));
         self.bootrom_sha256 = Some(hash.clone());
-        if hash != SUPPORTED_BOOTROM_SHA256 {
+        if !targets::supports_bootrom(&hash) {
             return Err(invalid(format!(
                 "Unsupported BootROM SHA-256 {hash}; NOR calls refused"
             )));
@@ -196,9 +195,16 @@ impl CheckReport {
 
     fn record_identity(&mut self, config: &SysCfg, emit: &mut impl FnMut(Event)) -> Result<()> {
         let identity = config.identity()?;
-        let model_matches = matches!(identity.model.as_str(), "MC293" | "MC297")
-            && identity.hardware_version == 0x00130200;
-        let version_matches = identity.recorded_firmware == "2.0.4";
+        let model_matches = targets::all().iter().any(|target| {
+            target.compatibility.models.contains(&identity.model)
+                && target.compatibility.hardware_version == identity.hardware_version
+        });
+        let version_matches = targets::for_identity(
+            &identity.model,
+            identity.hardware_version,
+            &identity.recorded_firmware,
+        )
+        .is_some();
         self.set(
             CheckId::Model,
             if model_matches {
@@ -211,7 +217,7 @@ impl CheckReport {
                 identity.model,
                 identity.hardware_version,
                 if model_matches {
-                    " (Classic Rev B target)"
+                    " (Classic target)"
                 } else {
                     " (unsupported target)"
                 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Build the Classic 7G CFW and its matching bootloader."""
+"""Build firmware recipes, Apple companions and the shared Classic bootloader."""
 
 import argparse
 import json
@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 
 import setup
+import target_profiles
 from version import identity
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -57,13 +58,15 @@ def assemble(files, out, inputs, jobs, companion=False):
         image.replace(out)
 
 
-def build_osos(out, inputs, prefix, jobs, recipe_only=False, info=None):
+def build_osos(
+    out, inputs, prefix, jobs, recipe_only=False, info=None, target_path=TARGET
+):
     print("Building OSOS recipe...", flush=True)
     info = info or identity(ROOT)
     recipe = build_recipe(
         ROOT / "payload",
         WORK / "payload",
-        TARGET,
+        target_path,
         prefix,
         jobs,
         info["revision"],
@@ -74,10 +77,14 @@ def build_osos(out, inputs, prefix, jobs, recipe_only=False, info=None):
         assemble(files, out / "osos-cfw.bin", inputs, jobs)
 
 
-def build_apple(out, inputs, prefix, jobs, recipe_only=False):
+def build_apple(out, inputs, prefix, jobs, recipe_only=False, target_path=TARGET):
     print("Building Apple companion recipe...", flush=True)
     recipe = build_companion_recipe(
-        ROOT / "loader/apple", WORK / "companion", TARGET, prefix, jobs
+        ROOT / "loader/apple",
+        WORK / "companion" / target_path.stem,
+        target_path,
+        prefix,
+        jobs,
     )
     files = recipe.save(out, "companion")
     if not recipe_only:
@@ -156,6 +163,7 @@ def main():
     parser.add_argument("--tag", help="Require a clean release tag at HEAD")
     parser.add_argument("--inputs", type=Path, default=ROOT / "inputs")
     parser.add_argument("--out", type=Path, default=ROOT / "build")
+    parser.add_argument("--firmware-target", default=target_profiles.DEFAULT_TARGET)
     parser.add_argument(
         "target",
         nargs="?",
@@ -167,7 +175,18 @@ def main():
     )
     parser.add_argument("--jobs", type=int, choices=range(1, 9), default=8)
     args = parser.parse_args()
-    target = json.loads(TARGET.read_text())
+    try:
+        target = target_profiles.load(args.firmware_target)
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
+    target_path = target_profiles.DIRECTORY / f"{target['target']}.json"
+    if (
+        args.target in ("all", "osos", "osos-recipe")
+        and not target_path.with_name(target_path.stem + "-ui.json").is_file()
+    ):
+        parser.error(
+            "OSOS payload port is pending for this target; build loader or bootloader first"
+        )
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     compiler = shutil.which(args.cross_prefix + "gcc")
@@ -187,9 +206,17 @@ def main():
             args.jobs,
             args.target == "osos-recipe",
             identity(ROOT, args.tag),
+            target_path,
         )
     if args.target in ("all", "loader", "loader-recipe"):
-        build_apple(out, args.inputs, prefix, args.jobs, args.target == "loader-recipe")
+        build_apple(
+            out,
+            args.inputs,
+            prefix,
+            args.jobs,
+            args.target == "loader-recipe",
+            target_path,
+        )
     if args.target in ("all", "bootloader"):
         dependencies = json.loads((ROOT / "dependencies.lock").read_text())
         rockbox = setup.verify("rockbox", dependencies["rockbox"])

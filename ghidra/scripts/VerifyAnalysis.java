@@ -27,13 +27,12 @@ public class VerifyAnalysis extends GhidraScript {
     if (spec == null) throw new IllegalStateException("Unlisted program " + path);
     if (!currentProgram.getName().equals(currentProgram.getDomainFile().getName()))
       throw new IllegalStateException("Program name differs from project filename: " + path);
+    if (!currentProgram.getLanguageID().toString().equals(manifest.get("language").getAsString()))
+      throw new IllegalStateException("Processor language differs from manifest: " + path);
     verifyMemory(spec);
     boolean nor = path.contains("/NOR/");
     if (nor) verifyNorCode();
-    long[] samples =
-        path.equals("2.0.4/osos.elf")
-            ? new long[] {0x0817298cL, 0x0826d8e0L, 0x220071b0L, 0x220046e0L}
-            : new long[] {spec.get("entry").getAsLong() & ~1L};
+    long[] samples = new long[] {spec.get("entry").getAsLong() & ~1L};
     if (spec.has("verify_functions")) {
       samples =
           spec.getAsJsonArray("verify_functions").asList().stream()
@@ -60,6 +59,13 @@ public class VerifyAnalysis extends GhidraScript {
     } finally {
       decompiler.dispose();
     }
+    int errorCount = 0;
+    var errors = currentProgram.getBookmarkManager().getBookmarksIterator("Error");
+    while (errors.hasNext()) {
+      errors.next();
+      errorCount++;
+    }
+    println("ANALYSIS " + path + ": " + errorCount + " error bookmarks");
     println("VERIFIED " + path + ": memory regions and " + samples.length + " decompilations");
   }
 

@@ -199,12 +199,38 @@ fn decompress_section(section: &[u8], budget: &mut usize) -> Result<Vec<u8>> {
         return Err(invalid("EFI compression length mismatch"));
     }
     *budget -= length;
+    // Tiano's 32-bit lookahead reads zero bits past the compressed stream's
+    // end (EDK2 FillBuf). The Rust decoder requires those bytes in its slice.
+    let mut padded = compressed.to_vec();
+    padded.extend_from_slice(&[0; 4]);
     let mut output = vec![0; length];
     decompress_into_with_algo(
-        compressed,
+        &padded,
         &mut output,
         DecompressionAlgorithm::TianoDecompress,
     )
     .map_err(|e| invalid(format!("EFI decompression: {e:?}")))?;
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tiano_final_symbol_can_need_zero_filled_lookahead() {
+        // One literal 'A', encoded with single-symbol Huffman tables.
+        let compressed = [0, 1, 0, 0, 4, 16, 0];
+        let mut section = 1u32.to_le_bytes().to_vec();
+        section.push(1);
+        section.extend_from_slice(&(compressed.len() as u32).to_le_bytes());
+        section.extend_from_slice(&1u32.to_le_bytes());
+        section.extend_from_slice(&compressed);
+        let mut budget = 1;
+        assert_eq!(decompress_section(&section, &mut budget).unwrap(), b"A");
+        assert_eq!(budget, 0);
+        assert!(decompress_section(&section, &mut budget).is_err());
+        section.pop();
+        assert!(decompress_section(&section, &mut 1).is_err());
+    }
 }

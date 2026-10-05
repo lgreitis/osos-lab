@@ -52,15 +52,7 @@ pub enum Purpose {
     Release,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Compatibility {
-    pub target: String,
-    pub models: Vec<String>,
-    pub hardware_version: u32,
-    pub apple_firmware: String,
-    pub bootrom_sha256: String,
-}
+pub use reprise_device::targets::Compatibility;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -99,16 +91,17 @@ impl Manifest {
             return Err(invalid("Unsupported bundle schema or installer version"));
         }
         let c = &self.compatibility;
-        if c.target != "classic7g-2.0.4"
-            || c.hardware_version != 0x00130200
-            || c.apple_firmware != "2.0.4"
-            || c.bootrom_sha256
-                != "69c087afc5753d7f0f11f09b141b372af753a854bc526673ea444c486d6003e4"
+        if !valid_target_name(&c.target)
+            || c.hardware_version == 0
+            || c.apple_firmware.is_empty()
+            || c.apple_firmware.len() > 16
+            || !c.apple_firmware.bytes().all(|b| b.is_ascii_graphic())
+            || !valid_hash(&c.bootrom_sha256)
             || c.models.is_empty()
-            || c.models.iter().any(|m| m != "MC293" && m != "MC297")
+            || c.models.iter().any(|m| !valid_target_name(m))
             || c.models.iter().collect::<BTreeSet<_>>().len() != c.models.len()
         {
-            return Err(invalid("Unsupported bundle target"));
+            return Err(invalid("Invalid bundle target"));
         }
         if self.components.is_empty() || self.assets.is_empty() {
             return Err(invalid("Invalid bundle component/asset count"));
@@ -240,9 +233,7 @@ impl VerifiedBundle {
         bootrom_sha256: &str,
     ) -> Result<()> {
         let c = &self.manifest.compatibility;
-        if !c.models.iter().any(|m| m == model)
-            || c.hardware_version != hardware_version
-            || c.apple_firmware != firmware
+        if !c.matches_identity(model, hardware_version, firmware)
             || c.bootrom_sha256 != bootrom_sha256
         {
             return Err(invalid("Bundle does not support the checked device"));
@@ -312,7 +303,8 @@ fn asset_filename(hash: &str) -> String {
     format!("{hash}.blob")
 }
 
-fn sha256(bytes: &[u8]) -> String {
+/// SHA-256 fingerprint for firmware artifacts and reports.
+pub fn sha256(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
@@ -321,6 +313,14 @@ fn valid_hash(value: &str) -> bool {
         && value
             .bytes()
             .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+}
+
+fn valid_target_name(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 64
+        && value
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
 }
 
 fn valid_name(value: &str) -> bool {

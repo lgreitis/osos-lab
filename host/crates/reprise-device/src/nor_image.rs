@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use crate::{invalid, Result, SysCfg, NOR_SIZE};
+use crate::{
+    invalid,
+    targets::{self, Fingerprint},
+    Result, SysCfg, NOR_SIZE,
+};
 use sha1::Sha1;
-use sha2::{Digest, Sha256};
+use sha2::Digest;
 
 pub const APPLE_LOADER_BYTES: usize = 0x1f800;
-pub const APPLE_LOADER_SHA256: &str =
-    "7caf3863376cf7890adc73601d24fbf11bc9ce89c7b40366fd61b45a1d6633e8";
-
 /// Apple IM3 in stock or Rockbox dual-boot NOR.
 pub struct AppleNorImage<'a> {
     pub offset: usize,
     header: &'a [u8],
     body: &'a [u8],
+    fingerprint: &'a Fingerprint,
 }
 
 fn word(bytes: &[u8], offset: usize) -> usize {
@@ -20,7 +22,7 @@ fn word(bytes: &[u8], offset: usize) -> usize {
 }
 
 impl<'a> AppleNorImage<'a> {
-    fn at(nor: &'a [u8], offset: usize) -> Result<Self> {
+    fn at(nor: &'a [u8], offset: usize, fingerprint: &'a Fingerprint) -> Result<Self> {
         let header = nor
             .get(offset..offset + 0x800)
             .ok_or_else(|| invalid("Truncated NOR IM3 header"))?;
@@ -42,6 +44,7 @@ impl<'a> AppleNorImage<'a> {
             offset,
             header,
             body,
+            fingerprint,
         })
     }
 
@@ -50,32 +53,31 @@ impl<'a> AppleNorImage<'a> {
             return Err(invalid("Expected a full 1 MiB NOR backup"));
         }
         let identity = SysCfg::parse(nor)?.identity()?;
-        if !matches!(identity.model.as_str(), "MC293" | "MC297")
-            || identity.hardware_version != 0x00130200
-            || identity.recorded_firmware != "2.0.4"
-        {
-            return Err(invalid(
-                "NOR SysCfg is incompatible with Classic Rev B / 2.0.4",
-            ));
-        }
-        let first = Self::at(nor, 0x8000)?;
+        let target = targets::for_identity(
+            &identity.model,
+            identity.hardware_version,
+            &identity.recorded_firmware,
+        )
+        .ok_or_else(|| invalid("NOR SysCfg is not a supported Classic target"))?;
+        let fingerprint = &target.inputs["apple-loader.bin"];
+        let first = Self::at(nor, 0x8000, fingerprint)?;
         if first.encrypted() {
-            if first.body.len() != APPLE_LOADER_BYTES {
+            if first.body.len() != fingerprint.bytes {
                 return Err(invalid("Unsupported encrypted primary NOR loader"));
             }
             return Ok(first);
         }
-        if Self::validate_plaintext(first.body).is_ok() {
+        if first.validate_plaintext(first.body).is_ok() {
             return Ok(first);
         }
         let next = 0x8000 + ((0x800 + first.body.len() + 0xfff) & !0xfff);
-        let apple = Self::at(nor, next)?;
+        let apple = Self::at(nor, next, fingerprint)?;
         if apple.encrypted() {
             return Err(invalid(
                 "Expected a decrypted Apple loader after the Rockbox loader",
             ));
         }
-        Self::validate_plaintext(apple.body)?;
+        apple.validate_plaintext(apple.body)?;
         Ok(apple)
     }
 
@@ -83,22 +85,23 @@ impl<'a> AppleNorImage<'a> {
         self.header[7] == 1
     }
 
-    pub fn validate_plaintext(plain: &[u8]) -> Result<()> {
-        if plain.len() != APPLE_LOADER_BYTES
-            || format!("{:x}", Sha256::digest(plain)) != APPLE_LOADER_SHA256
-        {
+    pub fn validate_plaintext(&self, plain: &[u8]) -> Result<()> {
+        if plain.len() != self.body.len() {
+            return Err(invalid("Apple loader plaintext length mismatch"));
+        }
+        if !self.fingerprint.matches(plain) {
             return Err(invalid(
-                "Apple loader does not match the supported 2.0.4 input",
+                "Apple loader does not match its target fingerprint",
             ));
         }
-        Ok(())
+        validate_volume(plain)
     }
 
     pub fn plaintext(&self) -> Result<&'a [u8]> {
         if self.encrypted() {
             return Err(invalid("Apple NOR loader requires device UKEY decryption"));
         }
-        Self::validate_plaintext(self.body)?;
+        self.validate_plaintext(self.body)?;
         Ok(self.body)
     }
 
@@ -119,9 +122,44 @@ impl<'a> AppleNorImage<'a> {
         if body_hash != Sha1::digest(&plain)[..16] {
             return Err(invalid("NOR IM3 body signature mismatch"));
         }
-        Self::validate_plaintext(&plain)?;
+        self.validate_plaintext(&plain)?;
         Ok(plain)
     }
+}
+
+// Check the bounded reset branch and the EFI volume header checksum.
+fn validate_volume(plain: &[u8]) -> Result<()> {
+    let volume = plain
+        .get(0x100..)
+        .ok_or_else(|| invalid("Missing Apple EFI volume"))?;
+    if volume.len() < 0x48
+        || &volume[40..44] != b"_FVH"
+        || u64::from_le_bytes(volume[32..40].try_into().unwrap()) != volume.len() as u64
+        || word(plain, 0) & 0xff000000 != 0xea000000
+    {
+        return Err(invalid("Invalid Apple loader vectors or EFI volume"));
+    }
+    let branch = ((word(plain, 0) as i32) << 8 >> 6) + 8;
+    let header_size = u16::from_le_bytes(volume[48..50].try_into().unwrap()) as usize;
+    if branch < 0x20
+        || branch as usize >= plain.len()
+        || header_size < 0x48
+        || header_size > volume.len()
+        || !header_size.is_multiple_of(8)
+    {
+        return Err(invalid(
+            "Invalid Apple loader entrypoint or EFI header size",
+        ));
+    }
+    let checksum = volume[..header_size]
+        .chunks_exact(2)
+        .fold(0u16, |sum, pair| {
+            sum.wrapping_add(u16::from_le_bytes(pair.try_into().unwrap()))
+        });
+    if checksum != 0 {
+        return Err(invalid("Apple EFI volume header checksum mismatch"));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -158,6 +196,41 @@ mod tests {
         let mut modified = original.clone();
         modified[0x8007] = 2;
         assert!(AppleNorImage::locate(&modified).is_err());
+    }
+
+    #[test]
+    fn im3_integrity_and_plaintext_fingerprint_are_both_required() {
+        let mut nor = nor();
+        let mut plain = vec![0; 0x300];
+        plain[..4].copy_from_slice(&0xea000006u32.to_le_bytes());
+        let volume = &mut plain[0x100..];
+        volume[32..40].copy_from_slice(&0x200u64.to_le_bytes());
+        volume[40..44].copy_from_slice(b"_FVH");
+        volume[48..50].copy_from_slice(&0x48u16.to_le_bytes());
+        let sum = volume[..0x48].chunks_exact(2).fold(0u16, |s, p| {
+            s.wrapping_add(u16::from_le_bytes(p.try_into().unwrap()))
+        });
+        volume[50..52].copy_from_slice(&0u16.wrapping_sub(sum).to_le_bytes());
+        nor[0x800c..0x8010].copy_from_slice(&(plain.len() as u32).to_le_bytes());
+        nor[0x8010..0x8020].copy_from_slice(&Sha1::digest(&plain)[..16]);
+        let header_hash = Sha1::digest(&nor[0x8000..0x8040]);
+        nor[0x8040..0x8050].copy_from_slice(&header_hash[..16]);
+        nor[0x8800..0x8800 + plain.len()].copy_from_slice(&plain);
+        let fingerprint = Fingerprint {
+            bytes: plain.len(),
+            sha256: format!("{:x}", sha2::Sha256::digest(&plain)),
+        };
+        let image = AppleNorImage::at(&nor, 0x8000, &fingerprint).unwrap();
+        // Identity callback exercises signature comparisons without hardware AES.
+        assert_eq!(image.decrypt(|b| Ok(b.to_vec())).unwrap(), plain);
+        let mut corrupt = plain.clone();
+        corrupt[0x128] ^= 1;
+        assert!(image.validate_plaintext(&corrupt).is_err());
+        nor[0x8900] ^= 1;
+        assert!(AppleNorImage::at(&nor, 0x8000, &fingerprint)
+            .unwrap()
+            .decrypt(|b| Ok(b.to_vec()))
+            .is_err());
     }
 
     #[test]

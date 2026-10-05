@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "layout.h"
-#include "../../../payload/layout.h"
+#include "compat/nor/bds.h"
+#include "compat/nor/dxe.h"
+#include <osos-handoff.h>
 
-#if CFW_PAYLOAD_FILE_OFFSET - OSOS_HEADER_BYTES + CFW_PAYLOAD_BYTES > OSOS_BODY_CAPACITY
-#error Expanded OSOS exceeds the staging area
-#endif
-
-#define BDS 0x0bb24000u
 #define HEADER ((unsigned char *)0x22036000u)
 #define SYSINFO ((unsigned char *)0x22034000u)
 #define VERSION 0x00015000u
@@ -47,8 +44,7 @@ static int equal(const void *a, const void *b, uint32_t bytes)
 
 static uint32_t version(void *self, uint32_t hardware, uint32_t image)
 {
-    typedef uint32_t (*fn)(void *, uint32_t, uint32_t);
-    return ((fn)0x0bb25801)(self, hardware, image);
+    return apple_check_image_version(self, hardware, image);
 }
 
 static uint32_t header_alloc(void *self, uint32_t bytes, uint32_t align)
@@ -78,10 +74,9 @@ static uint32_t irq_disable(void *self)
 static uint32_t locate(const void *guid, void *registration, void **out)
 {
     (void)registration;
-    const uint32_t offsets[] = {0x136c, 0x135c, 0x130c, 0x13ac, 0x127c, 0x133c};
     void *tables[] = {C->sys, C->version, C->allocator, C->cpu, C->irq, C->rom};
     for (unsigned i = 0; i < 6; i++) {
-        if (equal(guid, (void *)(BDS + offsets[i]), 16)) {
+        if (equal(guid, apple_bds_protocol_guid(i), 16)) {
             *out = tables[i];
             return 0;
         }
@@ -141,8 +136,7 @@ static uint32_t header_check(void *self, const void *header, uint32_t key)
 static uint32_t allocate(uint32_t type, uint32_t memory_type, uint32_t pages,
                          uint64_t *address)
 {
-    typedef uint32_t (*fn)(uint32_t, uint32_t, uint32_t, uint64_t *);
-    return ((fn)(C->dxe + 0x220d))(type, memory_type, pages, address);
+    return apple_allocate_pages(C->dxe, type, memory_type, pages, address);
 }
 
 static uint32_t body_ready(void *self, const void *header, const void *body)
@@ -164,14 +158,7 @@ static void *copy_bootinfo(void *dest, const void *source, uint32_t bytes)
 void after_bds(uint32_t entry)
 {
     (void)entry;
-    if (BOOT_BODY_BYTES !=
-        CFW_PAYLOAD_FILE_OFFSET - OSOS_HEADER_BYTES + CFW_PAYLOAD_BYTES)
-        probe_finish(3);
-    /* Install code, initialized data and zero-filled BSS before OSOS starts. */
-    copy((void *)CFW_PAYLOAD_BASE,
-         (const void *)((OSOS_STAGE | 0x80000000u) + CFW_PAYLOAD_FILE_OFFSET -
-                        OSOS_HEADER_BYTES),
-         CFW_PAYLOAD_BYTES);
+    osos_prepare_entry();
     probe_flush();
 }
 
@@ -203,9 +190,8 @@ void load_osos(uint32_t dxe_base)
     C->rom[1] = (uint32_t)body_ready;
     C->rom[2] = (uint32_t)header_check;
     copy(SYSINFO, (const void *)0x8bb25900, 0x120);
-    *(volatile uint32_t *)(BDS + 0x13d0) = (uint32_t)C->bs;
+    apple_bds_bind(C->bs);
     probe_flush();
-    typedef uint32_t (*load_fn)(void *, uint32_t, uint32_t);
-    ((load_fn)(BDS + 0x2e7))(C->file, 0, 1);
+    apple_bds_load(C->file);
     probe_finish(4);
 }

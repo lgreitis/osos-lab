@@ -10,6 +10,10 @@ use std::{io, path::Path};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Args {
+    Unpack {
+        ipsw: String,
+        out: String,
+    },
     ExtractEfi {
         input: String,
         out: String,
@@ -39,19 +43,20 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
     let action = args
         .first()
         .map(String::as_str)
-        .ok_or("Expected firmware inspect, extract, extract-efi, prepare or decrypt-nor")?;
-    let allowed: &[&str] = match action {
-        "extract-efi" => &["--input", "--out"],
-        "inspect" => &["--ipsw"],
-        "extract" => &["--ipsw", "--output"],
-        "prepare" => &["--ipsw", "--nor", "--osos", "--apple-loader", "--out"],
-        "decrypt-nor" => &["--input", "--output", "--device"],
-        _ => {
-            return Err(
-                "Expected firmware inspect, extract, extract-efi, prepare or decrypt-nor".into(),
-            )
-        }
-    };
+        .ok_or("Expected firmware inspect, extract, unpack, extract-efi, prepare or decrypt-nor")?;
+    let allowed: &[&str] =
+        match action {
+            "extract-efi" => &["--input", "--out"],
+            "inspect" => &["--ipsw"],
+            "extract" => &["--ipsw", "--output"],
+            "unpack" => &["--ipsw", "--out"],
+            "prepare" => &["--ipsw", "--nor", "--osos", "--apple-loader", "--out"],
+            "decrypt-nor" => &["--input", "--output", "--device"],
+            _ => return Err(
+                "Expected firmware inspect, extract, unpack, extract-efi, prepare or decrypt-nor"
+                    .into(),
+            ),
+        };
     let values = parse_options(&args[1..], allowed)?;
     let required = |name: &str| {
         values
@@ -60,6 +65,10 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
             .ok_or_else(|| format!("Missing {name}"))
     };
     Ok(match action {
+        "unpack" => Args::Unpack {
+            ipsw: required("--ipsw")?,
+            out: required("--out")?,
+        },
         "extract-efi" => Args::ExtractEfi {
             input: required("--input")?,
             out: required("--out")?,
@@ -92,6 +101,9 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
 
 pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
     let report = match args {
+        Args::Unpack { ipsw, out } => {
+            reprise_bundle::preparation::unpack_ipsw(Path::new(&ipsw), Path::new(&out))?
+        }
         Args::ExtractEfi { input, out } => {
             let loader = read_bounded(input, 0x100000)?;
             let modules = reprise_bundle::preparation::extract_efi_modules(&loader)?;
@@ -124,6 +136,7 @@ pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
             let ipsw = Ipsw::load(Path::new(&ipsw))?;
             serde_json::json!({
                 "version": ipsw.metadata.version(),
+                "target": ipsw.metadata.target().ok().map(|target| target.target.as_str()),
                 "metadata": ipsw.metadata,
                 "sha256": ipsw.sha256,
                 "osos_bytes": ipsw.encrypted_osos().len(),
@@ -208,7 +221,7 @@ pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
                 "nor_offset": offset,
                 "decrypted": encrypted,
                 "bytes": plain.len(),
-                "sha256": reprise_device::APPLE_LOADER_SHA256,
+                "sha256": reprise_bundle::sha256(&plain),
             })
         }
     };

@@ -35,6 +35,7 @@ Usage:
     --inputs DECRYPTED_APPLE_DIR --out NEW_FILE [--nor BACKUP_FILE] [--json]
   reprise firmware inspect --ipsw FILE [--json]
   reprise firmware extract --ipsw FILE --output NEW_IMG1 [--json]
+  reprise firmware unpack --ipsw FILE --out NEW_DIR [--json]
   reprise firmware extract-efi --input PLAINTEXT_LOADER --out NEW_DIR [--json]
   reprise firmware prepare --ipsw FILE --nor BACKUP --osos PLAINTEXT
     [--apple-loader PLAINTEXT_BODY] --out NEW_DIR [--json]
@@ -74,7 +75,8 @@ check uses 512-byte BootROM replies after a small ROM/transport preflight,
 verifies the full 64 KiB fingerprint, then performs bounded
 NOR SysCfg reads. Connect in BootROM DFU (blank screen);
 recoverable DFU states are cleared before checks. Reset only if recovery fails.
-Supported target: Classic Rev B / 2.0.4.
+Device tooling: Classic Rev B / 2.0.4 and MB565, with a verified BootROM.
+Installation requires a bundle matching the checked device.
 
 --device uses decimal BUS:ADDRESS from `reprise devices`, not USB VID:PID.
 Omit it when only one DFU device is connected.
