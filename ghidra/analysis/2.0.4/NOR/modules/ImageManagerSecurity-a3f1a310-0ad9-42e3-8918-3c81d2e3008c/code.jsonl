@@ -1,0 +1,5 @@
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":544,"length":140}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":740,"length":62}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":828,"length":438}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":1340,"length":80}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":1452,"length":92}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}

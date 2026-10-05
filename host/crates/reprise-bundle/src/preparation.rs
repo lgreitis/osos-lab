@@ -2,6 +2,7 @@
 //! Prepare local Apple firmware inputs for assembly.
 
 mod efi;
+pub use efi::extract_all as extract_efi_modules;
 
 #[cfg(test)]
 mod tests;

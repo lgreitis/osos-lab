@@ -1,0 +1,2 @@
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":544,"length":230}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":808,"length":136}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}

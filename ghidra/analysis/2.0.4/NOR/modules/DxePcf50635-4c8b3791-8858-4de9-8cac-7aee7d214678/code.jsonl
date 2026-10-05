@@ -1,0 +1,10 @@
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":1518,"length":74}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":1636,"length":62}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":1724,"length":378}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":2176,"length":80}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":2288,"length":92}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":2768,"length":4}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":2800,"length":24}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":2888,"length":344}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":3236,"length":300}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":3540,"length":304}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}

@@ -1,0 +1,4 @@
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":1068,"length":62}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":1180,"length":378}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":1632,"length":80}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":1744,"length":92}}}],"message":{"text":"Code"},"properties":{"additionalProperties":{}},"ruleId":"CODE"}

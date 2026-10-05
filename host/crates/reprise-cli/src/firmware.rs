@@ -10,6 +10,10 @@ use std::{io, path::Path};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Args {
+    ExtractEfi {
+        input: String,
+        out: String,
+    },
     Inspect {
         ipsw: String,
     },
@@ -35,13 +39,18 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
     let action = args
         .first()
         .map(String::as_str)
-        .ok_or("Expected firmware inspect, extract, prepare or decrypt-nor")?;
+        .ok_or("Expected firmware inspect, extract, extract-efi, prepare or decrypt-nor")?;
     let allowed: &[&str] = match action {
+        "extract-efi" => &["--input", "--out"],
         "inspect" => &["--ipsw"],
         "extract" => &["--ipsw", "--output"],
         "prepare" => &["--ipsw", "--nor", "--osos", "--apple-loader", "--out"],
         "decrypt-nor" => &["--input", "--output", "--device"],
-        _ => return Err("Expected firmware inspect, extract, prepare or decrypt-nor".into()),
+        _ => {
+            return Err(
+                "Expected firmware inspect, extract, extract-efi, prepare or decrypt-nor".into(),
+            )
+        }
     };
     let values = parse_options(&args[1..], allowed)?;
     let required = |name: &str| {
@@ -51,6 +60,10 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
             .ok_or_else(|| format!("Missing {name}"))
     };
     Ok(match action {
+        "extract-efi" => Args::ExtractEfi {
+            input: required("--input")?,
+            out: required("--out")?,
+        },
         "inspect" => Args::Inspect {
             ipsw: required("--ipsw")?,
         },
@@ -79,6 +92,34 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
 
 pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
     let report = match args {
+        Args::ExtractEfi { input, out } => {
+            let loader = read_bounded(input, 0x100000)?;
+            let modules = reprise_bundle::preparation::extract_efi_modules(&loader)?;
+            let mut files = std::collections::BTreeMap::new();
+            let mut inventory = Vec::new();
+            for module in modules {
+                let filename = format!("{}-{}.{}", module.name, module.guid, module.format);
+                let mut item = serde_json::to_value(&module)?;
+                item["file"] = filename.clone().into();
+                item["bytes"] = module.bytes.len().into();
+                if files.insert(filename, module.bytes).is_some() {
+                    return Err("Duplicate EFI executable filename".into());
+                }
+                inventory.push(item);
+            }
+            files.insert(
+                "modules.json".into(),
+                serde_json::to_vec_pretty(&inventory)?,
+            );
+            if Path::new(&out).exists() {
+                return Err("EFI output directory already exists".into());
+            }
+            std::fs::create_dir_all(&out)?;
+            for (name, bytes) in files {
+                write_new_output(&Path::new(&out).join(name).to_string_lossy(), &bytes)?;
+            }
+            serde_json::json!({"directory": out, "modules": inventory.len()})
+        }
         Args::Inspect { ipsw } => {
             let ipsw = Ipsw::load(Path::new(&ipsw))?;
             serde_json::json!({

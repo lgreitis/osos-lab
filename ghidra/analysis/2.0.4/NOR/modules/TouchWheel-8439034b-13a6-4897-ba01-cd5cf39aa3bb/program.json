@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "properties": {},
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Ghidra",
+          "version": "12.1.4",
+          "informationUri": "https://github.com/NationalSecurityAgency/ghidra"
+        }
+      },
+      "artifacts": [
+        {
+          "location": {
+            "uri": "2.0.4/NOR/modules/TouchWheel-8439034b-13a6-4897-ba01-cd5cf39aa3bb.elf"
+          },
+          "properties": {
+            "additionalProperties": {
+              "imageBase": "00000000"
+            }
+          },
+          "sourceLanguage": "ARM:LE:32:v5t",
+          "description": {
+            "text": "default"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Create a local Ghidra project or export its analysis for Git."""
+"""Import a Ghidra project from saved analysis or export its analysis for Git."""
 
 import argparse
 import hashlib
 import json
 import os
-import struct
 import subprocess
 import tempfile
 from collections import defaultdict
 from pathlib import Path
+
+from ghidra_prepare import prepare
 
 ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS = ROOT / "ghidra/analysis"
@@ -23,77 +24,12 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def runtime_elf(body, symbol_prefix):
-    """Recreate the ELF wrapper originally imported as raw OSOS memory."""
-    strings = bytearray(b"\0")
-    symbols = bytearray(16)
-    for suffix, value, section in [
-        ("start", 0, 1),
-        ("end", len(body), 1),
-        ("size", len(body), 0xFFF1),
-    ]:
-        symbols.extend(struct.pack("<IIIBBH", len(strings), value, 0, 0x10, 0, section))
-        strings.extend((symbol_prefix + suffix).encode() + b"\0")
-    names = b"\0.symtab\0.strtab\0.shstrtab\0.text\0"
-    symbol_offset = 52 + len(body)
-    string_offset = symbol_offset + len(symbols)
-    name_offset = string_offset + len(strings)
-    section_offset = name_offset + len(names)
-    header = struct.pack(
-        "<16sHHIIIIIHHHHHH",
-        b"\x7fELF\x01\x01\x01\x61" + bytes(8),
-        1,
-        40,
-        1,
-        0,
-        0,
-        section_offset,
-        0,
-        52,
-        0,
-        0,
-        40,
-        5,
-        4,
-    )
-    sections = [
-        (0,) * 10,
-        (27, 1, 6, 0, 52, len(body), 0, 0, 1, 0),
-        (1, 2, 0, 0, symbol_offset, len(symbols), 3, 1, 4, 16),
-        (9, 3, 0, 0, string_offset, len(strings), 0, 0, 1, 0),
-        (17, 3, 0, 0, name_offset, len(names), 0, 0, 1, 0),
-    ]
-    return (
-        header
-        + body
-        + symbols
-        + strings
-        + names
-        + b"".join(struct.pack("<10I", *s) for s in sections)
-    )
-
-
-def memory_image(spec, inputs, modules=None):
+def memory_image(spec, inputs):
     path = inputs / spec["input"]
-    if modules and spec["input"].startswith("modules/"):
-        stem = path.stem
-        candidates = list(modules.glob(stem + ".pe32")) + list(
-            modules.glob(stem + "-*.pe32")
-        )
-        if len(candidates) != 1:
-            raise ValueError(f"Expected one {stem} PE module in {modules}")
-        path = candidates[0]
     data = path.read_bytes()
     if sha(data) != spec["input_sha256"]:
         raise ValueError(f"Wrong firmware input: {path}")
-    if "slice" in spec:
-        offset, size = spec["slice"]
-        data = data[offset : offset + size]
-    if "elf_symbol_prefix" in spec:
-        data = runtime_elf(data, spec["elf_symbol_prefix"])
-    if "legacy_tail" in spec:
-        # Preserve the old raw analysis view's uncorrected final AES block.
-        data = data[:-16] + bytes.fromhex(spec["legacy_tail"])
+    data = b"".join(data[offset : offset + size] for offset, size in spec["segments"])
     if sha(data) != spec["memory_sha256"]:
         raise ValueError(
             f"Memory image differs from the saved analysis: {spec['path']}"
@@ -144,16 +80,14 @@ def assemble_analysis(spec, destination):
     for path in sorted(directory.glob("*.jsonl")):
         with path.open() as source:
             results.extend(json.loads(line) for line in source if line.strip())
-    skipped = set(spec.get("skip_functions", []))
-    results = [
-        r
-        for r in results
-        if not (
-            r["ruleId"] == "FUNCTIONS"
-            and r["properties"]["additionalProperties"].get("location") in skipped
-        )
-    ]
     data["runs"][0]["results"] = results
+    # Restore thunks after every target function exists; SARIF imports
+    # otherwise lose forward references and unresolved external targets.
+    for result in results:
+        if result["ruleId"] == "FUNCTIONS":
+            props = result["properties"]["additionalProperties"]
+            props["isThunk"] = False
+            props.pop("thunkAddress", None)
     with destination.open("w") as output:
         json.dump(data, output, separators=(",", ":"))
 
@@ -182,31 +116,61 @@ def headless(installation, project, name, options):
         )
 
 
-def create(args, manifest):
-    if (args.project / "osos.gpr").exists():
-        raise ValueError(f"Project already exists: {args.project / 'osos.gpr'}")
+def import_files(directory, manifest, inputs):
+    groups = defaultdict(list)
+    for spec in manifest["programs"]:
+        path = Path(spec["path"])
+        sarif = directory / (spec["path"] + ".sarif")
+        sarif.parent.mkdir(parents=True, exist_ok=True)
+        assemble_analysis(spec, sarif)
+        Path(str(sarif) + ".bytes").write_bytes(memory_image(spec, inputs))
+        groups[path.parent].append(sarif)
+    return groups
+
+
+def import_project(args, manifest):
+    if (args.project / (args.name + ".gpr")).exists():
+        raise ValueError(f"Project already exists: {args.project}")
     with tempfile.TemporaryDirectory(prefix="ghidra-import-", dir=WORK) as temporary:
         directory = Path(temporary)
-        groups = defaultdict(list)
-        for spec in manifest["programs"]:
-            path = Path(spec["path"])
-            sarif = directory / (spec["path"] + ".sarif")
-            sarif.parent.mkdir(parents=True, exist_ok=True)
-            assemble_analysis(spec, sarif)
-            Path(str(sarif) + ".bytes").write_bytes(
-                memory_image(spec, args.inputs, args.modules)
-            )
-            groups[path.parent].append(sarif)
+        prepared = directory / "prepared"
+        prepare(args.inputs, prepared, args.reprise, manifest)
+        groups = import_files(directory, manifest, prepared / "inputs")
         args.project.mkdir(parents=True, exist_ok=True)
         for folder, files in groups.items():
             project_name = (
-                "osos" if folder == Path(".") else "osos/" + folder.as_posix()
+                args.name
+                if folder == Path(".")
+                else args.name + "/" + folder.as_posix()
             )
             print(f"Importing {len(files)} programs into {project_name}...", flush=True)
             headless(
-                args.ghidra, args.project, project_name, ["-import", *map(str, files)]
+                args.ghidra,
+                args.project,
+                project_name,
+                [
+                    "-import",
+                    *map(str, files),
+                    "-postScript",
+                    "ImportAnalysis.java",
+                    str(ANALYSIS / folder),
+                ],
             )
-    print(f"Open {args.project / 'osos.gpr'}")
+    headless(
+        args.ghidra,
+        args.project,
+        args.name,
+        [
+            "-process",
+            "*",
+            "-recursive",
+            "-readOnly",
+            "-postScript",
+            "VerifyAnalysis.java",
+            str(args.manifest.resolve()),
+        ],
+    )
+    print(f"Open {args.project / (args.name + '.gpr')}")
 
 
 def export(args, manifest):
@@ -215,12 +179,15 @@ def export(args, manifest):
         headless(
             args.ghidra,
             args.project,
-            "osos",
+            args.name,
             [
                 "-process",
                 "*",
                 "-recursive",
                 "-readOnly",
+                "-postScript",
+                "VerifyAnalysis.java",
+                str(args.manifest.resolve()),
                 "-postScript",
                 "ExportAnalysis.java",
                 str(directory),
@@ -247,11 +214,18 @@ def export(args, manifest):
 
 
 def main():
+    global ANALYSIS
     parser = argparse.ArgumentParser(
         description=__doc__,
-        epilog="Save and close the project before exporting. Creation needs the firmware inputs and extracted NOR modules listed in ghidra/programs.json.",
+        epilog="Save and close the project before exporting. Import prepares firmware images automatically and requires a new project.",
     )
-    parser.add_argument("command", choices=["create", "export"])
+    parser.add_argument("command", choices=["import", "export"])
+    parser.add_argument("--name", default="osos", help="Ghidra project name")
+    parser.add_argument("--manifest", type=Path, default=MANIFEST)
+    parser.add_argument("--analysis", type=Path, default=ANALYSIS)
+    parser.add_argument(
+        "--reprise", type=Path, default=ROOT / "host/target/debug/reprise"
+    )
     parser.add_argument(
         "--ghidra",
         type=Path,
@@ -259,18 +233,19 @@ def main():
         help="Ghidra installation directory, or set GHIDRA_INSTALL_DIR",
     )
     parser.add_argument("--project", type=Path, default=ROOT / "ghidra/project")
-    parser.add_argument("--inputs", type=Path, default=ROOT / "inputs")
     parser.add_argument(
-        "--modules",
+        "--inputs",
         type=Path,
-        help="Directory of extracted NOR PE modules; defaults to inputs/modules",
+        default=ROOT / "inputs",
+        help="Preserved decrypted firmware directory used for import",
     )
     args = parser.parse_args()
+    ANALYSIS = args.analysis.resolve()
+    manifest = json.loads(args.manifest.read_text())
     if args.ghidra is None:
         parser.error("Set GHIDRA_INSTALL_DIR or supply --ghidra /path/to/ghidra")
     args.ghidra = args.ghidra.resolve()
     args.project = args.project.resolve()
-    manifest = json.loads(MANIFEST.read_text())
     properties = (
         (args.ghidra / "Ghidra/application.properties").read_text().splitlines()
     )
@@ -284,8 +259,8 @@ def main():
             f"Use Ghidra {manifest['ghidra_version']} for these analysis exports"
         )
     WORK.mkdir(exist_ok=True)
-    if args.command == "create":
-        create(args, manifest)
+    if args.command == "import":
+        import_project(args, manifest)
     else:
         export(args, manifest)
 

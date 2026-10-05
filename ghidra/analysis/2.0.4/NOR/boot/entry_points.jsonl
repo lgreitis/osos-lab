@@ -1,0 +1,3 @@
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":570492236,"length":1}}}],"message":{"text":"Entry Point"},"properties":{"additionalProperties":{}},"ruleId":"ENTRY_POINTS"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":570553908,"length":1}}}],"message":{"text":"Entry Point"},"properties":{"additionalProperties":{}},"ruleId":"ENTRY_POINTS"}
+{"kind":"informational","level":"none","locations":[{"physicalLocation":{"address":{"absoluteAddress":570425344,"length":1}}}],"message":{"text":"Entry Point"},"properties":{"additionalProperties":{}},"ruleId":"ENTRY_POINTS"}
