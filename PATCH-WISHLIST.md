@@ -1,5 +1,10 @@
 # Possible CFW Features
 
+## Album Artists menu
+
+Check whether synced Album Artist metadata can support a separate Album Artists
+menu in Music.
+
 ## Five-band parametric EQ
 
 Investigate whether the EQ can support five custom bands instead of the current
