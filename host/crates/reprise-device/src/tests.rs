@@ -76,6 +76,7 @@ fn compatibility_matches_target_profiles() {
         ("MB565", 0x00130100, "2.0.4", false),
         ("MD717", 0x00130200, "2.0.4", false),
         ("MC293", 0x00130100, "2.0.4", false),
+        ("MC293", 0x00130200, "2.0.2", false),
         ("MC293", 0x00130200, "2.0.5", false),
     ] {
         let mut cfg = SysCfg::parse(&fixture()).unwrap();
@@ -88,6 +89,43 @@ fn compatibility_matches_target_profiles() {
         let mut report = CheckReport::new("saved_files", None);
         report.record_identity(&cfg, &mut |_| {}).unwrap();
         assert_eq!(report.compatible, compatible);
+    }
+}
+
+#[test]
+fn unsupported_firmware_explains_required_apple_release() {
+    for (model, hardware, recorded, required) in [
+        ("MC293", 0x00130200u32, "2.0.2", "2.0.4"),
+        ("MC297", 0x00130200, "2.0.5", "2.0.4"),
+        ("MB565", 0x00130100, "2.0.4", "2.0.1"),
+    ] {
+        let mut cfg = SysCfg::parse(&fixture()).unwrap();
+        for (tag, text) in [("Mod#", model), ("SwVr", recorded)] {
+            let value = cfg.entries.get_mut(tag).unwrap();
+            value.fill(0);
+            value[..text.len()].copy_from_slice(text.as_bytes());
+        }
+        cfg.entries.get_mut("HwVr").unwrap()[4..8].copy_from_slice(&hardware.to_le_bytes());
+        let mut report = CheckReport::new("saved_files", None);
+        let mut events = Vec::new();
+        report
+            .record_identity(&cfg, &mut |event| events.push(event))
+            .unwrap();
+
+        assert!(!report.compatible);
+        let check = report
+            .checks
+            .iter()
+            .find(|check| check.id == CheckId::Version)
+            .unwrap();
+        assert_eq!(check.status, CheckStatus::Failed);
+        assert_eq!(check.detail, format!(
+            "Your iPod reports Apple firmware {recorded}. RepriseOS requires Apple firmware {required} for this model. Install the required Apple firmware on your iPod, then try again."
+        ));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            Event::Check(emitted) if emitted.id == CheckId::Version && emitted.detail == check.detail
+        )));
     }
 }
 

@@ -195,16 +195,30 @@ impl CheckReport {
 
     fn record_identity(&mut self, config: &SysCfg, emit: &mut impl FnMut(Event)) -> Result<()> {
         let identity = config.identity()?;
-        let model_matches = targets::all().iter().any(|target| {
-            target.compatibility.models.contains(&identity.model)
-                && target.compatibility.hardware_version == identity.hardware_version
-        });
-        let version_matches = targets::for_identity(
-            &identity.model,
-            identity.hardware_version,
-            &identity.recorded_firmware,
-        )
-        .is_some();
+        let matching_targets: Vec<_> = targets::all()
+            .iter()
+            .filter(|target| {
+                target.compatibility.models.contains(&identity.model)
+                    && target.compatibility.hardware_version == identity.hardware_version
+            })
+            .collect();
+        let model_matches = !matching_targets.is_empty();
+        let version_matches = matching_targets
+            .iter()
+            .any(|target| target.compatibility.apple_firmware == identity.recorded_firmware);
+        let firmware_detail = if model_matches && !version_matches {
+            let required = matching_targets
+                .iter()
+                .map(|target| target.ipsw.version.as_str())
+                .collect::<Vec<_>>()
+                .join(" or ");
+            format!(
+                "Your iPod reports Apple firmware {}. RepriseOS requires Apple firmware {required} for this model. Install the required Apple firmware on your iPod, then try again.",
+                identity.recorded_firmware
+            )
+        } else {
+            format!("SysCfg records {}", identity.recorded_firmware)
+        };
         self.set(
             CheckId::Model,
             if model_matches {
@@ -231,7 +245,7 @@ impl CheckReport {
             } else {
                 CheckStatus::Failed
             },
-            format!("SysCfg records {}", identity.recorded_firmware),
+            firmware_detail,
             emit,
         );
         self.identity = Some(identity);
