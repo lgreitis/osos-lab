@@ -8,7 +8,7 @@ Current support (FAT32 storage required):
 
 - iPod Classic 6.5G / Rev A: MB562 and MB565, Apple firmware 2.0.1.
 - iPod Classic 7G / Rev B: MC293 and MC297, Apple firmware 2.0.4.
-
+<!-- -->
 - `payload/`: OSOS features, C patch declarations, and UI definitions.
 - `game-sdk/`: C runtime and APIs for native homebrew games.
 - `doom/`: Doom port, build tooling, and game packaging example.
