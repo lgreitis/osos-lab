@@ -1,5 +1,13 @@
 # Possible CFW Features
 
+## Dark mode
+
+Add a dark option for the native UI. And maybe some other fun colors too.
+
+## Cover Flow song context menu
+
+Allow opening a song's context menu when browsing through Cover Flow.
+
 ## Album Artists menu
 
 Check whether synced Album Artist metadata can support a separate Album Artists
@@ -37,3 +45,7 @@ Investigate USB log retrieval through the native control-transfer handler.
 ## FLAC and other audio formats
 
 Investigate the audio engine to see whether it can support formats such as FLAC.
+
+## HFS+ format support
+
+Support HFS+ formatted iPods. Low priority due to implementation difficulty.
