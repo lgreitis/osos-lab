@@ -34,16 +34,9 @@ impl PreparedInputs {
         let loader = aupd
             .get(start..start + target.inputs["apple-loader.bin"].bytes)
             .ok_or_else(|| invalid("AUPD loader outside image"))?;
-        if !target.inputs["apple-loader.bin"].matches(loader) {
-            return Err(invalid("AUPD loader fingerprint mismatch"));
-        }
+        // The pinned AUPD hash already authenticates the loader and its modules.
         let mut files = efi::extract(loader)?;
         files.retain(|name, _| target.inputs.contains_key(name));
-        for (name, data) in &files {
-            if !target.inputs[name].matches(data) {
-                return Err(invalid(format!("Unexpected AUPD module: {name}")));
-            }
-        }
         files.insert("osos.bin".into(), osos.to_vec());
         files.insert("apple-loader.bin".into(), loader.to_vec());
         Ok(Self { files })

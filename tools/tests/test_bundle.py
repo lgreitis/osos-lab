@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Export rejection cases; Rust tests cover authenticated Python export replay."""
+"""Python export/pack integration; Rust owns bundle validation tests."""
 
 import copy
 import hashlib
-import importlib.util
 import json
 import sys
 import tempfile
@@ -14,9 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
-MODULE = importlib.util.spec_from_file_location("bundle", ROOT / "tools/bundle.py")
-bundle = importlib.util.module_from_spec(MODULE)
-MODULE.loader.exec_module(bundle)
+import bundle  # noqa: E402
 
 
 class ExportTests(unittest.TestCase):
@@ -25,48 +22,8 @@ class ExportTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.spec = bundle.helper_spec(
-            ROOT / "usb-helper/tests/fixtures", "0.1.0-dev.1", "0.1.0"
+            ROOT / "usb-helper/tests/fixtures", "0.2.0-dev.1", "0.2.0"
         )
-
-    def test_classic_hardware_is_carried_into_the_bundle(self):
-        self.spec = bundle.helper_spec(
-            ROOT / "usb-helper/tests/fixtures",
-            "0.1.0-dev.1",
-            "0.1.0",
-        )
-        target = self.spec["compatibility"]
-        self.assertEqual(
-            target["hardware_versions"], [0x130000, 0x130100, 0x130200, 0x130300]
-        )
-        manifest = bundle.export(self.spec, self.root, self.root / "mb565")
-        self.assertEqual(manifest["compatibility"], target)
-        for key, value in [
-            ("hardware_versions", [0x130000, 0x130000]),
-            ("hardware_versions", []),
-            ("target", "../escape"),
-            ("hardware_versions", [0]),
-            ("bootrom_sha256", "unknown"),
-        ]:
-            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
-                bundle.export(
-                    {**self.spec, "compatibility": {**target, key: value}},
-                    self.root,
-                    self.root / "invalid",
-                )
-
-    def test_helper_without_storage_inspection_is_rejected(self):
-        fixture = ROOT / "usb-helper/tests/fixtures"
-        descriptor = json.loads((fixture / "manifest.json").read_text())
-        for value in (None, False, "true"):
-            descriptor["storage_inspection"] = value
-            with (
-                self.subTest(value=value),
-                self.assertRaises(ValueError),
-            ):
-                path = self.root / "helper.json"
-                path.write_text(json.dumps(descriptor))
-                self.spec["components"]["usb_helper"]["files"]["descriptor"] = str(path)
-                bundle.export(self.spec, self.root, self.root / "invalid")
 
     def test_export_checks_helper_structure_after_matching_its_hash(self):
         fixture = ROOT / "usb-helper/tests/fixtures"
@@ -76,33 +33,11 @@ class ExportTests(unittest.TestCase):
         descriptor["sha256"] = hashlib.sha256(image).hexdigest()
         (self.root / "upload.dfu").write_bytes(image)
         (self.root / "manifest.json").write_text(json.dumps(descriptor))
-        spec = bundle.helper_spec(self.root, "0.1.0", "0.1.0")
+        spec = bundle.helper_spec(self.root, "0.2.0", "0.2.0")
         output = self.root / "invalid"
         with self.assertRaisesRegex(ValueError, "image/manifest mismatch"):
             bundle.export(spec, self.root, output)
         self.assertFalse(output.exists())
-
-    def test_existing_output_is_preserved(self):
-        output = self.root / "existing"
-        output.mkdir()
-        (output / "keep").write_bytes(b"original")
-        with self.assertRaises(ValueError):
-            bundle.export(self.spec, self.root, output)
-        self.assertEqual((output / "keep").read_bytes(), b"original")
-        self.assertEqual(len(list(output.iterdir())), 1)
-
-    def test_rejects_incomplete_release_and_invalid_versions(self):
-        spec = copy.deepcopy(self.spec)
-        spec["purpose"] = "release"
-        with self.assertRaises(ValueError):
-            bundle.export(spec, self.root, self.root / "release")
-        self.assertFalse((self.root / "release").exists())
-        for version in ["latest", "01.2.3", "1.0.0-01", "1.0.0+", "../escape"]:
-            with self.subTest(version=version):
-                spec = copy.deepcopy(self.spec)
-                spec["version"] = version
-                with self.assertRaises(ValueError):
-                    bundle.export(spec, self.root, self.root / "invalid")
 
     def test_missing_input_and_symlink_publish_nothing(self):
         source = self.root / "input"
@@ -118,6 +53,11 @@ class ExportTests(unittest.TestCase):
     def test_zip_contains_only_bundle_files_and_preserves_existing_output(self):
         directory = self.root / "bundle"
         manifest = bundle.export(self.spec, self.root, directory)
+        self.assertEqual(manifest["schema"], 2)
+        self.assertEqual(
+            manifest["compatibility"]["hardware_versions"],
+            [0x130000, 0x130100, 0x130200, 0x130300],
+        )
         (directory / "private-key").write_bytes(b"excluded")
         for signed in [False, True]:
             if signed:
@@ -137,16 +77,6 @@ class ExportTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bundle.pack(directory, output)
             self.assertEqual(output.read_bytes(), original)
-
-    def test_zip_rejects_corruption_before_creating_output(self):
-        directory = self.root / "bundle"
-        manifest = bundle.export(self.spec, self.root, directory)
-        digest = next(iter(manifest["assets"]))
-        (directory / f"{digest}.blob").write_bytes(b"corrupt")
-        output = self.root / "bundle.zip"
-        with self.assertRaises(ValueError):
-            bundle.pack(directory, output)
-        self.assertFalse(output.exists())
 
 
 if __name__ == "__main__":

@@ -27,14 +27,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @dataclass(frozen=True)
 class BuildConfig:
-    target_path: Path
     work: Path
     prefix: str
     jobs: int
-
-    @property
-    def target(self):
-        return json.loads(self.target_path.read_text())
 
 
 def compiler_prefix(value, version):
@@ -87,10 +82,15 @@ def assemble(config, files, out, inputs, nor=None):
 def build_osos(config, out, inputs, recipe_only=False, info=None):
     print("Building OSOS recipe...", flush=True)
     info = info or identity(ROOT)
+    fingerprint = firmware.load()["inputs"]["osos.bin"]
+    metadata = json.loads((firmware.DIRECTORY / "ui.json").read_text())
+    if metadata["schema"] != 1 or metadata["input"] != fingerprint:
+        raise ValueError("UI metadata does not match the pinned OSOS")
     recipe = build_recipe(
         ROOT / "payload",
-        config.work / "payload" / config.target_path.stem,
-        config.target_path,
+        config.work / "payload",
+        fingerprint,
+        metadata["resources"],
         config.prefix,
         config.jobs,
         info["revision"],
@@ -105,8 +105,8 @@ def build_apple(config, out, inputs, recipe_only=False, nor=None):
     print("Building Apple companion recipe...", flush=True)
     recipe = build_companion_recipe(
         ROOT / "loader/apple",
-        config.work / "companion" / config.target_path.stem,
-        config.target_path,
+        config.work / "companion",
+        firmware.load()["inputs"],
         config.prefix,
         config.jobs,
     )
@@ -116,7 +116,7 @@ def build_apple(config, out, inputs, recipe_only=False, nor=None):
 
 
 def build_rockbox(config, out, rockbox):
-    target, prefix, jobs = config.target, config.prefix, config.jobs
+    target, prefix, jobs = firmware.load(), config.prefix, config.jobs
     print("Building Rockbox bootloader...", flush=True)
     directory = config.work / "rockbox"
     directory.mkdir(parents=True, exist_ok=True)
@@ -214,12 +214,6 @@ def main():
         target = firmware.load()
     except (OSError, ValueError) as error:
         parser.error(str(error))
-    target_path = firmware.PROFILE
-    if (
-        args.target in ("all", "osos", "osos-recipe")
-        and not target_path.with_name("ui.json").is_file()
-    ):
-        parser.error("Missing native UI metadata")
     if args.target in ("all", "loader") and args.nor is None:
         parser.error("--nor is required to personalize the companion")
     out = args.out.resolve()
@@ -228,7 +222,7 @@ def main():
         prefix = compiler_prefix(args.cross_prefix, target["toolchain"]["gcc"])
     except ValueError as error:
         parser.error(str(error))
-    config = BuildConfig(target_path, ROOT / ".build", prefix, args.jobs)
+    config = BuildConfig(ROOT / ".build", prefix, args.jobs)
     if args.target in ("all", "osos", "osos-recipe"):
         build_osos(
             config,

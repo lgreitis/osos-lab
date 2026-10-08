@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Compile the Apple companion and assemble its loader, handoff, and helper regions."""
 
-import json
 from dataclasses import dataclass, field
 
 from ..symbols import require
@@ -82,8 +81,7 @@ def compile_startup(source, directory, prefix, jobs):
     return LinkedImage(code, symbols, native.collect(directory, "probe", prefix))
 
 
-def recipe_inputs(target_path, declarations):
-    target = json.loads(target_path.read_text())["inputs"]
+def recipe_inputs(inputs, declarations):
     filenames = {"apple_loader": "apple-loader.bin"}
     for declaration in declarations:
         name = declaration.name
@@ -91,7 +89,7 @@ def recipe_inputs(target_path, declarations):
             "osos": "osos.bin",
             "apple_loader": "apple-loader.bin",
         }.get(name, f"modules/{name}.pe32")
-    return {name: target[path] for name, path in filenames.items()}
+    return {name: inputs[path] for name, path in filenames.items()}
 
 
 def append_loader(recipe, startup):
@@ -140,11 +138,11 @@ def append_extensions(recipe, handoff, helper):
     recipe.zero(helper_limit - helper_start - len(helper.code))
 
 
-def build_recipe(source, directory, target_path, prefix, jobs):
+def build_recipe(source, directory, inputs, prefix, jobs):
     handoff = compile_handoff(source, directory, prefix, jobs)
     helper = compile_helper(source, directory, prefix, jobs)
     startup = compile_startup(source, directory, prefix, jobs)
-    inputs = recipe_inputs(target_path, handoff.declarations + startup.declarations)
+    inputs = recipe_inputs(inputs, handoff.declarations + startup.declarations)
     recipe = Recipe(inputs)
     append_loader(recipe, startup)
     append_extensions(recipe, handoff, helper)

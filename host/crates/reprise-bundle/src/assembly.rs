@@ -136,8 +136,10 @@ pub fn assemble_companion(
     if !target.matches_hardware(identity.hardware_version) {
         return Err(invalid("SysCfg is incompatible with this companion"));
     }
-    validate_companion_inputs(&Recipe::parse(bundle.file("companion", "recipe")?)?)?;
-    personalize_companion(assemble_component(bundle, "companion", inputs)?, syscfg)
+    let recipe = Recipe::parse(bundle.file("companion", "recipe")?)?;
+    validate_companion_inputs(&recipe)?;
+    let image = recipe.apply(&inputs.0, bundle.file("companion", "data")?)?;
+    personalize_companion(image, syscfg)
 }
 
 fn personalize_companion(mut image: Vec<u8>, syscfg: &SysCfg) -> Result<Vec<u8>> {

@@ -15,18 +15,18 @@ def word(kind, address, expected, symbol="", value=0):
 
 class OsosTests(unittest.TestCase):
     def setUp(self):
-        self.load_offset = 0xB6D8
+        self.load_offset = 0xB798
         self.original = bytearray(self.load_offset + 256)
         self.original[self.load_offset : self.load_offset + 8] = b"native!!"
         self.code = bytes(128)
         self.symbols = {
             "__osos_load_offset": self.load_offset,
-            "__payload_start": 0x08B33000,
-            "__payload_end": 0x08B33080,
-            "__payload_limit": 0x08B33100,
+            "__payload_start": 0x08B3C000,
+            "__payload_end": 0x08B3C080,
+            "__payload_limit": 0x08B3C100,
             "__payload_file_offset": len(self.original),
-            "hook": 0x08B33000,
-            "table": 0x08B33020,
+            "hook": 0x08B3C000,
+            "table": 0x08B3C020,
         }
         self.fingerprint = fingerprint(self.original)
 
@@ -61,7 +61,7 @@ class OsosTests(unittest.TestCase):
         image = self.replay(recipe)
         self.assertEqual(
             image[self.load_offset : self.load_offset + 16].hex(),
-            "2030b308fdcb2ceb04f01fe50030b308",
+            "20c0b308fdef2ceb04f01fe500c0b308",
         )
         self.assertEqual(
             recipe.checks[0],
@@ -81,25 +81,6 @@ class OsosTests(unittest.TestCase):
         )
         self.assertNotIn(b"native!!", recipe.data)
 
-    def test_selected_image_mapping_controls_writes_and_copies(self):
-        self.symbols["__osos_load_offset"] = 0xB65C
-        self.original[0xB65C:0xB660] = b"201!"
-        recipe = self.build(
-            [
-                word(Kind.WORD, osos.BASE + 4, 0, value=42),
-                Copy("table", 0, 4, osos.BASE, 4),
-            ]
-        )
-        image = self.replay(recipe)
-        self.assertEqual(recipe.checks[0]["offset"], 0xB660)
-        self.assertEqual(image[0xB660:0xB664], struct.pack("<I", 42))
-        self.assertEqual(
-            image[len(self.original) + 32 : len(self.original) + 36], b"201!"
-        )
-        del self.symbols["__osos_load_offset"]
-        with self.assertRaisesRegex(ValueError, "Missing linked patch symbol"):
-            self.build([])
-
     def test_rejects_overlap_and_invalid_write_ranges(self):
         valid = word(Kind.WORD, osos.BASE, 0, value=42)
         for patches in (
@@ -113,13 +94,20 @@ class OsosTests(unittest.TestCase):
 
     def test_rejects_missing_thumb_and_out_of_range_symbols(self):
         patch = word(Kind.CALL, osos.BASE, 0, "hook")
-        for destination in (0x08B32FFC, 0x08B33001, 0x08B33080, 0x08B33100):
+        for destination in (0x08B3BFFC, 0x08B3C001, 0x08B3C080, 0x08B3C100):
             self.symbols["hook"] = destination
             with self.subTest(destination=destination), self.assertRaises(ValueError):
                 self.build([patch])
-        del self.symbols["hook"]
-        with self.assertRaisesRegex(ValueError, "Missing linked patch symbol: hook"):
-            self.build([patch])
+        for name in ("hook", "__osos_load_offset"):
+            value = self.symbols.pop(name)
+            with (
+                self.subTest(name=name),
+                self.assertRaisesRegex(
+                    ValueError, "Missing linked patch symbol: " + name
+                ),
+            ):
+                self.build([patch])
+            self.symbols[name] = value
 
     def test_rejects_invalid_and_overlapping_copies(self):
         valid = Copy("table", 0, 16, osos.BASE, 8)

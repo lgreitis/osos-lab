@@ -134,9 +134,7 @@ def main():
         staging = Path(temporary)
         output = staging / "output"
         output.mkdir()
-        config = build.BuildConfig(
-            firmware.PROFILE, staging / "compile", prefix, args.jobs
-        )
+        config = build.BuildConfig(staging / "compile", prefix, args.jobs)
         build_package(
             config, output / "classic", rockbox, info, args.minimum_installer_version
         )

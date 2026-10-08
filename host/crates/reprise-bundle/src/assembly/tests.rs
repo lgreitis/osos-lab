@@ -120,31 +120,8 @@ fn component(bundle: &mut VerifiedBundle, name: &str, files: &[(&str, Vec<u8>)])
     );
 }
 
-fn companion_bundle() -> (VerifiedBundle, AppleInputs) {
-    let fixture = crate::tests::Fixture::new();
-    let mut bundle = VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.1.0").unwrap();
-    let output = vec![0; 0x2b800];
-    let recipe = json!({"schema":2, "interface":INTERFACE,
-        "inputs":{"osos":{"bytes":4,"sha256":sha256(b"base")}},
-        "output":{"bytes":output.len()},
-        "data":{"bytes":1,"sha256":sha256(&[0])},
-        "segments":[{"kind":"zero","bytes":output.len()}]});
-    component(
-        &mut bundle,
-        "companion",
-        &[
-            ("recipe", serde_json::to_vec(&recipe).unwrap()),
-            ("data", vec![0]),
-        ],
-    );
-    let mut inputs = AppleInputs::default();
-    inputs.insert("osos", b"base".to_vec()).unwrap();
-    (bundle, inputs)
-}
-
 #[test]
 fn companion_uses_the_supplied_device_and_rejects_incompatible_config() {
-    let (bundle, _inputs) = companion_bundle();
     let mut config = cfg();
     let first = personalize_companion(vec![0; 0x2b800], &config).unwrap();
     assert_eq!(
@@ -176,63 +153,11 @@ fn companion_uses_the_supplied_device_and_rejects_incompatible_config() {
         .collect();
     assert_eq!(changed, [SYSINFO_OFFSET + 0x18]);
     config.entries.remove("Codc");
-    assert!(assemble_companion(&bundle, &_inputs, &config).is_err());
+    assert!(personalize_companion(vec![0; 0x2b800], &config).is_err());
     let mut config = cfg();
     config.entries.get_mut("HwVr").unwrap()[4..8].fill(0);
-    assert!(assemble_companion(&bundle, &_inputs, &config).is_err());
-}
-
-#[test]
-fn local_companion_requires_target_inputs_and_preserves_personalization() {
-    let (bundle, _inputs) = companion_bundle();
+    assert!(personalize_companion(vec![0; 0x2b800], &config).is_err());
     let config = cfg();
-    let mut nor = vec![0; 0x100000];
-    for (offset, value) in [
-        (0, 0x53436667u32),
-        (4, (24 + config.entries.len() * 20) as u32),
-        (8, 0x2000),
-        (12, 0x10001),
-        (20, config.entries.len() as u32),
-    ] {
-        nor[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
-    }
-    for (i, (tag, bytes)) in config.entries.iter().enumerate() {
-        let offset = 24 + i * 20;
-        for (j, byte) in tag.bytes().rev().enumerate() {
-            nor[offset + j] = byte;
-        }
-        nor[offset + 4..offset + 20].copy_from_slice(bytes);
-    }
-    let directory = tempfile::tempdir().unwrap();
-    fs::write(directory.path().join("osos.bin"), b"base").unwrap();
-    let local = |nor: &[u8]| {
-        assemble_local_companion(
-            bundle.file("companion", "recipe").unwrap(),
-            bundle.file("companion", "data").unwrap(),
-            directory.path(),
-            nor,
-        )
-    };
-    assert_eq!(
-        personalize_companion(
-            assemble_local(
-                bundle.file("companion", "recipe").unwrap(),
-                bundle.file("companion", "data").unwrap(),
-                directory.path(),
-            )
-            .unwrap(),
-            &SysCfg::parse(&nor).unwrap(),
-        )
-        .unwrap(),
-        personalize_companion(vec![0; 0x2b800], &config).unwrap()
-    );
-    assert!(local(&nor)
-        .unwrap_err()
-        .to_string()
-        .contains("pinned Apple firmware"));
-    assert!(local(&nor[..nor.len() - 1]).is_err());
-    nor[0] ^= 1;
-    assert!(local(&nor).is_err());
     assert!(personalize_companion(vec![0; 1], &config).is_err());
     let mut occupied = vec![0; 0x2b800];
     occupied[SYSINFO_OFFSET] = 1;
@@ -279,7 +204,8 @@ fn output_is_created_exclusively_with_a_report() {
 
 #[test]
 fn nor_template_requires_dual_boot_packaging() {
-    let (mut bundle, _) = companion_bundle();
+    let fixture = crate::tests::Fixture::new();
+    let mut bundle = VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.2.0").unwrap();
     let offset = 0xb10usize;
     let mut original = vec![0; offset + 16];
     original[..8].copy_from_slice(b"87021.0\x03");
@@ -330,6 +256,15 @@ fn local_distribution_replays_from_saved_inputs() {
     let aupd = fs::read(root.join("inputs/firmware-2.0.5/aupd.decrypted.body.bin")).unwrap();
     let prepared = crate::preparation::PreparedInputs::from_plaintext(&ipsw, &osos, &aupd).unwrap();
     let artifacts = assemble(&bundle, &prepared.apple_inputs().unwrap(), &nor).unwrap();
+    let local_companion = assemble_local_companion(
+        bundle.file("companion", "recipe").unwrap(),
+        bundle.file("companion", "data").unwrap(),
+        &root.join("inputs/firmware-2.0.5"),
+        &nor,
+    )
+    .unwrap();
+    assert_eq!(local_companion, artifacts.companion);
+
     assert_eq!(
         disk_bytes(&bundle).unwrap() as usize,
         artifacts.osos.len() + artifacts.companion.len()

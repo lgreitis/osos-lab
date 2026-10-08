@@ -15,8 +15,8 @@ impl Fixture {
         let image_hash = sha256(image);
         let descriptor_hash = sha256(descriptor);
         let manifest = serde_json::json!({
-            "schema": 2, "purpose": "development", "version": "0.1.0",
-            "minimum_installer_version": "0.1.0",
+            "schema": 2, "purpose": "development", "version": "0.2.0",
+            "minimum_installer_version": "0.2.0",
             "compatibility": reprise_device::firmware::current().compatibility,
             "components": {"usb_helper": {"format": "reprise-upload-v3", "files": {"image": image_hash, "descriptor": descriptor_hash}}},
             "assets": {image_hash.clone(): {"bytes": image.len()}, descriptor_hash.clone(): {"bytes": descriptor.len()}}
@@ -32,7 +32,7 @@ impl Fixture {
             descriptor,
         )
         .unwrap();
-        let public = sign_directory(dir.path(), &"17".repeat(32), "0.1.0").unwrap();
+        let public = sign_directory(dir.path(), &"17".repeat(32), "0.2.0").unwrap();
         Self {
             dir,
             key: TrustedKey::from_hex(&public).unwrap(),
@@ -40,7 +40,7 @@ impl Fixture {
     }
 
     fn load(&self) -> Result<VerifiedBundle> {
-        VerifiedBundle::load(self.dir.path(), &self.key, "0.1.0")
+        VerifiedBundle::load(self.dir.path(), &self.key, "0.2.0")
     }
 }
 
@@ -49,16 +49,18 @@ fn signature_and_device_compatibility() {
     let f = Fixture::new();
     let b = f.load().unwrap();
     let c = &b.manifest().compatibility;
-    assert!(b.require_device(0x00130200, &c.bootrom_sha256).is_ok());
+    for hardware in [0x00130000, 0x00130100, 0x00130200, 0x00130300] {
+        assert!(b.require_device(hardware, &c.bootrom_sha256).is_ok());
+    }
     assert!(b.require_device(0x12340000, &c.bootrom_sha256).is_err());
     assert!(b.require_device(0, &c.bootrom_sha256).is_err());
-    assert!(b.require_device(0x00130200, &c.bootrom_sha256).is_ok());
+    assert!(b.require_device(0x00130200, "wrong-rom").is_err());
     assert!(b.file("nor", "image").is_err());
     let wrong = SigningKey::from_bytes(&[4; 32]);
     let key = TrustedKey::from_hex(&hex(&wrong.verifying_key().to_bytes())).unwrap();
-    assert!(VerifiedBundle::load(f.dir.path(), &key, "0.1.0").is_err());
-    assert!(VerifiedBundle::load(f.dir.path(), &f.key, "0.0.9").is_err());
-    assert!(sign_directory(f.dir.path(), &"17".repeat(32), "0.1.0").is_err());
+    assert!(VerifiedBundle::load(f.dir.path(), &key, "0.2.0").is_err());
+    assert!(VerifiedBundle::load(f.dir.path(), &f.key, "0.1.9").is_err());
+    assert!(sign_directory(f.dir.path(), &"17".repeat(32), "0.2.0").is_err());
 }
 
 #[test]
@@ -84,48 +86,50 @@ fn manifest_contract_rejects_incomplete_releases_paths_unknown_formats_and_limit
     let original = f.load().unwrap().manifest().clone();
     let mut bad = original.clone();
     bad.purpose = Purpose::Release;
-    assert!(bad.validate("0.1.0").is_err());
+    assert!(bad.validate("0.2.0").is_err());
     let mut bad = original.clone();
     bad.components.get_mut("usb_helper").unwrap().format = "future".into();
-    assert!(bad.validate("0.1.0").is_err());
+    assert!(bad.validate("0.2.0").is_err());
     let mut bad = original.clone();
     bad.components
         .get_mut("usb_helper")
         .unwrap()
         .files
         .insert("../escape".into(), "../escape".into());
-    assert!(bad.validate("0.1.0").is_err());
+    assert!(bad.validate("0.2.0").is_err());
     let mut bad = original.clone();
     bad.assets.values_mut().next().unwrap().bytes = MAX_ASSET_BYTES + 1;
-    assert!(bad.validate("0.1.0").is_err());
+    assert!(bad.validate("0.2.0").is_err());
     let mut bad = original.clone();
     bad.assets.insert("0".repeat(64), Asset { bytes: 1 });
-    assert!(bad.validate("0.1.0").is_err());
-    let mut bad = original.clone();
-    bad.compatibility.hardware_versions = vec![0x00130200, 0x00130200];
-    assert!(bad.validate("0.1.0").is_err());
+    assert!(bad.validate("0.2.0").is_err());
+    for hardware in [vec![], vec![0], vec![0x00130200, 0x00130200]] {
+        let mut bad = original.clone();
+        bad.compatibility.hardware_versions = hardware;
+        assert!(bad.validate("0.2.0").is_err());
+    }
 }
 
 #[test]
 fn future_packages_explain_installer_requirements() {
     let f = Fixture::new();
     let mut manifest = f.load().unwrap().manifest().clone();
-    manifest.minimum_installer_version = "0.2.0".into();
-    let expected = "This firmware release requires installer 0.2.0 or newer. Update RepriseOS Installer, then try again.";
+    manifest.minimum_installer_version = "0.3.0".into();
+    let expected = "This firmware release requires installer 0.3.0 or newer. Update RepriseOS Installer, then try again.";
     assert_eq!(
-        manifest.validate("0.1.2").unwrap_err().to_string(),
+        manifest.validate("0.2.0").unwrap_err().to_string(),
         expected
     );
-    assert!(manifest.validate("0.2.0").is_ok());
-    assert!(manifest.validate("0.2.1").is_ok());
+    assert!(manifest.validate("0.3.0").is_ok());
+    assert!(manifest.validate("0.3.1").is_ok());
 
     manifest.schema = 3;
     assert_eq!(
-        manifest.validate("0.1.2").unwrap_err().to_string(),
+        manifest.validate("0.2.0").unwrap_err().to_string(),
         expected
     );
     assert_eq!(
-        manifest.validate("0.2.0").unwrap_err().to_string(),
+        manifest.validate("0.3.0").unwrap_err().to_string(),
         "This firmware package uses an unsupported format. Update RepriseOS Installer, then try again."
     );
 }
@@ -139,10 +143,10 @@ fn python_export_loads_as_directory_and_zip() {
     let result = std::process::Command::new("python3")
         .arg(&tool)
         .arg("--minimum-installer-version")
-        .arg("0.1.0")
+        .arg("0.2.0")
         .arg("--helper")
         .arg(&fixture)
-        .args(["--version", "0.1.0-dev.1+local.01", "--out"])
+        .args(["--version", "0.2.0-dev.1+local.01", "--out"])
         .arg(&out)
         .output()
         .unwrap();
@@ -151,9 +155,9 @@ fn python_export_loads_as_directory_and_zip() {
         "{}",
         String::from_utf8_lossy(&result.stderr)
     );
-    let public = sign_directory(&out, &"18".repeat(32), "0.1.0").unwrap();
+    let public = sign_directory(&out, &"18".repeat(32), "0.2.0").unwrap();
     let bundle =
-        VerifiedBundle::load(&out, &TrustedKey::from_hex(&public).unwrap(), "0.1.0").unwrap();
+        VerifiedBundle::load(&out, &TrustedKey::from_hex(&public).unwrap(), "0.2.0").unwrap();
     assert_eq!(
         bundle.file("usb_helper", "image").unwrap(),
         fs::read(fixture.join("upload.dfu")).unwrap()
@@ -173,7 +177,7 @@ fn python_export_loads_as_directory_and_zip() {
         String::from_utf8_lossy(&result.stderr)
     );
     let packed =
-        VerifiedBundle::load_zip(&archive, &TrustedKey::from_hex(&public).unwrap(), "0.1.0")
+        VerifiedBundle::load_zip(&archive, &TrustedKey::from_hex(&public).unwrap(), "0.2.0")
             .unwrap();
     assert_eq!(packed.digest(), bundle.digest());
     assert_eq!(

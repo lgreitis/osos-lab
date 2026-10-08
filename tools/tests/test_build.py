@@ -14,19 +14,19 @@ import setup
 
 
 class BuildTests(unittest.TestCase):
-    def test_release_replaces_owned_artifacts_and_preserves_other_targets(self):
+    def test_release_replaces_owned_artifacts_and_preserves_device_builds(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             output, destination = root / "output", root / "build"
             output.mkdir()
             destination.mkdir()
-            (destination / "MB565-2.0.1").mkdir()
-            (destination / "MB565-2.0.1/osos-cfw.bin").write_bytes(b"keep")
+            (destination / "MB565").mkdir()
+            (destination / "MB565/osos-cfw.bin").write_bytes(b"keep")
             (destination / "repriseos.zip").write_bytes(b"old")
             (output / "repriseos.zip").write_bytes(b"new")
             (output / "package").mkdir()
             (output / "package/manifest.json").write_bytes(b"manifest")
-            (destination / "package").symlink_to(destination / "MB565-2.0.1")
+            (destination / "package").symlink_to(destination / "MB565")
             with self.assertRaises(ValueError):
                 release.publish(output, destination)
             self.assertEqual((destination / "repriseos.zip").read_bytes(), b"old")
@@ -44,9 +44,7 @@ class BuildTests(unittest.TestCase):
             self.assertFalse((destination / "package").exists())
             release.publish(output, destination)
             self.assertEqual((destination / "repriseos.zip").read_bytes(), b"new")
-            self.assertEqual(
-                (destination / "MB565-2.0.1/osos-cfw.bin").read_bytes(), b"keep"
-            )
+            self.assertEqual((destination / "MB565/osos-cfw.bin").read_bytes(), b"keep")
             self.assertEqual(
                 (destination / "package/manifest.json").read_bytes(), b"manifest"
             )

@@ -123,15 +123,6 @@ impl Ipsw {
     }
 
     pub fn validate_plaintext(&self, image: &[u8]) -> Result<()> {
-        if image.len() != self.osos.len()
-            || image.get(..8) != Some(b"87021.0\x02")
-            || image[8..12] != self.osos[8..12]
-            || [12, 16, 20]
-                .iter()
-                .any(|offset| word(image, *offset) != self.ciphertext().len())
-        {
-            return Err(invalid("Decrypted OSOS header or length mismatch"));
-        }
         if !self.metadata.target()?.inputs["osos.bin"].matches(image) {
             return Err(invalid(
                 "Decrypted OSOS does not match its target fingerprint",

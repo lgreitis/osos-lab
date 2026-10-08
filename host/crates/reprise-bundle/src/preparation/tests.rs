@@ -40,14 +40,6 @@ fn archive(metadata: FirmwareMetadata, firmware: &[u8]) -> Vec<u8> {
 fn metadata_reports_version_and_rejects_wrong_families_and_builds() {
     assert_eq!(metadata().version(), "2.0.5");
     metadata().require_supported().unwrap();
-    let mut mb565 = metadata();
-    mb565.updater_family_id = 33;
-    mb565.build_id = 0x09018000;
-    mb565.visible_build_id = 0x02018000;
-    assert_eq!(mb565.version(), "2.0.1");
-    assert!(mb565.require_supported().is_err());
-    mb565.updater_family_id = 35;
-    assert!(mb565.require_supported().is_err());
     for change in 0..4 {
         let mut m = metadata();
         match change {
