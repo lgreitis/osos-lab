@@ -23,6 +23,14 @@
     "MediaLists_Genius_Screen": 229443553,
     "MediaLists_GeniusPlaylist_Screen": 229443557,
     "SettingsMenu_Items": 63,
-    "NowPlaying_Screen": 229443846
+    "NowPlaying_Screen": 229443846,
+    "MainMenu_Items": 26,
+    "MainMenus_Main_Screen": 229443357,
+    "MainMenu_List_Artists": 229443362,
+    "MusicMenu_Items": 27,
+    "MainMenus_Music_Screen": 229443445,
+    "MusicMenu_ListItem_Artists": 229443449,
+    "MediaLists_Artists_Screen": 229443482,
+    "MediaLists_Artists_Screen_Default": 229443483
   }
 }

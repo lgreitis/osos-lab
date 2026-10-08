@@ -64,7 +64,7 @@ def build_recipe(
     bindings = json.loads((shim / "ui.json").read_text())["bindings"]
     generated_ui = ui.generate(
         ui.Resources(templates, bindings),
-        sorted(source.glob("*.ui")),
+        [*sorted(source.glob("*.ui")), *sorted(shim.glob("*.ui"))],
         directory,
         revision,
         version,

@@ -44,6 +44,11 @@ static void mock_free(void *);
 #define OSOS_ITUNES_READER_OWNER_OFFSET offsetof(struct reader, owner)
 #include "../../../payload/album_artist.c"
 
+void cfw_album_artists_invalidate(void *track_data)
+{
+    assert(track_data == owner);
+}
+
 struct cached { uint16_t *text; uint32_t bytes, refs; };
 static struct cached tokens[4096];
 static uint32_t next_token = 1, live_refs;

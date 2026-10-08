@@ -11,6 +11,7 @@ from .resources import (
     menu_event,
     pack_blocks,
     put,
+    serialized_string,
     word,
 )
 
@@ -322,6 +323,8 @@ class DocumentCompiler:
 
 def compile_document(resources, document, text=""):
     compiled = CompiledDocument()
+    if document.music_entry:
+        compile_music_entry(resources, document.music_entry, compiled)
     for binding in document.events:
         resources.bind_screen_event(binding)
     builder = None
@@ -346,3 +349,55 @@ def compile_document(resources, document, text=""):
         compiled.fields = builder.fields
         compiled.actions = builder.actions
     return compiled
+
+
+def compile_music_entry(resources, entry, compiled):
+    name = entry["id"]
+    screen = resources.allocate(name + "_Screen")
+    layout = resources.allocate(name + "_Layout")
+    title_id = resources.allocate(name + "_Title")
+    title = resources.source(entry["title"], title_id)
+    resources.clone_layout(resources.native(entry["layout"]), layout, title)
+    for kind in ("SCST", "CEVT"):
+        resources.add(kind, screen, resources.stock(kind, entry["screen"]))
+    layouts = blocks(resources.stock("SLst", entry["screen"]))
+    if len(layouts) != 1:
+        raise ValueError("Music entry expects a single-layout native screen")
+    put(layouts[0][1], 0, layout)
+    resources.add("SLst", screen, pack_blocks(layouts))
+    compiled.string_ids.update({name + "_Screen": screen, name + "_Layout": layout,
+                                name + "_Title": title_id})
+
+    for menu, anchor_name, visible in (
+        ("Music", entry["after"], 1),
+        ("Main", "MainMenu_List_Artists", 0),
+    ):
+        table = resources.native(menu + "Menu_Items")
+        rows = blocks(resources.current("ITEM", table))
+        anchor = next(
+            (i for i, (_, row) in enumerate(rows)
+             if word(row, 0x30) == resources.native(anchor_name)),
+            None,
+        )
+        if anchor is None:
+            raise ValueError(f"{menu} anchor {anchor_name} missing for {name}")
+        kind, prototype = rows[anchor]
+        row = Resource(prototype)
+        item = resources.allocate(name + "_" + menu + "Item")
+        compiled.string_ids[name + "_" + menu + "Item"] = item
+        put(row, 0x30, item)
+        put(row, 0x60, 5)
+        put(row, 0x64, visible)
+        put(row, 0x68, title)
+        rows.insert(anchor + 1, (kind, row))
+        resources.replace("ITEM", table, pack_blocks(rows))
+        events = []
+        for event_name, handler in (
+            ("chosen", entry["open"]),
+            ("delayedselected", entry["highlight"]),
+        ):
+            events.append(
+                serialized_string(f"list.pid.{item}.{event_name}") + b"1"
+                + serialized_string(handler) + struct.pack("<I", 0)
+            )
+        resources.extend_events("CEVT", resources.native(f"MainMenus_{menu}_Screen"), events)

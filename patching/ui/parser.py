@@ -73,13 +73,15 @@ class Parser:
                 "settings-entry",
                 "string",
                 "screen-event",
+                "music-entry",
             ),
         )
         for node in tree:
             self.parse_declaration(node)
         self.apply_settings_entry()
         document = self.document
-        if document.root is None and not document.strings and not document.events:
+        if (document.root is None and not document.strings
+                and not document.events and document.music_entry is None):
             raise ValueError("Incomplete UI declaration")
         validate_slots(document.fields)
         return document
@@ -120,6 +122,12 @@ class Parser:
             document.strings[self.identifier(node)] = node.attrib["text"]
         elif node.tag == "screen-event":
             document.events.append(self.parse_screen_event(node))
+        elif node.tag == "music-entry":
+            attributes(node, "id title after screen layout open highlight")
+            if document.music_entry is not None:
+                raise ValueError("Duplicate Music menu entry")
+            self.identifier(node)
+            document.music_entry = dict(node.attrib)
 
     def parse_values(self, node):
         attributes(node, "id", children=("value",))

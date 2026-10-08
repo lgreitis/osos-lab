@@ -42,4 +42,6 @@ void cfw_install_resources(void *bank)
         osos_resource_set(bank, resource->type, resource->id, resource->data,
                           resource->size);
     }
+    /* The native visibility registry was populated before these overrides. */
+    ((void (*)(uint32_t))OSOS_MENU_ITEMS_REGISTER_TYPE)(0x4954454d);
 }

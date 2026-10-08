@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "album_artist.h"
+#include "album_artists.h"
 #include "patch.h"
 
 
@@ -24,6 +25,8 @@ static void release(uint32_t token)
 
 static void clear(void)
 {
+    if (owner)
+        cfw_album_artists_invalidate(owner);
     for (uint32_t i = 0; i < capacity; i++)
         release(entries[i].token);
     if (entries)
@@ -168,4 +171,3 @@ uint32_t cfw_album_artist_read(struct osos_media_record *record,
         units--;
     return units;
 }
-

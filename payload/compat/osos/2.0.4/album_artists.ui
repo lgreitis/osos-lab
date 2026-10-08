@@ -1,0 +1,7 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <music-entry id="CFW_AlbumArtists" title="Album Artists"
+               after="MusicMenu_ListItem_Artists"
+               screen="MediaLists_Artists_Screen" layout="MediaLists_Artists_Screen_Default"
+               open="CFW_AlbumArtists" highlight="HandleMusicHilited"/>
+</ui>

@@ -5,11 +5,12 @@ from .resources import Resource
 
 
 def emit_header(document, string_ids=None):
-    name = (
-        document.root.name
-        if document.root
-        else next(iter(document.strings), None) or document.events[0].handler
-    )
+    if document.root:
+        name = document.root.name
+    elif document.music_entry:
+        name = document.music_entry["id"]
+    else:
+        name = next(iter(document.strings), None) or document.events[0].handler
     prefix = name.lower()
     guard = name.upper() + "_UI_GENERATED_H"
     lines = [f"#ifndef {guard}", f"#define {guard}", '#include "ui.h"', "", "enum {"]

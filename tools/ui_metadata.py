@@ -93,9 +93,8 @@ def main():
     profile = target_profiles.load(args.firmware_target)
     target_path = target_profiles.DIRECTORY / f"{profile['target']}.json"
     fingerprint = profile["inputs"]["osos.bin"]
-    shim = json.loads(
-        (payload_shim(ROOT / "payload", target_path) / "ui.json").read_text()
-    )
+    shim_path = payload_shim(ROOT / "payload", target_path)
+    shim = json.loads((shim_path / "ui.json").read_text())
     if fingerprint != {
         "bytes": len(firmware),
         "sha256": hashlib.sha256(firmware).hexdigest(),
@@ -104,7 +103,11 @@ def main():
     metadata = {
         "schema": 1,
         "input": fingerprint,
-        "resources": extract(firmware, sorted((ROOT / "payload").glob("*.ui")), shim),
+        "resources": extract(
+            firmware,
+            [*sorted((ROOT / "payload").glob("*.ui")), *sorted(shim_path.glob("*.ui"))],
+            shim,
+        ),
     }
     out = args.out or target_path.with_name(target_path.stem + "-ui.json")
     out.write_text(json.dumps(metadata, indent=2) + "\n")
