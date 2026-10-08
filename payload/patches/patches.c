@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "patch.h"
-#include <osos-target.h>
-#include <patch-sites.h>
+#include "native/bindings.h"
+#include "patches/sites.h"
 
 /* Custom EQ */
 PATCH_CALL(OSOS_PREFERENCES_LOAD_CALL, OSOS_PREFERENCES_LOAD, cfw_preferences_hook);

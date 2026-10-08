@@ -13,8 +13,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import setup
-import target_profiles
 from version import identity
+
+import firmware
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from patching.recipes.companion import build_recipe as build_companion_recipe
@@ -48,7 +49,7 @@ def compiler_prefix(value, version):
     return prefix
 
 
-def assemble(config, files, out, inputs, companion=False):
+def assemble(config, files, out, inputs, nor=None):
     config.work.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
         prefix="reprise-assemble-", dir=config.work
@@ -77,8 +78,8 @@ def assemble(config, files, out, inputs, companion=False):
             "--out",
             str(image),
         ]
-        if companion:
-            command += ["--nor", str((inputs / "nor.bin").resolve())]
+        if nor is not None:
+            command += ["--nor", str(nor.resolve())]
         subprocess.run(command, check=True)
         image.replace(out)
 
@@ -100,7 +101,7 @@ def build_osos(config, out, inputs, recipe_only=False, info=None):
         assemble(config, files, out / "osos-cfw.bin", inputs)
 
 
-def build_apple(config, out, inputs, recipe_only=False):
+def build_apple(config, out, inputs, recipe_only=False, nor=None):
     print("Building Apple companion recipe...", flush=True)
     recipe = build_companion_recipe(
         ROOT / "loader/apple",
@@ -111,7 +112,7 @@ def build_apple(config, out, inputs, recipe_only=False):
     )
     files = recipe.save(out, "companion")
     if not recipe_only:
-        assemble(config, files, out / "cfw-loader.bin", inputs, companion=True)
+        assemble(config, files, out / "cfw-loader.bin", inputs, nor=nor)
 
 
 def build_rockbox(config, out, rockbox):
@@ -193,9 +194,11 @@ def build_rockbox(config, out, rockbox):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", help="Require a clean release tag at HEAD")
-    parser.add_argument("--inputs", type=Path, default=ROOT / "inputs")
+    parser.add_argument("--inputs", type=Path, default=ROOT / "inputs/firmware-2.0.5")
     parser.add_argument("--out", type=Path, default=ROOT / "build")
-    parser.add_argument("--firmware-target", default=target_profiles.DEFAULT_TARGET)
+    parser.add_argument(
+        "--nor", type=Path, help="Device NOR backup for companion personalization"
+    )
     parser.add_argument(
         "target",
         nargs="?",
@@ -208,17 +211,17 @@ def main():
     parser.add_argument("--jobs", type=int, choices=range(1, 9), default=8)
     args = parser.parse_args()
     try:
-        target = target_profiles.load(args.firmware_target)
+        target = firmware.load()
     except (OSError, ValueError) as error:
         parser.error(str(error))
-    target_path = target_profiles.DIRECTORY / f"{target['target']}.json"
+    target_path = firmware.PROFILE
     if (
         args.target in ("all", "osos", "osos-recipe")
-        and not target_path.with_name(target_path.stem + "-ui.json").is_file()
+        and not target_path.with_name("ui.json").is_file()
     ):
-        parser.error(
-            "OSOS payload port is pending for this target; build loader or bootloader first"
-        )
+        parser.error("Missing native UI metadata")
+    if args.target in ("all", "loader") and args.nor is None:
+        parser.error("--nor is required to personalize the companion")
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     try:
@@ -235,7 +238,7 @@ def main():
             identity(ROOT, args.tag),
         )
     if args.target in ("all", "loader", "loader-recipe"):
-        build_apple(config, out, args.inputs, args.target == "loader-recipe")
+        build_apple(config, out, args.inputs, args.target == "loader-recipe", args.nor)
     if args.target in ("all", "bootloader"):
         dependencies = json.loads((ROOT / "dependencies.lock").read_text())
         rockbox = setup.verify("rockbox", dependencies["rockbox"])

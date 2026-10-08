@@ -3,7 +3,7 @@
 #ifndef CFW_OSOS_H
 #define CFW_OSOS_H
 
-#include <osos-target.h>
+#include "native/bindings.h"
 
 #ifndef __ASSEMBLER__
 #include <stddef.h>
@@ -233,7 +233,7 @@ static inline int osos_media_item_has_kind_8062(struct osos_media_item *item)
     return ((fn)OSOS_MEDIA_ITEM_HAS_KIND_8062)(item);
 }
 
-#include <osos-media.h>
+#include "native/media.h"
 
 static inline void *osos_list_database(struct osos_media_list *list)
 {

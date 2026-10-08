@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::{invalid, read_file, sha256, write_directory, Result};
-use reprise_device::targets::{self, Target};
+use reprise_device::firmware::{self, Firmware};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -34,31 +34,28 @@ impl FirmwareMetadata {
         )
     }
 
-    pub fn target(&self) -> Result<&'static Target> {
-        targets::all()
-            .iter()
-            .find(|target| {
-                let ipsw = &target.ipsw;
-                (
-                    ipsw.family_id,
-                    ipsw.updater_family_id,
-                    ipsw.visible_build_id,
-                    ipsw.build_id,
-                ) == (
-                    self.family_id,
-                    self.updater_family_id,
-                    self.visible_build_id,
-                    self.build_id,
-                )
-            })
-            .ok_or_else(|| {
-                invalid(format!(
-                    "Unsupported IPSW: version {}, family {}, updater family {}",
-                    self.version(),
-                    self.family_id,
-                    self.updater_family_id,
-                ))
-            })
+    pub fn target(&self) -> Result<&'static Firmware> {
+        let target = firmware::current();
+        let ipsw = &target.ipsw;
+        if (
+            ipsw.family_id,
+            ipsw.updater_family_id,
+            ipsw.visible_build_id,
+            ipsw.build_id,
+        ) != (
+            self.family_id,
+            self.updater_family_id,
+            self.visible_build_id,
+            self.build_id,
+        ) {
+            return Err(invalid(format!(
+                "Unsupported IPSW: version {}, family {}, updater family {}",
+                self.version(),
+                self.family_id,
+                self.updater_family_id
+            )));
+        }
+        Ok(target)
     }
 
     pub fn require_supported(&self) -> Result<()> {

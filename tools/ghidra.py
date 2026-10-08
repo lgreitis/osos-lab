@@ -10,7 +10,6 @@ import tempfile
 from collections import defaultdict
 from pathlib import Path
 
-import target_profiles
 from ghidra_analysis import (
     assemble_analysis,
     memory_image,
@@ -18,7 +17,7 @@ from ghidra_analysis import (
     publish_analysis,
     sha,
 )
-from ghidra_prepare import prepare
+from ghidra_prepare import load_profile, prepare
 from ghidra_project import WORK, headless, preflight, staged_project
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,9 +30,7 @@ def select_targets(manifest, names):
     if names and (len(names) != len(set(names)) or set(names) - available.keys()):
         raise ValueError(f"Select distinct targets from: {', '.join(available)}")
     sources = [available[name] for name in names] if names else list(available.values())
-    versions = {
-        target_profiles.load(source["target"])["ipsw"]["version"] for source in sources
-    }
+    versions = {load_profile(source["target"])["ipsw"]["version"] for source in sources}
     programs = [
         spec for spec in manifest["programs"] if Path(spec["path"]).parts[0] in versions
     ]
@@ -48,7 +45,7 @@ def select_targets(manifest, names):
 
 
 def validate_inputs(args):
-    raw = any((args.ipsw, args.nor, args.osos, args.apple_loader))
+    raw = any((args.ipsw, args.aupd, args.osos))
     if args.command == "export":
         if raw or args.inputs or args.fresh:
             raise ValueError("Input and --fresh options apply only to import")
@@ -57,9 +54,9 @@ def validate_inputs(args):
         raise ValueError(
             "--inputs requires exactly one --target and points directly to its decrypted files"
         )
-    if raw and (not args.ipsw or not args.nor or not args.osos or args.inputs):
+    if raw and (not args.ipsw or not args.aupd or not args.osos or args.inputs):
         raise ValueError(
-            "Use --ipsw, --nor and --osos together, optionally --apple-loader; omit --inputs. Supply decrypted OSOS and, for encrypted NOR, its decrypted loader. No USB operation is performed."
+            "Use --ipsw, --aupd and --osos together; omit --inputs. Supply decrypted 2.0.5 OSOS and AUPD. Historical imports use --inputs. No USB operation is performed."
         )
     if raw and len(args.target or []) > 1:
         raise ValueError("An IPSW import selects exactly one target")
@@ -72,7 +69,8 @@ def resolve_ipsw(args):
         text=True,
         check=True,
     )
-    target = json.loads(result.stdout).get("target")
+    version = json.loads(result.stdout).get("version")
+    target = f"firmware-{version}" if version else None
     if not target:
         raise ValueError(
             "IPSW does not match a supported target; rebuild reprise-cli if its inspection output has no target field"
@@ -90,15 +88,13 @@ def prepare_ipsw(args, directory):
         "prepare",
         "--ipsw",
         str(args.ipsw),
-        "--nor",
-        str(args.nor),
+        "--aupd",
+        str(args.aupd),
         "--osos",
         str(args.osos),
         "--out",
         str(inputs),
     ]
-    if args.apple_loader:
-        command.extend(["--apple-loader", str(args.apple_loader)])
     subprocess.run(command, check=True)
     return inputs
 
@@ -108,7 +104,7 @@ def prepare_images(args, manifest, directory):
     generated = []
     plaintext = prepare_ipsw(args, directory) if args.ipsw else None
     for source in manifest["targets"]:
-        profile = target_profiles.load(source["target"])
+        profile = load_profile(source["target"])
         version = profile["ipsw"]["version"]
         specs = [
             spec
@@ -179,7 +175,7 @@ def import_groups(args, project, groups, manifest_path):
 
 def verify(args, project, manifest, manifest_path, output=None):
     for source in manifest["targets"]:
-        version = target_profiles.load(source["target"])["ipsw"]["version"]
+        version = load_profile(source["target"])["ipsw"]["version"]
         specs = [
             spec
             for spec in manifest["programs"]
@@ -285,9 +281,8 @@ def parse_args():
     )
     for name, help_text in {
         "ipsw": "Supported IPSW archive; selects the target automatically",
-        "nor": "Original 1 MiB NOR backup from the matching device",
+        "aupd": "Decrypted 2.0.5 AUPD body",
         "osos": "Decrypted OSOS IMG1 or plaintext body, including AES padding",
-        "apple-loader": "Decrypted Apple loader; required when the NOR loader is encrypted",
     }.items():
         parser.add_argument("--" + name, type=Path, help=help_text)
     return parser, parser.parse_args()

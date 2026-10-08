@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/* Shared native EQ layout in OSOS 2.0.1 and 2.0.4. */
+/* Shared native three-band EQ layout. */
 enum {
     OSOS_EQ_STATE_BYTES = 0xb8,
     OSOS_EQ_RATE_OFFSET = 4,

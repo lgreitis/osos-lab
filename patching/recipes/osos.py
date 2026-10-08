@@ -6,7 +6,6 @@ import struct
 from dataclasses import dataclass
 
 from .. import declarations, ui
-from ..compatibility import payload_shim
 from ..declarations import Copy, Kind
 from ..symbols import require
 from ..toolchain import compile_payload
@@ -39,9 +38,7 @@ def arm_call(address, destination):
 def load_target(target_path):
     target = json.loads(target_path.read_text())
     fingerprint = target["inputs"]["osos.bin"]
-    metadata = json.loads(
-        target_path.with_name(target_path.stem + "-ui.json").read_text()
-    )
+    metadata = json.loads(target_path.with_name("ui.json").read_text())
     if metadata["schema"] != 1 or metadata["input"] != fingerprint:
         raise ValueError("UI metadata does not match the selected OSOS target")
     return fingerprint, metadata["resources"]
@@ -60,17 +57,26 @@ def build_recipe(
     source, directory, target_path, prefix, jobs, revision, version="0.0.0-dev"
 ):
     fingerprint, templates = load_target(target_path)
-    shim = payload_shim(source, target_path)
-    bindings = json.loads((shim / "ui.json").read_text())["bindings"]
+    native = source / "native"
+    bindings = json.loads((native / "ui.json").read_text())["bindings"]
     generated_ui = ui.generate(
         ui.Resources(templates, bindings),
-        [*sorted(source.glob("*.ui")), *sorted(shim.glob("*.ui"))],
+        [
+            source / name
+            for name in (
+                "cfw_info.ui",
+                "custom_eq.ui",
+                "play_next.ui",
+                "song_info.ui",
+                "album_artists.ui",
+            )
+        ],
         directory,
         revision,
         version,
     )
     units = payload_units(source, generated_ui)
-    units.append((str(shim.parent / "patches.c"), []))
+    units.append((str(source / "patches/patches.c"), []))
     code, symbols = compile_payload(
         directory,
         source,
@@ -79,7 +85,7 @@ def build_recipe(
         "payload",
         prefix,
         jobs,
-        includes=(shim,),
+        includes=(native, source / "patches"),
         thumb_symbols=True,
     )
     patches = declarations.collect(directory, units, prefix)

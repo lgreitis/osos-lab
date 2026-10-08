@@ -2,7 +2,7 @@
 //! Assemble disk firmware and the dual-boot installer from local Apple inputs.
 
 use crate::{invalid, read_file, sha256, write_directory, Result, VerifiedBundle};
-use reprise_device::{targets, SysCfg};
+use reprise_device::{firmware, SysCfg};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
@@ -54,24 +54,23 @@ pub fn assemble_local_companion(
         return Err(invalid("Expected a full 1 MiB NOR backup"));
     }
     let syscfg = SysCfg::parse(nor).map_err(|e| invalid(e.to_string()))?;
-    let identity = syscfg.identity().map_err(|e| invalid(e.to_string()))?;
-    let target = targets::for_identity(
-        &identity.model,
-        identity.hardware_version,
-        &identity.recorded_firmware,
-    )
-    .ok_or_else(|| invalid("NOR SysCfg is not a supported companion target"))?;
     let recipe = Recipe::parse(recipe)?;
+    validate_companion_inputs(&recipe)?;
+    personalize_companion(assemble_local_recipe(&recipe, data, directory)?, &syscfg)
+}
+
+fn validate_companion_inputs(recipe: &Recipe) -> Result<()> {
+    let target = firmware::current();
     for (name, fingerprint) in &recipe.inputs {
         let (_, filename) = INPUT_FILES.iter().find(|(key, _)| *key == name).unwrap();
         let expected = &target.inputs[*filename];
         if fingerprint.bytes != expected.bytes || fingerprint.sha256 != expected.sha256 {
             return Err(invalid(
-                "Companion recipe and NOR belong to different targets",
+                "Companion recipe does not use the pinned Apple firmware",
             ));
         }
     }
-    personalize_companion(assemble_local_recipe(&recipe, data, directory)?, &syscfg)
+    Ok(())
 }
 
 /// Local, decrypted Apple images used by the assembly recipes.
@@ -134,16 +133,17 @@ pub fn assemble_companion(
 ) -> Result<Vec<u8>> {
     let identity = syscfg.identity().map_err(|e| invalid(e.to_string()))?;
     let target = &bundle.manifest().compatibility;
-    if !target.models.contains(&identity.model)
-        || target.hardware_version != identity.hardware_version
-        || target.apple_firmware != identity.recorded_firmware
-    {
+    if !target.matches_hardware(identity.hardware_version) {
         return Err(invalid("SysCfg is incompatible with this companion"));
     }
+    validate_companion_inputs(&Recipe::parse(bundle.file("companion", "recipe")?)?)?;
     personalize_companion(assemble_component(bundle, "companion", inputs)?, syscfg)
 }
 
 fn personalize_companion(mut image: Vec<u8>, syscfg: &SysCfg) -> Result<Vec<u8>> {
+    let identity = syscfg.identity().map_err(|e| invalid(e.to_string()))?;
+    let profile = firmware::for_hardware(identity.hardware_version)
+        .ok_or_else(|| invalid("Unsupported Classic hardware"))?;
     if image.len() != 0x2b800
         || image[SYSINFO_OFFSET..SYSINFO_OFFSET + SYSINFO_BYTES]
             .iter()
@@ -154,6 +154,10 @@ fn personalize_companion(mut image: Vec<u8>, syscfg: &SysCfg) -> Result<Vec<u8>>
         ));
     }
     image[SYSINFO_OFFSET..SYSINFO_OFFSET + SYSINFO_BYTES].copy_from_slice(&sysinfo(syscfg)?);
+    image[SYSINFO_OFFSET + 0x84..SYSINFO_OFFSET + 0x88]
+        .copy_from_slice(&profile.sysinfo_hardware_version.to_le_bytes());
+    image[SYSINFO_OFFSET + 0x11c..SYSINFO_OFFSET + 0x120]
+        .copy_from_slice(&profile.sysinfo_loader_version.to_le_bytes());
     Ok(image)
 }
 
@@ -178,7 +182,6 @@ fn sysinfo(cfg: &SysCfg) -> Result<[u8; SYSINFO_BYTES]> {
         (0xf0, 0x100000),
         (0xf4, 0x24000000),
         (0x118, 0x7672736e),
-        (0x11c, 0x01708004),
     ] {
         result[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
     }

@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import target_profiles
+import firmware
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -70,12 +70,12 @@ def export(spec, base, output):
         )
 
 
-def helper_spec(directory, version, minimum, target=target_profiles.DEFAULT_TARGET):
+def helper_spec(directory, version, minimum):
     return {
         "purpose": "development",
         "version": version,
         "minimum_installer_version": minimum,
-        "compatibility": target_profiles.load(target)["compatibility"],
+        "compatibility": firmware.load()["compatibility"],
         "components": {
             "usb_helper": {
                 "format": "reprise-upload-v3",
@@ -110,34 +110,25 @@ def main():
     source.add_argument(
         "--pack", type=Path, help="Package an exported directory as a ZIP"
     )
-    parser.add_argument(
-        "--target",
-        default=target_profiles.DEFAULT_TARGET,
-        help="Target profile for --helper",
-    )
     parser.add_argument("--version", help="Required with --helper")
-    parser.add_argument("--minimum-installer-version", default="0.1.0")
+    parser.add_argument("--minimum-installer-version", default="0.2.0")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     try:
-        if not args.helper and args.target != target_profiles.DEFAULT_TARGET:
-            parser.error(
-                "--target requires --helper; other sources carry their own compatibility"
-            )
         if args.helper:
             if not args.version:
                 parser.error("--helper requires --version")
             spec = helper_spec(
-                args.helper, args.version, args.minimum_installer_version, args.target
+                args.helper, args.version, args.minimum_installer_version
             )
             base = Path.cwd()
         elif args.spec:
-            if args.version or args.minimum_installer_version != "0.1.0":
+            if args.version or args.minimum_installer_version != "0.2.0":
                 parser.error("Version options belong in the specification with --spec")
             spec = json.loads(read(args.spec, 256 * 1024))
             base = args.spec.resolve().parent
         else:
-            if args.version or args.minimum_installer_version != "0.1.0":
+            if args.version or args.minimum_installer_version != "0.2.0":
                 parser.error(
                     "Version options belong in the exported manifest with --pack"
                 )

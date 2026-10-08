@@ -1,0 +1,133 @@
+{
+  "target": "firmware-2.0.5",
+  "ipsw": {
+    "version": "2.0.5"
+  },
+  "inputs": {
+    "osos.bin": {
+      "bytes": 10634496,
+      "sha256": "660eb6ff5f498bb1a75e85f1f9921bf0c753525a8bca9b4fa47ed260e5ad0f1e"
+    },
+    "apple-loader.bin": {
+      "bytes": 129024,
+      "sha256": "d2670f7e5493c4b5ed4b9b6fa2029ce1e519c1927522384469e810fbf408fb5e"
+    }
+  },
+  "analysis": {
+    "startup_constants": {
+      "0x4fa8": 570425344,
+      "0x4fac": 44952,
+      "0x4fb0": 570470296,
+      "0x4fb4": 22492,
+      "0x4fb8": 0,
+      "0x4fbc": 0,
+      "0x4fc0": 134217728,
+      "0x4fc4": 10584800,
+      "0x4fc8": 144802528,
+      "0x4fcc": 2692,
+      "0x5044": 570470296,
+      "0x5048": 22492,
+      "0x504c": 144802528,
+      "0x5050": 0,
+      "0x5054": 144805220,
+      "0x5058": 1188940
+    },
+    "osos_regions": [
+      {
+        "name": ".dram",
+        "address": 134217728,
+        "size": 10584800,
+        "source": 47000,
+        "flags": 7
+      },
+      {
+        "name": ".dram.data",
+        "address": 144802528,
+        "size": 2692,
+        "source": 10631800,
+        "flags": 6
+      },
+      {
+        "name": ".dram.bss",
+        "address": 144805220,
+        "size": 1188940,
+        "source": null,
+        "flags": 6
+      },
+      {
+        "name": ".iram",
+        "address": 570425344,
+        "size": 44952,
+        "source": 2048,
+        "flags": 7
+      },
+      {
+        "name": ".iram.bss",
+        "address": 570470296,
+        "size": 22492,
+        "source": null,
+        "flags": 6
+      }
+    ],
+    "nor_handoff_offset": 128956,
+    "osos_verify_functions": [
+      570425344,
+      570443520,
+      570443784,
+      134217772,
+      135115820,
+      137048804,
+      137050692,
+      137750836,
+      137758240,
+      137758312,
+      137927096
+    ],
+    "osos_entry_points": [
+      {
+        "address": 570425344,
+        "thumb": false
+      },
+      {
+        "address": 570443520,
+        "thumb": false
+      },
+      {
+        "address": 570443784,
+        "thumb": false
+      },
+      {
+        "address": 134217772,
+        "thumb": false
+      },
+      {
+        "address": 135115820,
+        "thumb": false
+      },
+      {
+        "address": 137048804,
+        "thumb": false
+      },
+      {
+        "address": 137050692,
+        "thumb": false
+      },
+      {
+        "address": 137750836,
+        "thumb": false
+      },
+      {
+        "address": 137758240,
+        "thumb": false
+      },
+      {
+        "address": 137758312,
+        "thumb": false
+      },
+      {
+        "address": 137927096,
+        "thumb": false
+      }
+    ]
+  }
+}

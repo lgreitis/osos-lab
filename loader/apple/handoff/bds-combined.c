@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "layout.h"
-#include "compat/nor/bds.h"
-#include "compat/nor/dxe.h"
-#include "compat/osos/handoff.h"
+#include "nor/bds.h"
+#include "nor/dxe.h"
+#include "handoff/osos.h"
 
 #define HEADER ((unsigned char *)0x22036000u)
 #define SYSINFO ((unsigned char *)0x22034000u)

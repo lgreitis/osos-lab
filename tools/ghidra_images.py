@@ -4,7 +4,7 @@
 import hashlib
 import struct
 
-from target_profiles import verify
+from firmware import verify
 
 
 def sha(data):

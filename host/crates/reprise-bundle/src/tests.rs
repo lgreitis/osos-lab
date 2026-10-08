@@ -15,9 +15,9 @@ impl Fixture {
         let image_hash = sha256(image);
         let descriptor_hash = sha256(descriptor);
         let manifest = serde_json::json!({
-            "schema": 1, "purpose": "development", "version": "0.1.0",
+            "schema": 2, "purpose": "development", "version": "0.1.0",
             "minimum_installer_version": "0.1.0",
-            "compatibility": reprise_device::targets::find("classic7g-2.0.4").unwrap().compatibility,
+            "compatibility": reprise_device::firmware::current().compatibility,
             "components": {"usb_helper": {"format": "reprise-upload-v3", "files": {"image": image_hash, "descriptor": descriptor_hash}}},
             "assets": {image_hash.clone(): {"bytes": image.len()}, descriptor_hash.clone(): {"bytes": descriptor.len()}}
         });
@@ -49,18 +49,10 @@ fn signature_and_device_compatibility() {
     let f = Fixture::new();
     let b = f.load().unwrap();
     let c = &b.manifest().compatibility;
-    assert!(b
-        .require_device("MC293", c.hardware_version, "2.0.4", &c.bootrom_sha256)
-        .is_ok());
-    assert!(b
-        .require_device("MC999", c.hardware_version, "2.0.4", &c.bootrom_sha256)
-        .is_err());
-    assert!(b
-        .require_device("MC293", 0, "2.0.4", &c.bootrom_sha256)
-        .is_err());
-    assert!(b
-        .require_device("MC293", c.hardware_version, "2.0.1", &c.bootrom_sha256)
-        .is_err());
+    assert!(b.require_device(0x00130200, &c.bootrom_sha256).is_ok());
+    assert!(b.require_device(0x12340000, &c.bootrom_sha256).is_err());
+    assert!(b.require_device(0, &c.bootrom_sha256).is_err());
+    assert!(b.require_device(0x00130200, &c.bootrom_sha256).is_ok());
     assert!(b.file("nor", "image").is_err());
     let wrong = SigningKey::from_bytes(&[4; 32]);
     let key = TrustedKey::from_hex(&hex(&wrong.verifying_key().to_bytes())).unwrap();
@@ -110,7 +102,7 @@ fn manifest_contract_rejects_incomplete_releases_paths_unknown_formats_and_limit
     bad.assets.insert("0".repeat(64), Asset { bytes: 1 });
     assert!(bad.validate("0.1.0").is_err());
     let mut bad = original.clone();
-    bad.compatibility.models = vec!["MC293".into(), "MC293".into()];
+    bad.compatibility.hardware_versions = vec![0x00130200, 0x00130200];
     assert!(bad.validate("0.1.0").is_err());
 }
 
@@ -127,7 +119,7 @@ fn future_packages_explain_installer_requirements() {
     assert!(manifest.validate("0.2.0").is_ok());
     assert!(manifest.validate("0.2.1").is_ok());
 
-    manifest.schema = 2;
+    manifest.schema = 3;
     assert_eq!(
         manifest.validate("0.1.2").unwrap_err().to_string(),
         expected
@@ -146,6 +138,8 @@ fn python_export_loads_as_directory_and_zip() {
     let out = tmp.path().join("bundle");
     let result = std::process::Command::new("python3")
         .arg(&tool)
+        .arg("--minimum-installer-version")
+        .arg("0.1.0")
         .arg("--helper")
         .arg(&fixture)
         .args(["--version", "0.1.0-dev.1+local.01", "--out"])

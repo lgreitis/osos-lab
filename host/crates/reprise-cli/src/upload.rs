@@ -112,9 +112,7 @@ pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
     if let Some(bundle) = bundle {
         let identity = checks.identity.as_ref().ok_or("Missing checked identity")?;
         bundle.require_device(
-            &identity.model,
             identity.hardware_version,
-            &identity.recorded_firmware,
             checks
                 .bootrom_sha256
                 .as_deref()

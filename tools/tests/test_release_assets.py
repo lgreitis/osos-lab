@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Signed multi-target release layout and incomplete-release rejection."""
+"""Signed Classic release layout and incomplete-release rejection."""
 
 import hashlib
 import json
@@ -26,9 +26,9 @@ class ReleaseAssetsTests(unittest.TestCase):
         self.seed.write_text("17" * 32)
         # Recipes are opaque to collection; assembly has separate integration tests.
         (self.root / "component").write_bytes(b"test component")
-        for target in release.RELEASE_TARGETS:
+        for target in ("classic",):
             spec = bundle.helper_spec(
-                release.ROOT / "usb-helper/tests/fixtures", "0.1.0", "0.1.0", target
+                release.ROOT / "usb-helper/tests/fixtures", "0.1.0", "0.1.0"
             )
             spec["purpose"] = "release"
             for name, format_name, fields in (
@@ -55,10 +55,10 @@ class ReleaseAssetsTests(unittest.TestCase):
             self.directory, self.output, self.reprise, self.seed, self.key, version
         )
 
-    def test_signed_targets_share_blobs_and_zip_manifests_match(self):
+    def test_signed_release_blobs_and_zip_manifest_match(self):
         self.collect()
         hashes = set()
-        for target in release.RELEASE_TARGETS:
+        for target in ("classic",):
             raw = (self.output / f"{target}-manifest.json").read_bytes()
             manifest = json.loads(raw)
             self.assertEqual(manifest["compatibility"]["target"], target)
@@ -90,7 +90,7 @@ class ReleaseAssetsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "identity mismatch"):
             self.collect("0.2.0")
         self.assertFalse(self.output.exists())
-        package = self.directory / release.RELEASE_TARGETS[-1] / "package"
+        package = self.directory / ("classic",)[-1] / "package"
         (package / "manifest.json").unlink()
         with self.assertRaises(ValueError):
             self.collect()

@@ -28,25 +28,24 @@ class ExportTests(unittest.TestCase):
             ROOT / "usb-helper/tests/fixtures", "0.1.0-dev.1", "0.1.0"
         )
 
-    def test_rev_a_models_are_carried_into_the_bundle(self):
+    def test_classic_hardware_is_carried_into_the_bundle(self):
         self.spec = bundle.helper_spec(
             ROOT / "usb-helper/tests/fixtures",
             "0.1.0-dev.1",
             "0.1.0",
-            "classic6g-reva-2.0.1",
         )
         target = self.spec["compatibility"]
-        self.assertEqual(target["models"], ["MB562", "MB565"])
-        self.assertEqual(target["apple_firmware"], "2.0")
+        self.assertEqual(
+            target["hardware_versions"], [0x130000, 0x130100, 0x130200, 0x130300]
+        )
         manifest = bundle.export(self.spec, self.root, self.root / "mb565")
         self.assertEqual(manifest["compatibility"], target)
         for key, value in [
-            ("models", ["MB565", "MB565"]),
-            ("models", []),
+            ("hardware_versions", [0x130000, 0x130000]),
+            ("hardware_versions", []),
             ("target", "../escape"),
-            ("hardware_version", 0),
+            ("hardware_versions", [0]),
             ("bootrom_sha256", "unknown"),
-            ("apple_firmware", " "),
         ]:
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
                 bundle.export(

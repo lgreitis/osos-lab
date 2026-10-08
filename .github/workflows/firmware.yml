@@ -68,7 +68,7 @@ jobs:
           python -m unittest discover -s tools/tests
           python -m unittest discover -s usb-helper/tests -p '*test.py'
           cargo test --locked --manifest-path host/Cargo.toml -j 8
-      - name: Build all target bundles
+      - name: Build Classic bundle
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}

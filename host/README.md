@@ -5,7 +5,7 @@ See [current hardware support](../README.md).
 
 - `reprise-device`: DFU checks, NOR backups, AES decryption, storage inspection,
   verified file uploads, and bootloader installation.
-- `reprise-bundle`: signed downloads, local ZIP loading, IPSW/NOR preparation,
+- `reprise-bundle`: signed downloads, local ZIP loading, IPSW/AUPD preparation,
   and firmware assembly.
 - `reprise-cli`: command-line access to device and bundle operations.
 
@@ -30,10 +30,11 @@ Build the upload helper with [`usb-helper/build.py`](../usb-helper/build.py).
 `upload` accepts `--helper DIR` or `--bundle DIR --key FILE`; `bundle` provides
 `inspect`, `sign`, `fetch`, and `assemble`. Key files contain hex-encoded keys.
 
-Optional firmware replay tests take `REPRISE_ASSEMBLY_ROOT` (this repo) and
-`REPRISE_TEST_IPSW` (an explicit file path); assembly replay also takes
-`REPRISE_ASSEMBLY_NM`. ZIP replay uses `REPRISE_TEST_PACKAGE` and
-`REPRISE_ASSEMBLY_BUILD`. See the ignored tests for saved BootROM/NOR inputs.
+Offline input replay uses `REPRISE_ASSEMBLY_ROOT` with preserved 2.0.5 inputs.
+ZIP replay additionally takes `REPRISE_TEST_IPSW`, `REPRISE_TEST_PACKAGE`,
+`REPRISE_ASSEMBLY_BUILD`, and optionally `REPRISE_TEST_NOR` for another device.
+Schema 2 bundles target Classic hardware independently of its original Apple
+firmware. OSOS and AUPD come from 2.0.5; NOR supplies the device identity.
 
 GPL-3.0-only; see [COPYING](COPYING). DFU code derives from
 [wInd3x](https://github.com/freemyipod/wInd3x) by Serge “q3k” Bazanski;

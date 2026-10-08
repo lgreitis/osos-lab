@@ -13,9 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import target_profiles
-
-from patching.compatibility import payload_shim
+import firmware as firmware_profile
 from patching.ui import Resources, generate
 from patching.ui.resources import Resource, Template
 
@@ -29,7 +27,7 @@ class Templates(Mapping):
         self.used = {}
         version, data_offset, count = struct.unpack_from("<III", firmware, bank)
         if (version, data_offset, count) != tuple(expected_header):
-            raise ValueError("Resource bank does not match the selected OSOS shim")
+            raise ValueError("Resource bank does not match the pinned OSOS")
         for i in range(count):
             kind, entries, _, table = struct.unpack_from(
                 "<IIII", firmware, bank + 12 + i * 16
@@ -85,15 +83,16 @@ def extract(firmware, sources, shim):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=ROOT / "inputs/osos.bin")
-    parser.add_argument("--firmware-target", default=target_profiles.DEFAULT_TARGET)
+    parser.add_argument(
+        "--input", type=Path, default=ROOT / "inputs/firmware-2.0.5/osos.bin"
+    )
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     firmware = args.input.read_bytes()
-    profile = target_profiles.load(args.firmware_target)
-    target_path = target_profiles.DIRECTORY / f"{profile['target']}.json"
+    profile = firmware_profile.load()
+    target_path = firmware_profile.PROFILE
     fingerprint = profile["inputs"]["osos.bin"]
-    shim_path = payload_shim(ROOT / "payload", target_path)
+    shim_path = ROOT / "payload/native"
     shim = json.loads((shim_path / "ui.json").read_text())
     if fingerprint != {
         "bytes": len(firmware),
@@ -109,7 +108,7 @@ def main():
             shim,
         ),
     }
-    out = args.out or target_path.with_name(target_path.stem + "-ui.json")
+    out = args.out or target_path.with_name("ui.json")
     out.write_text(json.dumps(metadata, indent=2) + "\n")
 
 

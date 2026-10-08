@@ -27,9 +27,8 @@ pub(super) enum Args {
     },
     Prepare {
         ipsw: String,
-        nor: String,
         osos: String,
-        loader: Option<String>,
+        aupd: String,
         out: String,
     },
     DecryptNor {
@@ -50,7 +49,7 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
             "inspect" => &["--ipsw"],
             "extract" => &["--ipsw", "--output"],
             "unpack" => &["--ipsw", "--out"],
-            "prepare" => &["--ipsw", "--nor", "--osos", "--apple-loader", "--out"],
+            "prepare" => &["--ipsw", "--osos", "--aupd", "--out"],
             "decrypt-nor" => &["--input", "--output", "--device"],
             _ => return Err(
                 "Expected firmware inspect, extract, unpack, extract-efi, prepare or decrypt-nor"
@@ -82,9 +81,8 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
         },
         "prepare" => Args::Prepare {
             ipsw: required("--ipsw")?,
-            nor: required("--nor")?,
             osos: required("--osos")?,
-            loader: values.get("--apple-loader").cloned(),
+            aupd: required("--aupd")?,
             out: required("--out")?,
         },
         "decrypt-nor" => Args::DecryptNor {
@@ -154,23 +152,19 @@ pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
         }
         Args::Prepare {
             ipsw,
-            nor,
             osos,
-            loader,
+            aupd,
             out,
         } => {
             let ipsw = Ipsw::load(Path::new(&ipsw))?;
-            let nor = read_bounded(nor, 0x100000)?;
             let osos = read_bounded(osos, ipsw.encrypted_osos().len())?;
             let osos = if osos.len() == ipsw.ciphertext().len() {
                 ipsw.wrap_plaintext(&osos)?
             } else {
                 osos
             };
-            let loader = loader
-                .map(|p| read_bounded(p, reprise_device::APPLE_LOADER_BYTES))
-                .transpose()?;
-            let prepared = PreparedInputs::from_plaintext(&ipsw, &nor, &osos, loader.as_deref())?;
+            let aupd = read_bounded(aupd, 0x200000)?;
+            let prepared = PreparedInputs::from_plaintext(&ipsw, &osos, &aupd)?;
             prepared.write(Path::new(&out))?;
             serde_json::json!({
                 "directory": out,

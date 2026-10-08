@@ -94,28 +94,23 @@ mod tests {
 
         let manifest_path = fixture.dir.path().join(MANIFEST_FILE);
         let mut manifest = bundle.manifest().clone();
-        manifest.compatibility = reprise_device::targets::find("classic6g-reva-2.0.1")
-            .unwrap()
-            .compatibility
-            .clone();
+        manifest.compatibility = reprise_device::firmware::current().compatibility.clone();
         fs::write(manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
         pack(&fixture, &path);
         let mb565 = VerifiedBundle::load_local_zip(&path, "0.1.0").unwrap();
         let target = &mb565.manifest().compatibility;
-        let hw = target.hardware_version;
+        let hw = 0x00130100;
         let rom = target.bootrom_sha256.as_str();
         for (model, hardware, firmware, hash, accepted) in [
             ("MB562", hw, "2.0", rom, true),
             ("MB565", hw, "2.0", rom, true),
-            ("MC293", hw, "2.0", rom, false),
-            ("MB565", hw, "2.0.4", rom, false),
+            ("PC293", 0x00130200, "2.0", rom, true),
+            ("MB565", hw, "2.0.4", rom, true),
             ("MB565", 0, "2.0", rom, false),
             ("MB565", hw, "2.0", "wrong-rom", false),
         ] {
             assert_eq!(
-                mb565
-                    .require_device(model, hardware, firmware, hash)
-                    .is_ok(),
+                mb565.require_device(hardware, hash).is_ok(),
                 accepted,
                 "{model} / {hardware:#x} / {firmware} / {hash}"
             );

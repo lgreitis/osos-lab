@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn named_manifest_uses_its_own_signature_and_checks_target() {
         let fixture = Fixture::new();
-        for target in ["classic7g-2.0.4", "classic6g-reva-2.0.1"] {
+        for target in ["classic", "unsupported"] {
             let name = format!("{target}-manifest.json");
             let url = manifest_url_checked(&format!("https://example.org/v1/{name}")).unwrap();
             let cache = tempfile::tempdir().unwrap();
@@ -217,13 +217,12 @@ mod tests {
                 },
             );
             assert_eq!(&requested[..2], &[name.clone(), format!("{name}.sig")]);
-            if target == "classic7g-2.0.4" {
+            if target == "classic" {
                 let (path, bundle) = result.unwrap();
                 VerifiedBundle::load(&path, &fixture.key, "0.1.0").unwrap();
-                let wrong_url = manifest_url_checked(
-                    "https://example.org/v1/classic6g-reva-2.0.1-manifest.json",
-                )
-                .unwrap();
+                let wrong_url =
+                    manifest_url_checked("https://example.org/v1/unsupported-manifest.json")
+                        .unwrap();
                 assert!(fetch_with(
                     &wrong_url,
                     Some(bundle.digest()),

@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include "map-check.h"
-#include "compat/nor/startup.h"
+#include "nor/startup.h"
 #define RECORD ((volatile uint32_t *)0x2203c000u)
 #define MAP ((unsigned char *)0x22030000u)
 extern void probe_finish(uint32_t status) __attribute__((noreturn));

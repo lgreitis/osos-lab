@@ -1,0 +1,75 @@
+{
+  "target": "classic6g-reva-2.0.1",
+  "ipsw": {
+    "version": "2.0.1"
+  },
+  "inputs": {
+    "osos.bin": {
+      "bytes": 10513984,
+      "sha256": "220913cb8569af0538a7e828f1aaa08d9313bf9a5c2b0a7a7e6e2dc0bee5f16e"
+    },
+    "apple-loader.bin": {
+      "bytes": 129024,
+      "sha256": "8d028296d20d7162eb109d062239ba510fe842510e006178040caacbabead1b8"
+    }
+  },
+  "analysis": {
+    "startup_constants": {
+      "0x4f58": 570425344,
+      "0x4f5c": 44636,
+      "0x4f60": 570469980,
+      "0x4f64": 22808,
+      "0x4f70": 134217728,
+      "0x4f74": 10464592,
+      "0x4f78": 144682320,
+      "0x4f7c": 2692,
+      "0x5004": 144685012,
+      "0x5008": 1205852
+    },
+    "osos_regions": [
+      {
+        "name": ".dram",
+        "address": 134217728,
+        "size": 10464592,
+        "source": 46684,
+        "flags": 7
+      },
+      {
+        "name": ".dram.data",
+        "address": 144682320,
+        "size": 2692,
+        "source": 10511276,
+        "flags": 6
+      },
+      {
+        "name": ".dram.bss",
+        "address": 144685012,
+        "size": 1205852,
+        "source": null,
+        "flags": 6
+      },
+      {
+        "name": ".iram",
+        "address": 570425344,
+        "size": 44636,
+        "source": 2048,
+        "flags": 7
+      },
+      {
+        "name": ".iram.bss",
+        "address": 570469980,
+        "size": 22808,
+        "source": null,
+        "flags": 6
+      }
+    ],
+    "nor_handoff_offset": 128956,
+    "osos_verify_functions": [
+      570425344,
+      570460232,
+      570443440,
+      570443704,
+      137688932
+    ]
+  }
+}

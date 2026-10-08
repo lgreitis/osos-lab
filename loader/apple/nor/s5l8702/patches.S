@@ -3,7 +3,7 @@
 .syntax unified
 .cpu arm926ej-s
 #include "common/recipe.inc"
-#include <nor-target.h>
+#include "nor/bindings.h"
 
 native_thumb_call apple_loader, APPLE_DXE_CALL_PATCH, before_dxe, 0x01, 0xf0, 0x3c, 0xe8
 

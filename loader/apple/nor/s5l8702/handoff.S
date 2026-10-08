@@ -3,7 +3,7 @@
 .syntax unified
 .cpu arm926ej-s
 #include "common/recipe.inc"
-#include <nor-target.h>
+#include "nor/bindings.h"
 #include "layout.h"
 .section .text.entry,"ax",%progbits
 .thumb

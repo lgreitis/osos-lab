@@ -10,7 +10,6 @@ import tempfile
 from pathlib import Path
 
 import bundle
-import target_profiles
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -45,12 +44,10 @@ def nor_descriptor(build_dir, image):
     }
 
 
-def export(
-    build_dir, helper, version, minimum, out, target=target_profiles.DEFAULT_TARGET
-):
+def export(build_dir, helper, version, minimum, out):
     nor = bundle.read(build_dir / "install-rockbox-cfw.dfu", 0x20000)
     nor_spec = nor_descriptor(build_dir, nor)
-    spec = bundle.helper_spec(helper, version, minimum, target)
+    spec = bundle.helper_spec(helper, version, minimum)
     spec["purpose"] = "release"
     with tempfile.TemporaryDirectory(prefix="reprise-recipes-") as temporary:
         directory = Path(temporary)
@@ -79,9 +76,8 @@ def main():
     parser.add_argument("--build", type=Path, default=ROOT / "build")
     parser.add_argument("--helper", type=Path, required=True)
     parser.add_argument("--version", required=True)
-    parser.add_argument("--minimum-installer-version", default="0.1.0")
+    parser.add_argument("--minimum-installer-version", default="0.2.0")
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--target", default=target_profiles.DEFAULT_TARGET)
     args = parser.parse_args()
     export(
         args.build,
@@ -89,7 +85,6 @@ def main():
         args.version,
         args.minimum_installer_version,
         args.out,
-        args.target,
     )
     print(f"Exported firmware bundle: {args.out}")
 

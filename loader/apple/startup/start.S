@@ -3,8 +3,8 @@
 .syntax unified
 .cpu arm926ej-s
 #include "common/recipe.inc"
-#include <nor-target.h>
-#include "compat/nor/s5l8702/layout.h"
+#include "nor/bindings.h"
+#include "nor/s5l8702/layout.h"
 .arm
 .section .text.entry,"ax",%progbits
 .equ RESULT, 0x2203c000

@@ -34,7 +34,7 @@ sequenceDiagram
         Apple->>Apple: Initialize hardware and dispatch DXE drivers
         Apple->>Companion: Intercept handoff before normal boot selection
         Companion->>Companion: Present staged OSOS as a RAM-backed file to Bds
-        Companion->>Companion: Load OSOS and copy the 1 MiB payload into place
+        Companion->>Companion: Load OSOS and copy the 960 KiB payload reservation into place
         Companion->>OS: Enter OSOS with Apple's boot context
         OS->>OS: Native code calls CFW through patched hooks
     end

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Build the Classic Rev B streaming upload helper."""
+"""Build the Classic streaming upload helper."""
 
 import argparse
 import hashlib
@@ -16,11 +16,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "tools"))
 
-import target_profiles  # noqa: E402
-
+import firmware  # noqa: E402
 from build import compiler_prefix  # noqa: E402
 
-ROM_SHA = target_profiles.load()["compatibility"]["bootrom_sha256"]
+ROM_SHA = firmware.load()["compatibility"]["bootrom_sha256"]
 NONCE = b"REPRISE-NONCE-01"
 COLD_TAG = b"\xfe\xff\xff\xeaREPRISE-ROM\0"
 
@@ -70,7 +69,7 @@ def main():
     out.mkdir(parents=True, exist_ok=False)
     prefix = compiler_prefix(
         str(args.toolchain.resolve() / "arm-elf-eabi-"),
-        target_profiles.load()["toolchain"]["gcc"],
+        firmware.load()["toolchain"]["gcc"],
     )
     blob, cold_offset = build_return(out, prefix)
     source = prepare_source(out, args.rockbox.resolve())

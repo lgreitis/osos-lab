@@ -2,7 +2,7 @@
 
 use super::image::{relocate_cold_init, COLD_INIT_SIZE, COLD_INIT_TAG, ROM_END, ROM_START};
 use super::*;
-use crate::targets;
+use crate::firmware;
 use std::io::Cursor;
 
 fn fixture_helper() -> Result<UploadHelper> {
@@ -231,7 +231,7 @@ fn helper_validation_rejects_old_images_and_invalid_slots() {
     image[0x800..0x810].copy_from_slice(b"REPRISE-NONCE-01");
     image[0x810..0x820].copy_from_slice(b"REPRISE-UPLOAD2\0");
     image[0xa00..0xa10].copy_from_slice(COLD_INIT_TAG);
-    let m = serde_json::json!({"schema":3,"mode":"stream-file","rom_sha256":targets::all()[0].compatibility.bootrom_sha256,
+    let m = serde_json::json!({"schema":3,"mode":"stream-file","rom_sha256":firmware::current().compatibility.bootrom_sha256,
         "bytes":image.len(),"sha256":format!("{:x}",Sha256::digest(&image)),
         "nonce_offset":0x800,"config_offset":0x810,"cold_init_offset":0xa00});
     let helper = UploadHelper::from_bytes(&image, &serde_json::to_vec(&m).unwrap()).unwrap();

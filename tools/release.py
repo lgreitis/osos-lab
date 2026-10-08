@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Build target-specific release bundles without Apple firmware inputs."""
+"""Build the Classic release bundle without Apple firmware inputs."""
 
 import argparse
 import json
@@ -14,13 +14,12 @@ from pathlib import Path
 import bundle
 import export_bundle
 import setup
-import target_profiles
 from version import identity, valid_version
 
 import build
+import firmware
 
 ROOT = build.ROOT
-RELEASE_TARGETS = ("classic6g-reva-2.0.1", "classic7g-2.0.4")
 
 
 def run(*args):
@@ -28,7 +27,7 @@ def run(*args):
 
 
 def publish(output, destination):
-    """Replace only artifacts produced by this release, preserving other targets."""
+    """Replace only artifacts produced by this release, preserving unrelated files."""
     if destination.is_symlink():
         raise ValueError("Output directory must not be a symlink")
     destination.mkdir(parents=True, exist_ok=True)
@@ -63,7 +62,7 @@ def publish(output, destination):
             raise
 
 
-def build_target(config, output, rockbox, info, minimum):
+def build_package(config, output, rockbox, info, minimum):
     output.mkdir()
     build.build_osos(config, output, None, recipe_only=True, info=info)
     build.build_apple(config, output, None, recipe_only=True)
@@ -90,7 +89,6 @@ def build_target(config, output, rockbox, info, minimum):
         info["version"],
         minimum,
         output / "package",
-        config.target["target"],
     )
     bundle.pack(output / "package", output / "repriseos.zip")
 
@@ -120,26 +118,14 @@ def main():
         "--cross-prefix", default=os.environ.get("CROSS_COMPILE", "arm-elf-eabi-")
     )
     parser.add_argument("--jobs", type=int, choices=range(1, 9), default=8)
-    parser.add_argument(
-        "--firmware-target",
-        choices=RELEASE_TARGETS,
-        help="Build only this target; the default builds all release targets",
-    )
-    parser.add_argument("--minimum-installer-version", default="0.1.1")
+    parser.add_argument("--minimum-installer-version", default="0.2.0")
     parser.add_argument("--out", type=Path, default=ROOT / "build/releases")
     args = parser.parse_args()
     if not valid_version(args.minimum_installer_version):
         parser.error("Minimum installer version must be SemVer")
     info = identity(ROOT, args.tag)
-    targets = [
-        target_profiles.load(name)
-        for name in (
-            (args.firmware_target,) if args.firmware_target else RELEASE_TARGETS
-        )
-    ]
-    prefixes = [
-        build.compiler_prefix(args.cross_prefix, t["toolchain"]["gcc"]) for t in targets
-    ]
+    target = firmware.load()
+    prefix = build.compiler_prefix(args.cross_prefix, target["toolchain"]["gcc"])
     dependencies = json.loads((ROOT / "dependencies.lock").read_text())
     rockbox = setup.verify("rockbox", dependencies["rockbox"])
     work = ROOT / ".build"
@@ -148,25 +134,17 @@ def main():
         staging = Path(temporary)
         output = staging / "output"
         output.mkdir()
-        for target, prefix in zip(targets, prefixes, strict=True):
-            name = target["target"]
-            config = build.BuildConfig(
-                target_profiles.DIRECTORY / f"{name}.json",
-                staging / name,
-                prefix,
-                args.jobs,
-            )
-            build_target(
-                config, output / name, rockbox, info, args.minimum_installer_version
-            )
+        config = build.BuildConfig(
+            firmware.PROFILE, staging / "compile", prefix, args.jobs
+        )
+        build_package(
+            config, output / "classic", rockbox, info, args.minimum_installer_version
+        )
         if args.tag:
             archive_sources(output, args.tag, rockbox, dependencies)
         destination = args.out.absolute()
         publish(output, destination)
-    for target in targets:
-        print(
-            f"Built {info['version']}: {destination / target['target'] / 'repriseos.zip'}"
-        )
+    print(f"Built {info['version']}: {destination / 'classic' / 'repriseos.zip'}")
 
 
 if __name__ == "__main__":

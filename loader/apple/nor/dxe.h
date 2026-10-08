@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 #include "s5l8702/layout.h"
-#include <nor-target.h>
+#include "nor/bindings.h"
 
 static inline uint32_t apple_dxe_base(uint32_t entry)
 {

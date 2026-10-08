@@ -3,11 +3,25 @@
 
 import argparse
 import json
+import re
 import subprocess
 from pathlib import Path
 
-import target_profiles
 from ghidra_images import elf, osos_regions, pe_regions, region, sha
+
+import firmware
+
+
+def load_profile(name):
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", name):
+        raise ValueError("Invalid analysis target name")
+    path = Path(__file__).resolve().parents[1] / "ghidra/profiles" / f"{name}.json"
+    if not path.exists():
+        raise ValueError(f"Unknown analysis profile: {name}")
+    profile = json.loads(path.read_text())
+    if profile["target"] != name:
+        raise ValueError("Analysis profile identity mismatch")
+    return profile
 
 
 def write_program(out, path, regions, entry, provenance):
@@ -34,14 +48,12 @@ def write_program(out, path, regions, entry, provenance):
 
 
 def prepare(inputs, out, reprise, manifest=None, profile=None):
-    profile = profile or target_profiles.load()
+    profile = profile or load_profile("firmware-2.0.5")
     version = profile["ipsw"]["version"]
     if out.exists():
         raise ValueError(f"Preparation output already exists: {out}")
     loader = (inputs / "apple-loader.bin").read_bytes()
-    target_profiles.verify(
-        loader, profile["inputs"]["apple-loader.bin"], "apple-loader.bin"
-    )
+    firmware.verify(loader, profile["inputs"]["apple-loader.bin"], "apple-loader.bin")
     # Validate the OSOS layout before creating any output.
     osos_regions((inputs / "osos.bin").read_bytes(), profile)
     out.mkdir(parents=True)
@@ -93,13 +105,16 @@ def prepare(inputs, out, reprise, manifest=None, profile=None):
 def prepare_osos(inputs, out, profile):
     osos = (inputs / "osos.bin").read_bytes()
     regions = osos_regions(osos, profile)
-    return write_program(
+    spec = write_program(
         out,
         f"{profile['ipsw']['version']}/osos.elf",
         regions,
         0x22000000,
         {"input": "osos.bin", "sha256": sha(osos)},
     ) | {"verify_functions": profile["analysis"]["osos_verify_functions"]}
+    if "osos_entry_points" in profile["analysis"]:
+        spec["entry_points"] = profile["analysis"]["osos_entry_points"]
+    return spec
 
 
 def prepare_module(out, module, version):
@@ -160,16 +175,14 @@ def prepare_boot(out, loader, modules, profile):
 def main():
     root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", default=target_profiles.DEFAULT_TARGET)
+    parser.add_argument("--target", default="firmware-2.0.5")
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument(
         "--reprise", type=Path, default=root / "host/target/release/reprise"
     )
     args = parser.parse_args()
-    prepare(
-        args.inputs, args.out, args.reprise, profile=target_profiles.load(args.target)
-    )
+    prepare(args.inputs, args.out, args.reprise, profile=load_profile(args.target))
 
 
 if __name__ == "__main__":
