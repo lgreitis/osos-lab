@@ -41,8 +41,10 @@ def menu(rows):
 
 class UiTests(unittest.TestCase):
     def test_album_artists_reuses_native_routes_and_adds_a_music_row(self):
-        for target, version in (("classic7g-2.0.4", "2.0.4"),
-                                ("classic6g-reva-2.0.1", "2.0.1")):
+        for target, version in (
+            ("classic7g-2.0.4", "2.0.4"),
+            ("classic6g-reva-2.0.1", "2.0.1"),
+        ):
             with self.subTest(version=version):
                 root = Path(__file__).resolve().parents[2]
                 metadata = json.loads((root / f"targets/{target}-ui.json").read_text())
@@ -53,31 +55,39 @@ class UiTests(unittest.TestCase):
                 compiled = compile_document(resources, document)
                 rows = blocks(resources.added["ITEM", bindings["MusicMenu_Items"]])
                 self.assertEqual(len(rows), 13)
-                anchor = next(i for i, (_, row) in enumerate(rows)
-                              if word(row, 0x30) == bindings["MusicMenu_ListItem_Artists"])
+                anchor = next(
+                    i
+                    for i, (_, row) in enumerate(rows)
+                    if word(row, 0x30) == bindings["MusicMenu_ListItem_Artists"]
+                )
                 new_row = rows[anchor + 1][1]
                 item = word(new_row, 0x30)
                 self.assertNotEqual(item, bindings["MusicMenu_ListItem_Artists"])
                 self.assertEqual(word(new_row, 0x60), 5)
-                self.assertEqual(word(new_row, 0x64) & 0xff, 1)
+                self.assertEqual(word(new_row, 0x64) & 0xFF, 1)
                 events = resources.added["CEVT", bindings["MainMenus_Music_Screen"]]
                 self.assertIn(f"list.pid.{item}.chosen".encode(), events.data)
                 self.assertIn(b"CFW_AlbumArtists", events.data)
                 self.assertIn(b"HandleMusicHilited", events.data)
                 main_rows = blocks(resources.added["ITEM", bindings["MainMenu_Items"]])
-                main_anchor = next(i for i, (_, row) in enumerate(main_rows)
-                                   if word(row, 0x30) == bindings["MainMenu_List_Artists"])
+                main_anchor = next(
+                    i
+                    for i, (_, row) in enumerate(main_rows)
+                    if word(row, 0x30) == bindings["MainMenu_List_Artists"]
+                )
                 main_row = main_rows[main_anchor + 1][1]
                 main_item = compiled.string_ids["CFW_AlbumArtists_MainItem"]
                 self.assertEqual(word(main_row, 0x30), main_item)
                 self.assertNotEqual(main_item, item)
-                self.assertEqual(word(main_row, 0x64) & 0xff, 0)
+                self.assertEqual(word(main_row, 0x64) & 0xFF, 0)
                 self.assertEqual(word(main_row, 0x68), word(new_row, 0x68))
                 main_events = resources.added["CEVT", bindings["MainMenus_Main_Screen"]]
                 self.assertIn(f"list.pid.{main_item}.chosen".encode(), main_events.data)
                 self.assertIn(b"CFW_AlbumArtists", main_events.data)
-                for table, inserted in (("MainMenu_Items", main_anchor + 1),
-                                        ("MusicMenu_Items", anchor + 1)):
+                for table, inserted in (
+                    ("MainMenu_Items", main_anchor + 1),
+                    ("MusicMenu_Items", anchor + 1),
+                ):
                     stock = blocks(resources.stock("ITEM", table))
                     updated = blocks(resources.added["ITEM", bindings[table]])
                     del updated[inserted]
@@ -90,21 +100,27 @@ class UiTests(unittest.TestCase):
                 layout = compiled.string_ids["CFW_AlbumArtists_Layout"]
                 native_layout = resources.stock("SLst", "MediaLists_Artists_Screen")
                 self.assertEqual(len(blocks(native_layout)), 1)
-                self.assertEqual(word(blocks(resources.added["SLst", screen])[0][1], 0), layout)
+                self.assertEqual(
+                    word(blocks(resources.added["SLst", screen])[0][1], 0), layout
+                )
                 for kind, new_id, original in (
                     ("SCST", screen, "MediaLists_Artists_Screen"),
                     ("CEVT", screen, "MediaLists_Artists_Screen"),
                     ("SEVT", layout, "MediaLists_Artists_Screen_Default"),
                 ):
-                    self.assertEqual(resources.added[kind, new_id].origins,
-                                     resources.stock(kind, original).origins)
+                    self.assertEqual(
+                        resources.added[kind, new_id].origins,
+                        resources.stock(kind, original).origins,
+                    )
                 header = emit_header(document, compiled.string_ids)
                 self.assertIn("#define CFW_AlbumArtists_Screen ", header)
 
     def test_song_info_rows_are_dynamic_text_without_chosen_actions(self):
         root = Path(__file__).resolve().parents[2]
-        for target, version in (("classic7g-2.0.4", "2.0.4"),
-                                ("classic6g-reva-2.0.1", "2.0.1")):
+        for target, version in (
+            ("classic7g-2.0.4", "2.0.4"),
+            ("classic6g-reva-2.0.1", "2.0.1"),
+        ):
             with self.subTest(target=target):
                 metadata = json.loads((root / f"targets/{target}-ui.json").read_text())
                 shim = root / f"payload/compat/osos/{version}"
@@ -114,14 +130,20 @@ class UiTests(unittest.TestCase):
                 compiled = compile_document(resources, document)
                 screen = compiled.string_ids["CFW_SongInfo_Screen"]
                 self.assertEqual(word(resources.added["CEVT", screen], 0), 0)
-                rows = [row for (kind, _), data in resources.added.items()
-                        if kind == "ITEM" for _, row in blocks(data)]
+                rows = [
+                    row
+                    for (kind, _), data in resources.added.items()
+                    if kind == "ITEM"
+                    for _, row in blocks(data)
+                ]
                 self.assertEqual(len(rows), 16)
                 self.assertTrue(all(word(row, 0x60) == 2 for row in rows))
                 for item in document.root.items:
                     string_id = compiled.string_ids[item.name]
-                    self.assertEqual(bytes(resources.added["Str ", string_id].data),
-                                     (item.title + ": Unknown\0").encode())
+                    self.assertEqual(
+                        bytes(resources.added["Str ", string_id].data),
+                        (item.title + ": Unknown\0").encode(),
+                    )
                 for event in document.events:
                     layouts = blocks(resources.stock("SLst", event.screen))
                     self.assertTrue(layouts)

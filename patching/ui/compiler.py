@@ -199,7 +199,9 @@ class DocumentCompiler:
         if item.kind == "info":
             string_id = self.resources.allocate()
             self.string_ids[item.name] = string_id
-            _, row = self.row(self.resources.source(item.title + ": Unknown", string_id))
+            _, row = self.row(
+                self.resources.source(item.title + ": Unknown", string_id)
+            )
             # Native text rows omit the submenu arrow; no chosen event is bound.
             put(row[1], 0x60, 2)
             return row, None
@@ -365,8 +367,9 @@ def compile_music_entry(resources, entry, compiled):
         raise ValueError("Music entry expects a single-layout native screen")
     put(layouts[0][1], 0, layout)
     resources.add("SLst", screen, pack_blocks(layouts))
-    compiled.string_ids.update({name + "_Screen": screen, name + "_Layout": layout,
-                                name + "_Title": title_id})
+    compiled.string_ids.update(
+        {name + "_Screen": screen, name + "_Layout": layout, name + "_Title": title_id}
+    )
 
     for menu, anchor_name, visible in (
         ("Music", entry["after"], 1),
@@ -375,8 +378,11 @@ def compile_music_entry(resources, entry, compiled):
         table = resources.native(menu + "Menu_Items")
         rows = blocks(resources.current("ITEM", table))
         anchor = next(
-            (i for i, (_, row) in enumerate(rows)
-             if word(row, 0x30) == resources.native(anchor_name)),
+            (
+                i
+                for i, (_, row) in enumerate(rows)
+                if word(row, 0x30) == resources.native(anchor_name)
+            ),
             None,
         )
         if anchor is None:
@@ -397,7 +403,11 @@ def compile_music_entry(resources, entry, compiled):
             ("delayedselected", entry["highlight"]),
         ):
             events.append(
-                serialized_string(f"list.pid.{item}.{event_name}") + b"1"
-                + serialized_string(handler) + struct.pack("<I", 0)
+                serialized_string(f"list.pid.{item}.{event_name}")
+                + b"1"
+                + serialized_string(handler)
+                + struct.pack("<I", 0)
             )
-        resources.extend_events("CEVT", resources.native(f"MainMenus_{menu}_Screen"), events)
+        resources.extend_events(
+            "CEVT", resources.native(f"MainMenus_{menu}_Screen"), events
+        )

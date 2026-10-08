@@ -80,8 +80,12 @@ class Parser:
             self.parse_declaration(node)
         self.apply_settings_entry()
         document = self.document
-        if (document.root is None and not document.strings
-                and not document.events and document.music_entry is None):
+        if (
+            document.root is None
+            and not document.strings
+            and not document.events
+            and document.music_entry is None
+        ):
             raise ValueError("Incomplete UI declaration")
         validate_slots(document.fields)
         return document
