@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Offline UI declaration contracts."""
 
+import json
 import struct
 import sys
 import unittest
@@ -9,12 +10,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from patching.ui import parser
 from patching.ui.codegen import emit_header
-from patching.ui.compiler import DocumentCompiler
+from patching.ui.compiler import DocumentCompiler, compile_document
 from patching.ui.model import ScreenEvent
 from patching.ui.resources import (
     Resources,
+    blocks,
     event,
     pack_blocks,
+    word,
 )
 
 LEGAL_ITEM = 100
@@ -37,6 +40,39 @@ def menu(rows):
 
 
 class UiTests(unittest.TestCase):
+    def test_song_info_rows_are_dynamic_text_without_chosen_actions(self):
+        root = Path(__file__).resolve().parents[2]
+        for target, version in (("classic7g-2.0.4", "2.0.4"),
+                                ("classic6g-reva-2.0.1", "2.0.1")):
+            with self.subTest(target=target):
+                metadata = json.loads((root / f"targets/{target}-ui.json").read_text())
+                shim = root / f"payload/compat/osos/{version}"
+                bindings = json.loads((shim / "ui.json").read_text())["bindings"]
+                resources = Resources(metadata["resources"], bindings)
+                document = parser.read(root / "payload/song_info.ui")
+                compiled = compile_document(resources, document)
+                screen = compiled.string_ids["CFW_SongInfo_Screen"]
+                self.assertEqual(word(resources.added["CEVT", screen], 0), 0)
+                rows = [row for (kind, _), data in resources.added.items()
+                        if kind == "ITEM" for _, row in blocks(data)]
+                self.assertEqual(len(rows), 16)
+                self.assertTrue(all(word(row, 0x60) == 2 for row in rows))
+                for item in document.root.items:
+                    string_id = compiled.string_ids[item.name]
+                    self.assertEqual(bytes(resources.added["Str ", string_id].data),
+                                     (item.title + ": Unknown\0").encode())
+                for event in document.events:
+                    layouts = blocks(resources.stock("SLst", event.screen))
+                    self.assertTrue(layouts)
+                    for _, layout in layouts:
+                        self.assertIn(
+                            b"contextualMenu.CFW_SongInfo",
+                            resources.added["SEVT", word(layout, 0)].data,
+                        )
+                header = emit_header(document, compiled.string_ids)
+                self.assertIn("#define CFW_SongInfo_Screen ", header)
+                self.assertIn("#define CFW_SongInfo_Layout ", header)
+
     def test_named_screen_uses_selected_binding_and_rejects_missing_names(self):
         document = parser.parse(
             '<ui><screen-event screen="Songs" event="select" handler="Select"/></ui>'
@@ -115,6 +151,8 @@ class UiTests(unittest.TestCase):
             "<ui><unknown/></ui>",
             '<ui><string id="NAME" text="Text">unexpected</string></ui>',
             '<ui><string id="NAME" text="Text"/>unexpected</ui>',
+            '<ui><text id="PAGE" title="Page" file="page.txt" body="bad-name"/></ui>',
+            '<ui><text id="PAGE" title="Page" file="page.txt" body="PAGE"/></ui>',
             '<ui><menu id="MENU" title="Menu"><string id="NAME" text="Text"/></menu></ui>',
             '<ui><text id="PAGE" title="Page" file="page.txt"/>'
             '<settings-entry menu="OTHER" after="1"/></ui>',

@@ -154,7 +154,7 @@ class Parser:
         return value
 
     def parse_menu(self, node):
-        attributes(node, "id title", children=("menu", "selector", "action"))
+        attributes(node, "id title", children=("menu", "selector", "action", "info"))
         item = Item("menu", self.identifier(node), node.attrib["title"])
         for child in node:
             if child.tag == "menu":
@@ -167,6 +167,9 @@ class Parser:
         return item
 
     def parse_row(self, node):
+        if node.tag == "info":
+            attributes(node, "id title")
+            return Item("info", self.identifier(node), node.attrib["title"])
         required = "id title values"
         if node.tag == "selector":
             required += " slot default"

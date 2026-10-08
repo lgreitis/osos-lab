@@ -29,6 +29,7 @@ class DocumentCompiler:
         if self.prototype is None:
             raise ValueError("Native Settings menu is missing the Legal row template")
         self.sources = {}
+        self.string_ids = {}
         self.fields: dict[int, FieldBinding] = {}
         self.actions: dict[str, ActionBinding] = {}
 
@@ -185,7 +186,8 @@ class DocumentCompiler:
         for index, item in enumerate(menu.items):
             row, chosen = self.menu_item(menu, item, index)
             rows.append(row)
-            events.append(chosen)
+            if chosen is not None:
+                events.append(chosen)
         table = self.page(menu.name, menu.title, rows, events)
         self.bind_menu_table(menu, table)
         return table
@@ -193,6 +195,13 @@ class DocumentCompiler:
     def menu_item(self, menu, item, index):
         if item.kind == "selector":
             return self.selector(item)
+        if item.kind == "info":
+            string_id = self.resources.allocate()
+            self.string_ids[item.name] = string_id
+            _, row = self.row(self.resources.source(item.title + ": Unknown", string_id))
+            # Native text rows omit the submenu arrow; no chosen event is bound.
+            put(row[1], 0x60, 2)
+            return row, None
         row_id, row = self.row(self.source(item.title))
         if item.kind == "menu":
             chosen = self.push(row_id, item.name)
@@ -320,6 +329,10 @@ def compile_document(resources, document, text=""):
         builder = DocumentCompiler(resources, document)
         if document.root.kind == "menu":
             builder.menu(document.root)
+            compiled.string_ids.update(builder.string_ids)
+            for suffix in ("_Screen", "_Layout"):
+                name = document.root.name + suffix
+                compiled.string_ids[name] = resources.names[name]
         if document.root.kind == "text":
             builder.text_page(text)
 

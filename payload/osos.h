@@ -339,8 +339,9 @@ static inline int osos_genius_map_row(void *genius, int row)
 
 static inline void osos_media_item_init(struct osos_media_item *item)
 {
-    typedef void (*fn)(struct osos_media_item *, int, int);
-    ((fn)OSOS_MEDIA_ITEM_INIT)(item, 0, 0);
+    typedef struct osos_media_item *(*fn)(struct osos_media_item *,
+                                          struct osos_media_record *, uint8_t);
+    ((fn)OSOS_MEDIA_ITEM_INIT)(item, NULL, 0);
 }
 
 static inline void osos_genius_get_item(void *genius, int row,
@@ -368,6 +369,73 @@ static inline void osos_song_model_get_item(void *model, int row,
     /* Native struct return uses an output pointer before this. */
     typedef void (*fn)(struct osos_media_item *, void *, int);
     ((fn)osos_method(model, OSOS_SONG_MODEL_GET_ITEM_SLOT))(item, model, row);
+}
+
+struct osos_native_string {
+    uintptr_t *vtable;
+    char *data;
+};
+
+static inline void osos_native_string_init(struct osos_native_string *string)
+{
+    typedef struct osos_native_string *(*fn)(struct osos_native_string *);
+    ((fn)OSOS_NATIVE_STRING_INIT)(string);
+}
+
+static inline void osos_native_string_destroy(struct osos_native_string *string)
+{
+    typedef struct osos_native_string *(*fn)(struct osos_native_string *);
+    ((fn)OSOS_NATIVE_STRING_DESTROY)(string);
+}
+
+static inline const char *osos_native_string_data(struct osos_native_string *string)
+{
+    typedef char *(*fn)(struct osos_native_string *);
+    return ((fn)OSOS_NATIVE_STRING_DATA)(string);
+}
+
+static inline void osos_native_string_assign_utf16(struct osos_native_string *string,
+                                                   const uint16_t *text, int32_t units)
+{
+    typedef void (*fn)(struct osos_native_string *, const uint16_t *, int32_t);
+    ((fn)OSOS_NATIVE_STRING_ASSIGN_UTF16)(string, text, units);
+}
+
+enum osos_media_text {
+    OSOS_MEDIA_TITLE = 0x50, OSOS_MEDIA_ALBUM = 0x54, OSOS_MEDIA_ARTIST = 0x58,
+    OSOS_MEDIA_GENRE = 0x60, OSOS_MEDIA_COMPOSER = 0x64, OSOS_MEDIA_GROUPING = 0x68,
+};
+
+static inline void osos_media_item_text(struct osos_media_item *item,
+                                         enum osos_media_text field,
+                                         struct osos_native_string *text)
+{
+    typedef void (*fn)(struct osos_media_item *, struct osos_native_string *);
+    ((fn)osos_method(item, field))(item, text);
+}
+
+#define OSOS_MEDIA_GETTER(name, type, slot)                                      \
+    static inline type osos_media_item_##name(struct osos_media_item *item)      \
+    {                                                                          \
+        typedef type (*fn)(struct osos_media_item *);                           \
+        return ((fn)osos_method(item, slot))(item);                             \
+    }
+OSOS_MEDIA_GETTER(duration, uint32_t, 0xa0)
+OSOS_MEDIA_GETTER(file_size, uint32_t, 0xac)
+OSOS_MEDIA_GETTER(bitrate, uint16_t, 0xb0)
+OSOS_MEDIA_GETTER(year, uint16_t, 0xb4)
+OSOS_MEDIA_GETTER(rating, int32_t, 0xb8)
+OSOS_MEDIA_GETTER(track, uint16_t, 0xbc)
+OSOS_MEDIA_GETTER(disc, uint16_t, 0xc0)
+OSOS_MEDIA_GETTER(play_count, uint32_t, 0xc4)
+OSOS_MEDIA_GETTER(skip_count, uint32_t, 0xcc)
+#undef OSOS_MEDIA_GETTER
+
+static inline void osos_player_current_item(struct osos_player *player,
+                                             struct osos_media_item *item)
+{
+    typedef void (*fn)(struct osos_player *, struct osos_media_item *);
+    ((fn)osos_method(player, OSOS_PLAYER_CURRENT_ITEM_SLOT))(player, item);
 }
 
 struct osos_path {

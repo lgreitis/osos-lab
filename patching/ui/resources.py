@@ -209,8 +209,9 @@ class Resources:
         for _, layout in blocks(self.original["SLst", self.native(binding.screen)]):
             self.extend_events("SEVT", word(layout, 0), [encoded])
 
-    def source(self, text):
-        string_id = self.allocate()
+    def source(self, text, string_id=None):
+        if string_id is None:
+            string_id = self.allocate()
         source_id = self.allocate()
         self.add("Str ", string_id, text.encode("utf-8") + b"\0")
         self.add(

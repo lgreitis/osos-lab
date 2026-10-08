@@ -1,0 +1,27 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <menu id="CFW_SongInfo" title="Song Info">
+    <info id="CFW_INFO_TITLE" title="Title"/>
+    <info id="CFW_INFO_ARTIST" title="Artist"/>
+    <info id="CFW_INFO_ALBUM" title="Album"/>
+    <info id="CFW_INFO_ALBUM_ARTIST" title="Album Artist"/>
+    <info id="CFW_INFO_YEAR" title="Year"/>
+    <info id="CFW_INFO_GENRE" title="Genre"/>
+    <info id="CFW_INFO_COMPOSER" title="Composer"/>
+    <info id="CFW_INFO_GROUPING" title="Grouping"/>
+    <info id="CFW_INFO_DURATION" title="Duration"/>
+    <info id="CFW_INFO_TRACK" title="Track"/>
+    <info id="CFW_INFO_DISC" title="Disc"/>
+    <info id="CFW_INFO_BITRATE" title="Bitrate"/>
+    <info id="CFW_INFO_FILE_SIZE" title="File size"/>
+    <info id="CFW_INFO_RATING" title="Rating"/>
+    <info id="CFW_INFO_PLAY_COUNT" title="Play count"/>
+    <info id="CFW_INFO_SKIP_COUNT" title="Skip count"/>
+  </menu>
+  <string id="CFW_SONG_INFO_LABEL" text="Song Info"/>
+  <screen-event screen="MediaLists_Songs_Screen" event="contextualMenu.CFW_SongInfo" handler="CFW_SongInfo"/>
+  <screen-event screen="MediaLists_NestedPlaylists_Screen" event="contextualMenu.CFW_SongInfo" handler="CFW_SongInfo"/>
+  <screen-event screen="MediaLists_Genius_Screen" event="contextualMenu.CFW_SongInfo" handler="CFW_SongInfo"/>
+  <screen-event screen="MediaLists_GeniusPlaylist_Screen" event="contextualMenu.CFW_SongInfo" handler="CFW_SongInfo"/>
+  <screen-event screen="NowPlaying_Screen" event="contextualMenu.CFW_SongInfo" handler="CFW_SongInfo"/>
+</ui>
