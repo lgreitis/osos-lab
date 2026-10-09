@@ -5,12 +5,15 @@ familiar interface and playback system. This repository contains the patches,
 reverse engineering, and tools used to build and package it.
 
 Builds use Apple **2.0.5** for all supported Classic hardware, with each device's
-own identity in its companion. FAT32 storage is required.
+own identity in its companion.
 
-- Classic 6.5G and 7G: working builds confirmed on MB565 and MC293.
-- Original Classic 6G: enabled for beta testing, not device-tested here.
-- Personalized model numbers, including PC293/PC297, use the same hardware checks.
-<!-- -->
+## Compatibility
+
+- iPod Classic 6G, 6.5G and 7G.
+- FAT32 storage required.
+
+## Repository layout
+
 - `payload/`: OSOS features, C patch declarations, and UI definitions.
 - `game-sdk/`: deferred homebrew runtime; its old bindings are not ported to 2.0.5.
 - `doom/`: deferred, incomplete Doom port.
@@ -26,6 +29,14 @@ Boot selection: **no buttons → RepriseOS**, **Menu → Apple OS**,
 **Play/Pause → Rockbox**. RepriseOS loads `/osos-cfw.bin` and `/cfw-loader.bin`.
 See [firmware references](docs/README.md), [boot sequence](docs/boot.md)
 and [host tools](host/README.md).
+
+## Install
+
+Download RepriseOS Installer from [the website](https://repriseos.com/download/)
+or [GitHub releases](https://github.com/lgreitis/repriseos-installer/releases).
+Use **`iPod_38.2.0.5.ipsw`** for every supported Classic. The installed Apple
+firmware can be older. Follow the app's DFU instructions; it downloads the
+RepriseOS package and builds a companion using that iPod's identity.
 
 ## Features
 
@@ -65,17 +76,14 @@ the shared Rust assembler and require Cargo.
 ## Distribution
 
 ```sh
-python3 usb-helper/build.py --rockbox vendor/rockbox \
-  --toolchain /path/to/bin --out build/helper
-python3 tools/export_bundle.py --helper build/helper --version 0.1.0-dev.1 \
-  --out build/package
-python3 tools/bundle.py --pack build/package --out build/package.zip
+python3.11 tools/release.py --cross-prefix /path/to/bin/arm-elf-eabi- --jobs 8
 ```
 
+This builds `build/releases/classic/repriseos.zip` without Apple firmware inputs.
 Bundles contain compiled patches, assembly recipes, the NOR installer, and the
 USB helper. Assembly combines them with the 2.0.5 IPSW-derived inputs and the
-device's NOR identity. Schema 2 bundles require installer 0.2.0 integration; the
-existing 0.1.x installer does not support this format. Local ZIPs use compatibility
+device's NOR identity. Schema 2 bundles require installer **0.2.0 or newer**;
+installer 0.1.x does not support this format. Local ZIPs use compatibility
 and hash checks; downloaded releases use signed manifests. Never copy a
 personalized companion between devices. Resources currently come from the
 installed Apple resource partition; dedicated resources are deferred.
