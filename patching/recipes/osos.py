@@ -5,7 +5,7 @@ import json
 import struct
 from dataclasses import dataclass
 
-from .. import declarations, ui
+from .. import assets, declarations, ui
 from ..declarations import Copy, Kind
 from ..symbols import require
 from ..toolchain import compile_payload
@@ -56,8 +56,9 @@ def build_recipe(
 ):
     native = source / "native"
     bindings = json.loads((native / "ui.json").read_text())["bindings"]
+    resources = ui.Resources(templates, bindings)
     generated_ui = ui.generate(
-        ui.Resources(templates, bindings),
+        resources,
         [
             source / name
             for name in (
@@ -66,6 +67,7 @@ def build_recipe(
                 "play_next.ui",
                 "song_info.ui",
                 "album_artists.ui",
+                "dark_mode.ui",
             )
         ],
         directory,
@@ -73,6 +75,10 @@ def build_recipe(
         version,
     )
     units = payload_units(source, generated_ui)
+    generated_assets = assets.generate(
+        resources, source / "assets/manifest.json", directory
+    )
+    units.append((str(generated_assets), []))
     units.append((str(source / "patches/patches.c"), []))
     code, symbols = compile_payload(
         directory,
@@ -86,6 +92,12 @@ def build_recipe(
         thumb_symbols=True,
     )
     patches = declarations.collect(directory, units, prefix)
+    used = symbols["__payload_end"] - symbols["__payload_start"]
+    capacity = symbols["__payload_limit"] - symbols["__payload_start"]
+    print(
+        f"CFW reservation: {used:,} / {capacity:,} bytes used; {capacity - used:,} free",
+        flush=True,
+    )
     return build(code, patches, symbols, fingerprint)
 
 

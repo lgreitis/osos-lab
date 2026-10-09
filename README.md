@@ -43,9 +43,18 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Three-band custom EQ with adjustable filter types, frequency, gain, Q and precut.
 - Play Next and Play Last from song context menus.
 - EU volume limit removal for European iPods.
-- Song Info and an Album Artists browser with Artist fallback.
+- Song Info from song and Now Playing context menus.
+- Album Artists browsing with Artist fallback and configurable menu visibility.
+- Dark Mode (work in progress), with an On/Off toggle below Brightness in Settings.
 
-The game SDK and [Doom port](doom/README.md) are deferred.
+**Album Artists** groups tracks by their Album Artist tag, using Artist when that
+field is empty. Show or hide the entry through Settings → Main Menu and Settings →
+Music Menu.
+
+**Dark Mode** is off by default. Some screens and artwork still need visual
+adjustments.
+
+The game SDK and [Doom port](doom/README.md) are unfinished.
 
 ## Build
 

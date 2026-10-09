@@ -3,6 +3,9 @@
 #define CFW_ALBUM_ARTISTS_MENU_H
 #include <stdint.h>
 
+void cfw_album_artists_menu_adjust_property(uint32_t type, uint32_t property,
+                                            uintptr_t *out);
+
 enum { ALBUM_ARTISTS_MAIN_MENU, ALBUM_ARTISTS_MUSIC_MENU };
 
 static inline uint32_t album_artists_menu_index(unsigned menu, uint32_t index)

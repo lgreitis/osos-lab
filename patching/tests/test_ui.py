@@ -40,6 +40,44 @@ def menu(rows):
 
 
 class UiTests(unittest.TestCase):
+    def test_settings_toggle_preserves_stock_rows_and_has_no_navigation(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.read(root / "payload/dark_mode.ui")
+        compiled = compile_document(resources, document)
+        stock = blocks(resources.stock("ITEM", "SettingsMenu_Items"))
+        rows = blocks(resources.added["ITEM", bindings["SettingsMenu_Items"]])
+        anchor = next(
+            i
+            for i, (_, row) in enumerate(rows)
+            if word(row, 0x30) == bindings["SettingsMenu_ListItem_Brightness"]
+        )
+        _, toggle = rows.pop(anchor + 1)
+        for (_, before), (_, after) in zip(stock, rows, strict=True):
+            self.assertEqual(before.data, after.data)
+            self.assertEqual(before.origins, after.origins)
+        prototype = next(
+            row
+            for _, row in stock
+            if word(row, 0x30) == bindings["SettingsMenu_ListItem_SoundCheck"]
+        )
+        for start, end in ((0, 0x30), (0x34, 0x68), (0x6C, 0x98)):
+            self.assertEqual(toggle[start:end].origins, prototype[start:end].origins)
+            self.assertEqual(toggle[start:end].data, prototype[start:end].data)
+        sources = blocks(resources.added["SORC", word(toggle, 0x68)])
+        self.assertEqual(
+            [word(sources[1][1], offset) for offset in (0, 4, 8)],
+            [0x8900, compiled.string_ids["CFW_DarkMode_Value"], 10],
+        )
+        events = resources.added["CEVT", bindings["SettingsMenus_Main_Screen"]]
+        original = resources.stock("CEVT", "SettingsMenus_Main_Screen")
+        appended = bytes(events.data[len(original) :])
+        self.assertIn(b"CFW_DarkMode_Toggle", appended)
+        self.assertNotIn(b"navigator.PushScreen", appended)
+        self.assertNotIn("CFW_DarkMode_Screen", resources.names)
+
     def test_album_artists_reuses_native_routes_and_adds_a_music_row(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())

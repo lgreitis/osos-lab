@@ -232,10 +232,34 @@ class DocumentCompiler:
         if not self.document.after:
             return
         title = self.resources.source(self.document.root.title)
-        item_id, item = self.row(title)
+        if self.document.root.kind == "toggle":
+            item_id, item = self.toggle_row(title)
+        else:
+            item_id, item = self.row(title)
         self.insert_settings_row(item)
         self.add_settings_preview(title)
         self.bind_settings_events(item_id)
+
+    def toggle_row(self, title):
+        resources = self.resources
+        item_id = resources.allocate()
+        kind, prototype = next(
+            (kind, data)
+            for kind, data in blocks(resources.stock("ITEM", "SettingsMenu_Items"))
+            if word(data, 0x30) == resources.native("SettingsMenu_ListItem_SoundCheck")
+        )
+        row = Resource(prototype)
+        name = self.document.root.name
+        value = resources.allocate(name + "_Value")
+        source = resources.allocate()
+        bindings = blocks(resources.current("SORC", title))
+        # Sound Check's second source binds the blue inline text (destination 10).
+        bindings.append((0x534F5243, struct.pack("<III", 0x8900, value, 10)))
+        resources.add("SORC", source, pack_blocks(bindings))
+        put(row, 0x30, item_id)
+        put(row, 0x68, source)
+        self.string_ids.update({name + "_Item": item_id, name + "_Value": value})
+        return item_id, (kind, row)
 
     def insert_settings_row(self, item):
         document, resources = self.document, self.resources
@@ -301,8 +325,17 @@ class DocumentCompiler:
 
     def bind_settings_events(self, item_id):
         document = self.document
+        if document.root.kind == "toggle":
+            chosen = (
+                serialized_string(f"list.pid.{item_id}.chosen")
+                + b"1"
+                + serialized_string(document.root.name + "_Toggle")
+                + struct.pack("<I", 0)
+            )
+        else:
+            chosen = self.push(item_id, document.root.name, document.open_action)
         events = [
-            self.push(item_id, document.root.name, document.open_action),
+            chosen,
             menu_event(
                 item_id,
                 "delayedselected",
@@ -334,7 +367,6 @@ def compile_document(resources, document, text=""):
         builder = DocumentCompiler(resources, document)
         if document.root.kind == "menu":
             builder.menu(document.root)
-            compiled.string_ids.update(builder.string_ids)
             for suffix in ("_Screen", "_Layout"):
                 name = document.root.name + suffix
                 compiled.string_ids[name] = resources.names[name]
@@ -347,6 +379,7 @@ def compile_document(resources, document, text=""):
 
     if builder is not None:
         builder.insert_settings()
+        compiled.string_ids.update(builder.string_ids)
         builder.finish_bindings()
         compiled.fields = builder.fields
         compiled.actions = builder.actions

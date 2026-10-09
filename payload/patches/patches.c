@@ -4,11 +4,29 @@
 #include "native/bindings.h"
 #include "patches/sites.h"
 
-/* Custom EQ */
+/* Dark-mode software colors and manifest-selected bitmap artwork. */
+PATCH_JUMP(OSOS_BITMAP_VIEW_LOAD_ENTRY, 0xe92d41f0, 0xe1a04000, cfw_bitmap_view_load);
+PATCH_CALL(OSOS_COVER_FLOW_PROXY_LOAD_CALL, OSOS_RESOURCE_SERVICE_GET,
+           cfw_bitmap_resource_get);
+PATCH_CALL(OSOS_GRAPHICS_FILL_RECT_CALL, OSOS_SURFACE_FILL_RECT, cfw_dark_mode_fill);
+PATCH_CALL(OSOS_TEXT_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR, cfw_dark_mode_text_color);
+PATCH_CALL(OSOS_MARQUEE_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_dark_mode_text_color);
+PATCH_CALL(OSOS_COVER_FLOW_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
+           cfw_dark_mode_clear_color);
+PATCH_CALL(OSOS_ALBUM_ART_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
+           cfw_dark_mode_clear_color);
+PATCH_CALL(OSOS_ARTWORK_REFLECTION_BLEND_CALL, OSOS_RGB565_BLEND_FIXED,
+           cfw_dark_mode_reflection_blend);
+
+/* Shared Settings hooks */
+PATCH_POINTER(OSOS_SETTINGS_PROPERTY_SLOT, OSOS_SETTINGS_PROPERTY, cfw_settings_property);
 PATCH_CALL(OSOS_PREFERENCES_LOAD_CALL, OSOS_PREFERENCES_LOAD, cfw_preferences_hook);
 PATCH_POINTER(OSOS_SETTINGS_ACTION_SLOT, OSOS_SETTINGS_ACTION, cfw_settings_action);
 PATCH_POINTER(OSOS_SETTINGS_SECONDARY_ACTION_SLOT, OSOS_SETTINGS_ACTION,
               cfw_settings_action);
+
+/* Custom EQ */
 /* Original entry: sub r0, r0, #100; cmp r0, #21. */
 PATCH_JUMP(OSOS_EQ_MAP_ENTRY, 0xe2400064, 0xe3500015, cfw_eq_map_hook);
 /* Replace cmp r0, #107 with a hook that also recognizes Custom (122). */
@@ -86,7 +104,6 @@ PATCH_POINTER(OSOS_ALBUM_SUBTITLE_SLOT, OSOS_MODEL_ALBUM_SUBTITLE, cfw_album_art
 PATCH_CALL(OSOS_SELECT_ARTWORK_SOURCE_CALL, OSOS_SELECT_ARTWORK_SOURCE, cfw_album_artists_select_artwork);
 PATCH_CALL(OSOS_ALBUM_ARTWORK_CREATE_CALL, OSOS_ALBUM_ARTWORK_CREATE, cfw_album_artists_create_artwork);
 PATCH_JUMP(OSOS_MODEL_DESTROY_ENTRY, 0xe92d4010, 0xe1a04000, cfw_album_artists_destroy_model);
-PATCH_POINTER(OSOS_SETTINGS_PROPERTY_SLOT, OSOS_SETTINGS_PROPERTY, cfw_album_artists_menu_property);
 PATCH_POINTER(OSOS_SETTINGS_INDEXED_PROPERTY_SLOT, OSOS_SETTINGS_INDEXED_PROPERTY,
               cfw_album_artists_menu_item);
 PATCH_CALL_WORD(OSOS_MAIN_MENU_INDEX_CALL, 0xe12fff31, cfw_album_artists_main_menu_index);

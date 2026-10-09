@@ -8,16 +8,6 @@
 .text
 .balign 4
 
-.global cfw_preferences_hook
-.type cfw_preferences_hook,%function
-cfw_preferences_hook:
-    push {r4, lr}
-    ldr r12, =OSOS_PREFERENCES_LOAD
-    blx r12
-    bl cfw_eq_load_preferences
-    pop {r4, pc}
-.ltorg
-
 /* Settings IDs 100..122 map to DSP presets 1..23. */
 
 .global cfw_eq_map_hook

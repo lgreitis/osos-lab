@@ -3,6 +3,7 @@
 #include "album_artists_menu.h"
 #include "album_artists_ui.h"
 #include "patch.h"
+#include "preferences.h"
 
 static uint32_t visible = 2;
 static int loaded;
@@ -19,25 +20,15 @@ static void load_preferences(void)
         return;
     loaded = 1;
     struct album_artists_menu_file file;
-    void *handle;
-    uint32_t count = 0;
-    if (osos_file_open(&settings_path, 1, &handle))
-        return;
-    int result = osos_file_read(handle, &file, sizeof(file), &count);
-    osos_file_close(handle);
-    if (!result && count == sizeof(file) && album_artists_menu_valid(&file))
+    if (cfw_preferences_read(&settings_path, &file, sizeof(file)) &&
+        album_artists_menu_valid(&file))
         visible = file.visible;
 }
 
 static void save_preferences(void)
 {
     struct album_artists_menu_file file = album_artists_menu_encode(visible);
-    void *handle;
-    uint32_t count;
-    if (osos_file_open(&settings_path, 2, &handle))
-        return;
-    osos_file_write(handle, &file, sizeof(file), &count);
-    osos_file_close(handle);
+    cfw_preferences_write(&settings_path, &file, sizeof(file));
 }
 
 static void apply_visibility(unsigned menu)
@@ -51,14 +42,11 @@ static uint32_t selected_index(void *selection)
     return ((uint32_t (*)(void *))osos_method(selection, 0x168))(selection);
 }
 
-PATCH_ARM int cfw_album_artists_menu_property(void *model, uint32_t type,
-                                             uint32_t property, uintptr_t *out)
+void cfw_album_artists_menu_adjust_property(uint32_t type, uint32_t property,
+                                            uintptr_t *out)
 {
-    typedef int (*native)(void *, uint32_t, uint32_t, uintptr_t *);
-    int result = ((native)OSOS_SETTINGS_PROPERTY)(model, type, property, out);
-    if (result && type == 0x564d6178 && (property == 0x8909 || property == 0x890a))
+    if (type == OSOS_PROPERTY_COUNT && (property == 0x8909 || property == 0x890a))
         ++*out;
-    return result;
 }
 
 PATCH_ARM int cfw_album_artists_menu_item(void *model, uint32_t type,
@@ -77,10 +65,8 @@ PATCH_ARM int cfw_album_artists_menu_item(void *model, uint32_t type,
     int result = get(model, type, property, custom ? index - 1 : original, out);
     if (!result)
         return result;
-    void *resources = ((void *(*)(void))OSOS_MENU_ITEM_CHANGED)();
-    if (custom && type == 0x53747220) {
-        *out = ((uintptr_t (*)(void *, uint32_t))OSOS_RESOURCE_STRING)(
-            resources, CFW_AlbumArtists_Title);
+    if (custom && type == OSOS_PROPERTY_STRING) {
+        *out = osos_ui_string(CFW_AlbumArtists_Title);
     } else if (type == 0x424d6170) {
         const uint8_t *rows = (const uint8_t *)(menu ? OSOS_MUSIC_MENU_SETTINGS_ROWS :
                                                     OSOS_MAIN_MENU_SETTINGS_ROWS);
@@ -89,7 +75,7 @@ PATCH_ARM int cfw_album_artists_menu_item(void *model, uint32_t type,
         int selected = index == selected_index(selection);
         uint32_t icon = checked ? OSOS_MENU_CHECKED_BITMAP + selected :
                         selected && index == count - 1 ? OSOS_MENU_RESET_BITMAP : 0;
-        *out = icon ? ((uintptr_t (*)(void *, uint32_t))OSOS_RESOURCE_BITMAP)(resources, icon) : 0;
+        *out = icon ? osos_ui_bitmap(icon) : 0;
     }
     return result;
 }
@@ -110,8 +96,7 @@ static void toggle(void *model, unsigned menu)
     visible ^= 1u << menu;
     save_preferences();
     apply_visibility(menu);
-    ((void (*)(void *, uint32_t, uint32_t))osos_method(model, 0x58))(
-        model, 0x2a2a2a2a, settings_items[menu]);
+    osos_model_notify(model, OSOS_NOTIFY_ALL, settings_items[menu]);
 }
 
 PATCH_ARM void cfw_album_artists_main_menu_toggle(void *model, uint32_t index)

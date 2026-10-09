@@ -1,0 +1,200 @@
+[
+  {
+    "name": "StatusBarWhite_Background_Image",
+    "type": "BMap",
+    "id": "0x0DAD012A",
+    "file": "dark/status-bar-background.png"
+  },
+  {
+    "name": "Background_LightBlue_Image",
+    "type": "BMap",
+    "id": "0x0DAD012D",
+    "file": "dark/background-dark-image.png"
+  },
+  {
+    "name": "Settings_About_Band_Image",
+    "type": "BMap",
+    "id": "0x0DAD0AE0",
+    "file": "dark/settings-about-band-image.png"
+  },
+  {
+    "name": "StatusBarWhite_Lock_Image",
+    "type": "BMap",
+    "id": "0x0DAD0142",
+    "file": "dark/status-bar-lock-image.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_0",
+    "type": "BMap",
+    "id": "0x0DAD0143",
+    "file": "dark/status-bar-battery-0.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_1",
+    "type": "BMap",
+    "id": "0x0DAD0144",
+    "file": "dark/status-bar-battery-1.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_2",
+    "type": "BMap",
+    "id": "0x0DAD0145",
+    "file": "dark/status-bar-battery-2.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_3",
+    "type": "BMap",
+    "id": "0x0DAD0146",
+    "file": "dark/status-bar-battery-3.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_4",
+    "type": "BMap",
+    "id": "0x0DAD0147",
+    "file": "dark/status-bar-battery-4.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_5",
+    "type": "BMap",
+    "id": "0x0DAD0148",
+    "file": "dark/status-bar-battery-5.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_6",
+    "type": "BMap",
+    "id": "0x0DAD0149",
+    "file": "dark/status-bar-battery-6.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_7",
+    "type": "BMap",
+    "id": "0x0DAD014A",
+    "file": "dark/status-bar-battery-7.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_8",
+    "type": "BMap",
+    "id": "0x0DAD014B",
+    "file": "dark/status-bar-battery-8.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_9",
+    "type": "BMap",
+    "id": "0x0DAD014C",
+    "file": "dark/status-bar-battery-9.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_10",
+    "type": "BMap",
+    "id": "0x0DAD014D",
+    "file": "dark/status-bar-battery-10.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_11",
+    "type": "BMap",
+    "id": "0x0DAD014E",
+    "file": "dark/status-bar-battery-11.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_12",
+    "type": "BMap",
+    "id": "0x0DAD014F",
+    "file": "dark/status-bar-battery-12.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_13",
+    "type": "BMap",
+    "id": "0x0DAD0150",
+    "file": "dark/status-bar-battery-13.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_14",
+    "type": "BMap",
+    "id": "0x0DAD0151",
+    "file": "dark/status-bar-battery-14.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_15",
+    "type": "BMap",
+    "id": "0x0DAD0152",
+    "file": "dark/status-bar-battery-15.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_16",
+    "type": "BMap",
+    "id": "0x0DAD0153",
+    "file": "dark/status-bar-battery-16.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_17",
+    "type": "BMap",
+    "id": "0x0DAD0154",
+    "file": "dark/status-bar-battery-17.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_18",
+    "type": "BMap",
+    "id": "0x0DAD0155",
+    "file": "dark/status-bar-battery-18.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_19",
+    "type": "BMap",
+    "id": "0x0DAD0156",
+    "file": "dark/status-bar-battery-19.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_20",
+    "type": "BMap",
+    "id": "0x0DAD0157",
+    "file": "dark/status-bar-battery-20.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_21",
+    "type": "BMap",
+    "id": "0x0DAD0158",
+    "file": "dark/status-bar-battery-21.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_22",
+    "type": "BMap",
+    "id": "0x0DAD0159",
+    "file": "dark/status-bar-battery-22.png"
+  },
+  {
+    "name": "NowPlaying_White_Volume_Low_Image",
+    "type": "BMap",
+    "id": "0x0DAD088A",
+    "file": "dark/now-playing-volume-low.png"
+  },
+  {
+    "name": "NowPlaying_White_Volume_High_Image",
+    "type": "BMap",
+    "id": "0x0DAD088B",
+    "file": "dark/now-playing-volume-high.png"
+  },
+  {
+    "name": "CoverFlow_Backside_Top_Image",
+    "type": "BMap",
+    "id": "0x0DAD05DA",
+    "file": "dark/cover-flow-backside-top.png"
+  },
+  {
+    "name": "CoverFlow_Proxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0128",
+    "file": "dark/cover-flow-proxy.png"
+  },
+  {
+    "name": "NowPlaying_White_Pause_Image",
+    "type": "BMap",
+    "id": "0x0DAD086E",
+    "file": "dark/now-playing-pause.png"
+  },
+  {
+    "name": "NowPlaying_White_Play_Image",
+    "type": "BMap",
+    "id": "0x0DAD086F",
+    "file": "dark/now-playing-play.png"
+  }
+]

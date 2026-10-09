@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import firmware as firmware_profile
+from patching import assets
 from patching.ui import Resources, generate
 from patching.ui.resources import Resource, Template
 
@@ -69,6 +70,7 @@ def extract(firmware, sources, shim):
     resources.original = templates
     with tempfile.TemporaryDirectory(prefix="reprise-ui-metadata-") as directory:
         generate(resources, sources, Path(directory), "metadata")
+    assets.native_assets(resources, ROOT / "payload/assets/manifest.json")
     return [
         {
             "kind": kind,

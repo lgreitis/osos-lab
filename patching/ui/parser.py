@@ -70,6 +70,7 @@ class Parser:
                 "range",
                 "menu",
                 "text",
+                "toggle",
                 "settings-entry",
                 "string",
                 "screen-event",
@@ -110,12 +111,20 @@ class Parser:
             )
             validate_values(value)
             document.values[value.name] = value
-        elif node.tag in ("menu", "text"):
+        elif node.tag in ("menu", "text", "toggle"):
             if document.root is not None:
                 raise ValueError("Expected one root menu or page per UI declaration")
-            document.root = (
-                self.parse_menu(node) if node.tag == "menu" else self.parse_text(node)
-            )
+            if node.tag == "toggle":
+                attributes(node, "id title")
+                document.root = Item(
+                    "toggle", self.identifier(node), node.attrib["title"]
+                )
+            else:
+                document.root = (
+                    self.parse_menu(node)
+                    if node.tag == "menu"
+                    else self.parse_text(node)
+                )
         elif node.tag == "settings-entry":
             attributes(node, "menu after", "open")
             if self.entry is not None:
@@ -226,6 +235,8 @@ class Parser:
 
     def apply_settings_entry(self):
         if self.entry is None:
+            if self.document.root and self.document.root.kind == "toggle":
+                raise ValueError("A toggle requires a Settings menu entry")
             return
         entry, document = self.entry, self.document
         if document.root is None or entry.attrib["menu"] != document.root.name:

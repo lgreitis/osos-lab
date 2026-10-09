@@ -3,6 +3,7 @@
 #include "custom_eq.h"
 #include "osos.h"
 #include "cfw.h"
+#include "preferences.h"
 #include "patch.h"
 
 /* Native preset index 23 / saved ID 122. Reuse Flat's preview. */
@@ -49,14 +50,9 @@ static void defaults(void)
 void cfw_eq_load_preferences(void)
 {
     struct eq_file file;
-    void *handle;
-    uint32_t count = 0;
     defaults();
-    if (osos_file_open(&settings_path, 1, &handle) != 0)
-        return;
-    int result = osos_file_read(handle, &file, sizeof(file), &count);
-    osos_file_close(handle);
-    if (result || count != sizeof(file) || file.magic != 0x51455743 ||
+    if (!cfw_preferences_read(&settings_path, &file, sizeof(file)) ||
+        file.magic != 0x51455743 ||
         file.version != 1 || file.checksum != checksum(&file))
         return;
     for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
@@ -71,24 +67,15 @@ void cfw_eq_load_preferences(void)
 static void save_preferences(void)
 {
     struct eq_file file;
-    void *handle;
-    uint32_t count = 0;
     file.magic = 0x51455743;
     file.version = 1;
     for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
         file.values[i] = settings[i];
     file.checksum = checksum(&file);
-    save_status = 1;
-    if (osos_file_open(&settings_path, 2, &handle) != 0)
-        return;
-    int result = osos_file_write(handle, &file, sizeof(file), &count);
-    osos_file_close(handle);
-    if (!result && count == sizeof(file))
-        save_status = 0;
+    save_status = !cfw_preferences_write(&settings_path, &file, sizeof(file));
 }
 
-PATCH_ARM int cfw_settings_action(void *controller, const char *action,
-                                  uint32_t argument)
+int cfw_eq_action(const char *action, uint32_t argument)
 {
     unsigned int field, value;
     int open = cfw_string_equal(action, "CFW_EQ_Open");
@@ -121,5 +108,5 @@ PATCH_ARM int cfw_settings_action(void *controller, const char *action,
         cfw_ui_status(&cfw_eq_save, save_status);
         return 1;
     }
-    return osos_settings_action(controller, action, argument);
+    return 0;
 }

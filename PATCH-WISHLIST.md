@@ -1,17 +1,11 @@
 # Possible CFW Features
 
-## Dark mode
-
-Add a dark option for the native UI. And maybe some other fun colors too.
+Implemented features, including Album Artists and WIP Dark Mode, are listed in the
+[README](README.md#features).
 
 ## Cover Flow song context menu
 
 Allow opening a song's context menu when browsing through Cover Flow.
-
-## Album Artists menu
-
-Check whether synced Album Artist metadata can support a separate Album Artists
-menu in Music.
 
 ## Five-band parametric EQ
 

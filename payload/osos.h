@@ -72,14 +72,59 @@ static inline void *osos_resource_get(void *bank, uint32_t type, uint32_t id,
     return ((fn)OSOS_RESOURCE_GET)(bank, type, id, size);
 }
 
+static inline void *osos_ui_resources(void)
+{
+    typedef void *(*fn)(void);
+    return ((fn)OSOS_MENU_ITEM_CHANGED)();
+}
+
+static inline uintptr_t osos_ui_string(uint32_t id)
+{
+    typedef uintptr_t (*fn)(void *, uint32_t);
+    return ((fn)OSOS_RESOURCE_STRING)(osos_ui_resources(), id);
+}
+
+static inline uintptr_t osos_ui_bitmap(uint32_t id)
+{
+    typedef uintptr_t (*fn)(void *, uint32_t);
+    return ((fn)OSOS_RESOURCE_BITMAP)(osos_ui_resources(), id);
+}
+
+static inline uintptr_t osos_settings_on_off(int enabled)
+{
+    return osos_ui_string(enabled ? OSOS_SETTINGS_ON_STRING : OSOS_SETTINGS_OFF_STRING);
+}
+
+enum {
+    OSOS_PROPERTY_STRING = 0x53747220, /* Str  */
+    OSOS_PROPERTY_COUNT = 0x564d6178,  /* VMax */
+    OSOS_NOTIFY_NONE = 0x4e6f6e65,     /* None */
+    OSOS_NOTIFY_ALL = 0x2a2a2a2a,      /* **** */
+};
+
+static inline void osos_model_notify(void *model, uint32_t type, uint32_t property)
+{
+    typedef void (*fn)(void *, uint32_t, uint32_t);
+    uintptr_t *vtable = *(uintptr_t **)model;
+    ((fn)vtable[0x58 / 4])(model, type, property);
+}
+
 /* Notify native list providers that the item's displayed content changed. */
 static inline void osos_menu_item_changed(uint32_t item)
 {
-    typedef void *(*service_fn)(void);
-    typedef void (*notify_fn)(void *, uint32_t, uint32_t);
-    void *service = ((service_fn)OSOS_MENU_ITEM_CHANGED)();
-    uintptr_t *vtable = *(uintptr_t **)service;
-    ((notify_fn)vtable[0x58 / 4])(service, 0x4e6f6e65, item); /* None */
+    osos_model_notify(osos_ui_resources(), OSOS_NOTIFY_NONE, item);
+}
+
+static inline void *osos_settings_model(void *controller)
+{
+    return *(void **)((unsigned char *)controller + 0xb0);
+}
+
+static inline int osos_settings_property(void *model, uint32_t type,
+                                         uint32_t property, uintptr_t *out)
+{
+    typedef int (*fn)(void *, uint32_t, uint32_t, uintptr_t *);
+    return ((fn)OSOS_SETTINGS_PROPERTY)(model, type, property, out);
 }
 
 static inline int osos_settings_action(void *controller, const char *action,
@@ -88,6 +133,8 @@ static inline int osos_settings_action(void *controller, const char *action,
     typedef int (*fn)(void *, const char *, uint32_t);
     return ((fn)OSOS_SETTINGS_ACTION)(controller, action, argument);
 }
+
+#include "native/graphics.h"
 
 static inline void osos_eq_load(void *state)
 {
