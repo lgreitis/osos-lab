@@ -69,7 +69,11 @@ fn mse() -> Vec<u8> {
 #[test]
 fn firmware_directory_bounds_and_final_aes_block() {
     let original = mse();
-    assert_eq!(extract_osos(&original).unwrap().len(), 0x820);
+    assert_eq!(extract_image(&original, "osos").unwrap().len(), 0x820);
+    assert!(extract_image(&original, "aupd").is_err());
+    let mut aupd = original.clone();
+    aupd[0x5004..0x5008].copy_from_slice(b"dpua");
+    assert_eq!(extract_image(&aupd, "aupd").unwrap().len(), 0x820);
     for (offset, value) in [
         (0x100, 0),
         (0x500c, 0xff),
@@ -80,13 +84,13 @@ fn firmware_directory_bounds_and_final_aes_block() {
     ] {
         let mut bad = original.clone();
         bad[offset] = value;
-        assert!(extract_osos(&bad).is_err(), "{offset:x}");
+        assert!(extract_image(&bad, "osos").is_err(), "{offset:x}");
     }
     let mut duplicate = original.clone();
     duplicate.copy_within(0x5000..0x5028, 0x5028);
-    assert!(extract_osos(&duplicate).is_err());
+    assert!(extract_image(&duplicate, "osos").is_err());
     for n in [0, 0x527f, 0x6000, 0x6800] {
-        assert!(extract_osos(&original[..n]).is_err());
+        assert!(extract_image(&original[..n], "osos").is_err());
     }
     assert!(Ipsw::parse(&archive(metadata(), &original))
         .err()
@@ -106,6 +110,11 @@ fn preserved_ipsw_prepares_identical_assembly_inputs() {
     let osos = fs::read(inputs.join("osos.bin")).unwrap();
     let aupd = fs::read(inputs.join("aupd.decrypted.body.bin")).unwrap();
     assert_eq!(ipsw.wrap_plaintext(&osos[0x800..]).unwrap(), osos);
+    assert_eq!(ipsw.aupd_ciphertext().len(), aupd.len());
+    ipsw.validate_aupd_plaintext(&aupd).unwrap();
+    assert!(ipsw
+        .validate_aupd_plaintext(&aupd[..aupd.len() - 8])
+        .is_err());
     let prepared = PreparedInputs::from_plaintext(&ipsw, &osos, &aupd).unwrap();
     for (name, bytes) in &prepared.files {
         assert_eq!(bytes, &fs::read(inputs.join(name)).unwrap(), "{name}");

@@ -66,6 +66,10 @@
     "encrypted_osos": {
       "bytes": 10634496,
       "sha256": "3ef43a0fb223b28fa93d9a9240e32cb0932ce73eba1f9e1cbaecffbd93281124"
+    },
+    "encrypted_aupd": {
+      "bytes": 1166416,
+      "sha256": "c49b4796d9370b80713b3eaaa0c8053388a6efd568a1f2cce9631c276c817d27"
     }
   }
 }

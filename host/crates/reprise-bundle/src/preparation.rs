@@ -9,7 +9,7 @@ mod tests;
 
 mod ipsw;
 #[cfg(test)]
-use ipsw::extract_osos;
+use ipsw::extract_image;
 pub use ipsw::{unpack_ipsw, FirmwareMetadata, Ipsw};
 
 use crate::{
@@ -27,9 +27,7 @@ impl PreparedInputs {
     pub fn from_plaintext(ipsw: &Ipsw, osos: &[u8], aupd: &[u8]) -> Result<Self> {
         let target = ipsw.metadata.target()?;
         ipsw.validate_plaintext(osos)?;
-        if !target.source.aupd_body.matches(aupd) {
-            return Err(invalid("AUPD plaintext does not match the pinned firmware"));
-        }
+        ipsw.validate_aupd_plaintext(aupd)?;
         let start = target.source.loader_offset;
         let loader = aupd
             .get(start..start + target.inputs["apple-loader.bin"].bytes)

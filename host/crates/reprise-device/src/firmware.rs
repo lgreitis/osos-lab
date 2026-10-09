@@ -40,6 +40,7 @@ pub struct IpswRequirements {
     pub visible_build_id: u32,
     pub build_id: u32,
     pub encrypted_osos: Fingerprint,
+    pub encrypted_aupd: Fingerprint,
 }
 
 #[derive(Debug, Deserialize)]
