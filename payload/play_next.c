@@ -79,8 +79,11 @@ void cfw_play_next_add(struct osos_player *player, struct osos_media_item *selec
     struct osos_media_entry *current = current_entry(player);
     if (current) {
         if (selected && osos_media_item_is_music(selected)) {
+            /* Artwork is indexed by queue position; stop its worker before mutation. */
+            osos_player_stop_artwork(player);
             struct osos_media_entry *inserted =
                 insert_song(player, osos_media_item_entry(selected), current, last);
+            osos_player_rebuild_artwork(player);
             if (inserted)
                 invalidate_next(player);
         }

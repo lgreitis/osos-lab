@@ -310,6 +310,18 @@ static inline void osos_player_clear_prepared(struct osos_player *player)
     ((fn)OSOS_PLAYER_CLEAR_PREPARED)(player);
 }
 
+static inline void osos_player_stop_artwork(struct osos_player *player)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_ARTWORK_SESSION_STOP)((uint8_t *)player + 0x88);
+}
+
+static inline int osos_player_rebuild_artwork(struct osos_player *player)
+{
+    typedef int (*fn)(struct osos_player *);
+    return ((fn)OSOS_PLAYER_REBUILD_ARTWORK)(player);
+}
+
 static inline void osos_audio_set_playback_source(void *source)
 {
     typedef void (*fn)(void *);
