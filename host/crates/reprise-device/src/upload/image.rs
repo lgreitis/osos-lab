@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 use super::{protocol::word, UploadOptions};
-use crate::{exact, invalid, targets, Result};
+use crate::{exact, firmware, invalid, Result};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -73,7 +73,7 @@ impl UploadHelper {
         }
         if m.schema != 3
             || m.mode != "stream-file"
-            || !targets::supports_bootrom(&m.rom_sha256)
+            || !firmware::supports_bootrom(&m.rom_sha256)
             || !(0x810..=0x1eff0).contains(&image.len())
             || !image.len().is_multiple_of(16)
             || m.bytes != image.len()

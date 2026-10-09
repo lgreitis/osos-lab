@@ -19,10 +19,32 @@ def load(name):
 
 
 images = load("ghidra_images")
-target_profiles = load("target_profiles")
+firmware = load("firmware")
+prepare = load("ghidra_prepare")
 
 
 class PreparationTests(unittest.TestCase):
+    @unittest.skipUnless(
+        (ROOT / "inputs/firmware-2.0.5/osos.bin").is_file(),
+        "Saved 2.0.5 input required",
+    )
+    def test_205_mapping_covers_relocated_bytes_and_excludes_padding(self):
+        data = (ROOT / "inputs/firmware-2.0.5/osos.bin").read_bytes()
+        profile = prepare.load_profile("firmware-2.0.5")
+        regions = images.osos_regions(data, profile)
+        initialized = sorted(
+            (r for r in regions if r["data"]), key=lambda r: r["source"]
+        )
+        self.assertEqual(b"".join(r["data"] for r in initialized), data[0x800:-4])
+        self.assertEqual(data[-4:], bytes(4))
+        bss = next(r for r in regions if r["name"] == ".dram.bss")
+        self.assertEqual(bss["address"] + bss["size"], 0x08B3B1B0)
+        changed = bytearray(data)
+        changed[0x4FC4] ^= 4
+        profile["inputs"]["osos.bin"]["sha256"] = images.sha(changed)
+        with self.assertRaisesRegex(ValueError, "copy/clear constants"):
+            images.osos_regions(changed, profile)
+
     def test_elf_load_segments_exclude_headers_and_bss_bytes(self):
         regions = [
             images.region(".iram", 0x22000000, b"IRAM", flags=5),
@@ -56,8 +78,8 @@ class PreparationTests(unittest.TestCase):
         self.assertIn((0x50, 0x30, entry), mappings)
 
     def test_unknown_firmware_and_overlapping_regions_are_rejected(self):
-        with self.assertRaisesRegex(ValueError, "Input does not match target profile"):
-            images.osos_regions(bytes(0x10000), target_profiles.load())
+        with self.assertRaisesRegex(ValueError, "Input does not match firmware"):
+            images.osos_regions(bytes(0x10000), prepare.load_profile("firmware-2.0.5"))
         with self.assertRaisesRegex(ValueError, "Overlapping"):
             images.elf(
                 [images.region("a", 0, b"1234"), images.region("b", 2, b"56")], 0

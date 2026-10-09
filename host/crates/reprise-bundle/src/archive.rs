@@ -81,52 +81,23 @@ mod tests {
     }
 
     #[test]
-    fn local_packages_accept_unsigned_content_and_enforce_compatibility() {
+    fn local_packages_accept_unsigned_content_but_signed_loading_requires_a_signature() {
         let fixture = Fixture::new();
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("bundle.zip");
         fs::remove_file(fixture.dir.path().join(SIGNATURE_FILE)).unwrap();
         pack(&fixture, &path);
-        let bundle = VerifiedBundle::load_local_zip(&path, "0.1.0").unwrap();
-        assert_eq!(bundle.manifest().version, "0.1.0");
-        assert!(VerifiedBundle::load_local_zip(&path, "0.0.9").is_err());
-        assert!(VerifiedBundle::load_zip(&path, &fixture.key, "0.1.0").is_err());
-
-        let manifest_path = fixture.dir.path().join(MANIFEST_FILE);
-        let mut manifest = bundle.manifest().clone();
-        manifest.compatibility = reprise_device::targets::find("classic6g-reva-2.0.1")
-            .unwrap()
-            .compatibility
-            .clone();
-        fs::write(manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
-        pack(&fixture, &path);
-        let mb565 = VerifiedBundle::load_local_zip(&path, "0.1.0").unwrap();
-        let target = &mb565.manifest().compatibility;
-        let hw = target.hardware_version;
-        let rom = target.bootrom_sha256.as_str();
-        for (model, hardware, firmware, hash, accepted) in [
-            ("MB562", hw, "2.0", rom, true),
-            ("MB565", hw, "2.0", rom, true),
-            ("MC293", hw, "2.0", rom, false),
-            ("MB565", hw, "2.0.4", rom, false),
-            ("MB565", 0, "2.0", rom, false),
-            ("MB565", hw, "2.0", "wrong-rom", false),
-        ] {
-            assert_eq!(
-                mb565
-                    .require_device(model, hardware, firmware, hash)
-                    .is_ok(),
-                accepted,
-                "{model} / {hardware:#x} / {firmware} / {hash}"
-            );
-        }
+        let bundle = VerifiedBundle::load_local_zip(&path, "0.2.0").unwrap();
+        assert_eq!(bundle.manifest().version, "0.2.0");
+        assert!(VerifiedBundle::load_local_zip(&path, "0.1.9").is_err());
+        assert!(VerifiedBundle::load_zip(&path, &fixture.key, "0.2.0").is_err());
     }
 
     #[test]
     fn incompatible_helper_is_rejected_before_signing_or_loading() {
         use ed25519_dalek::{Signer, SigningKey};
         let fixture = Fixture::new();
-        let bundle = VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.1.0").unwrap();
+        let bundle = VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.2.0").unwrap();
         let mut manifest = bundle.manifest().clone();
         let mut descriptor: serde_json::Value =
             serde_json::from_slice(bundle.file("usb_helper", "descriptor").unwrap()).unwrap();
@@ -156,14 +127,14 @@ mod tests {
         )
         .unwrap();
         let error =
-            crate::sign_directory(fixture.dir.path(), &"17".repeat(32), "0.1.0").unwrap_err();
+            crate::sign_directory(fixture.dir.path(), &"17".repeat(32), "0.2.0").unwrap_err();
         assert!(error.to_string().contains("storage inspection"));
-        assert!(VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.1.0").is_err());
+        assert!(VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.2.0").is_err());
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("bundle.zip");
         pack(&fixture, &path);
-        assert!(VerifiedBundle::load_local_zip(&path, "0.1.0").is_err());
-        assert!(VerifiedBundle::load_zip(&path, &fixture.key, "0.1.0").is_err());
+        assert!(VerifiedBundle::load_local_zip(&path, "0.2.0").is_err());
+        assert!(VerifiedBundle::load_zip(&path, &fixture.key, "0.2.0").is_err());
     }
 
     #[test]
@@ -172,7 +143,7 @@ mod tests {
             let fixture = Fixture::new();
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("bundle.zip");
-            let bundle = VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.1.0").unwrap();
+            let bundle = VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.2.0").unwrap();
             let hash = &bundle.manifest().components["usb_helper"].files["descriptor"];
             let asset = fixture.dir.path().join(asset_filename(hash));
             if let Some(bytes) = replacement {
@@ -181,8 +152,8 @@ mod tests {
                 fs::remove_file(asset).unwrap();
             }
             pack(&fixture, &path);
-            assert!(VerifiedBundle::load_local_zip(&path, "0.1.0").is_err());
-            assert!(VerifiedBundle::load_zip(&path, &fixture.key, "0.1.0").is_err());
+            assert!(VerifiedBundle::load_local_zip(&path, "0.2.0").is_err());
+            assert!(VerifiedBundle::load_zip(&path, &fixture.key, "0.2.0").is_err());
         }
     }
 
@@ -203,7 +174,7 @@ mod tests {
             .unwrap();
         archive.write_all(b"ignored").unwrap();
         archive.finish().unwrap();
-        VerifiedBundle::load_local_zip(&path, "0.1.0").unwrap();
+        VerifiedBundle::load_local_zip(&path, "0.2.0").unwrap();
         assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
     }
 }

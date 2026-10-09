@@ -9,14 +9,13 @@ mod tests;
 
 mod ipsw;
 #[cfg(test)]
-use ipsw::extract_osos;
+use ipsw::extract_image;
 pub use ipsw::{unpack_ipsw, FirmwareMetadata, Ipsw};
 
 use crate::{
     assembly::{AppleInputs, INPUT_FILES},
     invalid, write_directory, Result,
 };
-use reprise_device::AppleNorImage;
 use std::{collections::BTreeMap, path::Path};
 
 pub struct PreparedInputs {
@@ -24,39 +23,18 @@ pub struct PreparedInputs {
 }
 
 impl PreparedInputs {
-    /// Extract assembly inputs from verified plaintext images and a NOR backup.
-    pub fn from_plaintext(
-        ipsw: &Ipsw,
-        nor: &[u8],
-        osos: &[u8],
-        saved_loader: Option<&[u8]>,
-    ) -> Result<Self> {
+    /// Extract assembly inputs from verified OSOS and AUPD plaintext.
+    pub fn from_plaintext(ipsw: &Ipsw, osos: &[u8], aupd: &[u8]) -> Result<Self> {
         let target = ipsw.metadata.target()?;
-        let identity = reprise_device::SysCfg::parse(nor)
-            .and_then(|cfg| cfg.identity())
-            .map_err(|e| invalid(e.to_string()))?;
-        if !target.compatibility.matches_identity(
-            &identity.model,
-            identity.hardware_version,
-            &identity.recorded_firmware,
-        ) {
-            return Err(invalid("IPSW and NOR belong to different targets"));
-        }
         ipsw.validate_plaintext(osos)?;
-        let image = AppleNorImage::locate(nor).map_err(|e| invalid(e.to_string()))?;
-        let loader = if image.encrypted() {
-            saved_loader
-                .ok_or_else(|| invalid("Encrypted NOR requires its decrypted Apple loader"))?
-        } else {
-            image.plaintext().map_err(|e| invalid(e.to_string()))?
-        };
-        image
-            .validate_plaintext(loader)
-            .map_err(|e| invalid(e.to_string()))?;
-        if saved_loader.is_some_and(|saved| saved != loader) {
-            return Err(invalid("Saved Apple loader disagrees with NOR"));
-        }
+        ipsw.validate_aupd_plaintext(aupd)?;
+        let start = target.source.loader_offset;
+        let loader = aupd
+            .get(start..start + target.inputs["apple-loader.bin"].bytes)
+            .ok_or_else(|| invalid("AUPD loader outside image"))?;
+        // The pinned AUPD hash already authenticates the loader and its modules.
         let mut files = efi::extract(loader)?;
+        files.retain(|name, _| target.inputs.contains_key(name));
         files.insert("osos.bin".into(), osos.to_vec());
         files.insert("apple-loader.bin".into(), loader.to_vec());
         Ok(Self { files })

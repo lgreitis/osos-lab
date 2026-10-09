@@ -1,0 +1,36 @@
+{
+  "bank_offset": 4249716,
+  "bank_header": [
+    3,
+    97056,
+    27
+  ],
+  "bindings": {
+    "SettingsMenus_Main_Screen": 229444714,
+    "SettingsMenu_ListItem_Legal": 229444731,
+    "Settings_Legal_Screen": 229444787,
+    "Settings_Legal_Screen_Default": 229444788,
+    "SettingsMenus_Legal_Layout": 229444750,
+    "Settings_Legal_Template": 229441601,
+    "SettingsInfo_Template_Legal_Layout": 229444672,
+    "SettingsMenu_ListItem_EQ": 229444725,
+    "Notes_List_Screen_Alt_Default": 229444091,
+    "Notes_List_Screen_Alt": 229444090,
+    "StatusBarWhite_Template": 229441953,
+    "StatusBarWhite_Text": 229441958,
+    "MediaLists_Songs_Screen": 229443561,
+    "MediaLists_NestedPlaylists_Screen": 229443592,
+    "MediaLists_Genius_Screen": 229443652,
+    "MediaLists_GeniusPlaylist_Screen": 229443656,
+    "SettingsMenu_Items": 65,
+    "NowPlaying_Screen": 229443948,
+    "MainMenu_Items": 26,
+    "MainMenus_Main_Screen": 229443438,
+    "MainMenu_List_Artists": 229443443,
+    "MusicMenu_Items": 27,
+    "MainMenus_Music_Screen": 229443528,
+    "MusicMenu_ListItem_Artists": 229443532,
+    "MediaLists_Artists_Screen": 229443568,
+    "MediaLists_Artists_Screen_Default": 229443569
+  }
+}

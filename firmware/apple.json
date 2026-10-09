@@ -1,0 +1,75 @@
+{
+  "sysinfo_loader_version": 25198595,
+  "sysinfo_hardware_version": 1245952,
+  "source": {
+    "aupd_body": {
+      "bytes": 1164368,
+      "sha256": "9fdd2f354eb345ef0ff65dbc5ac7479720232e52d02e36b53cf1c711aa1a6095"
+    },
+    "loader_offset": 148524
+  },
+  "inputs": {
+    "apple-loader.bin": {
+      "bytes": 129024,
+      "sha256": "d2670f7e5493c4b5ed4b9b6fa2029ce1e519c1927522384469e810fbf408fb5e"
+    },
+    "osos.bin": {
+      "bytes": 10634496,
+      "sha256": "660eb6ff5f498bb1a75e85f1f9921bf0c753525a8bca9b4fa47ed260e5ad0f1e"
+    },
+    "modules/ROM.pe32": {
+      "bytes": 5600,
+      "sha256": "3a26b4e8049824b99865d8d2d6eb2c2d3edc9c008f7f244a51d8f5cd1417ebfe"
+    },
+    "modules/ClockAndReset.pe32": {
+      "bytes": 2112,
+      "sha256": "ddfe19127d23edab95cfb61876b4670ddfc0d0e64131e083cb063e21835234dd"
+    },
+    "modules/Cpu.pe32": {
+      "bytes": 2528,
+      "sha256": "1773ef73fb5c244904942b7ff58514c9928b775f5638be09996a69a63d596293"
+    },
+    "modules/InterruptController.pe32": {
+      "bytes": 2272,
+      "sha256": "0e2743745fefc70af448619cf81e607ae3ae82be29d26ffdb0689b0edad6607e"
+    },
+    "modules/Bds.pe32": {
+      "bytes": 5376,
+      "sha256": "6f0989ec72cfc881b074ffa75da398896e2e7aca169948de68574d2898f01ab3"
+    },
+    "modules/SoftwareVersion.pe32": {
+      "bytes": 1536,
+      "sha256": "ef780c54db62b6218ed48b4416a0d12f58ad3d3fcda280c612d96c177530a619"
+    }
+  },
+  "toolchain": {
+    "gcc": "9.5.0"
+  },
+  "target": "classic",
+  "rockbox_version": "10ec9bd530M-260914",
+  "compatibility": {
+    "target": "classic",
+    "hardware_versions": [
+      1245184,
+      1245440,
+      1245696,
+      1245952
+    ],
+    "bootrom_sha256": "69c087afc5753d7f0f11f09b141b372af753a854bc526673ea444c486d6003e4"
+  },
+  "ipsw": {
+    "version": "2.0.5",
+    "family_id": 11,
+    "updater_family_id": 38,
+    "visible_build_id": 33914880,
+    "build_id": 151355392,
+    "encrypted_osos": {
+      "bytes": 10634496,
+      "sha256": "3ef43a0fb223b28fa93d9a9240e32cb0932ce73eba1f9e1cbaecffbd93281124"
+    },
+    "encrypted_aupd": {
+      "bytes": 1166416,
+      "sha256": "c49b4796d9370b80713b3eaaa0c8053388a6efd568a1f2cce9631c276c817d27"
+    }
+  }
+}

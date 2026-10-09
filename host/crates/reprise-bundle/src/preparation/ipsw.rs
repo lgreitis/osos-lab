@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::{invalid, read_file, sha256, write_directory, Result};
-use reprise_device::targets::{self, Target};
+use reprise_device::firmware::{self, Firmware};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -34,31 +34,28 @@ impl FirmwareMetadata {
         )
     }
 
-    pub fn target(&self) -> Result<&'static Target> {
-        targets::all()
-            .iter()
-            .find(|target| {
-                let ipsw = &target.ipsw;
-                (
-                    ipsw.family_id,
-                    ipsw.updater_family_id,
-                    ipsw.visible_build_id,
-                    ipsw.build_id,
-                ) == (
-                    self.family_id,
-                    self.updater_family_id,
-                    self.visible_build_id,
-                    self.build_id,
-                )
-            })
-            .ok_or_else(|| {
-                invalid(format!(
-                    "Unsupported IPSW: version {}, family {}, updater family {}",
-                    self.version(),
-                    self.family_id,
-                    self.updater_family_id,
-                ))
-            })
+    pub fn target(&self) -> Result<&'static Firmware> {
+        let target = firmware::current();
+        let ipsw = &target.ipsw;
+        if (
+            ipsw.family_id,
+            ipsw.updater_family_id,
+            ipsw.visible_build_id,
+            ipsw.build_id,
+        ) != (
+            self.family_id,
+            self.updater_family_id,
+            self.visible_build_id,
+            self.build_id,
+        ) {
+            return Err(invalid(format!(
+                "Choose iPod_38.2.0.5.ipsw (Apple 2.0.5). Selected IPSW: version {}, family {}, updater family {}",
+                self.version(),
+                self.family_id,
+                self.updater_family_id
+            )));
+        }
+        Ok(target)
     }
 
     pub fn require_supported(&self) -> Result<()> {
@@ -70,6 +67,7 @@ pub struct Ipsw {
     pub metadata: FirmwareMetadata,
     pub sha256: String,
     osos: Vec<u8>,
+    aupd: Vec<u8>,
 }
 
 fn member(zip: &mut zip::ZipArchive<Cursor<&[u8]>>, name: &str, max: usize) -> Result<Vec<u8>> {
@@ -108,7 +106,7 @@ impl Ipsw {
             .map_err(|e| invalid(format!("Invalid IPSW manifest: {e}")))?;
         manifest.payload.require_supported()?;
         let firmware = member(&mut zip, &manifest.payload.firmware_name, MAX_IPSW)?;
-        let osos = extract_osos(&firmware)?;
+        let osos = extract_image(&firmware, "osos")?;
         if !manifest
             .payload
             .target()?
@@ -118,29 +116,42 @@ impl Ipsw {
         {
             return Err(invalid("IPSW OSOS bytes do not match its firmware build"));
         }
+        let aupd = extract_image(&firmware, "aupd")?;
+        if !manifest
+            .payload
+            .target()?
+            .ipsw
+            .encrypted_aupd
+            .matches(&aupd)
+        {
+            return Err(invalid("IPSW AUPD bytes do not match its firmware build"));
+        }
         Ok(Self {
             metadata: manifest.payload,
             sha256: sha256(bytes),
             osos,
+            aupd,
         })
     }
 
     pub fn validate_plaintext(&self, image: &[u8]) -> Result<()> {
-        if image.len() != self.osos.len()
-            || image.get(..8) != Some(b"87021.0\x02")
-            || image[8..12] != self.osos[8..12]
-            || [12, 16, 20]
-                .iter()
-                .any(|offset| word(image, *offset) != self.ciphertext().len())
-        {
-            return Err(invalid("Decrypted OSOS header or length mismatch"));
-        }
         if !self.metadata.target()?.inputs["osos.bin"].matches(image) {
             return Err(invalid(
                 "Decrypted OSOS does not match its target fingerprint",
             ));
         }
         Ok(())
+    }
+
+    pub fn validate_aupd_plaintext(&self, body: &[u8]) -> Result<()> {
+        if !self.metadata.target()?.source.aupd_body.matches(body) {
+            return Err(invalid("AUPD plaintext does not match the pinned firmware"));
+        }
+        Ok(())
+    }
+
+    pub fn aupd_ciphertext(&self) -> &[u8] {
+        &self.aupd[0x800..]
     }
 
     pub fn encrypted_osos(&self) -> &[u8] {
@@ -213,11 +224,11 @@ fn firmware_entries(firmware: &[u8]) -> Result<BTreeMap<String, std::ops::Range<
     Ok(entries)
 }
 
-pub(super) fn extract_osos(firmware: &[u8]) -> Result<Vec<u8>> {
+pub(super) fn extract_image(firmware: &[u8], name: &str) -> Result<Vec<u8>> {
     let entries = firmware_entries(firmware)?;
     let range = entries
-        .get("osos")
-        .ok_or_else(|| invalid("IPSW has no Classic OSOS image"))?;
+        .get(name)
+        .ok_or_else(|| invalid(format!("IPSW has no Classic {name} image")))?;
     let image = &firmware[range.clone()];
     let body =
         reprise_device::classic_img1_body_range(image).map_err(|e| invalid(e.to_string()))?;

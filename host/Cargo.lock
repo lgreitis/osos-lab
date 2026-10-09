@@ -901,7 +901,7 @@ dependencies = [
 
 [[package]]
 name = "reprise-bundle"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "ed25519-dalek",
  "mu_uefi_decompress",
@@ -919,7 +919,7 @@ dependencies = [
 
 [[package]]
 name = "reprise-cli"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "reprise-bundle",
  "reprise-device",
@@ -929,7 +929,7 @@ dependencies = [
 
 [[package]]
 name = "reprise-device"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "getrandom 0.3.4",
  "rusb",

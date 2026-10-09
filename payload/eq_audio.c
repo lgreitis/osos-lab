@@ -3,7 +3,7 @@
 #include "custom_eq.h"
 #include "eq_coefficients.h"
 #include "osos.h"
-#include "compat/osos/eq-layout.h"
+#include "native/eq-layout.h"
 #include "patch.h"
 
 static int32_t published[2][3][5];

@@ -4,13 +4,13 @@
 
 mod decrypt;
 mod dfu;
+pub mod firmware;
 mod img1;
 mod install;
 mod nor;
 mod nor_image;
 mod payload;
 mod syscfg;
-pub mod targets;
 
 #[cfg(test)]
 mod tests;
@@ -184,7 +184,7 @@ impl CheckReport {
         exact("BootROM image", bytes.len(), BOOTROM_SIZE)?;
         let hash = format!("{:x}", Sha256::digest(bytes));
         self.bootrom_sha256 = Some(hash.clone());
-        if !targets::supports_bootrom(&hash) {
+        if !firmware::supports_bootrom(&hash) {
             return Err(invalid(format!(
                 "Unsupported BootROM SHA-256 {hash}; NOR calls refused"
             )));
@@ -195,30 +195,11 @@ impl CheckReport {
 
     fn record_identity(&mut self, config: &SysCfg, emit: &mut impl FnMut(Event)) -> Result<()> {
         let identity = config.identity()?;
-        let matching_targets: Vec<_> = targets::all()
-            .iter()
-            .filter(|target| {
-                target.compatibility.models.contains(&identity.model)
-                    && target.compatibility.hardware_version == identity.hardware_version
-            })
-            .collect();
-        let model_matches = !matching_targets.is_empty();
-        let version_matches = matching_targets
-            .iter()
-            .any(|target| target.compatibility.apple_firmware == identity.recorded_firmware);
-        let firmware_detail = if model_matches && !version_matches {
-            let required = matching_targets
-                .iter()
-                .map(|target| target.ipsw.version.as_str())
-                .collect::<Vec<_>>()
-                .join(" or ");
-            format!(
-                "Your iPod reports Apple firmware {}. RepriseOS requires Apple firmware {required} for this model. Install the required Apple firmware on your iPod, then try again.",
-                identity.recorded_firmware
-            )
-        } else {
-            format!("SysCfg records {}", identity.recorded_firmware)
-        };
+        let model_matches = firmware::for_hardware(identity.hardware_version).is_some();
+        let firmware_detail = format!(
+            "Original Apple firmware {}; CFW uses 2.0.5",
+            identity.recorded_firmware
+        );
         self.set(
             CheckId::Model,
             if model_matches {
@@ -238,18 +219,9 @@ impl CheckReport {
             ),
             emit,
         );
-        self.set(
-            CheckId::Version,
-            if version_matches {
-                CheckStatus::Passed
-            } else {
-                CheckStatus::Failed
-            },
-            firmware_detail,
-            emit,
-        );
+        self.set(CheckId::Version, CheckStatus::Passed, firmware_detail, emit);
         self.identity = Some(identity);
-        self.compatible = model_matches && version_matches;
+        self.compatible = model_matches;
         Ok(())
     }
 }

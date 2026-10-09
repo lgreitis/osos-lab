@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "layout.h"
-#include "compat/nor/dxe.h"
-#include "compat/nor/drivers.h"
+#include "nor/dxe.h"
+#include "nor/drivers.h"
 
 #define HEADER 0x22036000u
 #define ARENA_BYTES 0x5000u

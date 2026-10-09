@@ -53,7 +53,7 @@ pub enum Purpose {
     Release,
 }
 
-pub use reprise_device::targets::Compatibility;
+pub use reprise_device::firmware::Compatibility;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -93,21 +93,20 @@ impl Manifest {
                 "This firmware release requires installer {minimum} or newer. Update RepriseOS Installer, then try again."
             )));
         }
-        if self.schema != 1 {
+        if self.schema != 2 {
             return Err(invalid(
                 "This firmware package uses an unsupported format. Update RepriseOS Installer, then try again.",
             ));
         }
         let c = &self.compatibility;
         if !valid_target_name(&c.target)
-            || c.hardware_version == 0
-            || c.apple_firmware.is_empty()
-            || c.apple_firmware.len() > 16
-            || !c.apple_firmware.bytes().all(|b| b.is_ascii_graphic())
             || !valid_hash(&c.bootrom_sha256)
-            || c.models.is_empty()
-            || c.models.iter().any(|m| !valid_target_name(m))
-            || c.models.iter().collect::<BTreeSet<_>>().len() != c.models.len()
+            || c.hardware_versions.is_empty()
+            || c.hardware_versions
+                .iter()
+                .any(|hw| !matches!(hw, 0x00130000 | 0x00130100 | 0x00130200 | 0x00130300))
+            || c.hardware_versions.iter().collect::<BTreeSet<_>>().len()
+                != c.hardware_versions.len()
         {
             return Err(invalid("Invalid bundle target"));
         }
@@ -236,17 +235,9 @@ impl VerifiedBundle {
         Ok(&self.assets[hash])
     }
 
-    pub fn require_device(
-        &self,
-        model: &str,
-        hardware_version: u32,
-        firmware: &str,
-        bootrom_sha256: &str,
-    ) -> Result<()> {
+    pub fn require_device(&self, hardware_version: u32, bootrom_sha256: &str) -> Result<()> {
         let c = &self.manifest.compatibility;
-        if !c.matches_identity(model, hardware_version, firmware)
-            || c.bootrom_sha256 != bootrom_sha256
-        {
+        if !c.matches_hardware(hardware_version) || c.bootrom_sha256 != bootrom_sha256 {
             return Err(invalid("Bundle does not support the checked device"));
         }
         Ok(())

@@ -117,7 +117,17 @@ def headless(args, project, name, options, phase, markers=()):
     # Analyzer diagnostics do not imply a failed import. Scripts and the final
     # verifier must finish, and framework/script errors remain fatal.
     errors = [line for line in output.splitlines() if "ERROR " in line]
-    fatal = [line for line in errors if "(ClearFlowAndRepairCmd)" not in line]
+    arm_context_conflict = (
+        "ERROR Unexpected Exception (ArmAnalyzer) "
+        "ghidra.program.model.listing.ContextChangeException: "
+        "Context register change conflicts with one or more instructions"
+    )
+    fatal = [
+        line
+        for line in errors
+        if "(ClearFlowAndRepairCmd)" not in line
+        and line.strip() != arm_context_conflict
+    ]
     if result.returncode or fatal or missing:
         raise RuntimeError(
             f"Ghidra failed; see {log}\n"

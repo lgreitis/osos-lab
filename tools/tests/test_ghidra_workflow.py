@@ -12,12 +12,21 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ghidra_analysis
 import ghidra_project
-import target_profiles
 
 import ghidra
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_firmware_analysis_profile_does_not_require_device_identity(self):
+        profile = ghidra.load_profile("firmware-2.0.5")
+        self.assertEqual(profile["ipsw"]["version"], "2.0.5")
+        self.assertNotIn("compatibility", profile)
+        self.assertNotIn("nor.bin", profile["inputs"])
+        for name in ("classic7g-2.0.4", "classic6g-reva-2.0.1"):
+            self.assertIn("analysis", ghidra.load_profile(name))
+        with self.assertRaisesRegex(ValueError, "Invalid analysis target"):
+            ghidra.load_profile("../firmware-2.0.5")
+
     def test_selection_requires_distinct_known_targets(self):
         manifest = json.loads(ghidra.MANIFEST.read_text())
         name = "classic6g-reva-2.0.1"
@@ -82,43 +91,20 @@ class WorkflowTests(unittest.TestCase):
         args = argparse.Namespace(
             command="import",
             ipsw=Path("firmware.ipsw"),
-            nor=Path("nor.bin"),
+            aupd=Path("nor.bin"),
             osos=None,
-            apple_loader=None,
             inputs=None,
             target=None,
             fresh=False,
         )
-        with self.assertRaisesRegex(ValueError, "decrypted OSOS"):
+        with self.assertRaisesRegex(ValueError, "decrypted 2.0.5 OSOS"):
             ghidra.validate_inputs(args)
         args.osos = Path("plaintext.bin")
         ghidra.validate_inputs(args)
-        args.ipsw = args.nor = args.osos = None
+        args.ipsw = args.aupd = args.osos = None
         args.inputs = Path("inputs")
         with self.assertRaisesRegex(ValueError, "exactly one"):
             ghidra.validate_inputs(args)
-
-    def test_nor_uses_identity_not_device_specific_hash(self):
-        profile = target_profiles.load()
-        compatibility = profile["compatibility"]
-        identity = dict(
-            model=compatibility["models"][0],
-            hardware_version=compatibility["hardware_version"],
-            recorded_firmware=compatibility["apple_firmware"],
-        )
-        with tempfile.TemporaryDirectory() as temporary:
-            nor = Path(temporary) / "nor.bin"
-            nor.write_bytes(bytes(0x100000))
-            with patch("target_profiles.subprocess.run") as run:
-                run.return_value.stdout = json.dumps(identity)
-                target_profiles.verify_nor(nor, profile, Path("reprise"))
-                identity["model"] = "unsupported"
-                run.return_value.stdout = json.dumps(identity)
-                with self.assertRaisesRegex(ValueError, "identity"):
-                    target_profiles.verify_nor(nor, profile, Path("reprise"))
-            nor.write_bytes(b"short")
-            with self.assertRaisesRegex(ValueError, "1 MiB"):
-                target_profiles.verify_nor(nor, profile, Path("reprise"))
 
     def test_manifest_entries_have_explicit_modes_in_executable_regions(self):
         manifest = json.loads(ghidra.MANIFEST.read_text())
@@ -157,12 +143,12 @@ class WorkflowTests(unittest.TestCase):
             target=["classic7g-2.0.4"],
         )
         with patch("ghidra.subprocess.run") as run:
-            run.return_value.stdout = json.dumps({"target": "classic6g-reva-2.0.1"})
+            run.return_value.stdout = json.dumps({"version": "2.0.5"})
             with self.assertRaisesRegex(ValueError, "does not match"):
                 ghidra.resolve_ipsw(args)
             args.target = None
             ghidra.resolve_ipsw(args)
-            self.assertEqual(args.target, ["classic6g-reva-2.0.1"])
+            self.assertEqual(args.target, ["firmware-2.0.5"])
 
     def test_missing_completion_marker_is_failure_even_with_zero_exit(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -179,6 +165,33 @@ class WorkflowTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "completion markers"):
                     ghidra_project.headless(
                         args, Path(temporary), "osos", [], "test", ["VERIFIED "]
+                    )
+
+    def test_arm_context_conflict_is_reported_but_other_exceptions_fail(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            args = argparse.Namespace(ghidra=Path(temporary))
+            conflict = (
+                "ERROR Unexpected Exception (ArmAnalyzer) "
+                "ghidra.program.model.listing.ContextChangeException: "
+                "Context register change conflicts with one or more instructions"
+            )
+
+            def run(command, stdout, **kwargs):
+                stdout.write(message + "\nPREPARED firmware\n")
+                return argparse.Namespace(returncode=0)
+
+            with (
+                patch.object(ghidra_project, "WORK", Path(temporary)),
+                patch("ghidra_project.subprocess.run", side_effect=run),
+            ):
+                message = conflict
+                ghidra_project.headless(
+                    args, Path(temporary), "osos", [], "test", ["PREPARED firmware"]
+                )
+                message = "ERROR Unexpected Exception (ArmAnalyzer) RuntimeException"
+                with self.assertRaisesRegex(RuntimeError, "RuntimeException"):
+                    ghidra_project.headless(
+                        args, Path(temporary), "osos", [], "test", ["PREPARED firmware"]
                     )
 
 

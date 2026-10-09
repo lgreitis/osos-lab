@@ -24,7 +24,7 @@ pub fn export(specification: &Path, base: &Path, output: &Path) -> Result<Manife
     let spec: Specification =
         serde_json::from_slice(&read_file(specification, MAX_MANIFEST_BYTES)?)?;
     let mut manifest = Manifest {
-        schema: 1,
+        schema: 2,
         purpose: spec.purpose,
         version: spec.version,
         minimum_installer_version: spec.minimum_installer_version,

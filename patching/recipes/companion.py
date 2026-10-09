@@ -1,10 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Compile the Apple companion and assemble its loader, handoff, and helper regions."""
 
-import json
 from dataclasses import dataclass, field
 
-from ..compatibility import companion_shims
 from ..symbols import require
 from ..toolchain import compile_payload
 from . import native
@@ -20,12 +18,12 @@ class LinkedImage:
     declarations: list[native.Declaration] = field(default_factory=list)
 
 
-def compile_handoff(source, directory, prefix, jobs, shims):
+def compile_handoff(source, directory, prefix, jobs):
     directory = directory / "handoff"
     units = [
         (name, [])
         for name in (
-            "../compat/nor/s5l8702/handoff.S",
+            "../nor/s5l8702/handoff.S",
             "extension.c",
             "bds-combined.c",
             "../common/rom-context.c",
@@ -35,59 +33,55 @@ def compile_handoff(source, directory, prefix, jobs, shims):
         directory,
         source / "handoff",
         units,
-        "../compat/nor/s5l8702/handoff.lds.S",
+        "../nor/s5l8702/handoff.lds.S",
         "extension",
         prefix,
         jobs,
-        includes=(source, *shims.includes),
+        includes=(source, source / "nor", source.parents[1] / "payload"),
     )
     declarations = native.collect(directory, "extension", prefix)
     return LinkedImage(code, symbols, declarations)
 
 
-def compile_helper(source, directory, prefix, jobs, shims):
+def compile_helper(source, directory, prefix, jobs):
     code, symbols = compile_payload(
         directory / "native",
         source / "native",
-        [
-            (name, [])
-            for name in ("resume.S", "../compat/nor/s5l8702/dispatch.S", "hook.c")
-        ],
+        [(name, []) for name in ("resume.S", "../nor/s5l8702/dispatch.S", "hook.c")],
         "native.lds",
         "native",
         prefix,
         jobs,
-        includes=(source, *shims.includes),
+        includes=(source, source / "nor", source.parents[1] / "payload"),
     )
     return LinkedImage(code, symbols)
 
 
-def compile_startup(source, directory, prefix, jobs, shims):
+def compile_startup(source, directory, prefix, jobs):
     directory = directory / "startup"
     units = [
         ("start.S", []),
         ("hook.c", []),
         ("../common/rom-context.c", ["-DSTARTUP_CONTEXT=1"]),
-        ("../compat/nor/s5l8702/modules.S", []),
+        ("../nor/s5l8702/modules.S", []),
         ("files.c", []),
-        ("../compat/nor/s5l8702/wrappers.S", []),
-        ("../compat/nor/s5l8702/patches.S", []),
+        ("../nor/s5l8702/wrappers.S", []),
+        ("../nor/s5l8702/patches.S", []),
     ]
     code, symbols = compile_payload(
         directory,
         source / "startup",
         units,
-        "../compat/nor/s5l8702/startup.lds.S",
+        "../nor/s5l8702/startup.lds.S",
         "probe",
         prefix,
         jobs,
-        includes=(source, *shims.includes),
+        includes=(source, source / "nor", source.parents[1] / "payload"),
     )
     return LinkedImage(code, symbols, native.collect(directory, "probe", prefix))
 
 
-def recipe_inputs(target_path, declarations):
-    target = json.loads(target_path.read_text())["inputs"]
+def recipe_inputs(inputs, declarations):
     filenames = {"apple_loader": "apple-loader.bin"}
     for declaration in declarations:
         name = declaration.name
@@ -95,7 +89,7 @@ def recipe_inputs(target_path, declarations):
             "osos": "osos.bin",
             "apple_loader": "apple-loader.bin",
         }.get(name, f"modules/{name}.pe32")
-    return {name: target[path] for name, path in filenames.items()}
+    return {name: inputs[path] for name, path in filenames.items()}
 
 
 def append_loader(recipe, startup):
@@ -144,12 +138,11 @@ def append_extensions(recipe, handoff, helper):
     recipe.zero(helper_limit - helper_start - len(helper.code))
 
 
-def build_recipe(source, directory, target_path, prefix, jobs):
-    shims = companion_shims(source, target_path)
-    handoff = compile_handoff(source, directory, prefix, jobs, shims)
-    helper = compile_helper(source, directory, prefix, jobs, shims)
-    startup = compile_startup(source, directory, prefix, jobs, shims)
-    inputs = recipe_inputs(target_path, handoff.declarations + startup.declarations)
+def build_recipe(source, directory, inputs, prefix, jobs):
+    handoff = compile_handoff(source, directory, prefix, jobs)
+    helper = compile_helper(source, directory, prefix, jobs)
+    startup = compile_startup(source, directory, prefix, jobs)
+    inputs = recipe_inputs(inputs, handoff.declarations + startup.declarations)
     recipe = Recipe(inputs)
     append_loader(recipe, startup)
     append_extensions(recipe, handoff, helper)

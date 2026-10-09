@@ -120,40 +120,30 @@ fn component(bundle: &mut VerifiedBundle, name: &str, files: &[(&str, Vec<u8>)])
     );
 }
 
-fn companion_bundle() -> (VerifiedBundle, AppleInputs) {
-    let fixture = crate::tests::Fixture::new();
-    let mut bundle = VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.1.0").unwrap();
-    let output = vec![0; 0x2b800];
-    let recipe = json!({"schema":2, "interface":INTERFACE,
-        "inputs":{"osos":{"bytes":4,"sha256":sha256(b"base")}},
-        "output":{"bytes":output.len()},
-        "data":{"bytes":1,"sha256":sha256(&[0])},
-        "segments":[{"kind":"zero","bytes":output.len()}]});
-    component(
-        &mut bundle,
-        "companion",
-        &[
-            ("recipe", serde_json::to_vec(&recipe).unwrap()),
-            ("data", vec![0]),
-        ],
-    );
-    let mut inputs = AppleInputs::default();
-    inputs.insert("osos", b"base".to_vec()).unwrap();
-    (bundle, inputs)
-}
-
 #[test]
 fn companion_uses_the_supplied_device_and_rejects_incompatible_config() {
-    let (bundle, inputs) = companion_bundle();
     let mut config = cfg();
-    let first = assemble_companion(&bundle, &inputs, &config).unwrap();
+    let first = personalize_companion(vec![0; 0x2b800], &config).unwrap();
     assert_eq!(
         &first[SYSINFO_OFFSET + 0x18..SYSINFO_OFFSET + 0x23],
         b"FIRSTDEVICE"
     );
     assert_eq!(&first[SYSINFO_OFFSET + 0x92..SYSINFO_OFFSET + 0x94], b"US");
+    assert_eq!(word(&first, SYSINFO_OFFSET + 0x84), 0x00130300);
+    assert_eq!(word(&first, SYSINFO_OFFSET + 0x11c), 0x01808003);
+    assert_eq!(
+        &first[SYSINFO_OFFSET + 0x94..SYSINFO_OFFSET + 0x96],
+        &[0, 0]
+    );
+    let mut european = cfg();
+    european.entries.get_mut("Regn").unwrap()[6..8].copy_from_slice(&0x21u16.to_le_bytes());
+    let european_image = personalize_companion(vec![0; 0x2b800], &european).unwrap();
+    assert_eq!(
+        &european_image[SYSINFO_OFFSET + 0x94..SYSINFO_OFFSET + 0x96],
+        &0x21u16.to_le_bytes()
+    );
     config.entries.get_mut("SrNm").unwrap()[0] = b'X';
-    let second = assemble_companion(&bundle, &inputs, &config).unwrap();
+    let second = personalize_companion(vec![0; 0x2b800], &config).unwrap();
     let changed: Vec<_> = first
         .iter()
         .zip(&second)
@@ -163,67 +153,37 @@ fn companion_uses_the_supplied_device_and_rejects_incompatible_config() {
         .collect();
     assert_eq!(changed, [SYSINFO_OFFSET + 0x18]);
     config.entries.remove("Codc");
-    assert!(assemble_companion(&bundle, &inputs, &config).is_err());
+    assert!(personalize_companion(vec![0; 0x2b800], &config).is_err());
     let mut config = cfg();
-    config.entries.get_mut("Mod#").unwrap()[4] = b'9';
-    assert!(assemble_companion(&bundle, &inputs, &config).is_err());
-}
-
-#[test]
-fn local_companion_requires_target_inputs_and_preserves_personalization() {
-    let (bundle, inputs) = companion_bundle();
+    config.entries.get_mut("HwVr").unwrap()[4..8].fill(0);
+    assert!(personalize_companion(vec![0; 0x2b800], &config).is_err());
     let config = cfg();
-    let mut nor = vec![0; 0x100000];
-    for (offset, value) in [
-        (0, 0x53436667u32),
-        (4, (24 + config.entries.len() * 20) as u32),
-        (8, 0x2000),
-        (12, 0x10001),
-        (20, config.entries.len() as u32),
-    ] {
-        nor[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
-    }
-    for (i, (tag, bytes)) in config.entries.iter().enumerate() {
-        let offset = 24 + i * 20;
-        for (j, byte) in tag.bytes().rev().enumerate() {
-            nor[offset + j] = byte;
-        }
-        nor[offset + 4..offset + 20].copy_from_slice(bytes);
-    }
-    let directory = tempfile::tempdir().unwrap();
-    fs::write(directory.path().join("osos.bin"), b"base").unwrap();
-    let local = |nor: &[u8]| {
-        assemble_local_companion(
-            bundle.file("companion", "recipe").unwrap(),
-            bundle.file("companion", "data").unwrap(),
-            directory.path(),
-            nor,
-        )
-    };
-    assert_eq!(
-        personalize_companion(
-            assemble_local(
-                bundle.file("companion", "recipe").unwrap(),
-                bundle.file("companion", "data").unwrap(),
-                directory.path(),
-            )
-            .unwrap(),
-            &SysCfg::parse(&nor).unwrap(),
-        )
-        .unwrap(),
-        assemble_companion(&bundle, &inputs, &config).unwrap()
-    );
-    assert!(local(&nor)
-        .unwrap_err()
-        .to_string()
-        .contains("different targets"));
-    assert!(local(&nor[..nor.len() - 1]).is_err());
-    nor[0] ^= 1;
-    assert!(local(&nor).is_err());
     assert!(personalize_companion(vec![0; 1], &config).is_err());
     let mut occupied = vec![0; 0x2b800];
     occupied[SYSINFO_OFFSET] = 1;
     assert!(personalize_companion(occupied, &config).is_err());
+}
+
+#[test]
+fn aupd_companion_requires_pinned_loader_inputs() {
+    let profile = firmware::current();
+    let mut recipe = Recipe::parse(&serde_json::to_vec(&recipe_json()).unwrap()).unwrap();
+    recipe.inputs = INPUT_FILES
+        .iter()
+        .map(|(key, file)| {
+            let input = &profile.inputs[*file];
+            (
+                (*key).to_owned(),
+                Fingerprint {
+                    bytes: input.bytes,
+                    sha256: input.sha256.clone(),
+                },
+            )
+        })
+        .collect();
+    validate_companion_inputs(&recipe).unwrap();
+    recipe.inputs.get_mut("bds").unwrap().sha256 = sha256(b"wrong module");
+    assert!(validate_companion_inputs(&recipe).is_err());
 }
 
 #[test]
@@ -244,7 +204,8 @@ fn output_is_created_exclusively_with_a_report() {
 
 #[test]
 fn nor_template_requires_dual_boot_packaging() {
-    let (mut bundle, _) = companion_bundle();
+    let fixture = crate::tests::Fixture::new();
+    let mut bundle = VerifiedBundle::load(fixture.dir.path(), &fixture.key, "0.2.0").unwrap();
     let offset = 0xb10usize;
     let mut original = vec![0; offset + 16];
     original[..8].copy_from_slice(b"87021.0\x03");
@@ -279,21 +240,31 @@ fn local_distribution_replays_from_saved_inputs() {
     let path = |name| std::path::PathBuf::from(std::env::var_os(name).expect(name));
     let root = path("REPRISE_ASSEMBLY_ROOT");
     let build = path("REPRISE_ASSEMBLY_BUILD");
-    let bundle = VerifiedBundle::load_local_zip(&path("REPRISE_TEST_PACKAGE"), "0.1.0").unwrap();
+    let bundle = VerifiedBundle::load_local_zip(&path("REPRISE_TEST_PACKAGE"), "0.2.0").unwrap();
     let helper = reprise_device::UploadHelper::from_bytes(
         bundle.file("usb_helper", "image").unwrap(),
         bundle.file("usb_helper", "descriptor").unwrap(),
     )
     .unwrap();
     assert!(helper.supports_storage_inspection());
-    let nor = fs::read(root.join("inputs/nor.bin")).unwrap();
+    let nor_path = std::env::var_os("REPRISE_TEST_NOR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.join("inputs/nor.bin"));
+    let nor = fs::read(nor_path).unwrap();
     let ipsw = crate::preparation::Ipsw::load(&path("REPRISE_TEST_IPSW")).unwrap();
-    let osos = fs::read(root.join("inputs/osos.bin")).unwrap();
-    let loader = fs::read(root.join("inputs/apple-loader.bin")).unwrap();
-    let prepared =
-        crate::preparation::PreparedInputs::from_plaintext(&ipsw, &nor, &osos, Some(&loader))
-            .unwrap();
+    let osos = fs::read(root.join("inputs/firmware-2.0.5/osos.bin")).unwrap();
+    let aupd = fs::read(root.join("inputs/firmware-2.0.5/aupd.decrypted.body.bin")).unwrap();
+    let prepared = crate::preparation::PreparedInputs::from_plaintext(&ipsw, &osos, &aupd).unwrap();
     let artifacts = assemble(&bundle, &prepared.apple_inputs().unwrap(), &nor).unwrap();
+    let local_companion = assemble_local_companion(
+        bundle.file("companion", "recipe").unwrap(),
+        bundle.file("companion", "data").unwrap(),
+        &root.join("inputs/firmware-2.0.5"),
+        &nor,
+    )
+    .unwrap();
+    assert_eq!(local_companion, artifacts.companion);
+
     assert_eq!(
         disk_bytes(&bundle).unwrap() as usize,
         artifacts.osos.len() + artifacts.companion.len()

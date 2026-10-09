@@ -39,8 +39,8 @@ Usage:
   reprise firmware extract --ipsw FILE --output NEW_IMG1 [--json]
   reprise firmware unpack --ipsw FILE --out NEW_DIR [--json]
   reprise firmware extract-efi --input PLAINTEXT_LOADER --out NEW_DIR [--json]
-  reprise firmware prepare --ipsw FILE --nor BACKUP --osos PLAINTEXT
-    [--apple-loader PLAINTEXT_BODY] --out NEW_DIR [--json]
+  reprise firmware prepare --ipsw FILE --osos PLAINTEXT
+    --aupd PLAINTEXT_BODY --out NEW_DIR [--json]
   reprise firmware decrypt-nor --input BACKUP --output NEW_FILE
     [--device BUS:ADDRESS] [--json]
   reprise devices [--json]
@@ -77,7 +77,7 @@ check uses 512-byte BootROM replies after a small ROM/transport preflight,
 verifies the full 64 KiB fingerprint, then performs bounded
 NOR SysCfg reads. Connect in BootROM DFU (blank screen);
 recoverable DFU states are cleared before checks. Reset only if recovery fails.
-Device tooling: Classic Rev B / 2.0.4 and MB565, with a verified BootROM.
+Device tooling: iPod Classic 6G, 6.5G and 7G, with a verified BootROM.
 Installation requires a bundle matching the checked device.
 
 --device uses decimal BUS:ADDRESS from `reprise devices`, not USB VID:PID.

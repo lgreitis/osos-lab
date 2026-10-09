@@ -8,11 +8,11 @@ use std::{
 
 fn metadata() -> FirmwareMetadata {
     FirmwareMetadata {
-        firmware_name: "Firmware-35.9.0.4".into(),
-        build_id: 0x09048000,
-        visible_build_id: 0x02048000,
+        firmware_name: "Firmware-38.9.0.5".into(),
+        build_id: 0x09058000,
+        visible_build_id: 0x02058000,
         family_id: 11,
-        updater_family_id: 35,
+        updater_family_id: 38,
     }
 }
 
@@ -28,7 +28,7 @@ fn archive(metadata: FirmwareMetadata, firmware: &[u8]) -> Vec<u8> {
     .unwrap();
     for (name, bytes) in [
         ("manifest.plist", manifest.as_slice()),
-        ("Firmware-35.9.0.4", firmware),
+        ("Firmware-38.9.0.5", firmware),
     ] {
         zip.start_file(name, options).unwrap();
         zip.write_all(bytes).unwrap();
@@ -38,22 +38,14 @@ fn archive(metadata: FirmwareMetadata, firmware: &[u8]) -> Vec<u8> {
 
 #[test]
 fn metadata_reports_version_and_rejects_wrong_families_and_builds() {
-    assert_eq!(metadata().version(), "2.0.4");
+    assert_eq!(metadata().version(), "2.0.5");
     metadata().require_supported().unwrap();
-    let mut mb565 = metadata();
-    mb565.updater_family_id = 33;
-    mb565.build_id = 0x09018000;
-    mb565.visible_build_id = 0x02018000;
-    assert_eq!(mb565.version(), "2.0.1");
-    mb565.require_supported().unwrap();
-    mb565.updater_family_id = 35;
-    assert!(mb565.require_supported().is_err());
     for change in 0..4 {
         let mut m = metadata();
         match change {
             0 => m.family_id = 1,
             1 => m.updater_family_id = 26,
-            2 => m.visible_build_id = 0x02058000,
+            2 => m.visible_build_id = 0x02048000,
             _ => m.build_id = 0,
         }
         assert!(m.require_supported().is_err());
@@ -77,7 +69,11 @@ fn mse() -> Vec<u8> {
 #[test]
 fn firmware_directory_bounds_and_final_aes_block() {
     let original = mse();
-    assert_eq!(extract_osos(&original).unwrap().len(), 0x820);
+    assert_eq!(extract_image(&original, "osos").unwrap().len(), 0x820);
+    assert!(extract_image(&original, "aupd").is_err());
+    let mut aupd = original.clone();
+    aupd[0x5004..0x5008].copy_from_slice(b"dpua");
+    assert_eq!(extract_image(&aupd, "aupd").unwrap().len(), 0x820);
     for (offset, value) in [
         (0x100, 0),
         (0x500c, 0xff),
@@ -88,13 +84,13 @@ fn firmware_directory_bounds_and_final_aes_block() {
     ] {
         let mut bad = original.clone();
         bad[offset] = value;
-        assert!(extract_osos(&bad).is_err(), "{offset:x}");
+        assert!(extract_image(&bad, "osos").is_err(), "{offset:x}");
     }
     let mut duplicate = original.clone();
     duplicate.copy_within(0x5000..0x5028, 0x5028);
-    assert!(extract_osos(&duplicate).is_err());
+    assert!(extract_image(&duplicate, "osos").is_err());
     for n in [0, 0x527f, 0x6000, 0x6800] {
-        assert!(extract_osos(&original[..n]).is_err());
+        assert!(extract_image(&original[..n], "osos").is_err());
     }
     assert!(Ipsw::parse(&archive(metadata(), &original))
         .err()
@@ -104,61 +100,31 @@ fn firmware_directory_bounds_and_final_aes_block() {
 }
 
 #[test]
-#[ignore = "requires preserved local IPSW, NOR and decrypted Apple images"]
-fn preserved_ipsw_and_nor_prepare_identical_assembly_inputs() {
+#[ignore = "requires preserved local IPSW and decrypted Apple images"]
+fn preserved_ipsw_prepares_identical_assembly_inputs() {
     let root = std::path::PathBuf::from(
         std::env::var_os("REPRISE_ASSEMBLY_ROOT").expect("REPRISE_ASSEMBLY_ROOT"),
     );
-    let ipsw_path = std::env::var_os("REPRISE_TEST_IPSW").expect("REPRISE_TEST_IPSW");
-    let ipsw = Ipsw::load(Path::new(&ipsw_path)).unwrap();
-    let target = ipsw.metadata.target().unwrap();
-    let inputs = std::env::var_os("REPRISE_TEST_INPUTS")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| root.join("inputs"));
-    let nor = fs::read(inputs.join("nor.bin")).unwrap();
-    let loader = fs::read(inputs.join("apple-loader.bin")).unwrap();
+    let inputs = root.join("inputs/firmware-2.0.5");
+    let ipsw = Ipsw::load(&root.join("inputs/ipsw/iPod_38.2.0.5.ipsw")).unwrap();
     let osos = fs::read(inputs.join("osos.bin")).unwrap();
+    let aupd = fs::read(inputs.join("aupd.decrypted.body.bin")).unwrap();
     assert_eq!(ipsw.wrap_plaintext(&osos[0x800..]).unwrap(), osos);
-    let original = AppleNorImage::locate(&nor).unwrap();
-    assert!(original.encrypted());
-    assert_eq!(original.offset, 0x8000);
-    let prepared = PreparedInputs::from_plaintext(&ipsw, &nor, &osos, Some(&loader)).unwrap();
+    assert_eq!(ipsw.aupd_ciphertext().len(), aupd.len());
+    ipsw.validate_aupd_plaintext(&aupd).unwrap();
+    assert!(ipsw
+        .validate_aupd_plaintext(&aupd[..aupd.len() - 8])
+        .is_err());
+    let prepared = PreparedInputs::from_plaintext(&ipsw, &osos, &aupd).unwrap();
     for (name, bytes) in &prepared.files {
         assert_eq!(bytes, &fs::read(inputs.join(name)).unwrap(), "{name}");
-        assert!(target.inputs[name].matches(bytes), "{name}");
     }
+    let mut corrupt = aupd.clone();
+    corrupt[0] ^= 1;
+    assert!(PreparedInputs::from_plaintext(&ipsw, &osos, &corrupt).is_err());
     let mut corrupt = osos.clone();
-    *corrupt.last_mut().unwrap() ^= 1;
-    assert!(ipsw.validate_plaintext(&corrupt).is_err());
-    let other = reprise_device::targets::all()
-        .iter()
-        .find(|other| other.target != target.target)
-        .unwrap();
-    let mut mismatched_nor = nor.clone();
-    let size = reprise_device::SysCfg::parse(&nor).unwrap().size;
-    for record in mismatched_nor[24..size].chunks_exact_mut(20) {
-        if &record[..4] == b"#doM" {
-            record[4..].fill(0);
-            let model = other.compatibility.models[0].as_bytes();
-            record[4..4 + model.len()].copy_from_slice(model);
-        }
-    }
-    assert!(PreparedInputs::from_plaintext(&ipsw, &mismatched_nor, &osos, Some(&loader)).is_err());
-    let mut rockboxed = nor.clone();
-    let offset = 0xa000;
-    rockboxed[0x8000..0x8800].fill(0);
-    rockboxed[0x8000..0x8008].copy_from_slice(b"87021.0\x02");
-    rockboxed[0x800c..0x8010].copy_from_slice(&0x900u32.to_le_bytes());
-    rockboxed[offset..offset + 0x800].copy_from_slice(&nor[0x8000..0x8800]);
-    rockboxed[offset + 7] = 2;
-    rockboxed[offset + 0x800..offset + 0x800 + loader.len()].copy_from_slice(&loader);
-    let image = AppleNorImage::locate(&rockboxed).unwrap();
-    assert_eq!(image.offset, offset);
-    assert!(!image.encrypted());
-    let from_modified = PreparedInputs::from_plaintext(&ipsw, &rockboxed, &osos, None).unwrap();
-    assert_eq!(prepared.files, from_modified.files);
-    rockboxed[offset + 0x900] ^= 1;
-    assert!(AppleNorImage::locate(&rockboxed).is_err());
+    corrupt[0x800] ^= 1;
+    assert!(PreparedInputs::from_plaintext(&ipsw, &corrupt, &aupd).is_err());
     let out = tempfile::tempdir().unwrap();
     let directory = out.path().join("inputs");
     prepared.write(&directory).unwrap();

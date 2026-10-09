@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn named_manifest_uses_its_own_signature_and_checks_target() {
         let fixture = Fixture::new();
-        for target in ["classic7g-2.0.4", "classic6g-reva-2.0.1"] {
+        for target in ["classic", "unsupported"] {
             let name = format!("{target}-manifest.json");
             let url = manifest_url_checked(&format!("https://example.org/v1/{name}")).unwrap();
             let cache = tempfile::tempdir().unwrap();
@@ -202,7 +202,7 @@ mod tests {
                 None,
                 &fixture.key,
                 cache.path(),
-                "0.1.0",
+                "0.2.0",
                 |url, limit| {
                     let file = url.path_segments().unwrap().next_back().unwrap();
                     requested.push(file.to_owned());
@@ -217,19 +217,18 @@ mod tests {
                 },
             );
             assert_eq!(&requested[..2], &[name.clone(), format!("{name}.sig")]);
-            if target == "classic7g-2.0.4" {
+            if target == "classic" {
                 let (path, bundle) = result.unwrap();
-                VerifiedBundle::load(&path, &fixture.key, "0.1.0").unwrap();
-                let wrong_url = manifest_url_checked(
-                    "https://example.org/v1/classic6g-reva-2.0.1-manifest.json",
-                )
-                .unwrap();
+                VerifiedBundle::load(&path, &fixture.key, "0.2.0").unwrap();
+                let wrong_url =
+                    manifest_url_checked("https://example.org/v1/unsupported-manifest.json")
+                        .unwrap();
                 assert!(fetch_with(
                     &wrong_url,
                     Some(bundle.digest()),
                     &fixture.key,
                     cache.path(),
-                    "0.1.0",
+                    "0.2.0",
                     |_, _| panic!("cache should be offline"),
                 )
                 .is_err());
@@ -252,7 +251,7 @@ mod tests {
             None,
             &fixture.key,
             cache.path(),
-            "0.1.0",
+            "0.2.0",
             |url, limit| {
                 let name = url.path_segments().unwrap().next_back().unwrap();
                 requested.push(name.to_owned());
@@ -284,14 +283,14 @@ mod tests {
             )
         };
         let (path, bundle) =
-            fetch_with(&url, None, &fixture.key, cache.path(), "0.1.0", get).unwrap();
+            fetch_with(&url, None, &fixture.key, cache.path(), "0.2.0", get).unwrap();
         assert_eq!(path.file_name().unwrap(), bundle.digest());
         fetch_with(
             &url,
             Some(bundle.digest()),
             &fixture.key,
             cache.path(),
-            "0.1.0",
+            "0.2.0",
             |_, _| panic!("cache should be offline"),
         )
         .unwrap();
@@ -303,7 +302,7 @@ mod tests {
             Some(&digest),
             &fixture.key,
             cache.path(),
-            "0.1.0",
+            "0.2.0",
             |_, _| panic!("corrupt cache must fail closed")
         )
         .is_err());
@@ -314,11 +313,11 @@ mod tests {
             Some(&"0".repeat(64)),
             &fixture.key,
             cache.path(),
-            "0.1.0",
+            "0.2.0",
             get
         )
         .is_err());
-        let result = fetch_with(&url, None, &fixture.key, cache.path(), "0.1.0", |url, n| {
+        let result = fetch_with(&url, None, &fixture.key, cache.path(), "0.2.0", |url, n| {
             if url.path().ends_with(".blob") {
                 Err(invalid("disconnected"))
             } else {

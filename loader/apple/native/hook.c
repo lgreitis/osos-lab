@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
-#include "compat/nor/dispatch.h"
+#include "nor/dispatch.h"
 
 #define REC ((volatile uint32_t *)0x0bb30000)
 extern void native_image_entry(void);

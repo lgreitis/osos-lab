@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use crate::{
-    invalid,
-    targets::{self, Fingerprint},
-    Result, SysCfg, NOR_SIZE,
-};
+use crate::{firmware, invalid, Result, SysCfg, NOR_SIZE};
 use sha1::Sha1;
 use sha2::Digest;
 
@@ -14,7 +10,6 @@ pub struct AppleNorImage<'a> {
     pub offset: usize,
     header: &'a [u8],
     body: &'a [u8],
-    fingerprint: &'a Fingerprint,
 }
 
 fn word(bytes: &[u8], offset: usize) -> usize {
@@ -22,7 +17,7 @@ fn word(bytes: &[u8], offset: usize) -> usize {
 }
 
 impl<'a> AppleNorImage<'a> {
-    fn at(nor: &'a [u8], offset: usize, fingerprint: &'a Fingerprint) -> Result<Self> {
+    fn at(nor: &'a [u8], offset: usize) -> Result<Self> {
         let header = nor
             .get(offset..offset + 0x800)
             .ok_or_else(|| invalid("Truncated NOR IM3 header"))?;
@@ -44,7 +39,6 @@ impl<'a> AppleNorImage<'a> {
             offset,
             header,
             body,
-            fingerprint,
         })
     }
 
@@ -53,25 +47,17 @@ impl<'a> AppleNorImage<'a> {
             return Err(invalid("Expected a full 1 MiB NOR backup"));
         }
         let identity = SysCfg::parse(nor)?.identity()?;
-        let target = targets::for_identity(
-            &identity.model,
-            identity.hardware_version,
-            &identity.recorded_firmware,
-        )
-        .ok_or_else(|| invalid("NOR SysCfg is not a supported Classic target"))?;
-        let fingerprint = &target.inputs["apple-loader.bin"];
-        let first = Self::at(nor, 0x8000, fingerprint)?;
+        firmware::for_hardware(identity.hardware_version)
+            .ok_or_else(|| invalid("NOR SysCfg is not a supported Classic target"))?;
+        let first = Self::at(nor, 0x8000)?;
         if first.encrypted() {
-            if first.body.len() != fingerprint.bytes {
-                return Err(invalid("Unsupported encrypted primary NOR loader"));
-            }
             return Ok(first);
         }
         if first.validate_plaintext(first.body).is_ok() {
             return Ok(first);
         }
         let next = 0x8000 + ((0x800 + first.body.len() + 0xfff) & !0xfff);
-        let apple = Self::at(nor, next, fingerprint)?;
+        let apple = Self::at(nor, next)?;
         if apple.encrypted() {
             return Err(invalid(
                 "Expected a decrypted Apple loader after the Rockbox loader",
@@ -88,11 +74,6 @@ impl<'a> AppleNorImage<'a> {
     pub fn validate_plaintext(&self, plain: &[u8]) -> Result<()> {
         if plain.len() != self.body.len() {
             return Err(invalid("Apple loader plaintext length mismatch"));
-        }
-        if !self.fingerprint.matches(plain) {
-            return Err(invalid(
-                "Apple loader does not match its target fingerprint",
-            ));
         }
         validate_volume(plain)
     }
@@ -199,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn im3_integrity_and_plaintext_fingerprint_are_both_required() {
+    fn im3_integrity_and_efi_structure_are_both_required() {
         let mut nor = nor();
         let mut plain = vec![0; 0x300];
         plain[..4].copy_from_slice(&0xea000006u32.to_le_bytes());
@@ -216,18 +197,14 @@ mod tests {
         let header_hash = Sha1::digest(&nor[0x8000..0x8040]);
         nor[0x8040..0x8050].copy_from_slice(&header_hash[..16]);
         nor[0x8800..0x8800 + plain.len()].copy_from_slice(&plain);
-        let fingerprint = Fingerprint {
-            bytes: plain.len(),
-            sha256: format!("{:x}", sha2::Sha256::digest(&plain)),
-        };
-        let image = AppleNorImage::at(&nor, 0x8000, &fingerprint).unwrap();
+        let image = AppleNorImage::at(&nor, 0x8000).unwrap();
         // Identity callback exercises signature comparisons without hardware AES.
         assert_eq!(image.decrypt(|b| Ok(b.to_vec())).unwrap(), plain);
         let mut corrupt = plain.clone();
         corrupt[0x128] ^= 1;
         assert!(image.validate_plaintext(&corrupt).is_err());
         nor[0x8900] ^= 1;
-        assert!(AppleNorImage::at(&nor, 0x8000, &fingerprint)
+        assert!(AppleNorImage::at(&nor, 0x8000)
             .unwrap()
             .decrypt(|b| Ok(b.to_vec()))
             .is_err());

@@ -4,19 +4,21 @@ RepriseOS adds features to Apple's original iPod firmware while retaining its
 familiar interface and playback system. This repository contains the patches,
 reverse engineering, and tools used to build and package it.
 
-Current support (FAT32 storage required):
+Builds use Apple **2.0.5** for all supported Classic hardware, with each device's
+own identity in its companion. FAT32 storage is required.
 
-- iPod Classic 6.5G / Rev A: MB562 and MB565, Apple firmware 2.0.1.
-- iPod Classic 7G / Rev B: MC293 and MC297, Apple firmware 2.0.4.
+- Classic 6.5G and 7G: working builds confirmed on MB565 and MC293.
+- Original Classic 6G: enabled for beta testing, not device-tested here.
+- Personalized model numbers, including PC293/PC297, use the same hardware checks.
 <!-- -->
 - `payload/`: OSOS features, C patch declarations, and UI definitions.
-- `game-sdk/`: C runtime and APIs for native homebrew games.
-- `doom/`: Doom port, build tooling, and game packaging example.
+- `game-sdk/`: deferred homebrew runtime; its old bindings are not ported to 2.0.5.
+- `doom/`: deferred, incomplete Doom port.
 - `patching/`: Python recipe builder, native UI generation, and framework tests.
-- `targets/`: supported firmware fingerprints and UI structure metadata.
+- `firmware/`: pinned Apple inputs, hardware eligibility and native UI metadata.
 - `loader/` and `patches/`: Apple companion loader and Rockbox bootloader patches.
 - `usb-helper/`: FAT32 transfer, readback verification, and DFU return.
-- `host/`: Rust device library, IPSW/NOR preparation, bundle assembly, and CLI.
+- `host/`: Rust device library, IPSW/AUPD preparation, bundle assembly, and CLI.
 - `tools/`: firmware builds, release bundle export, and Ghidra import/export.
 - `ghidra/`: tracked firmware analysis.
 
@@ -30,9 +32,9 @@ and [host tools](host/README.md).
 - Three-band custom EQ with adjustable filter types, frequency, gain, Q and precut.
 - Play Next and Play Last from song context menus.
 - EU volume limit removal for European iPods.
-- An experimental [Doom port](doom/README.md).
+- Song Info and an Album Artists browser with Artist fallback.
 
-The Doom port currently has no audio or saving.
+The game SDK and [Doom port](doom/README.md) are deferred.
 
 ## Build
 
@@ -44,13 +46,14 @@ on Linux.
 ```sh
 python3.11 tools/setup.py
 cargo build --manifest-path host/Cargo.toml --release -j 8
-python3.11 tools/import_inputs.py --osos /path/to/osos.bin \
-  --apple-loader /path/to/apple-loader.bin --nor /path/to/nor.bin \
-  --modules /path/to/modules
-python3.11 tools/build.py --cross-prefix /path/to/bin/arm-elf-eabi-
+python3.11 tools/import_inputs.py --ipsw /path/to/iPod_38.2.0.5.ipsw \
+  --osos /path/to/osos.bin --aupd /path/to/aupd-body.bin \
+  --out /path/to/new-inputs
+python3.11 tools/build.py --inputs /path/to/new-inputs --nor /path/to/device-nor.bin \
+  --cross-prefix /path/to/bin/arm-elf-eabi-
 ```
 
-Firmware builds use the inputs in [the target manifest](targets/classic7g-2.0.4.json).
+Firmware builds use the inputs in [the firmware manifest](firmware/apple.json).
 Outputs go to `build/`, intermediates to `.build/`. Individual targets:
 `osos`, `osos-recipe`, `loader`, `loader-recipe`, `bootloader`. `tools/setup.py`
 prepares pinned dependencies under `vendor/`; all project tooling lives in this repository.
@@ -70,9 +73,12 @@ python3 tools/bundle.py --pack build/package --out build/package.zip
 ```
 
 Bundles contain compiled patches, assembly recipes, the NOR installer, and the
-USB helper. The desktop installer combines them with the user's IPSW and NOR
-backup. Local ZIPs use compatibility and hash checks; downloaded releases use
-signed manifests. Compatible firmware components are interchangeable.
+USB helper. Assembly combines them with the 2.0.5 IPSW-derived inputs and the
+device's NOR identity. Schema 2 bundles require installer 0.2.0 integration; the
+existing 0.1.x installer does not support this format. Local ZIPs use compatibility
+and hash checks; downloaded releases use signed manifests. Never copy a
+personalized companion between devices. Resources currently come from the
+installed Apple resource partition; dedicated resources are deferred.
 
 ## Ghidra
 
@@ -80,14 +86,15 @@ Ghidra tooling requires 12.1.4 and JDK 21+;
 set `GHIDRA_INSTALL_DIR` and `JAVA_HOME`, then build `reprise-cli` as above.
 
 ```sh
-python3.11 tools/ghidra.py import --target classic7g-2.0.4 \
+python3.11 tools/ghidra.py import --target firmware-2.0.5 \
   --inputs /path/to/decrypted-inputs --project /path/to/new-project
 python3.11 tools/ghidra.py export --project /path/to/new-project
 ```
 
 Import restores saved annotations by default; `--fresh` creates new analysis.
-Alternatively supply `--ipsw FILE --nor FILE --osos DECRYPTED_FILE` and, for
-an encrypted NOR, `--apple-loader DECRYPTED_FILE`; the IPSW selects the target.
+Alternatively supply `--ipsw FILE --osos DECRYPTED_FILE --aupd DECRYPTED_BODY`
+for 2.0.5. Historical 2.0.1/2.0.4 analysis remains importable from preserved
+plaintext inputs using the profiles in `ghidra/profiles/`.
 Preparation is offline and requires supported plaintext firmware. Import verifies
 a temporary project before publishing it and requires a new destination directory.
 Save and close Ghidra before exporting. Use `--analysis DIR` for a separate

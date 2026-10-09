@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "layout.h"
-#include <osos-target.h>
+#include "native/bindings.h"
 
 ENTRY(__payload_start)
 SECTIONS {
