@@ -18,8 +18,9 @@ class LayoutTests(unittest.TestCase):
         root = Path(cls.tmp.name)
         main = (HERE / "main.c").read_text()
         reader = main[
-            main.index("static int read_layout_sector"):
-            main.index("static void save_diagnostics")
+            main.index("static int read_layout_sector") : main.index(
+                "static void save_diagnostics"
+            )
         ]
         (root / "layout.c").write_text(
             """
@@ -140,8 +141,12 @@ unsigned rejected_partition(void) { return layout.failed_partition; }
         self.assertFalse(self.valid(mbr, bpb))
         self.assertEqual(self.lib.rejection(), 16)
         for offset, value, reason in [
-            (13, 3, 17), (16, 0, 19), (17, 1, 23),
-            (22, 1, 25), (42, 1, 26), (510, 0, 11),
+            (13, 3, 17),
+            (16, 0, 19),
+            (17, 1, 23),
+            (22, 1, 25),
+            (42, 1, 26),
+            (510, 0, 11),
         ]:
             mbr, bpb = self.image()
             bpb[offset] = value
@@ -165,7 +170,10 @@ unsigned rejected_partition(void) { return layout.failed_partition; }
     def test_discovery_preserves_partition_bounds_failure_without_reading(self):
         for slot in range(4):
             for start, count in [
-                (2048, 2000000), (0, 100000), (2048, 0), (0xFFFFFF00, 0x1000),
+                (2048, 2000000),
+                (0, 100000),
+                (2048, 0),
+                (0xFFFFFF00, 0x1000),
             ]:
                 with self.subTest(slot=slot, start=start, count=count):
                     mbr, bpb = self.image(slot=slot)
@@ -184,10 +192,14 @@ unsigned rejected_partition(void) { return layout.failed_partition; }
                 with self.subTest(size=size, slot=slot):
                     mbr, bpb = self.image(size, slot)
                     self.assertTrue(
-                        self.lib.read_validate(bytes(mbr), bytes(bpb), 20000000, slot, 0)
+                        self.lib.read_validate(
+                            bytes(mbr), bytes(bpb), 20000000, slot, 0
+                        )
                     )
                     self.assertFalse(
-                        self.lib.read_validate(bytes(mbr), bytes(bpb), 20000000, slot, -1)
+                        self.lib.read_validate(
+                            bytes(mbr), bytes(bpb), 20000000, slot, -1
+                        )
                     )
                     self.assertEqual(self.lib.rejection(), 6)
                     self.assertEqual(self.lib.rejected_partition(), slot + 1)
