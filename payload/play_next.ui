@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <ui>
-  <string id="CFW_PLAY_NEXT" text="Play next"/>
-  <string id="CFW_PLAY_LAST" text="Play last"/>
+  <string id="CFW_PLAY_NEXT" text="Play Next"/>
+  <string id="CFW_PLAY_LAST" text="Play Last"/>
   <!-- Songs, nested playlists, Genius, and Genius playlist. -->
   <screen-event screen="MediaLists_Songs_Screen" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
   <screen-event screen="MediaLists_NestedPlaylists_Screen" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
