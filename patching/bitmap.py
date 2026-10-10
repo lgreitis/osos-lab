@@ -88,13 +88,13 @@ def read_png(path):
     return width, height, bytes(pixels)
 
 
-def encode_bmap(width, height, rgba, *, rgb565=False):
+def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True):
     if len(rgba) != width * height * 4:
         raise ValueError("RGBA pixel length does not match its dimensions")
     colors = list(dict.fromkeys(rgba[i : i + 4] for i in range(0, len(rgba), 4)))
     if rgb565 and any(color[3] != 255 for color in colors):
         raise ValueError("RGB565 textures require an opaque PNG")
-    indexed = not rgb565 and len(colors) <= 256
+    indexed = allow_indexed and not rgb565 and len(colors) <= 256
     depth = 16 if rgb565 else 8 if indexed else 32
     stride = (width * (depth // 8) + 3) & ~3
     if not width or not height or stride > 0x7FFF:

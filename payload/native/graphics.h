@@ -48,6 +48,27 @@ static inline const unsigned char *osos_bitmap_pixels(void *bitmap)
     return *(const unsigned char **)((unsigned char *)bitmap + 4);
 }
 
+/* Draw paths call the loader even when the owned bitmap is already cached. */
+static inline int osos_bitmap_cache_ready(void *cache)
+{
+    return *((unsigned char *)cache + 8) != 0;
+}
+
+static inline void *osos_bitmap_cache_service(void *cache)
+{
+    return *(void **)cache;
+}
+
+static inline uint32_t osos_bitmap_cache_id(void *cache)
+{
+    return *(uint32_t *)((unsigned char *)cache + 4);
+}
+
+static inline void *osos_bitmap_cache_bitmap(void *cache)
+{
+    return (unsigned char *)cache + 0xc;
+}
+
 static inline void *osos_resource_service_get(void *service, uint32_t type, uint32_t id)
 {
     typedef void *(*fn)(void *, uint32_t, uint32_t);

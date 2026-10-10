@@ -40,8 +40,8 @@ def generate(resources, manifest, directory):
             raise ValueError(
                 f"{entry['file']}: expected {expected}, got {(width, height)}"
             )
-        # Texture consumers read RGB565 directly instead of decoding the BMap.
-        bitmap = encode_bmap(width, height, pixels, rgb565=rgb565)
+        # Apple's GLES path rejects indexed BMap format 0x64; preserve native RGB565.
+        bitmap = encode_bmap(width, height, pixels, rgb565=rgb565, allow_indexed=False)
         symbol = f"cfw_asset_{index}"
         lines.append(
             f"static const unsigned char {symbol}[] __attribute__((aligned(4))) = {{"

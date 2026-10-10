@@ -196,5 +196,35 @@
     "type": "BMap",
     "id": "0x0DAD086F",
     "file": "dark/now-playing-play.png"
+  },
+  {
+    "name": "Media_AlbumsProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD071F",
+    "file": "dark/media-albums-proxy.png"
+  },
+  {
+    "name": "Media_AudioProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0721",
+    "file": "dark/media-audio-proxy.png"
+  },
+  {
+    "name": "NowPlaying_Classic_Shuffle_Image",
+    "type": "BMap",
+    "id": "0x0DAD0868",
+    "file": "dark/now-playing-classic-shuffle.png"
+  },
+  {
+    "name": "NowPlaying_ProgressBar_Active_Background_Image",
+    "type": "BMap",
+    "id": "0x0DAD0882",
+    "file": "dark/now-playing-progress-bar-active-background.png"
+  },
+  {
+    "name": "No_Content_Albums_Small_Image",
+    "type": "BMap",
+    "id": "0x0DAD012F",
+    "file": "dark/no-content-albums-small.png"
   }
 ]
