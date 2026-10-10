@@ -205,7 +205,7 @@ def prepare_source(out, rockbox):
     )
     shutil.copyfile(out / "usb.c", source / "firmware/usbstack/usb_storage.c")
     shutil.copyfile(out / "upload.h", source / "firmware/usbstack/upload.h")
-    for name in ("winusb.h", "usb_identity.h", "memory.h"):
+    for name in ("winusb.h", "usb_identity.h", "memory.h", "layout.h"):
         shutil.copyfile(out / name, source / "firmware/usbstack" / name)
     # The copy may be inside osos-lab; do not discover its parent Git checkout.
     env = dict(os.environ, GIT_CEILING_DIRECTORIES=str(out))

@@ -20,21 +20,62 @@ pub(super) struct Status {
 impl Status {
     pub(super) fn parse(raw: &[u8], nonce: &[u8; 16], size: u32) -> Result<Self> {
         exact("Upload status", raw.len(), RESULT_SIZE)?;
-        if word(raw, 0) != 0x55504c32
-            || word(raw, 4) != 2
-            || &raw[8..24] != nonce
-            || word(raw, 32) != size
-            || word(raw, 36) > size
-            || word(raw, 40) > word(raw, 36)
-            || word(raw, 44) > size
-            || !(1..=4).contains(&word(raw, 24))
-            || word(raw, 48) == 0
-            || word(raw, 48) > 15
-            || word(raw, 52) > 1
-        {
-            return Err(invalid("Upload session identity/progress mismatch"));
+        let mut failures = Vec::new();
+        for (offset, expected, name) in [
+            (0, 0x55504c32, "magic"),
+            (4, 2, "version"),
+            (32, size, "size"),
+        ] {
+            let actual = word(raw, offset);
+            if actual != expected {
+                failures.push(format!("{name}: expected {expected}, received {actual}"));
+            }
         }
-        Ok(Self { raw: raw.to_vec() })
+        if &raw[8..24] != nonce {
+            failures.push("nonce does not match the launched session".into());
+        }
+        for (offset, limit, name) in [
+            (36, size, "received"),
+            (40, word(raw, 36), "written"),
+            (44, size, "verified"),
+        ] {
+            if word(raw, offset) > limit {
+                failures.push(format!("{name}: {} exceeds {limit}", word(raw, offset)));
+            }
+        }
+        for (offset, min, max, name) in [
+            (24, 1, 4, "state"),
+            (48, 1, 15, "endpoint"),
+            (52, 0, 1, "high_speed"),
+        ] {
+            let actual = word(raw, offset);
+            if actual < min || actual > max {
+                failures.push(format!("{name}: {actual} outside {min}..={max}"));
+            }
+        }
+        let status = Self { raw: raw.to_vec() };
+        if !failures.is_empty() {
+            let helper_failure = if word(raw, 0) == 0x55504c32
+                && word(raw, 4) == 2
+                && &raw[8..24] == nonce
+                && status.rc() != 0
+            {
+                format!("{}; ", helper_error(status.rc(), status.error_no()))
+            } else {
+                String::new()
+            };
+            return Err(invalid(format!(
+                "{helper_failure}Upload status mismatch: {}; {}",
+                failures.join("; "),
+                status.summary()
+            )));
+        }
+        Ok(status)
+    }
+
+    pub(super) fn summary(&self) -> String {
+        format!("Helper status: state={}, rc={}, errno={}, size={}, received={}, written={}, verified={}, endpoint={}, high_speed={}, rejected={}",
+            self.state(), self.rc(), self.error_no(), word(&self.raw, 32), self.received(), self.written(), self.verified(), self.endpoint(), word(&self.raw, 52), word(&self.raw, 60))
     }
 
     pub(super) fn state(&self) -> u32 {

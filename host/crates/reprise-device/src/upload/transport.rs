@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 use super::{
+    diagnostics::{log_storage, DIAGNOSTICS, DIAGNOSTICS_SIZE},
     image::UsbIdentity,
     protocol::{Status, RESULT_SIZE, STATUS},
 };
@@ -17,9 +18,21 @@ pub(super) trait BulkTransport {
     fn status(&mut self, nonce: &[u8; 16], size: u32) -> Result<Status>;
     fn command(&mut self, request: u8, nonce: &[u8; 16]) -> Result<()>;
     fn send(&mut self, data: &[u8]) -> Result<usize>;
+    fn diagnostics(&mut self, _log: &mut dyn FnMut(String)) {}
 }
 
 impl BulkTransport for Bulk {
+    fn diagnostics(&mut self, log: &mut dyn FnMut(String)) {
+        let mut raw = [0; DIAGNOSTICS_SIZE];
+        let result = self
+            .handle
+            .read_control(0xa1, DIAGNOSTICS, 0, 0, &mut raw, TIMEOUT)
+            .map_err(|e| usb_error("storage diagnostics", e))
+            .and_then(|n| log_storage(&raw[..n], log));
+        if let Err(error) = result {
+            log(format!("Storage diagnostics unavailable: {error}"));
+        }
+    }
     fn endpoint(&self) -> u8 {
         self.endpoint
     }
@@ -64,34 +77,56 @@ fn driver_pending(error: rusb::Error) -> bool {
         )
 }
 
-pub(super) fn open_bulk(info: &DeviceInfo, usb: UsbIdentity) -> Result<Bulk> {
+pub(super) fn open_bulk(
+    info: &DeviceInfo,
+    usb: UsbIdentity,
+    log: &mut impl FnMut(String),
+) -> Result<Bulk> {
     let context = Context::new().map_err(|e| usb_error("upload context", e))?;
     let deadline = Instant::now() + Duration::from_secs(90);
     let mut last_error = None;
+    let mut other_ports = std::collections::BTreeSet::new();
+    log(format!(
+        "Waiting up to 90s for helper {:04x}:{:04x} on USB bus {}, port {:?}",
+        usb.vendor_id, usb.product_id, info.selector.bus, info.port_path
+    ));
+    let mut appeared = false;
     loop {
         for device in context
             .devices()
             .map_err(|e| usb_error("upload enumeration", e))?
             .iter()
         {
-            if !same_port(
-                info,
-                device.bus_number(),
-                &device
-                    .port_numbers()
-                    .map_err(|e| usb_error("upload port", e))?,
-            ) {
+            // Unrelated or disappearing devices must not interrupt helper discovery.
+            let Ok(desc) = device.device_descriptor() else {
                 continue;
-            }
-            let desc = device
-                .device_descriptor()
-                .map_err(|e| usb_error("upload descriptor", e))?;
+            };
             if desc.vendor_id() != usb.vendor_id || desc.product_id() != usb.product_id {
                 continue;
+            }
+            let bus = device.bus_number();
+            let ports = device
+                .port_numbers()
+                .map_err(|e| usb_error("upload port", e))?;
+            if !same_port(info, bus, &ports) {
+                if other_ports.insert((bus, ports.clone())) {
+                    log(format!("Helper {:04x}:{:04x} found on different USB bus/port: bus {bus}, port {ports:?}; expected bus {}, port {:?}", usb.vendor_id, usb.product_id, info.selector.bus, info.port_path));
+                }
+                continue;
+            }
+            if !appeared {
+                log(format!(
+                    "Helper {:04x}:{:04x} appeared on the expected USB port",
+                    usb.vendor_id, usb.product_id
+                ));
+                appeared = true;
             }
             let config = match device.active_config_descriptor() {
                 Ok(config) => config,
                 Err(error) if driver_pending(error) => {
+                    if last_error != Some(error) {
+                        log(format!("Helper configuration not available yet: {error}"));
+                    }
                     last_error = Some(error);
                     continue;
                 }
@@ -121,11 +156,20 @@ pub(super) fn open_bulk(info: &DeviceInfo, usb: UsbIdentity) -> Result<Bulk> {
             }) {
                 Ok(handle) => handle,
                 Err(error) if driver_pending(error) => {
+                    if last_error != Some(error) {
+                        log(format!(
+                            "Could not open/claim the helper's WinUSB interface yet: {error}"
+                        ));
+                    }
                     last_error = Some(error);
                     continue;
                 }
                 Err(error) => return Err(usb_error("upload open/claim", error)),
             };
+            log(format!(
+                "Helper USB interface opened; bulk OUT endpoint {:#04x}",
+                ep.address()
+            ));
             return Ok(Bulk {
                 handle,
                 endpoint: ep.address(),
@@ -135,7 +179,13 @@ pub(super) fn open_bulk(info: &DeviceInfo, usb: UsbIdentity) -> Result<Bulk> {
             if let Some(error) = last_error {
                 return Err(invalid(format!("Upload helper {:04x}:{:04x} appeared, but Windows could not open its WinUSB interface: {error}", usb.vendor_id, usb.product_id)));
             }
-            return Err(invalid("Upload helper did not enumerate"));
+            if !other_ports.is_empty() {
+                return Err(invalid(format!("Upload helper appeared on a different USB bus/port; expected bus {}, port {:?}; observed {other_ports:?}", info.selector.bus, info.port_path)));
+            }
+            return Err(invalid(format!(
+                "Upload helper {:04x}:{:04x} did not enumerate on USB bus {}, port {:?} within 90s",
+                usb.vendor_id, usb.product_id, info.selector.bus, info.port_path
+            )));
         }
         std::thread::sleep(Duration::from_millis(100));
     }

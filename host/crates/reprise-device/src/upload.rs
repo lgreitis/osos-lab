@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+mod diagnostics;
 mod image;
 mod protocol;
 mod transport;
@@ -195,6 +196,44 @@ fn transfer(
     }
 }
 
+fn inspect_bulk(
+    bulk: &mut impl BulkTransport,
+    nonce: &[u8; 16],
+    size: u32,
+    log: &mut impl FnMut(String),
+) -> Result<Status> {
+    bulk.diagnostics(log);
+    let mut acknowledged = false;
+    let result = (|| {
+        let status = bulk.status(nonce, size)?;
+        log(status.summary());
+        if status.state() != COMPLETE {
+            return Err(invalid(format!(
+                "Storage inspection did not complete: state={}",
+                status.state()
+            )));
+        }
+        bulk.command(ACKNOWLEDGE, nonce)?;
+        acknowledged = true;
+        if status.rc() != 0 {
+            return Err(helper_error(status.rc(), status.error_no()));
+        }
+        Ok(status)
+    })();
+    if result.is_err() && !acknowledged {
+        match bulk.command(CANCEL, nonce) {
+            Ok(()) => log("Helper cancellation sent; waiting for DFU return".into()),
+            Err(error) => log(format!("Helper cancellation failed: {error}")),
+        }
+    }
+    result
+}
+
+fn log_return_record(record: &[u8; 64], log: &mut impl FnMut(String)) {
+    let sectors = u64::from(word(record, 20)) | (u64::from(word(record, 24)) << 32);
+    log(format!("DFU return: phase={}, storage rc={}, sector size={} bytes, sectors={sectors}, battery={} mV", word(record, 8), word(record, 12) as i32, word(record, 16), word(record, 28)));
+}
+
 fn returned(info: &DeviceInfo, nonce: &[u8; 16]) -> Result<(Session, [u8; 64])> {
     let deadline = Instant::now() + Duration::from_secs(45);
     loop {
@@ -271,7 +310,18 @@ impl Session {
         helper: &UploadHelper,
         input: &mut (impl Read + Seek),
         options: UploadOptions,
+        emit: impl FnMut(UploadProgress),
+    ) -> std::result::Result<Uploaded, UploadFailure> {
+        self.upload_with_log(helper, input, options, emit, |_| {})
+    }
+
+    pub fn upload_with_log(
+        self,
+        helper: &UploadHelper,
+        input: &mut (impl Read + Seek),
+        options: UploadOptions,
         mut emit: impl FnMut(UploadProgress),
+        mut log: impl FnMut(String),
     ) -> std::result::Result<Uploaded, UploadFailure> {
         let started = Instant::now();
         let mut nonce = [0; 16];
@@ -308,13 +358,19 @@ impl Session {
         })?;
         let (launch, launched) = self.launch_helper(&image, || progress(&mut emit, "launch", 0, 1));
         let transfer_result = launch.and_then(|()| {
-            let mut bulk = open_bulk(&info, helper.usb)?;
+            let mut bulk = open_bulk(&info, helper.usb, &mut log)?;
+            bulk.diagnostics(&mut log);
             let result = transfer(&mut bulk, input, &nonce, size, &mut emit);
             if result.is_err() {
-                let _ = bulk.command(CANCEL, &nonce);
+                if let Err(error) = bulk.command(CANCEL, &nonce) {
+                    log(format!("Helper cancellation failed: {error}"));
+                }
             }
             result
         });
+        if let Err(error) = &transfer_result {
+            log(format!("File transfer failed: {error}"));
+        }
         progress(&mut emit, "dfu-return", 0, 1);
         let recovered = if launched {
             returned(&info, &nonce)
@@ -326,18 +382,19 @@ impl Session {
             Err(e) => {
                 return Err(UploadFailure {
                     message: match transfer_result {
-                        Err(original) => format!("{original}; {e}"),
+                        Err(original) => format!("{original}; DFU cleanup failed: {e}"),
                         Ok(_) => e.to_string(),
                     },
                     cleanup: Cleanup::Failed(e.to_string()),
                 })
             }
         };
+        log_return_record(&record, &mut log);
         let validation = (|| -> Result<()> {
             let status = transfer_result?;
             if word(&record, 8) != 4 || word(&record, 12) != 0 {
                 return Err(invalid(format!(
-                    "Helper storage return: phase={}, rc={}",
+                    "Helper storage return failed: phase={}, rc={}",
                     word(&record, 8),
                     word(&record, 12) as i32
                 )));
@@ -394,9 +451,18 @@ pub struct StorageReport {
 impl Session {
     /// Inspect the data volume, then recover the nonce-verified DFU session.
     pub fn inspect_storage(
+        self,
+        helper: &UploadHelper,
+        required_bytes: u32,
+    ) -> Result<(Self, StorageReport)> {
+        self.inspect_storage_with_log(helper, required_bytes, |_| {})
+    }
+
+    pub fn inspect_storage_with_log(
         mut self,
         helper: &UploadHelper,
         required_bytes: u32,
+        mut log: impl FnMut(String),
     ) -> Result<(Self, StorageReport)> {
         helper.validate_platform()?;
         if !helper.storage_inspection || !self.operation_ready || self.info.port_path.is_empty() {
@@ -413,28 +479,48 @@ impl Session {
         let image = helper.prepare_inspection(rom, &nonce, required_bytes)?;
         let info = self.info.clone();
         let verified_rom = self.verified_rom.take();
+        log(format!(
+            "Starting storage helper; required free space: {required_bytes} bytes"
+        ));
         let (launch, _) = self.launch_helper(&image, || {});
         let operation = launch.and_then(|()| {
-            let mut bulk = open_bulk(&info, helper.usb)?;
-            let status = bulk.status(&nonce, required_bytes)?;
-            if status.state() != COMPLETE {
-                let _ = bulk.command(CANCEL, &nonce);
-                return Err(invalid("Storage inspection did not complete"));
-            }
-            bulk.command(ACKNOWLEDGE, &nonce)?;
-            if status.rc() != 0 {
-                return Err(helper_error(status.rc(), status.error_no()));
-            }
-            Ok(status)
+            let mut bulk = open_bulk(&info, helper.usb, &mut log)?;
+            inspect_bulk(&mut bulk, &nonce, required_bytes, &mut log)
         });
+        if let Err(error) = &operation {
+            log(format!("Storage inspection failed: {error}"));
+        }
+        log("Waiting up to 45s for nonce-verified DFU return".into());
         let (mut session, record) = returned(&info, &nonce).map_err(|error| match &operation {
-            Err(original) => invalid(format!("{original}; {error}")),
+            Err(original) => invalid(format!("{original}; DFU cleanup failed: {error}")),
             Ok(_) => error,
         })?;
+        log_return_record(&record, &mut log);
         let result = (|| {
+            if word(&record, 8) < 4 {
+                let rc = word(&record, 12) as i32;
+                let reason = match (word(&record, 8), rc) {
+                    (1, -100) => "helper returned before storage initialization",
+                    (1, -101) => "battery voltage below the helper's 3600 mV minimum",
+                    _ => "disk initialization failed",
+                };
+                return Err(invalid(format!(
+                    "Storage helper: {reason} (phase={}, code {rc}); {}",
+                    word(&record, 8),
+                    operation
+                        .as_ref()
+                        .err()
+                        .map(ToString::to_string)
+                        .unwrap_or_default()
+                )));
+            }
             let status = operation?;
             if word(&record, 8) != 4 || word(&record, 12) != 0 {
-                return Err(invalid("Storage helper failed during DFU return"));
+                return Err(invalid(format!(
+                    "Storage helper failed during DFU return: phase={}, rc={}",
+                    word(&record, 8),
+                    word(&record, 12) as i32
+                )));
             }
             session.verify_helper_result(&status, &nonce, required_bytes, "Storage")?;
             let data = session.dfu.read_memory(0x2201fbc0, 32)?;
@@ -454,7 +540,15 @@ impl Session {
             }
             Ok(report)
         })();
-        session.return_to_idle()?;
+        let cleanup = session.return_to_idle();
+        if let Err(error) = cleanup {
+            log(format!("DFU cleanup failed: {error}"));
+            return Err(match result {
+                Err(original) => invalid(format!("{original}; DFU cleanup failed: {error}")),
+                Ok(_) => error,
+            });
+        }
+        log("DFU cleanup: idle".into());
         let report = result?;
         session.verified_rom = verified_rom;
         session.operation_ready = true;

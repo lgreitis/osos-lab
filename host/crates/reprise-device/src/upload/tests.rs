@@ -223,6 +223,99 @@ fn result_requires_nonce_counts_path_both_hashes_and_clean_disk_operations() {
     }
 }
 
+struct InspectionFake {
+    raw: Vec<u8>,
+    commands: Vec<u8>,
+}
+
+impl BulkTransport for InspectionFake {
+    fn endpoint(&self) -> u8 {
+        2
+    }
+    fn status(&mut self, nonce: &[u8; 16], size: u32) -> Result<Status> {
+        Status::parse(&self.raw, nonce, size)
+    }
+    fn command(&mut self, request: u8, _: &[u8; 16]) -> Result<()> {
+        self.commands.push(request);
+        Ok(())
+    }
+    fn send(&mut self, _: &[u8]) -> Result<usize> {
+        panic!("Storage inspection must not upload file data")
+    }
+}
+
+#[test]
+fn layout_failure_is_preserved_and_old_zero_size_status_is_cancelled() {
+    for reported_size in [512, 0] {
+        let mut raw = status(reported_size, COMPLETE, &[0; 32]).raw;
+        put(&mut raw, 28, (-301i32) as u32);
+        for offset in [36, 40, 44] {
+            put(&mut raw, offset, 0);
+        }
+        let mut bulk = InspectionFake {
+            raw,
+            commands: vec![],
+        };
+        let mut logs = vec![];
+        let error = inspect_bulk(&mut bulk, &[7; 16], 512, &mut |s| logs.push(s))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("code -301"), "{error}");
+        if reported_size == 0 {
+            assert!(error.contains("size: expected 512, received 0"));
+            assert_eq!(bulk.commands, [CANCEL]);
+            assert!(logs.iter().any(|s| s.contains("cancellation sent")));
+        } else {
+            assert_eq!(bulk.commands, [ACKNOWLEDGE]);
+            assert!(logs.iter().any(|s| s.contains("rc=-301")));
+        }
+    }
+}
+
+#[test]
+fn status_mismatch_names_the_field_without_trusting_another_sessions_error() {
+    let mut raw = status(512, COMPLETE, &[0; 32]).raw;
+    put(&mut raw, 28, (-301i32) as u32);
+    let error = Status::parse(&raw, &[8; 16], 512).unwrap_err().to_string();
+    assert!(error.contains("nonce does not match"));
+    assert!(!error.contains("Disk layout"));
+    put(&mut raw, 48, 0);
+    let error = Status::parse(&raw, &[7; 16], 512).unwrap_err().to_string();
+    assert!(error.contains("endpoint: 0 outside 1..=15"));
+}
+
+#[test]
+fn storage_diagnostics_report_capacity_partition_geometry_and_rejection() {
+    let mut raw = vec![0; diagnostics::DIAGNOSTICS_SIZE];
+    for (offset, value) in [
+        (0, 0x53544731),
+        (4, 1),
+        (8, 512),
+        (12, 1000000),
+        (24, 8),
+        (28, 1),
+        (32, 3),
+        (56, 0x0c),
+        (60, 2048),
+        (64, 2000000),
+        (72, 512),
+    ] {
+        put(&mut raw, offset, value);
+    }
+    let mut logs = vec![];
+    diagnostics::log_storage(&raw, &mut |s| logs.push(s)).unwrap();
+    assert!(logs.iter().any(|s| s.contains("1000000 sectors")));
+    assert!(logs
+        .iter()
+        .any(|s| s.contains("type=0x0c; start=2048; length=2000000")));
+    assert!(logs
+        .iter()
+        .any(|s| s.contains("extends beyond disk capacity")));
+    assert!(diagnostics::log_storage(&raw[..100], &mut |_| {}).is_err());
+    put(&mut raw, 4, 2);
+    assert!(diagnostics::log_storage(&raw, &mut |_| {}).is_err());
+}
+
 #[test]
 fn helper_validation_rejects_old_images_and_invalid_slots() {
     let mut image = vec![0; 0xe00];

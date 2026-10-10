@@ -10,6 +10,7 @@
 #include "string.h"
 #include "upload.h"
 #include "winusb.h"
+#include "layout.h"
 
 static struct event_queue events;
 static struct usb_class_driver_ep_allocation endpoints[] = {
@@ -20,6 +21,7 @@ static bool finished, receiving, stopping, start_pending, closed;
 static int pending_length = -1;
 static uint32_t activity, return_at;
 static uint8_t status_data[320] USB_DEVBSS_ATTR;
+_Static_assert(sizeof(struct storage_diagnostics) <= sizeof(status_data), "diagnostics buffer");
 
 bool upload_usb_control_request(struct usb_ctrlrequest *req, uint8_t *data, size_t capacity)
 {
@@ -143,6 +145,12 @@ static bool control(struct usb_ctrlrequest *req, uint8_t *data, size_t capacity)
     (void)capacity;
     if (req->wIndex != interface_number || req->wValue != 0)
         return false;
+    if (req->bRequestType == 0xa1 && req->bRequest == 0x56 &&
+        req->wLength == sizeof(upload_diagnostics)) {
+        memcpy(status_data, &upload_diagnostics, sizeof(upload_diagnostics));
+        usb_core_control_response(USB_CONTROL_ACK, status_data, sizeof(upload_diagnostics));
+        return true;
+    }
     if (req->bRequestType == 0xa1 && req->bRequest == 0x52 &&
         req->wLength == sizeof(status_data)) {
         memcpy(status_data, UPLOAD_RESULT, sizeof(status_data));

@@ -26,6 +26,7 @@ extern void bss_init(void);
 static const volatile uint8_t nonce[16] = "REPRISE-NONCE-01";
 
 static struct disk_layout layout;
+struct storage_diagnostics upload_diagnostics;
 static uint8_t readback[512] __attribute__((aligned(32)));
 
 static int read_layout_sector(unsigned slot, uint32_t lba)
@@ -46,13 +47,19 @@ static void read_layout(void)
     memset(&layout, 0, sizeof(layout));
     for (unsigned i = 0; i < 5; ++i)
         layout.rc[i] = -200;
-    if (RECORD->sector_size != 512)
+    if (RECORD->sector_size != 512) {
+        layout.error = LAYOUT_DISK_SECTOR_SIZE;
         return;
-    if (read_layout_sector(0, 0))
+    }
+    if (read_layout_sector(0, 0)) {
+        layout.error = LAYOUT_MBR_READ;
         return;
+    }
     const uint8_t *mbr = layout.sectors[0];
-    if (mbr[510] != 0x55 || mbr[511] != 0xaa)
+    if (mbr[510] != 0x55 || mbr[511] != 0xaa) {
+        layout.error = LAYOUT_MBR_SIGNATURE;
         return;
+    }
     uint64_t total = ((uint64_t)RECORD->sectors_high << 32) | RECORD->sectors_low;
     unsigned scale = 0, fat_slot = 0;
     /* Rockbox tries 512–4096-byte partition units on this target. */
@@ -61,8 +68,11 @@ static void read_layout(void)
         if (entry[4] != 0x0b && entry[4] != 0x0c)
             continue;
         uint32_t start = le32(entry + 8), count = le32(entry + 12);
-        if (!start || !count)
-            continue;
+        if (!start || !count || (uint64_t)start + count > total) {
+            layout.error = LAYOUT_PARTITION_BOUNDS;
+            layout.failed_partition = i + 1;
+            return;
+        }
         for (unsigned mult = 1; mult <= 8; mult <<= 1) {
             if (((uint64_t)start + count) * mult > total ||
                 (uint64_t)start * mult > UINT32_MAX)
@@ -91,6 +101,40 @@ static void read_layout(void)
         if (i + 1 == fat_slot)
             continue;
         read_layout_sector(i + 1, start * scale);
+    }
+}
+
+static void save_diagnostics(void)
+{
+    upload_diagnostics.magic = 0x53544731;
+    upload_diagnostics.version = 1;
+    upload_diagnostics.sector_bytes = RECORD->sector_size;
+    upload_diagnostics.sectors_low = RECORD->sectors_low;
+    upload_diagnostics.sectors_high = RECORD->sectors_high;
+    upload_diagnostics.battery_mv = RECORD->battery_mv;
+    upload_diagnostics.layout_error = layout.error;
+    upload_diagnostics.failed_partition = layout.failed_partition;
+    upload_diagnostics.read_mask = layout.mask;
+    memcpy(upload_diagnostics.read_rc, layout.rc, sizeof(layout.rc));
+    for (unsigned i = 0; i < 4; ++i) {
+        const uint8_t *p = layout.sectors[0] + 446 + i * 16;
+        const uint8_t *v = layout.sectors[i + 1];
+        upload_diagnostics.partitions[i].type = p[4];
+        upload_diagnostics.partitions[i].start = le32(p + 8);
+        upload_diagnostics.partitions[i].count = le32(p + 12);
+        upload_diagnostics.partitions[i].read_lba = layout.lba[i];
+        upload_diagnostics.partitions[i].sector_bytes = v[11] | ((unsigned)v[12] << 8);
+        upload_diagnostics.partitions[i].cluster_sectors = v[13];
+        upload_diagnostics.partitions[i].reserved_sectors = v[14] | ((unsigned)v[15] << 8);
+        upload_diagnostics.partitions[i].fats = v[16];
+        upload_diagnostics.partitions[i].volume_sectors = le32(v + 32);
+        upload_diagnostics.partitions[i].fat_sectors = le32(v + 36);
+        upload_diagnostics.partitions[i].root_cluster = le32(v + 44);
+        upload_diagnostics.partitions[i].flags = v[40] | ((unsigned)v[41] << 8);
+        upload_diagnostics.partitions[i].root_entries = v[17] | ((unsigned)v[18] << 8);
+        upload_diagnostics.partitions[i].volume_sectors16 = v[19] | ((unsigned)v[20] << 8);
+        upload_diagnostics.partitions[i].fat_sectors16 = v[22] | ((unsigned)v[23] << 8);
+        upload_diagnostics.partitions[i].version = v[42] | ((unsigned)v[43] << 8);
     }
 }
 
@@ -149,6 +193,7 @@ void main(void)
         memset(UPLOAD_RESULT, 0, sizeof(*UPLOAD_RESULT));
         UPLOAD_RESULT->magic = 0x55504c32;
         UPLOAD_RESULT->version = 2;
+        UPLOAD_RESULT->size = upload_config.size;
         for (unsigned i = 0; i < 16; ++i)
             UPLOAD_RESULT->nonce[i] = nonce[i];
         uint64_t start = 0, end = 0;
@@ -159,6 +204,7 @@ void main(void)
             upload_fail(-301);
         else
             upload_prepare(start, end, bytes);
+        save_diagnostics();
         RECORD->storage_rc = upload_usb();
         RECORD->phase = 4;
     }
