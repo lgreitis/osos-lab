@@ -35,6 +35,8 @@ static const uint8_t *disk_mbr, *disk_bpb;
 static uint64_t boot_lba;
 static unsigned partition_reads;
 static int read_error;
+static uint64_t accepted_start, accepted_end;
+static unsigned accepted_bytes;
 static int ata_read_sectors(uint32_t lba, unsigned count, void *out) {
     (void)count;
     if (lba == 0) {
@@ -54,28 +56,32 @@ static int ata_read_sectors(uint32_t lba, unsigned count, void *out) {
             + reader
             + """
 int read_validate(const uint8_t *mbr, const uint8_t *bpb, uint64_t capacity,
-                  unsigned slot, int error) {
+                  unsigned slot, int error, unsigned scale) {
     record.sector_size = 512;
     record.sectors_low = (uint32_t)capacity;
     record.sectors_high = (uint32_t)(capacity >> 32);
     disk_mbr = mbr;
     disk_bpb = bpb;
-    boot_lba = (uint64_t)le32(mbr+454+slot*16) *
-               (bpb[11] | (unsigned)bpb[12]<<8) / 512;
+    boot_lba = (uint64_t)le32(mbr+454+slot*16) * scale;
     read_error = error;
     partition_reads = 0;
     read_layout();
-    uint64_t start, end; unsigned bytes;
-    return file_layout_ok(&layout, capacity, &start, &end, &bytes);
+    return file_layout_ok(&layout, capacity, &accepted_start, &accepted_end,
+                          &accepted_bytes);
 }
 unsigned reads(void) { return partition_reads; }
 int partition_read_rc(unsigned slot) { return layout.rc[slot+1]; }
-int validate(const uint8_t *mbr, const uint8_t *bpb, uint64_t capacity, unsigned slot) {
+uint64_t selected_start(void) { return accepted_start; }
+uint64_t selected_end(void) { return accepted_end; }
+unsigned selected_bytes(void) { return accepted_bytes; }
+int validate(const uint8_t *mbr, const uint8_t *bpb, uint64_t capacity,
+             unsigned slot, unsigned scale) {
     memset(&layout, 0, sizeof(layout));
     memcpy(layout.sectors[0], mbr, 512);
     memcpy(layout.sectors[slot+1], bpb, 512);
     layout.mask = 1 | (1u << (slot+1));
-    layout.lba[slot] = le32(mbr+454+slot*16) * (bpb[11] | (unsigned)bpb[12]<<8) / 512;
+    layout.partition_scale = scale;
+    layout.lba[slot] = le32(mbr+454+slot*16) * scale;
     uint64_t start, end; unsigned bytes;
     return file_layout_ok(&layout, capacity, &start, &end, &bytes);
 }
@@ -106,8 +112,14 @@ unsigned rejected_partition(void) { return layout.failed_partition; }
             ctypes.c_char_p,
             ctypes.c_uint64,
             ctypes.c_uint,
+            ctypes.c_uint,
         ]
-        cls.lib.read_validate.argtypes = cls.lib.validate.argtypes + [ctypes.c_int]
+        cls.lib.read_validate.argtypes = cls.lib.validate.argtypes[:-1] + [
+            ctypes.c_int,
+            ctypes.c_uint,
+        ]
+        cls.lib.selected_start.restype = ctypes.c_uint64
+        cls.lib.selected_end.restype = ctypes.c_uint64
 
     @classmethod
     def tearDownClass(cls):
@@ -123,8 +135,17 @@ unsigned rejected_partition(void) { return layout.failed_partition; }
         struct.pack_into("<I", bpb, 44, 2)
         return mbr, bpb
 
-    def valid(self, mbr, bpb, slot=0, capacity=20000000):
-        return bool(self.lib.validate(bytes(mbr), bytes(bpb), capacity, slot))
+    def valid(self, mbr, bpb, slot=0, capacity=20000000, scale=None):
+        if scale is None:
+            scale = struct.unpack_from("<H", bpb, 11)[0] // 512
+        return bool(self.lib.validate(bytes(mbr), bytes(bpb), capacity, slot, scale))
+
+    def discover(self, mbr, bpb, slot=0, capacity=20000000, error=0, scale=None):
+        if scale is None:
+            scale = struct.unpack_from("<H", bpb, 11)[0] // 512
+        return bool(
+            self.lib.read_validate(bytes(mbr), bytes(bpb), capacity, slot, error, scale)
+        )
 
     def test_multiple_sector_sizes_and_partition_slots(self):
         for size in [512, 1024, 2048, 4096]:
@@ -179,7 +200,7 @@ unsigned rejected_partition(void) { return layout.failed_partition; }
                     mbr, bpb = self.image(slot=slot)
                     struct.pack_into("<II", mbr, 454 + slot * 16, start, count)
                     self.assertFalse(
-                        self.lib.read_validate(bytes(mbr), bytes(bpb), 1000000, slot, 0)
+                        self.discover(mbr, bpb, slot=slot, capacity=1000000)
                     )
                     self.assertEqual(self.lib.rejection(), 8)
                     self.assertEqual(self.lib.rejected_partition(), slot + 1)
@@ -191,17 +212,58 @@ unsigned rejected_partition(void) { return layout.failed_partition; }
             for slot in range(4):
                 with self.subTest(size=size, slot=slot):
                     mbr, bpb = self.image(size, slot)
-                    self.assertTrue(
-                        self.lib.read_validate(
-                            bytes(mbr), bytes(bpb), 20000000, slot, 0
-                        )
-                    )
-                    self.assertFalse(
-                        self.lib.read_validate(
-                            bytes(mbr), bytes(bpb), 20000000, slot, -1
-                        )
-                    )
+                    self.assertTrue(self.discover(mbr, bpb, slot=slot))
+                    self.assertFalse(self.discover(mbr, bpb, slot=slot, error=-1))
                     self.assertEqual(self.lib.rejection(), 6)
                     self.assertEqual(self.lib.rejected_partition(), slot + 1)
                     self.assertGreater(self.lib.reads(), 0)
                     self.assertEqual(self.lib.partition_read_rc(slot), -1)
+
+    def test_discovery_accepts_independent_partition_and_fat_sector_sizes(self):
+        for scale in [1, 2, 4, 8]:
+            for size in [512, 1024, 2048, 4096]:
+                for slot in range(4):
+                    with self.subTest(scale=scale, size=size, slot=slot):
+                        mbr, bpb = self.image(size, slot)
+                        count = 2000000 * (size // 512) // scale
+                        struct.pack_into("<I", mbr, 458 + slot * 16, count)
+                        start = 2048 * scale
+                        end = start + count * scale
+                        self.assertTrue(
+                            self.discover(
+                                mbr, bpb, slot=slot, scale=scale, capacity=end
+                            )
+                        )
+                        self.assertEqual(self.lib.selected_start(), start)
+                        self.assertEqual(self.lib.selected_end(), end)
+                        self.assertEqual(self.lib.selected_bytes(), size)
+
+    def test_mixed_units_reject_volume_overflow_and_partition_overlap(self):
+        for scale, size in [(1, 4096), (8, 512)]:
+            with self.subTest(scale=scale, size=size):
+                mbr, bpb = self.image(size)
+                count = 2000000 * (size // 512) // scale
+                struct.pack_into("<I", mbr, 458, count - 1)
+                self.assertFalse(self.discover(mbr, bpb, scale=scale))
+                self.assertEqual(self.lib.rejection(), 21)
+                struct.pack_into("<I", mbr, 458, count)
+                mbr[466] = 0x3F
+                struct.pack_into("<II", mbr, 470, 2040, 16)
+                self.assertFalse(self.discover(mbr, bpb, scale=scale))
+                self.assertEqual(self.lib.rejection(), 16)
+                struct.pack_into("<II", mbr, 470, 63, 1985)
+                self.assertTrue(self.discover(mbr, bpb, scale=scale))
+
+    def test_rejects_invalid_partition_scales_and_zero_headers(self):
+        mbr, bpb = self.image()
+        for scale in [0, 3, 16]:
+            self.assertFalse(self.valid(mbr, bpb, scale=scale))
+            self.assertEqual(self.lib.rejection(), 9)
+        self.assertFalse(self.discover(mbr, bytearray(512), scale=8))
+        self.assertEqual(self.lib.rejection(), 7)
+
+    def test_mixed_units_reject_partition_beyond_capacity(self):
+        mbr, bpb = self.image(4096)
+        struct.pack_into("<I", mbr, 458, 16000000)
+        self.assertFalse(self.valid(mbr, bpb, scale=1, capacity=16002047))
+        self.assertEqual(self.lib.rejection(), 8)

@@ -67,10 +67,10 @@ struct storage_result test_storage;
 static int fault, mounts, sleeps, opens;
 static bool corrupt;
 void filesystem_init(void) {}
-int disk_mount_all(void) { mounts++; return 1; }
+int disk_mount_all(void) { mounts++; return fault==11 ? 0 : 1; }
 int disk_unmount_all(void) { return fault==6 ? 0 : 1; }
-bool disk_partinfo(int n, struct partinfo *p) { (void)n; *p=(struct partinfo){394224,1000995848,0x0c}; return true; }
-unsigned fat_get_bytes_per_sector(void) {return 4096;}
+bool disk_partinfo(int n, struct partinfo *p) { (void)n; *p=(struct partinfo){394224,1000995848,0x0c}; if(fault==10)p->size++; return true; }
+unsigned fat_get_bytes_per_sector(void) {return fault==9 ? 512 : 4096;}
 bool fat_size(sector_t *s, sector_t *f) {(void)s; *f=fault==8 ? 0 : 1000000; return true;}
 unsigned fat_get_cluster_size(void) {return 16384;}
 void ata_sleepnow(void) {sleeps++;}
@@ -103,10 +103,21 @@ int main(int argc,char **argv)
     if(fault==7)upload_config.sha256[0]^=1;
     memset(test_result.nonce,7,16);
     upload_prepare(394224,1001390072,4096);
+    if(fault>=9 && fault<=11){assert(test_result.rc==-303);assert(opens==0);assert(!upload_write_allowed(394224,1));upload_close();return 0;}
     if(fault==8){assert(test_result.rc==-322);assert(opens==0);upload_close();return 0;}
     if(overwrite==2){assert(test_result.state==4);assert(!test_result.rc);assert(opens==0);assert(test_storage.start==394224);assert(test_storage.end==1001390072);assert(test_storage.free_bytes==1024000000);assert(!upload_write_allowed(394224,1));close_repeatedly();assert(sleeps==1);return 0;}
     if(exists&&!overwrite){assert(test_result.rc==-304);assert(opens==0);original();upload_close();return 0;}
     assert(test_result.state==1);test_result.state=2;upload_start();
+    if(fault==12){
+        assert(upload_write_allowed(394224,1));
+        assert(upload_write_allowed(1001390071,1));
+        assert(!upload_write_allowed(394223,1));
+        assert(!upload_write_allowed(1001390072,1));
+        assert(!upload_write_allowed(1001390071,2));
+        assert(!upload_write_allowed(394224,0));
+        assert(!upload_write_allowed(394224,-1));
+        upload_close();return 0;
+    }
     for(unsigned off=0;off<size&&test_result.state==2;){
         unsigned n=MIN(size-off,65536);pattern(off,n);test_result.received+=n;upload_write(n);off+=n;
         if(exists)original();
@@ -253,6 +264,14 @@ extern struct storage_result test_storage;
 
     def test_storage_inspection_is_read_only(self):
         self.run_file(12000000, 2, True, 0)
+
+    def test_mount_must_match_validated_geometry_before_writes(self):
+        for fault in [9, 10, 11]:
+            with self.subTest(fault=fault):
+                self.run_file(65537, True, True, fault)
+
+    def test_writes_stay_inside_validated_partition(self):
+        self.run_file(65537, True, True, 12)
 
     def test_sizes_and_replacement(self):
         self.run_file(65537, False, True, 0)

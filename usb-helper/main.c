@@ -82,8 +82,10 @@ static void read_layout(void)
                 continue;
             const uint8_t *v = layout.sectors[i + 1];
             unsigned bytes = v[11] | ((unsigned)v[12] << 8);
-            if (v[510] == 0x55 && v[511] == 0xaa && bytes == 512 * mult) {
+            if (v[510] == 0x55 && v[511] == 0xaa && bytes >= 512 &&
+                bytes <= 4096 && !(bytes & (bytes - 1))) {
                 scale = mult;
+                layout.partition_scale = mult;
                 fat_slot = i + 1;
                 break;
             }

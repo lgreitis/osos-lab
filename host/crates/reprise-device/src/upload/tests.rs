@@ -317,6 +317,33 @@ fn storage_diagnostics_report_capacity_partition_geometry_and_rejection() {
 }
 
 #[test]
+fn storage_diagnostics_use_partition_address_units_for_bounds() {
+    let mut raw = vec![0; diagnostics::DIAGNOSTICS_SIZE];
+    for (offset, value) in [
+        (0, 0x53544731),
+        (4, 1),
+        (8, 512),
+        (12, 20000000),
+        (56, 0x0c),
+        (60, 2048),
+        (64, 2000000),
+    ] {
+        put(&mut raw, offset, value);
+    }
+    for (scale, fat_bytes) in [(1, 4096), (8, 512)] {
+        put(&mut raw, 68, 2048 * scale);
+        put(&mut raw, 72, fat_bytes);
+        let mut logs = vec![];
+        diagnostics::log_storage(&raw, &mut |s| logs.push(s)).unwrap();
+        assert!(logs.iter().any(|s| s.contains(&format!(
+            "bounds in 512-byte sectors: start={}; end={}; disk capacity=20000000",
+            2048 * scale,
+            2002048 * scale
+        ))));
+    }
+}
+
+#[test]
 fn helper_validation_rejects_old_images_and_invalid_slots() {
     let mut image = vec![0; 0xe00];
     image[..8].copy_from_slice(b"87021.0\x02");

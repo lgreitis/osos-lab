@@ -6,7 +6,7 @@
 
 struct disk_layout {
     int32_t rc[5];
-    uint32_t mask, lba[4];
+    uint32_t mask, lba[4], partition_scale;
     uint32_t error, failed_partition;
     uint8_t sectors[5][512] __attribute__((aligned(32)));
 };

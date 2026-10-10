@@ -43,10 +43,13 @@ pub(super) fn log_storage(raw: &[u8], log: &mut dyn FnMut(String)) -> Result<()>
         if matches!(word(p, 0), 0x0b | 0x0c) {
             log(format!("Partition {} FAT32: sector bytes={}; cluster sectors={}; reserved sectors={}; FATs={}; volume sectors={}; FAT sectors={}; root cluster={}; flags={:#x}", i + 1, word(p, 16), word(p, 20), word(p, 24), word(p, 28), word(p, 32), word(p, 36), word(p, 40), word(p, 44)));
             log(format!("Partition {} FAT32: version={}; legacy root entries={}; legacy volume sectors={}; legacy FAT sectors={}", i + 1, word(p, 60), word(p, 48), word(p, 52), word(p, 56)));
-            let sector_bytes = word(p, 16);
-            if matches!(sector_bytes, 512 | 1024 | 2048 | 4096) {
-                let scale = u64::from(sector_bytes / 512);
-                let start = u64::from(word(p, 4)) * scale;
+            let raw_start = u64::from(word(p, 4));
+            let start = u64::from(word(p, 12));
+            if raw_start != 0
+                && start % raw_start == 0
+                && matches!(start / raw_start, 1 | 2 | 4 | 8)
+            {
+                let scale = start / raw_start;
                 let end = start + u64::from(word(p, 8)) * scale;
                 log(format!("Partition {} bounds in 512-byte sectors: start={start}; end={end}; disk capacity={sectors}", i + 1));
             }

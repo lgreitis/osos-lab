@@ -27,14 +27,17 @@ bool file_layout_ok(struct disk_layout *layout, uint64_t total, uint64_t *start,
         *bytes = v[11] | ((unsigned)v[12] << 8);
         if (*bytes < 512 || *bytes > 4096 || (*bytes & (*bytes - 1)))
             return reject(layout, LAYOUT_SECTOR_SIZE, i + 1);
-        scale = *bytes / 512;
+        /* MBR address units and FAT logical sectors can have different sizes. */
+        scale = layout->partition_scale;
+        if (scale != 1 && scale != 2 && scale != 4 && scale != 8)
+            return reject(layout, LAYOUT_BOOT_SECTOR_LOCATION, i + 1);
         *start = (uint64_t)le32(p + 8) * scale;
         *end = *start + (uint64_t)le32(p + 12) * scale;
         uint32_t reserved = v[14] | ((uint32_t)v[15] << 8);
         uint32_t sectors = le32(v + 32), fat = le32(v + 36);
         uint64_t overhead = reserved + (uint64_t)v[16] * fat;
         unsigned cluster = v[13];
-        if (!*start || *end > total)
+        if (!*start || *end <= *start || *end > total)
             return reject(layout, LAYOUT_PARTITION_BOUNDS, i + 1);
         if (layout->lba[i] != *start)
             return reject(layout, LAYOUT_BOOT_SECTOR_LOCATION, i + 1);
@@ -46,7 +49,7 @@ bool file_layout_ok(struct disk_layout *layout, uint64_t total, uint64_t *start,
             return reject(layout, LAYOUT_FAT_COUNT, i + 1);
         if (!fat)
             return reject(layout, LAYOUT_FAT_SIZE, i + 1);
-        if (sectors > le32(p + 12))
+        if ((uint64_t)sectors * (*bytes / 512) > *end - *start)
             return reject(layout, LAYOUT_VOLUME_BOUNDS, i + 1);
         if (overhead >= sectors)
             return reject(layout, LAYOUT_DATA_REGION, i + 1);
