@@ -162,6 +162,12 @@
     "file": "dark/status-bar-battery-22.png"
   },
   {
+    "name": "NowPlaying_Dot_Image",
+    "type": "BMap",
+    "id": "0x0DAD0889",
+    "file": "dark/now-playing-dot.png"
+  },
+  {
     "name": "NowPlaying_White_Volume_Low_Image",
     "type": "BMap",
     "id": "0x0DAD088A",
