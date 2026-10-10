@@ -110,7 +110,11 @@ class BitmapTests(unittest.TestCase):
         rgba = bytes([10, 20, 30, 0, 40, 50, 60, 127, 10, 20, 30, 255])
         bitmap = encode_bmap(3, 1, rgba, allow_indexed=False)
         self.assertEqual(struct.unpack_from("<HHHH", bitmap), (0x1888, 0, 12, 32))
-        self.assertEqual(bitmap[28:], bytes([30, 20, 10, 0, 60, 50, 40, 127, 30, 20, 10, 255]))
-        texture = encode_bmap(1, 1, bytes([255, 0, 0, 255]), rgb565=True, allow_indexed=False)
+        self.assertEqual(
+            bitmap[28:], bytes([30, 20, 10, 0, 60, 50, 40, 127, 30, 20, 10, 255])
+        )
+        texture = encode_bmap(
+            1, 1, bytes([255, 0, 0, 255]), rgb565=True, allow_indexed=False
+        )
         self.assertEqual(struct.unpack_from("<HHHH", texture), (0x565, 0, 4, 16))
-        self.assertEqual(texture[28:], struct.pack("<2H", 0xf800, 0))
+        self.assertEqual(texture[28:], struct.pack("<2H", 0xF800, 0))
