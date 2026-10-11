@@ -57,6 +57,12 @@ int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument
         enabled = !enabled;
         osos_model_notify(osos_settings_model(controller), OSOS_NOTIFY_ALL,
                           CFW_DarkMode_Value);
+        void *now_playing = osos_now_playing_model();
+        if (now_playing) {
+            /* Match Apple's playback-state notifications to reload cached icons. */
+            osos_model_notify(now_playing, OSOS_RESOURCE_DRAW, 0x7f0c);
+            osos_model_notify(now_playing, OSOS_RESOURCE_DRAW, 0x7f0d);
+        }
         osos_ui_invalidate();
     }
     return 1;

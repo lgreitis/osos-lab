@@ -4,6 +4,7 @@
 /* This fixture mocks native calls, not their 32-bit object layouts. */
 #define _Static_assert(...)
 #include "../../../payload/osos.h"
+#include "../../../payload/dark_mode.h"
 #undef _Static_assert
 #define CFW_PATCH_H
 #define PATCH_ARM
@@ -11,6 +12,8 @@
 static uint32_t disk_record, disk_size = 4;
 static int missing = 1, fail_write, writes, closes, redraws, notifications;
 static int controller, model, surface;
+static int now_playing, now_playing_available = 1, icon_notifications;
+static unsigned icon_invalidations;
 static unsigned char drawn[4];
 
 static int file_open(const struct osos_path *path, int mode, void **handle)
@@ -55,9 +58,30 @@ static void *settings_model(void *value)
 }
 
 static uintptr_t on_off(int value) { return value ? 2 : 1; }
-static void invalidate(void) { redraws++; }
+static void *now_playing_model(void)
+{
+    return now_playing_available ? &now_playing : NULL;
+}
+
+static void invalidate(void)
+{
+    assert(icon_invalidations == (now_playing_available ? 3u : 0u));
+    icon_invalidations = 0;
+    redraws++;
+}
+
 static void notify(void *value, uint32_t type, uint32_t property)
 {
+    if (value == &now_playing) {
+        assert(type == OSOS_RESOURCE_DRAW);
+        assert(property == 0x7f0c || property == 0x7f0d);
+        assert(cfw_dark_mode_enabled() == (disk_record == 0x314b5244));
+        unsigned bit = 1u << (property - 0x7f0c);
+        assert(!(icon_invalidations & bit));
+        icon_invalidations |= bit;
+        icon_notifications++;
+        return;
+    }
     assert(value == &model && type == OSOS_NOTIFY_ALL);
     (void)property;
     notifications++;
@@ -99,6 +123,7 @@ static uint32_t blend(uint32_t pixel, uint32_t background, int weight)
 #define osos_settings_model settings_model
 #define osos_settings_on_off on_off
 #define osos_model_notify notify
+#define osos_now_playing_model now_playing_model
 #define osos_ui_invalidate invalidate
 #define osos_surface_fill_rect fill
 #define osos_graphics_set_color text_color
@@ -154,7 +179,7 @@ int main(void)
     assert(cfw_settings_action(&controller, "stock", 0) == 7);
     assert(cfw_settings_action(&controller, "CFW_EQ_Open", 0));
     assert(cfw_settings_action(&controller, "CFW_DarkMode_Toggle", OSOS_ACTION_SUPPORT_QUERY));
-    assert(stock_actions == 1 && !writes && !redraws);
+    assert(stock_actions == 1 && !writes && !redraws && !icon_notifications);
 
     const unsigned char fills[][4] = {
         {255, 255, 255, 173}, {0x7e, 0x81, 0x83, 127}, {35, 108, 196, 91},
@@ -189,9 +214,11 @@ int main(void)
         assert(cfw_dark_mode_enabled() == dark);
     }
     assert(writes == 2 && redraws == 2 && notifications == 2);
+    assert(icon_notifications == 4);
     fail_write = 1;
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
     assert(!cfw_dark_mode_enabled() && redraws == 2 && notifications == 2);
+    assert(icon_notifications == 4 && !icon_invalidations);
     assert(closes == 5);
     disk_record = DARK_MODE_ON_RECORD;
     disk_size = 2;
@@ -201,4 +228,9 @@ int main(void)
     disk_record = 0;
     cfw_dark_mode_load();
     assert(!cfw_dark_mode_enabled());
+    fail_write = 0;
+    now_playing_available = 0;
+    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
+    assert(cfw_dark_mode_enabled() && redraws == 3 && notifications == 3);
+    assert(icon_notifications == 4);
 }

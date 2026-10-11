@@ -232,5 +232,41 @@
     "type": "BMap",
     "id": "0x0DAD012F",
     "file": "dark/no-content-albums-small.png"
+  },
+  {
+    "name": "DiskModeImage_Progress_Empty_LeftCap",
+    "type": "BMap",
+    "id": "0x0DAD0E0F",
+    "file": "dark/disk-mode-progress-empty-left-cap.png"
+  },
+  {
+    "name": "DiskModeImage_Progress_Empty_RightCap",
+    "type": "BMap",
+    "id": "0x0DAD0E10",
+    "file": "dark/disk-mode-progress-empty-right-cap.png"
+  },
+  {
+    "name": "DiskModeImage_Progress_Empty_Fill",
+    "type": "BMap",
+    "id": "0x0DAD0E11",
+    "file": "dark/disk-mode-progress-empty-fill.png"
+  },
+  {
+    "name": "System_ScrollbarTop_Image",
+    "type": "BMap",
+    "id": "0x0DAD0122",
+    "file": "dark/system-scrollbar-top.png"
+  },
+  {
+    "name": "System_ScrollbarCenter_Image",
+    "type": "BMap",
+    "id": "0x0DAD0123",
+    "file": "dark/system-scrollbar-center.png"
+  },
+  {
+    "name": "System_ScrollbarBottom_Image",
+    "type": "BMap",
+    "id": "0x0DAD0124",
+    "file": "dark/system-scrollbar-bottom.png"
   }
 ]

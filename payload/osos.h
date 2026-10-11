@@ -109,6 +109,17 @@ static inline void osos_model_notify(void *model, uint32_t type, uint32_t proper
     ((fn)vtable[0x58 / 4])(model, type, property);
 }
 
+static inline void *osos_now_playing_model(void)
+{
+    typedef void *(*lookup_fn)(uint32_t);
+    typedef void *(*interface_fn)(void *, uint32_t);
+    void *service = ((lookup_fn)OSOS_UI_SERVICE_GET)(0x7f00);
+    if (!service)
+        return 0;
+    uintptr_t *vtable = *(uintptr_t **)service;
+    return ((interface_fn)vtable[0x14 / 4])(service, 5);
+}
+
 /* Notify native list providers that the item's displayed content changed. */
 static inline void osos_menu_item_changed(uint32_t item)
 {
