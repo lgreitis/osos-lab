@@ -124,3 +124,8 @@ PATCH_CALL(OSOS_RESOURCE_NEXT_TEMPLATE_CALL, OSOS_RESOURCE_NEXT, cfw_next_templa
 /* Report the non-European volume policy without changing SysInfo. */
 /* and r0, r0, #1 -> mov r0, #0 */
 PATCH_WORD(OSOS_REGIONAL_VOLUME_RESULT_WORD, 0xe2000001, 0xe3a00000);
+
+/* Playback log: tracks that stop by end, next/previous, a new selection or stop */
+PATCH_CALL(OSOS_ADVANCE_FINISH_CALL, OSOS_TRACK_SESSION_FINISH, cfw_playback_log_skip);
+PATCH_CALL(OSOS_RELEASE_FINISH_CALL, OSOS_TRACK_SESSION_FINISH, cfw_playback_log_release);
+PATCH_CALL(OSOS_ADVANCE_SELECT_CALL, OSOS_PLAYER_SELECT_TRACK, cfw_playback_log_advance);
