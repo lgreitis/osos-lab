@@ -46,6 +46,7 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Song Info from song and Now Playing context menus.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Dark Mode (work in progress), with an On/Off toggle below Brightness in Settings.
+- Playback Log, with an On/Off toggle below Sound Check in Settings.
 
 **Album Artists** groups tracks by their Album Artist tag, using Artist when that
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →
@@ -53,6 +54,13 @@ Music Menu.
 
 **Dark Mode** is off by default. Some screens and artwork still need visual
 adjustments.
+
+**Playback Log** is off by default. When on, every track that stops playing adds
+a row to `playback.tsv` at the root of the iPod: when it played, how long you
+listened, how it ended (finished, skipped or replaced), the track's tags and its
+iTunes Persistent ID. The play counts iTunes collects only keep totals and the
+last play date; this log keeps every listen, for year-in-review statistics,
+scrobbling or rebuilding playlists. See the [column reference](docs/playback-log.md).
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
 

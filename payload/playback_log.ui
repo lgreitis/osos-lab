@@ -1,0 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <toggle id="CFW_PlaybackLog" title="Playback Log"/>
+  <settings-entry menu="CFW_PlaybackLog" after="SettingsMenu_ListItem_SoundCheck"/>
+</ui>
