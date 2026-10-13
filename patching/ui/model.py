@@ -21,6 +21,7 @@ class Item:
     default_index: int = 0
     text_file: str = ""
     items: list["Item"] = field(default_factory=list)
+    capacity: int = 0
 
 
 @dataclass
@@ -69,3 +70,4 @@ class CompiledDocument:
     fields: dict[int, FieldBinding] = field(default_factory=dict)
     actions: dict[str, ActionBinding] = field(default_factory=dict)
     string_ids: dict[str, int] = field(default_factory=dict)
+    lists: dict = field(default_factory=dict)

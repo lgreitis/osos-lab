@@ -40,12 +40,36 @@ def menu(rows):
 
 
 class UiTests(unittest.TestCase):
+    def test_dynamic_list_starts_empty_with_independent_row_labels(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.read(root / "payload/theme_menu.ui")
+        compiled = compile_document(resources, document)
+        table, template, actions = compiled.lists["CFW_Theme"]
+        self.assertEqual(blocks(resources.added["ITEM", table]), [])
+        self.assertEqual(len(blocks(template)), 17)
+        self.assertEqual(len({row.labels[0] for row in actions}), 17)
+        self.assertTrue(all(row.table == table for row in actions))
+        events = resources.added["CEVT", resources.names["CFW_Theme_Screen"]].data
+        self.assertIn(b"CFW_Theme_16", events)
+        self.assertIn("struct cfw_ui_list cfw_theme", emit_header(document))
+        for capacity in ("0", "101", "-1"):
+            with self.assertRaises(ValueError):
+                parser.parse(
+                    f'<ui><list id="TEST" title="Test" capacity="{capacity}"/></ui>'
+                )
+
     def test_settings_toggle_preserves_stock_rows_and_has_no_navigation(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
         bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
         resources = Resources(metadata["resources"], bindings)
-        document = parser.read(root / "payload/dark_mode.ui")
+        document = parser.parse(
+            '<ui><toggle id="CFW_DarkMode" title="Dark Mode"/>'
+            '<settings-entry menu="CFW_DarkMode" after="SettingsMenu_ListItem_Brightness"/></ui>'
+        )
         compiled = compile_document(resources, document)
         stock = blocks(resources.stock("ITEM", "SettingsMenu_Items"))
         rows = blocks(resources.added["ITEM", bindings["SettingsMenu_Items"]])

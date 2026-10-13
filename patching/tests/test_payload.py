@@ -21,7 +21,7 @@ class PayloadTests(unittest.TestCase):
             directory = Path(temporary)
             generate(
                 Resources(metadata["resources"], bindings),
-                [root / "payload/dark_mode.ui", root / "payload/custom_eq.ui"],
+                [root / "payload/theme_menu.ui", root / "payload/custom_eq.ui"],
                 directory,
                 "test",
             )
@@ -31,7 +31,9 @@ class PayloadTests(unittest.TestCase):
                 "album_artists_menu",
                 "menu_resources",
                 "bitmap_assets",
-                "dark_mode",
+                "theme_render",
+                "theme_menu",
+                "ui_list",
                 "osos_handoff",
             ):
                 with self.subTest(fixture=name):

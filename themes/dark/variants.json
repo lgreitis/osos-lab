@@ -1,0 +1,7 @@
+[
+  {"name": "Dark", "accent": "#000000", "file": "dark/theme.bin"},
+  {"name": "Dark Purple", "accent": "#B57BE8", "file": "dark-purple/theme.bin"},
+  {"name": "Dark Yellow", "accent": "#E3B944", "file": "dark-yellow/theme.bin"},
+  {"name": "Dark Teal", "accent": "#42C8BB", "file": "dark-teal/theme.bin"},
+  {"name": "Dark Red", "accent": "#EB686D", "file": "dark-red/theme.bin"}
+]

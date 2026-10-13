@@ -29,6 +29,9 @@ def emit_header(document, string_ids=None):
     )
     for item in document.actions:
         lines.append(f"extern const struct cfw_ui_action {item.name.lower()};")
+    if document.root and document.root.kind == "list":
+        lines.append(f"#define {name.upper()}_CAPACITY {document.root.capacity}")
+        lines.append(f"extern const struct cfw_ui_list {prefix};")
     for value in document.values.values():
         lines.append(f"extern const int32_t {value.name}[{len(value.numbers)}];")
     return "\n".join([*lines, "", "#endif", ""])
@@ -40,9 +43,23 @@ def array(name, values, public=False, ctype="uint32_t"):
     return f"{prefix}const {ctype} {name}[] = {{{text}}};"
 
 
-def emit_bindings(document, fields, actions):
+def emit_bindings(document, fields, actions, lists=None):
     lines = []
     prefix = document.root.name.lower()
+    for name, (table, data, rows) in (lists or {}).items():
+        name = name.lower()
+        lines.extend(emit_data(name + "_template", data))
+        for row in rows:
+            lines.append(array(f"{name}_labels_{row.index}", row.labels))
+        lines.append(f"static const struct cfw_ui_action {name}_rows[] = {{")
+        for row in rows:
+            lines.append(
+                f"    {{{table:#x}, {row.index}, {row.item:#x}, 1, {name}_labels_{row.index}}},"
+            )
+        lines.append("};")
+        lines.append(
+            f"const struct cfw_ui_list {name} = {{{table:#x}, {len(rows)}, {name}_template, {name}_rows}};"
+        )
     for slot, binding in fields.items():
         for key in ("labels", "marked", "summaries", "items"):
             lines.append(array(f"{prefix}_field_{slot}_{key}", getattr(binding, key)))
@@ -85,22 +102,28 @@ def emit_bindings(document, fields, actions):
     return lines
 
 
+def emit_data(name, data):
+    data = Resource(data)
+    lines = [f"static const unsigned char {name}[] = {{"]
+    for start in range(0, len(data), 16):
+        lines.append(
+            "    "
+            + ", ".join(f"0x{byte:02x}" for byte in data.data[start : start + 16])
+            + ","
+        )
+    lines.append("};")
+    for destination, offset, size in data.copies():
+        address = f"({offset:#x} + OSOS_RUNTIME_BASE - OSOS_LOAD_OFFSET)"
+        lines.append(f"PATCH_COPY({name}, {destination}, {address}, {size});")
+    return lines
+
+
 def emit_resources(resources):
     lines = []
     entries = []
     for i, ((kind, resource_id), data) in enumerate(resources.added.items()):
         data = Resource(data)
-        lines.append(f"static const unsigned char resource_{i}[] = {{")
-        for start in range(0, len(data), 16):
-            lines.append(
-                "    "
-                + ", ".join(f"0x{byte:02x}" for byte in data.data[start : start + 16])
-                + ","
-            )
-        lines.append("};")
-        for destination, offset, size in data.copies():
-            address = f"({offset:#x} + OSOS_RUNTIME_BASE - OSOS_LOAD_OFFSET)"
-            lines.append(f"PATCH_COPY(resource_{i}, {destination}, {address}, {size});")
+        lines.extend(emit_data(f"resource_{i}", data))
         resource_type = int.from_bytes(kind.encode("ascii"), "big")
         entries.append(
             f"    {{{resource_type:#x}, {resource_id:#x}, sizeof(resource_{i}), resource_{i}}},"

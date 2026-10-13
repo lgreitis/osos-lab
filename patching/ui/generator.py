@@ -30,7 +30,11 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
             text = page_text(source, document.root, revision, version)
         compiled = compile_document(resources, document, text)
         if document.root:
-            lines.extend(emit_bindings(document, compiled.fields, compiled.actions))
+            lines.extend(
+                emit_bindings(
+                    document, compiled.fields, compiled.actions, compiled.lists
+                )
+            )
         (directory / (source.stem + "_ui.h")).write_text(
             emit_header(document, compiled.string_ids)
         )

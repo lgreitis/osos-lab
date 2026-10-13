@@ -131,8 +131,8 @@ static inline void *osos_settings_model(void *controller)
     return *(void **)((unsigned char *)controller + 0xb0);
 }
 
-static inline int osos_settings_property(void *model, uint32_t type,
-                                         uint32_t property, uintptr_t *out)
+static inline int osos_settings_property(void *model, uint32_t type, uint32_t property,
+                                         uintptr_t *out)
 {
     typedef int (*fn)(void *, uint32_t, uint32_t, uintptr_t *);
     return ((fn)OSOS_SETTINGS_PROPERTY)(model, type, property, out);
@@ -472,23 +472,27 @@ static inline void osos_native_string_assign_utf16(struct osos_native_string *st
 }
 
 enum osos_media_text {
-    OSOS_MEDIA_TITLE = 0x50, OSOS_MEDIA_ALBUM = 0x54, OSOS_MEDIA_ARTIST = 0x58,
-    OSOS_MEDIA_GENRE = 0x60, OSOS_MEDIA_COMPOSER = 0x64, OSOS_MEDIA_GROUPING = 0x68,
+    OSOS_MEDIA_TITLE = 0x50,
+    OSOS_MEDIA_ALBUM = 0x54,
+    OSOS_MEDIA_ARTIST = 0x58,
+    OSOS_MEDIA_GENRE = 0x60,
+    OSOS_MEDIA_COMPOSER = 0x64,
+    OSOS_MEDIA_GROUPING = 0x68,
 };
 
 static inline void osos_media_item_text(struct osos_media_item *item,
-                                         enum osos_media_text field,
-                                         struct osos_native_string *text)
+                                        enum osos_media_text field,
+                                        struct osos_native_string *text)
 {
     typedef void (*fn)(struct osos_media_item *, struct osos_native_string *);
     ((fn)osos_method(item, field))(item, text);
 }
 
-#define OSOS_MEDIA_GETTER(name, type, slot)                                      \
-    static inline type osos_media_item_##name(struct osos_media_item *item)      \
-    {                                                                          \
-        typedef type (*fn)(struct osos_media_item *);                           \
-        return ((fn)osos_method(item, slot))(item);                             \
+#define OSOS_MEDIA_GETTER(name, type, slot)                                            \
+    static inline type osos_media_item_##name(struct osos_media_item *item)            \
+    {                                                                                  \
+        typedef type (*fn)(struct osos_media_item *);                                  \
+        return ((fn)osos_method(item, slot))(item);                                    \
     }
 OSOS_MEDIA_GETTER(duration, uint32_t, 0xa0)
 OSOS_MEDIA_GETTER(file_size, uint32_t, 0xac)
@@ -502,7 +506,7 @@ OSOS_MEDIA_GETTER(skip_count, uint32_t, 0xcc)
 #undef OSOS_MEDIA_GETTER
 
 static inline void osos_player_current_item(struct osos_player *player,
-                                             struct osos_media_item *item)
+                                            struct osos_media_item *item)
 {
     typedef void (*fn)(struct osos_player *, struct osos_media_item *);
     ((fn)osos_method(player, OSOS_PLAYER_CURRENT_ITEM_SLOT))(player, item);
@@ -512,6 +516,36 @@ struct osos_path {
     uint16_t volume;
     char text[258];
 };
+
+/* Native iterator owns its filesystem reference, traversal state and root string. */
+struct osos_directory {
+    uint32_t words[17];
+};
+
+static inline void osos_directory_init(struct osos_directory *directory,
+                                       const char *path)
+{
+    typedef void *(*fn)(void *, const char *, unsigned char, int);
+    ((fn)OSOS_DIRECTORY_INIT)(directory, path, 0, 0);
+}
+
+static inline int osos_directory_next(struct osos_directory *directory,
+                                      struct osos_native_string *name,
+                                      unsigned char *is_directory)
+{
+    typedef int (*fn)(void *, void *, unsigned char *);
+    return ((fn)OSOS_DIRECTORY_NEXT)(directory, name, is_directory);
+}
+
+static inline void osos_directory_destroy(struct osos_directory *directory)
+{
+    ((void (*)(void *))OSOS_DIRECTORY_DESTROY)(directory);
+}
+
+static inline void osos_menu_item_visible(uint32_t item, int visible)
+{
+    ((int (*)(uint32_t, uint32_t))OSOS_MENU_ITEM_SET_VISIBLE)(item, visible != 0);
+}
 
 /* Native file modes: 1 reads; 2 opens or creates for writing. */
 static inline int osos_file_open(const struct osos_path *path, uint32_t mode,

@@ -67,7 +67,7 @@ def build_recipe(
                 "play_next.ui",
                 "song_info.ui",
                 "album_artists.ui",
-                "dark_mode.ui",
+                "theme_menu.ui",
                 "queue_selection.ui",
             )
         ],
@@ -76,9 +76,10 @@ def build_recipe(
         version,
     )
     units = payload_units(source, generated_ui)
-    generated_assets = assets.generate(
-        resources, source / "assets/manifest.json", directory
-    )
+    catalog = json.loads((source.parent / "firmware/bitmaps.json").read_text())
+    if catalog["schema"] != 1 or catalog["input"] != fingerprint:
+        raise ValueError("Bitmap metadata does not match the pinned OSOS")
+    generated_assets = assets.generate(catalog, directory)
     units.append((str(generated_assets), []))
     units.append((str(source / "patches/patches.c"), []))
     code, symbols = compile_payload(

@@ -193,6 +193,28 @@ class DocumentCompiler:
         self.bind_menu_table(menu, table)
         return table
 
+    def dynamic_list(self, item):
+        rows, events, actions = [], [], []
+        for index in range(item.capacity):
+            label = self.resources.source("")
+            row_id, row = self.row(label)
+            put(row[1], 0x60, 2)
+            rows.append(row)
+            actions.append(ActionBinding(item=row_id, index=index, labels=[label]))
+            events.append(
+                menu_event(
+                    row_id,
+                    "chosen",
+                    f"{item.name}_{index:02d}",
+                    "navigator.SwitchLayout",
+                    [item.name + "_Layout"],
+                )
+            )
+        table = self.page(item.name, item.title, [], events)
+        for action in actions:
+            action.table = table
+        return table, pack_blocks(rows), actions
+
     def menu_item(self, menu, item, index):
         if item.kind == "selector":
             return self.selector(item)
@@ -365,8 +387,11 @@ def compile_document(resources, document, text=""):
     builder = None
     if document.root:
         builder = DocumentCompiler(resources, document)
-        if document.root.kind == "menu":
-            builder.menu(document.root)
+        if document.root.kind in ("menu", "list"):
+            if document.root.kind == "list":
+                compiled.lists[document.root.name] = builder.dynamic_list(document.root)
+            else:
+                builder.menu(document.root)
             for suffix in ("_Screen", "_Layout"):
                 name = document.root.name + suffix
                 compiled.string_ids[name] = resources.names[name]

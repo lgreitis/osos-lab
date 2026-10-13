@@ -1,73 +1,46 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Compile manifest-mapped PNGs into dark-mode bitmap replacements."""
+"""Emit runtime resource bounds from the pinned firmware catalog."""
 
-import json
-
-from .bitmap import encode_bmap, read_png
-from .ui.resources import word
+from .theme_format import RECORD, catalog_hash
 
 
-def native_assets(resources, manifest):
-    entries, seen = [], set()
-    for entry in json.loads(manifest.read_text()):
-        resource_id = int(entry["id"], 0)
-        key = entry["type"], resource_id
-        if key[0] != "BMap" or key in seen:
-            raise ValueError("Assets require unique BMap resource IDs")
-        seen.add(key)
-        original = resources.stock(*key)
-        entries.append(
-            (
-                entry,
-                word(original, 20),
-                word(original, 16),
-                (word(original, 0) & 0xFFFF) == 0x565,
+def generate(catalog, directory):
+    lines = [
+        '#include "assets.h"',
+        '#include "osos.h"',
+        "const struct cfw_bitmap_asset cfw_bitmap_assets[] = {",
+    ]
+    maximum = 0
+    for a in catalog["bitmaps"]:
+        values = [
+            a[k]
+            for k in (
+                "bytes",
+                "data_offset",
+                "pixels_offset",
+                "palette_colors",
+                "stride",
+                "width",
+                "height",
+                "depth",
+                "crc32",
             )
-        )
-    return entries
-
-
-def generate(resources, manifest, directory):
-    lines = ['#include "assets.h"', ""]
-    rows, total = [], 0
-    for index, (entry, native_width, native_height, rgb565) in enumerate(
-        native_assets(resources, manifest)
-    ):
-        resource_id = int(entry["id"], 0)
-        width, height, pixels = read_png(manifest.parent / entry["file"])
-        expected = native_width, native_height
-        if (width, height) != expected:
-            raise ValueError(
-                f"{entry['file']}: expected {expected}, got {(width, height)}"
-            )
-        # Apple's GLES path rejects indexed BMap format 0x64; preserve native RGB565.
-        bitmap = encode_bmap(width, height, pixels, rgb565=rgb565, allow_indexed=False)
-        symbol = f"cfw_asset_{index}"
+        ]
         lines.append(
-            f"static const unsigned char {symbol}[] __attribute__((aligned(4))) = {{"
+            f"    {{(unsigned char *)({a['offset']:#x} + OSOS_RUNTIME_BASE - OSOS_LOAD_OFFSET), "
+            + ", ".join(str(v) + "u" for v in values)
+            + "},"
         )
-        for offset in range(0, len(bitmap), 16):
-            lines.append(
-                "    "
-                + ", ".join(f"0x{b:02x}" for b in bitmap[offset : offset + 16])
-                + ","
-            )
-        lines.append("};")
-        rows.append(f"    {{{resource_id:#x}, {symbol}, 0}},")
-        total += len(bitmap)
-        print(
-            f"Asset {entry['name']} ({resource_id:#010x}): {width}x{height}, {len(bitmap):,} bytes ({entry['file']})",
-            flush=True,
-        )
+        maximum += RECORD.size + ((a["bytes"] - a["data_offset"] + 3) & ~3)
     lines += [
-        "struct cfw_bitmap_asset cfw_bitmap_assets[] = {",
-        *rows,
         "};",
-        f"const uint32_t cfw_bitmap_asset_count = {len(rows)};",
+        f"const uint32_t cfw_bitmap_asset_count = {len(catalog['bitmaps'])};",
+        f"const uint32_t cfw_theme_max_bytes = {maximum};",
+        "const unsigned char cfw_theme_catalog_hash[32] = {"
+        + ",".join(str(b) for b in catalog_hash(catalog))
+        + "};",
         "",
     ]
-    directory.mkdir(parents=True, exist_ok=True)
-    generated = directory / "bitmap_assets.c"
-    generated.write_text("\n".join(lines))
-    print(f"Embedded bitmap data: {total:,} bytes", flush=True)
-    return generated
+    path = directory / "bitmap_assets.c"
+    path.write_text("\n".join(lines))
+    return path

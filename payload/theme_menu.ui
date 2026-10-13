@@ -1,0 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <list id="CFW_Theme" title="Theme" capacity="17"/>
+  <settings-entry menu="CFW_Theme" after="SettingsMenu_ListItem_Brightness" open="CFW_Theme_Open"/>
+</ui>

@@ -5,24 +5,34 @@
 #include "patches/sites.h"
 
 /* Dark-mode software colors and manifest-selected bitmap artwork. */
-PATCH_JUMP(OSOS_BITMAP_VIEW_LOAD_ENTRY, 0xe92d41f0, 0xe1a04000, cfw_bitmap_view_load);
-PATCH_JUMP(OSOS_RESOURCE_SERVICE_GET, 0xe92d40f8, 0xe1a05001,
-           cfw_bitmap_resource_get);
-PATCH_JUMP(OSOS_BITMAP_CACHE_LOAD, 0xe92d4070, 0xe1a04000,
-           cfw_bitmap_cache_load);
-PATCH_CALL(OSOS_GRAPHICS_FILL_RECT_CALL, OSOS_SURFACE_FILL_RECT, cfw_dark_mode_fill);
-PATCH_CALL(OSOS_TEXT_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR, cfw_dark_mode_text_color);
-PATCH_CALL(OSOS_MARQUEE_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
-           cfw_dark_mode_text_color);
+PATCH_JUMP(OSOS_RESOURCE_SERVICE_GET, 0xe92d40f8, 0xe1a05001, cfw_bitmap_resource_get);
+PATCH_CALL(OSOS_GRAPHICS_FILL_RECT_CALL, OSOS_SURFACE_FILL_RECT, cfw_theme_fill);
+PATCH_CALL(OSOS_TEXT_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR, cfw_theme_text_color);
+PATCH_CALL(OSOS_MARQUEE_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR, cfw_theme_text_color);
+PATCH_CALL(OSOS_SELECTION_TOP_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_selection_color);
+PATCH_CALL(OSOS_SELECTION_BOTTOM_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_selection_color);
+PATCH_CALL(OSOS_SELECTION_GRADIENT_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_selection_color);
+PATCH_CALL(OSOS_SELECTION_LEGACY_EDGE_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_selection_color);
+PATCH_CALL(OSOS_SELECTION_LEGACY_GRADIENT_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_selection_color);
+PATCH_CALL(OSOS_SELECTION_CACHE_COMPARE_CALL, OSOS_RECT_DIFFERS,
+           cfw_theme_selection_changed);
+PATCH_CALL(OSOS_SELECTION_LEGACY_CACHE_COMPARE_CALL, OSOS_RECT_DIFFERS,
+           cfw_theme_selection_changed);
 PATCH_CALL(OSOS_COVER_FLOW_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
-           cfw_dark_mode_clear_color);
+           cfw_theme_clear_color);
 PATCH_CALL(OSOS_ALBUM_ART_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
-           cfw_dark_mode_clear_color);
+           cfw_theme_clear_color);
 PATCH_CALL(OSOS_ARTWORK_REFLECTION_BLEND_CALL, OSOS_RGB565_BLEND_FIXED,
-           cfw_dark_mode_reflection_blend);
+           cfw_theme_reflection_blend);
 
 /* Shared Settings hooks */
-PATCH_POINTER(OSOS_SETTINGS_PROPERTY_SLOT, OSOS_SETTINGS_PROPERTY, cfw_settings_property);
+PATCH_POINTER(OSOS_SETTINGS_PROPERTY_SLOT, OSOS_SETTINGS_PROPERTY,
+              cfw_settings_property);
 PATCH_CALL(OSOS_PREFERENCES_LOAD_CALL, OSOS_PREFERENCES_LOAD, cfw_preferences_hook);
 PATCH_POINTER(OSOS_SETTINGS_ACTION_SLOT, OSOS_SETTINGS_ACTION, cfw_settings_action);
 PATCH_POINTER(OSOS_SETTINGS_SECONDARY_ACTION_SLOT, OSOS_SETTINGS_ACTION,
@@ -94,27 +104,44 @@ PATCH_CALL_WORD(OSOS_ITUNES_ALBUM_ARTIST_SLOT, OSOS_ITUNES_ALBUM_ARTIST_DISCARD_
                 cfw_album_artist_import_hook);
 
 PATCH_POINTER(OSOS_MUSIC_ACTION_SLOT, OSOS_MUSIC_ACTION, cfw_album_artists_action);
-PATCH_POINTER(OSOS_MUSIC_SECONDARY_ACTION_SLOT, OSOS_MUSIC_ACTION, cfw_album_artists_action);
+PATCH_POINTER(OSOS_MUSIC_SECONDARY_ACTION_SLOT, OSOS_MUSIC_ACTION,
+              cfw_album_artists_action);
 PATCH_POINTER(OSOS_MAIN_ACTION_SLOT, OSOS_MUSIC_ACTION, cfw_album_artists_action);
-PATCH_POINTER(OSOS_MAIN_SECONDARY_ACTION_SLOT, OSOS_MUSIC_ACTION, cfw_album_artists_action);
-PATCH_JUMP(OSOS_ARTISTS_BUILD_ENTRY, 0xe92d4038, OSOS_ARTISTS_BUILD_LOAD_WORD, cfw_album_artists_build);
-PATCH_JUMP(OSOS_ARTIST_NAME_ENTRY, 0xe92d41f0, OSOS_ARTIST_NAME_SAVE_WORD, cfw_album_artist_name);
+PATCH_POINTER(OSOS_MAIN_SECONDARY_ACTION_SLOT, OSOS_MUSIC_ACTION,
+              cfw_album_artists_action);
+PATCH_JUMP(OSOS_ARTISTS_BUILD_ENTRY, 0xe92d4038, OSOS_ARTISTS_BUILD_LOAD_WORD,
+           cfw_album_artists_build);
+PATCH_JUMP(OSOS_ARTIST_NAME_ENTRY, 0xe92d41f0, OSOS_ARTIST_NAME_SAVE_WORD,
+           cfw_album_artist_name);
 PATCH_JUMP(OSOS_ARTIST_LETTER_ENTRY, 0xe92d41f0, 0xe1a07000, cfw_album_artist_letter);
-PATCH_CALL(OSOS_ARTIST_FILTER_COMPARE_CALL, OSOS_TEXT_COMPARE, cfw_album_artist_filter_hook);
-PATCH_POINTER(OSOS_ALBUM_GROUP_LITERAL, OSOS_BROWSER_ALBUM_GROUP, cfw_album_artists_album_group);
-PATCH_POINTER(OSOS_ALBUM_SUBTITLE_SLOT, OSOS_MODEL_ALBUM_SUBTITLE, cfw_album_artists_album_subtitle);
-PATCH_CALL(OSOS_SELECT_ARTWORK_SOURCE_CALL, OSOS_SELECT_ARTWORK_SOURCE, cfw_album_artists_select_artwork);
-PATCH_CALL(OSOS_ALBUM_ARTWORK_CREATE_CALL, OSOS_ALBUM_ARTWORK_CREATE, cfw_album_artists_create_artwork);
-PATCH_JUMP(OSOS_MODEL_DESTROY_ENTRY, 0xe92d4010, 0xe1a04000, cfw_album_artists_destroy_model);
+PATCH_CALL(OSOS_ARTIST_FILTER_COMPARE_CALL, OSOS_TEXT_COMPARE,
+           cfw_album_artist_filter_hook);
+PATCH_POINTER(OSOS_ALBUM_GROUP_LITERAL, OSOS_BROWSER_ALBUM_GROUP,
+              cfw_album_artists_album_group);
+PATCH_POINTER(OSOS_ALBUM_SUBTITLE_SLOT, OSOS_MODEL_ALBUM_SUBTITLE,
+              cfw_album_artists_album_subtitle);
+PATCH_CALL(OSOS_SELECT_ARTWORK_SOURCE_CALL, OSOS_SELECT_ARTWORK_SOURCE,
+           cfw_album_artists_select_artwork);
+PATCH_CALL(OSOS_ALBUM_ARTWORK_CREATE_CALL, OSOS_ALBUM_ARTWORK_CREATE,
+           cfw_album_artists_create_artwork);
+PATCH_JUMP(OSOS_MODEL_DESTROY_ENTRY, 0xe92d4010, 0xe1a04000,
+           cfw_album_artists_destroy_model);
 PATCH_POINTER(OSOS_SETTINGS_INDEXED_PROPERTY_SLOT, OSOS_SETTINGS_INDEXED_PROPERTY,
               cfw_album_artists_menu_item);
-PATCH_CALL_WORD(OSOS_MAIN_MENU_INDEX_CALL, 0xe12fff31, cfw_album_artists_main_menu_index);
-PATCH_CALL_WORD(OSOS_MUSIC_MENU_INDEX_CALL, 0xe12fff31, cfw_album_artists_music_menu_index);
-PATCH_CALL(OSOS_MAIN_MENU_TOGGLE_CALL, OSOS_MAIN_MENU_TOGGLE, cfw_album_artists_main_menu_toggle);
-PATCH_CALL(OSOS_MUSIC_MENU_TOGGLE_CALL, OSOS_MUSIC_MENU_TOGGLE, cfw_album_artists_music_menu_toggle);
-PATCH_CALL(OSOS_MUSIC_MENU_APPLY_CALL, OSOS_MUSIC_MENU_APPLY, cfw_album_artists_menu_load);
-PATCH_JUMP(OSOS_MAIN_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a09000, cfw_album_artists_main_menu_reset);
-PATCH_JUMP(OSOS_MUSIC_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a08000, cfw_album_artists_music_menu_reset);
+PATCH_CALL_WORD(OSOS_MAIN_MENU_INDEX_CALL, 0xe12fff31,
+                cfw_album_artists_main_menu_index);
+PATCH_CALL_WORD(OSOS_MUSIC_MENU_INDEX_CALL, 0xe12fff31,
+                cfw_album_artists_music_menu_index);
+PATCH_CALL(OSOS_MAIN_MENU_TOGGLE_CALL, OSOS_MAIN_MENU_TOGGLE,
+           cfw_album_artists_main_menu_toggle);
+PATCH_CALL(OSOS_MUSIC_MENU_TOGGLE_CALL, OSOS_MUSIC_MENU_TOGGLE,
+           cfw_album_artists_music_menu_toggle);
+PATCH_CALL(OSOS_MUSIC_MENU_APPLY_CALL, OSOS_MUSIC_MENU_APPLY,
+           cfw_album_artists_menu_load);
+PATCH_JUMP(OSOS_MAIN_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a09000,
+           cfw_album_artists_main_menu_reset);
+PATCH_JUMP(OSOS_MUSIC_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a08000,
+           cfw_album_artists_music_menu_reset);
 
 /* Resources */
 PATCH_CALL(OSOS_RESOURCE_INIT_CALL, OSOS_RESOURCE_BANK_INIT_OVERRIDES,
