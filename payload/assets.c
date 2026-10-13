@@ -3,6 +3,7 @@
 #include "dark_mode.h"
 #include "osos.h"
 #include "patch.h"
+#include "sleep_timer.h"
 
 void cfw_bitmap_view_load_original(void *view);
 /* Stock lookups bypass the hook for pixel matching and light-mode restoration. */
@@ -11,6 +12,9 @@ void cfw_bitmap_cache_load_original(void *cache);
 
 PATCH_ARM const void *cfw_bitmap_resource_get(void *service, uint32_t type, uint32_t id)
 {
+    const void *sleep_label = cfw_sleep_timer_resource(type, id);
+    if (sleep_label)
+        return sleep_label;
     if (type == OSOS_RESOURCE_BMAP && cfw_dark_mode_enabled()) {
         for (uint32_t i = 0; i < cfw_bitmap_asset_count; i++) {
             if (cfw_bitmap_assets[i].id == id)

@@ -1,0 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <toggle id="CFW_NightShift" title="Night Shift"/>
+  <settings-entry menu="CFW_NightShift" after="SettingsMenu_ListItem_Brightness"/>
+</ui>

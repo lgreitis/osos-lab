@@ -16,6 +16,7 @@ cfw_preferences_hook:
     blx r12
     bl cfw_eq_load_preferences
     bl cfw_dark_mode_load
+    bl cfw_night_shift_load
     pop {r4, pc}
 .ltorg
 
