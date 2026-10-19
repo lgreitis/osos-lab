@@ -38,13 +38,21 @@ static void commit(void)
     commits++;
 }
 static const struct cfw_ui_model model = {values, change, commit};
-static const char *const labels[] = {"Low", "Normal", "High"};
-static char summary[14];
+static const uint32_t labels[] = {1, 2, 3};
+static int language;
+const char *cfw_string(uint32_t id)
+{
+    static const char *const english[] = {"Level", "Low", "Normal", "High"};
+    static const char *const german[] = {"Pegel", "Niedrig", "Normal", "Hoch"};
+    assert(id < 4);
+    return language == 4 ? german[id] : english[id];
+}
+static char summary[32];
 static struct cfw_ui_field_state states[] = {{.summary = summary},
                                              {.summary = summary}};
 static const struct cfw_ui_field fields[] = {
-    {10, 11, 100, 3, 0, 0, 0, "Choose", "Level", labels, &model, &states[0]},
-    {20, 21, 200, 3, 1, 1, 1, "Adjust", "Level", labels, &model, &states[1]},
+    {10, 11, 100, 3, 0, 0, 0, "Choose", 0, labels, &model, &states[0]},
+    {20, 21, 200, 3, 1, 1, 1, "Adjust", 0, labels, &model, &states[1]},
 };
 const struct cfw_ui_field *const cfw_ui_fields[] = {&fields[0], &fields[1]};
 const uint32_t cfw_ui_field_count = 2;
@@ -169,6 +177,18 @@ int main(void)
     assert(cfw_ui_indexed_property(OSOS_PROPERTY_STRING, 10, 2, &out));
     assert(!strcmp((char *)out, "High"));
     assert(!cfw_ui_indexed_property(OSOS_PROPERTY_STRING, 10, 3, &out));
+    assert(cfw_ui_property(OSOS_PROPERTY_STRING, 11, &out));
+    assert(!strcmp((char *)out, "Level: Low"));
+    language = 4;
+    assert(cfw_ui_property(OSOS_PROPERTY_STRING, 11, &out));
+    assert(!strcmp((char *)out, "Pegel: Niedrig"));
+    assert(cfw_ui_indexed_property(OSOS_PROPERTY_STRING, 10, 2, &out));
+    assert(!strcmp((char *)out, "Hoch"));
+    assert(cfw_ui_property(OSOS_PROPERTY_STRING, 20, &out));
+    assert(!strcmp((char *)out, "Normal"));
+    assert(cfw_ui_property(OSOS_PROPERTY_STRING, 30, &out));
+    assert(!strcmp((char *)out, "Niedrig"));
+    language = 20;
     assert(cfw_ui_property(OSOS_PROPERTY_STRING, 11, &out));
     assert(!strcmp((char *)out, "Level: Low"));
     assert(cfw_ui_handle_action("Choose", OSOS_ACTION_SUPPORT_QUERY));

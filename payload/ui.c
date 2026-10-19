@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "osos.h"
 #include "cfw.h"
+#include "resources.h"
 
 static void notify(uint32_t property)
 {
@@ -30,7 +31,7 @@ int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
         const struct cfw_ui_action *action = cfw_ui_actions[i];
         if (property == action->property) {
             if (type == OSOS_PROPERTY_STRING)
-                *out = (uintptr_t)action->labels[*action->status];
+                *out = (uintptr_t)cfw_string(action->labels[*action->status]);
             else if (type == OSOS_PROPERTY_COUNT)
                 *out = !action->hide_when_zero || *action->status != 0;
             else
@@ -51,12 +52,12 @@ int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
         }
         if (property == field->summary_property && type == OSOS_PROPERTY_STRING) {
             char *text = field->state->summary;
-            const char *source = field->title;
+            const char *source = cfw_string(field->title);
             while (*source)
                 *text++ = *source++;
             *text++ = ':';
             *text++ = ' ';
-            source = field->labels[selected];
+            source = cfw_string(field->labels[selected]);
             do {
                 *text++ = *source;
             } while (*source++);
@@ -75,7 +76,7 @@ int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
             field->state->maximum = field->count - 1;
             *out = (uintptr_t)&field->state->value;
         } else if (field->numeric && type == OSOS_PROPERTY_STRING) {
-            *out = (uintptr_t)field->labels[selected];
+            *out = (uintptr_t)cfw_string(field->labels[selected]);
         } else {
             return 0;
         }
@@ -94,7 +95,7 @@ int cfw_ui_indexed_property(uint32_t type, uint32_t property, uint32_t index,
             continue;
 
         if (type == OSOS_PROPERTY_STRING) {
-            *out = (uintptr_t)field->labels[index];
+            *out = (uintptr_t)cfw_string(field->labels[index]);
         } else if (type == OSOS_RESOURCE_BMAP) {
             *out = index == field->model->values[field->slot]
                        ? osos_ui_bitmap(OSOS_MENU_CHECKED_BITMAP)

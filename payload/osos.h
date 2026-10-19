@@ -84,6 +84,21 @@ static inline uintptr_t osos_ui_string(uint32_t id)
     return ((fn)OSOS_RESOURCE_STRING)(osos_ui_resources(), id);
 }
 
+static inline int osos_ui_language(void)
+{
+    typedef void *(*lookup_fn)(uint32_t);
+    const unsigned char *provider = ((lookup_fn)OSOS_UI_SERVICE_GET)(0x80);
+    if (!provider)
+        return -1;
+    uint32_t locale = *(const uint32_t *)(provider + OSOS_UI_LOCALE_OFFSET);
+    const uint32_t *table = (const uint32_t *)OSOS_UI_LANGUAGE_TABLE;
+    for (int index = 0; index < OSOS_UI_LANGUAGE_COUNT; index++) {
+        if (table[index * 3 + 1] == locale)
+            return index;
+    }
+    return -1;
+}
+
 static inline uintptr_t osos_ui_bitmap(uint32_t id)
 {
     typedef uintptr_t (*fn)(void *, uint32_t);

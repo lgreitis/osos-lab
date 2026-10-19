@@ -7,6 +7,7 @@
 #define CFW_OSOS_H
 #define CFW_PATCH_H
 #define PATCH_ARM
+#define OSOS_PROPERTY_STRING 0x53747220
 #include "../../../payload/assets.h"
 
 static unsigned char stock[] = {100, 0, 0, 0, 2, 0, 8, 0,   0, 0, 0,  0,   0, 0,

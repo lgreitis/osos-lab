@@ -129,6 +129,8 @@ PATCH_JUMP(OSOS_MUSIC_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a08000,
            cfw_ui_music_menu_reset);
 
 /* Resources */
+PATCH_JUMP(OSOS_RESOURCE_SERVICE_GET, 0xe92d40f8, 0xe1a05001,
+           cfw_resource_service_get);
 PATCH_CALL(OSOS_RESOURCE_BLOCK_APPEND_CALL, OSOS_RESOURCE_BLOCK_APPEND,
            cfw_ui_append_resource_block);
 PATCH_CALL(OSOS_UI_LOAD_EVENTS_CALL, OSOS_UI_LOAD_LAYOUT_EVENTS, cfw_ui_load_events);

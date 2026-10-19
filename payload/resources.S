@@ -19,3 +19,11 @@ cfw_resource_hook:
     bl cfw_install_resources
     pop {r4, pc}
 .ltorg
+
+.global cfw_resource_service_get_original
+.type cfw_resource_service_get_original,%function
+cfw_resource_service_get_original:
+    push {r3, r4, r5, r6, r7, lr}
+    mov r5, r1
+    ldr pc, =OSOS_RESOURCE_SERVICE_GET + 8
+.ltorg

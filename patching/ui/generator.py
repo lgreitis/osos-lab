@@ -17,6 +17,10 @@ from .parser import read
 
 def page_text(source, page, revision, version):
     text = (source.parent / page.text_file).read_text()
+    return build_text(text, revision, version)
+
+
+def build_text(text, revision, version):
     display = "Development" if version.startswith("0.0.0-dev") else version
     return text.replace("{build_revision}", revision).replace(
         "{build_version}", display
@@ -40,6 +44,17 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
         text = ""
         if document.root and document.root.kind == "text":
             text = page_text(source, document.root, revision, version)
+            document.strings = {
+                name: build_text(value, revision, version)
+                for name, value in document.strings.items()
+            }
+            document.translations = {
+                name: {
+                    language: build_text(value, revision, version)
+                    for language, value in variants.items()
+                }
+                for name, variants in document.translations.items()
+            }
         bitmap_ids = {}
         for name, (filename, bitmap_format) in document.bitmaps.items():
             bitmap = encode_bmap(
@@ -47,7 +62,10 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
             )
             bitmap_ids[name] = resource_id = resources.allocate(name)
             resources.add("BMap", resource_id, bitmap)
-        compiled = compile_document(resources, document, text)
+        try:
+            compiled = compile_document(resources, document, text)
+        except ValueError as error:
+            raise ValueError(f"{source}: {error}") from error
         compiled.string_ids.update(bitmap_ids)
         if document.root:
             lines.extend(emit_bindings(document, compiled.fields, compiled.actions))

@@ -52,6 +52,14 @@ RepriseOS package and builds a companion using that iPod's identity.
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →
 Music Menu.
 
+**Dark Mode** is off by default. Some screens and artwork still need visual
+adjustments.
+
+The CFW Info Settings entry follows the iPod system language with English as
+the fallback. The information page itself remains in English.
+All CFW UI definitions support [translated string references](docs/osos.md#ui-string-references)
+for titles, choices and other declared text; existing literal text is unchanged.
+
 The game SDK and [Doom port](doom/README.md) are unfinished.
 
 ## Build

@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <ui>
-  <text id="CFW_Info" title="CFW Info" file="cfw_info.txt"/>
+  <text id="CFW_Info" title="@CFW_Info_Title" file="cfw_info.txt"/>
   <bitmap id="CFW_Info_Icon" file="assets/settings-info.png" format="gray8"/>
   <settings-entry menu="CFW_Info" after="SettingsMenu_ListItem_Legal"
                   preview="image" image="CFW_Info_Icon" caption="RepriseOS"/>

@@ -1,0 +1,358 @@
+<locale>
+  <string id="CFW_EQ_TEXT_TITLE" text="Custom EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" text="Off"/>
+  <string id="CFW_EQ_TEXT_PEAKING" text="Peaking"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" text="Low shelf"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" text="High shelf"/>
+  <string id="CFW_EQ_TEXT_PRECUT" text="Precut"/>
+  <string id="CFW_EQ_TEXT_BAND1" text="Band 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" text="Band 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" text="Band 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" text="Type"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" text="Frequency"/>
+  <string id="CFW_EQ_TEXT_GAIN" text="Gain"/>
+  <string id="CFW_EQ_TEXT_SAVE" text="Save settings"/>
+  <string id="CFW_EQ_TEXT_RETRY" text="Save failed - retry"/>
+  <string id="CFW_EQ_TEXT_INVALID" text="Invalid filter settings"/>
+  <string id="CFW_EQ_PRESET_NAME" text="Custom"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="1" text="カスタムEQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="1" text="オフ"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="1" text="ピーキング"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="1" text="ローシェルフ"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="1" text="ハイシェルフ"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="1" text="プリカット"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="1" text="バンド1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="1" text="バンド2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="1" text="バンド3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="1" text="タイプ"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="1" text="周波数"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="1" text="ゲイン"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="1" text="設定を保存"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="1" text="保存失敗 - 再試行"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="1" text="無効なフィルター設定"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="1" text="カスタム"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="2" text="Vlastní EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="2" text="Vypnuto"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="2" text="Zvonový filtr"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="2" text="Dolní shelving"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="2" text="Horní shelving"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="2" text="Předútlum"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="2" text="Pásmo 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="2" text="Pásmo 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="2" text="Pásmo 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="2" text="Typ"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="2" text="Frekvence"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="2" text="Zesílení"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="2" text="Uložit nastavení"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="2" text="Uložení selhalo - opakovat"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="2" text="Neplatné nastavení filtru"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="2" text="Vlastní"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="3" text="Tilpasset EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="3" text="Fra"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="3" text="Klokkefilter"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="3" text="Lav shelving"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="3" text="Høj shelving"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="3" text="Fordæmpning"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="3" text="Bånd 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="3" text="Bånd 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="3" text="Bånd 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="3" text="Type"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="3" text="Frekvens"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="3" text="Forstærkning"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="3" text="Gem indstillinger"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="3" text="Kunne ikke gemme - prøv igen"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="3" text="Ugyldige filterindstillinger"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="3" text="Tilpasset"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="4" text="Eigener EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="4" text="Aus"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="4" text="Glockenfilter"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="4" text="Tiefen-Shelving"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="4" text="Höhen-Shelving"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="4" text="Vorabsenkung"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="4" text="Band 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="4" text="Band 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="4" text="Band 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="4" text="Typ"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="4" text="Frequenz"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="4" text="Verstärkung"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="4" text="Einstellungen speichern"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="4" text="Speichern fehlgeschlagen - erneut versuchen"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="4" text="Ungültige Filtereinstellungen"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="4" text="Benutzerdefiniert"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="5" text="EQ personalizado"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="5" text="Desactivado"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="5" text="Filtro de campana"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="5" text="Estantería de graves"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="5" text="Estantería de agudos"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="5" text="Preatenuación"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="5" text="Banda 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="5" text="Banda 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="5" text="Banda 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="5" text="Tipo"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="5" text="Frecuencia"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="5" text="Ganancia"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="5" text="Guardar ajustes"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="5" text="Error al guardar - reintentar"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="5" text="Ajustes de filtro no válidos"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="5" text="Personalizado"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="6" text="Égaliseur personnalisé"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="6" text="Désactivé"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="6" text="Filtre en cloche"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="6" text="Plateau grave"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="6" text="Plateau aigu"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="6" text="Préatténuation"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="6" text="Bande 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="6" text="Bande 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="6" text="Bande 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="6" text="Type"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="6" text="Fréquence"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="6" text="Gain"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="6" text="Enregistrer les réglages"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="6" text="Échec d'enregistrement - réessayer"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="6" text="Réglages de filtre non valides"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="6" text="Personnalisé"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="7" text="Προσαρμοσμένος EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="7" text="Ανενεργό"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="7" text="Φίλτρο καμπάνας"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="7" text="Χαμηλό ράφι"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="7" text="Υψηλό ράφι"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="7" text="Προεξασθένηση"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="7" text="Ζώνη 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="7" text="Ζώνη 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="7" text="Ζώνη 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="7" text="Τύπος"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="7" text="Συχνότητα"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="7" text="Ενίσχυση"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="7" text="Αποθήκευση ρυθμίσεων"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="7" text="Αποτυχία αποθήκευσης - επανάληψη"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="7" text="Μη έγκυρες ρυθμίσεις φίλτρου"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="7" text="Προσαρμοσμένο"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="8" text="EQ personalizzato"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="8" text="Disattivato"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="8" text="Filtro a campana"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="8" text="Shelving bassi"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="8" text="Shelving alti"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="8" text="Preattenuazione"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="8" text="Banda 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="8" text="Banda 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="8" text="Banda 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="8" text="Tipo"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="8" text="Frequenza"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="8" text="Guadagno"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="8" text="Salva impostazioni"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="8" text="Salvataggio non riuscito - riprova"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="8" text="Impostazioni filtro non valide"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="8" text="Personalizzato"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="9" text="Egyéni EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="9" text="Kikapcsolva"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="9" text="Harangszűrő"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="9" text="Mélypolc"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="9" text="Magaspolc"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="9" text="Előcsillapítás"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="9" text="1. sáv"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="9" text="2. sáv"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="9" text="3. sáv"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="9" text="Típus"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="9" text="Frekvencia"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="9" text="Erősítés"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="9" text="Beállítások mentése"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="9" text="Sikertelen mentés - újra"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="9" text="Érvénytelen szűrőbeállítások"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="9" text="Egyéni"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="10" text="Aangepaste EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="10" text="Uit"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="10" text="Klokfilter"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="10" text="Lage shelving"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="10" text="Hoge shelving"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="10" text="Voorverzwakking"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="10" text="Band 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="10" text="Band 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="10" text="Band 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="10" text="Type"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="10" text="Frequentie"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="10" text="Versterking"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="10" text="Instellingen opslaan"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="10" text="Opslaan mislukt - opnieuw"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="10" text="Ongeldige filterinstellingen"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="10" text="Aangepast"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="11" text="Tilpasset EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="11" text="Av"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="11" text="Klokkefilter"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="11" text="Lav shelving"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="11" text="Høy shelving"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="11" text="Fordemping"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="11" text="Bånd 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="11" text="Bånd 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="11" text="Bånd 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="11" text="Type"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="11" text="Frekvens"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="11" text="Forsterkning"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="11" text="Lagre innstillinger"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="11" text="Lagring mislyktes - prøv igjen"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="11" text="Ugyldige filterinnstillinger"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="11" text="Tilpasset"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="12" text="EQ personalizado"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="12" text="Desativado"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="12" text="Filtro de campânula"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="12" text="Prateleira de graves"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="12" text="Prateleira de agudos"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="12" text="Pré-atenuação"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="12" text="Banda 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="12" text="Banda 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="12" text="Banda 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="12" text="Tipo"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="12" text="Frequência"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="12" text="Ganho"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="12" text="Guardar definições"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="12" text="Falha ao guardar - tentar novamente"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="12" text="Definições de filtro inválidas"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="12" text="Personalizado"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="13" text="Свой эквалайзер"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="13" text="Выкл."/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="13" text="Колокольный фильтр"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="13" text="Низкочастотная полка"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="13" text="Высокочастотная полка"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="13" text="Предослабление"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="13" text="Полоса 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="13" text="Полоса 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="13" text="Полоса 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="13" text="Тип"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="13" text="Частота"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="13" text="Усиление"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="13" text="Сохранить настройки"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="13" text="Ошибка сохранения - повторить"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="13" text="Неверные настройки фильтра"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="13" text="Свой"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="14" text="Własny EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="14" text="Wyłączony"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="14" text="Filtr dzwonowy"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="14" text="Dolna półka"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="14" text="Górna półka"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="14" text="Wstępne tłumienie"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="14" text="Pasmo 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="14" text="Pasmo 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="14" text="Pasmo 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="14" text="Typ"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="14" text="Częstotliwość"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="14" text="Wzmocnienie"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="14" text="Zapisz ustawienia"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="14" text="Błąd zapisu - ponów"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="14" text="Nieprawidłowe ustawienia filtra"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="14" text="Własny"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="15" text="Oma EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="15" text="Pois"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="15" text="Kellosuodin"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="15" text="Alahylly"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="15" text="Ylähylly"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="15" text="Esivaimennus"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="15" text="Kaista 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="15" text="Kaista 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="15" text="Kaista 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="15" text="Tyyppi"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="15" text="Taajuus"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="15" text="Vahvistus"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="15" text="Tallenna asetukset"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="15" text="Tallennus epäonnistui - yritä uudelleen"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="15" text="Virheelliset suodinasetukset"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="15" text="Oma"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="16" text="Anpassad EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="16" text="Av"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="16" text="Klockfilter"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="16" text="Låg shelving"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="16" text="Hög shelving"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="16" text="Fördämpning"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="16" text="Band 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="16" text="Band 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="16" text="Band 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="16" text="Typ"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="16" text="Frekvens"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="16" text="Förstärkning"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="16" text="Spara inställningar"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="16" text="Kunde inte spara - försök igen"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="16" text="Ogiltiga filterinställningar"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="16" text="Anpassad"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="17" text="Özel EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="17" text="Kapalı"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="17" text="Çan filtresi"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="17" text="Alçak raf"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="17" text="Yüksek raf"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="17" text="Ön zayıflatma"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="17" text="Bant 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="17" text="Bant 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="17" text="Bant 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="17" text="Tür"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="17" text="Frekans"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="17" text="Kazanç"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="17" text="Ayarları kaydet"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="17" text="Kayıt başarısız - yeniden dene"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="17" text="Geçersiz filtre ayarları"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="17" text="Özel"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="18" text="사용자 설정 EQ"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="18" text="끔"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="18" text="피킹 필터"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="18" text="로우 셸프"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="18" text="하이 셸프"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="18" text="사전 감쇠"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="18" text="밴드 1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="18" text="밴드 2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="18" text="밴드 3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="18" text="유형"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="18" text="주파수"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="18" text="게인"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="18" text="설정 저장"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="18" text="저장 실패 - 다시 시도"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="18" text="잘못된 필터 설정"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="18" text="사용자 설정"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="19" text="自定均衡器"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="19" text="关闭"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="19" text="峰值滤波器"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="19" text="低架滤波器"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="19" text="高架滤波器"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="19" text="预衰减"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="19" text="频段1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="19" text="频段2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="19" text="频段3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="19" text="类型"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="19" text="频率"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="19" text="增益"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="19" text="存储设置"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="19" text="存储失败 - 重试"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="19" text="滤波器设置无效"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="19" text="自定"/>
+
+  <string id="CFW_EQ_TEXT_TITLE" lang="20" text="自訂等化器"/>
+  <string id="CFW_EQ_TEXT_OFF" lang="20" text="關閉"/>
+  <string id="CFW_EQ_TEXT_PEAKING" lang="20" text="峰值濾波器"/>
+  <string id="CFW_EQ_TEXT_LOW_SHELF" lang="20" text="低架濾波器"/>
+  <string id="CFW_EQ_TEXT_HIGH_SHELF" lang="20" text="高架濾波器"/>
+  <string id="CFW_EQ_TEXT_PRECUT" lang="20" text="預衰減"/>
+  <string id="CFW_EQ_TEXT_BAND1" lang="20" text="頻段1"/>
+  <string id="CFW_EQ_TEXT_BAND2" lang="20" text="頻段2"/>
+  <string id="CFW_EQ_TEXT_BAND3" lang="20" text="頻段3"/>
+  <string id="CFW_EQ_TEXT_TYPE" lang="20" text="類型"/>
+  <string id="CFW_EQ_TEXT_FREQUENCY" lang="20" text="頻率"/>
+  <string id="CFW_EQ_TEXT_GAIN" lang="20" text="增益"/>
+  <string id="CFW_EQ_TEXT_SAVE" lang="20" text="儲存設定"/>
+  <string id="CFW_EQ_TEXT_RETRY" lang="20" text="儲存失敗 - 重試"/>
+  <string id="CFW_EQ_TEXT_INVALID" lang="20" text="濾波器設定無效"/>
+  <string id="CFW_EQ_PRESET_NAME" lang="20" text="自訂"/>
+</locale>

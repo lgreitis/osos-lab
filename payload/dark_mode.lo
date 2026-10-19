@@ -1,0 +1,23 @@
+<locale>
+  <string id="CFW_DarkMode_Title" text="Dark Mode"/>
+  <string id="CFW_DarkMode_Title" lang="1" text="ダークモード"/>
+  <string id="CFW_DarkMode_Title" lang="2" text="Tmavý režim"/>
+  <string id="CFW_DarkMode_Title" lang="3" text="Mørk tilstand"/>
+  <string id="CFW_DarkMode_Title" lang="4" text="Dunkler Modus"/>
+  <string id="CFW_DarkMode_Title" lang="5" text="Modo oscuro"/>
+  <string id="CFW_DarkMode_Title" lang="6" text="Mode sombre"/>
+  <string id="CFW_DarkMode_Title" lang="7" text="Σκοτεινή λειτουργία"/>
+  <string id="CFW_DarkMode_Title" lang="8" text="Modalità scura"/>
+  <string id="CFW_DarkMode_Title" lang="9" text="Sötét mód"/>
+  <string id="CFW_DarkMode_Title" lang="10" text="Donkere modus"/>
+  <string id="CFW_DarkMode_Title" lang="11" text="Mørk modus"/>
+  <string id="CFW_DarkMode_Title" lang="12" text="Modo Escuro"/>
+  <string id="CFW_DarkMode_Title" lang="13" text="Темный режим"/>
+  <string id="CFW_DarkMode_Title" lang="14" text="Tryb ciemny"/>
+  <string id="CFW_DarkMode_Title" lang="15" text="Tumma tila"/>
+  <string id="CFW_DarkMode_Title" lang="16" text="Mörkt läge"/>
+  <string id="CFW_DarkMode_Title" lang="17" text="Karanlık Mod"/>
+  <string id="CFW_DarkMode_Title" lang="18" text="다크 모드"/>
+  <string id="CFW_DarkMode_Title" lang="19" text="深色模式"/>
+  <string id="CFW_DarkMode_Title" lang="20" text="深色模式"/>
+</locale>

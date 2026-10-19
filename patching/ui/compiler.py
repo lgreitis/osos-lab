@@ -3,7 +3,7 @@
 
 import struct
 
-from .model import ActionBinding, CompiledDocument, FieldBinding
+from .model import ActionBinding, CompiledDocument, FieldBinding, Text
 from .resources import (
     Resource,
     blocks,
@@ -38,7 +38,7 @@ class DocumentCompiler:
         screen_id = resources.allocate(root.name + "_Screen")
         layout_id = resources.allocate(root.name + "_Layout")
         template_id = resources.allocate()
-        title_source = resources.source(root.title)
+        title_source = self.source(root.title)
         views = self.paragraph_views(text)
         resources.add("View", template_id, pack_blocks(views))
         resources.add(
@@ -83,7 +83,7 @@ class DocumentCompiler:
         resources.clone_layout(
             resources.native("Settings_Brightness_Screen_Default"),
             layout,
-            resources.source(root.title),
+            self.source(root.title),
             {resources.native("Settings_Brightness_Template"): template},
             view_bindings={
                 resources.native("Settings_Brightness_Template"): pack_blocks([])
@@ -128,7 +128,7 @@ class DocumentCompiler:
             put(view, 0x10, previous)
             put(view, 0x14, 0 if previous == 0 else 3)
             put(view, 0x30, view_id)
-            put(view, 0x64, resources.source(paragraph))
+            put(view, 0x64, self.source(paragraph))
             views.append((kind, view))
             previous = view_id
         kind, prototype = legal_views[-1]
@@ -138,10 +138,12 @@ class DocumentCompiler:
         views.append((kind, margin))
         return views
 
-    def source(self, text):
-        if text not in self.sources:
-            self.sources[text] = self.resources.source(text)
-        return self.sources[text]
+    def source(self, *parts):
+        text = Text.join(*(self.document.text(part) for part in parts))
+        key = text.default, tuple(sorted(text.translations.items()))
+        if key not in self.sources:
+            self.sources[key] = self.resources.source(text)
+        return self.sources[key]
 
     def row(self, title):
         data = Resource(self.prototype)
@@ -164,7 +166,7 @@ class DocumentCompiler:
         resources.clone_layout(
             resources.native("Notes_List_Screen_Alt_Default"),
             layout,
-            resources.source(title),
+            self.source(title),
             item_table=table,
         )
         resources.add(
@@ -220,8 +222,16 @@ class DocumentCompiler:
             property=property_id,
             summary_property=summary,
             screen=resources.names[item.name + "_Screen"],
+            title=self.text_id(item.title),
+            labels=[
+                self.text_id(label) for label in self.document.labels(item.choices)
+            ],
         )
         return parent_row, self.push(parent_item, item.name)
+
+    def text_id(self, text):
+        source = self.source(text)
+        return word(blocks(self.resources.added["SORC", source])[0][1], 4)
 
     def range_page(self, item, property_id):
         resources = self.resources
@@ -262,7 +272,7 @@ class DocumentCompiler:
         resources.clone_layout(
             resources.native("Settings_Brightness_Screen_Default"),
             layout,
-            resources.source(item.title),
+            self.source(item.title),
             {resources.native("Settings_Brightness_Template"): template},
             view_bindings={resources.native("Settings_Brightness_Template"): binding},
         )
@@ -294,7 +304,14 @@ class DocumentCompiler:
             string_id = self.resources.allocate()
             self.string_ids[item.name] = string_id
             _, row = self.row(
-                self.resources.source(item.title + ": Unknown", string_id)
+                self.resources.source(
+                    Text.join(
+                        self.document.text(item.title),
+                        Text(": "),
+                        self.document.text(item.unknown),
+                    ),
+                    string_id,
+                )
             )
             # Native text rows omit the submenu arrow; no chosen event is bound.
             put(row[1], 0x60, 2)
@@ -310,7 +327,13 @@ class DocumentCompiler:
             property_id = self.resources.allocate()
             row_id, row = self.model_row(property_id)
             put(row[1], 0x60, 2)
-            self.actions[item.name] = ActionBinding(item=row_id, property=property_id)
+            self.actions[item.name] = ActionBinding(
+                item=row_id,
+                property=property_id,
+                labels=[
+                    self.text_id(label) for label in self.document.labels(item.choices)
+                ],
+            )
             chosen = menu_event(
                 row_id,
                 "chosen",
@@ -323,7 +346,7 @@ class DocumentCompiler:
     def insert_settings(self):
         if not self.document.after:
             return
-        title = self.resources.source(self.document.root.title)
+        title = self.source(self.document.root.title)
         if self.document.root.kind == "toggle":
             item_id, item = self.toggle_row(title)
         else:
@@ -400,9 +423,7 @@ class DocumentCompiler:
             ("Settings_InfoDetail_View", "Text"),
         ):
             if suffix == "Text" and document.preview_caption:
-                sources[resources.native(view)] = resources.source(
-                    document.preview_caption
-                )
+                sources[resources.native(view)] = self.source(document.preview_caption)
                 continue
             if suffix == "Image" and document.preview_image:
                 property_id = resources.names[document.preview_image]
@@ -453,7 +474,9 @@ class DocumentCompiler:
 def compile_document(resources, document, text=""):
     compiled = CompiledDocument()
     if document.music_entry:
-        compile_music_entry(resources, document.music_entry, compiled)
+        entry = dict(document.music_entry)
+        entry["title"] = document.text(entry["title"])
+        compile_music_entry(resources, entry, compiled)
     for binding in document.events:
         resources.bind_screen_event(binding)
     builder = None
@@ -469,9 +492,13 @@ def compile_document(resources, document, text=""):
         if document.root.kind == "canvas":
             builder.canvas_page(document.root)
 
-    for name, text in document.strings.items():
+    for name, default in document.strings.items():
         compiled.string_ids[name] = resource_id = resources.allocate()
-        resources.add("Str ", resource_id, text.encode("utf-8") + b"\0")
+        resources.string(
+            resource_id, Text(default, document.translations.get(name, {}))
+        )
+        if name in document.formats:
+            resources.formats[resource_id] = document.formats[name]
 
     if builder is not None:
         builder.insert_settings()

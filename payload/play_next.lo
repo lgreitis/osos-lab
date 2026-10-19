@@ -1,0 +1,45 @@
+<locale>
+  <string id="CFW_PLAY_NEXT" text="Play Next"/>
+  <string id="CFW_PLAY_LAST" text="Play Last"/>
+
+  <string id="CFW_PLAY_NEXT" lang="1" text="次に再生"/>
+  <string id="CFW_PLAY_LAST" lang="1" text="最後に再生"/>
+  <string id="CFW_PLAY_NEXT" lang="2" text="Přehrát jako další"/>
+  <string id="CFW_PLAY_LAST" lang="2" text="Přehrát nakonec"/>
+  <string id="CFW_PLAY_NEXT" lang="3" text="Afspil som næste"/>
+  <string id="CFW_PLAY_LAST" lang="3" text="Afspil til sidst"/>
+  <string id="CFW_PLAY_NEXT" lang="4" text="Als Nächstes wiedergeben"/>
+  <string id="CFW_PLAY_LAST" lang="4" text="Am Ende wiedergeben"/>
+  <string id="CFW_PLAY_NEXT" lang="5" text="Reproducir a continuación"/>
+  <string id="CFW_PLAY_LAST" lang="5" text="Reproducir al final"/>
+  <string id="CFW_PLAY_NEXT" lang="6" text="Lire ensuite"/>
+  <string id="CFW_PLAY_LAST" lang="6" text="Lire en dernier"/>
+  <string id="CFW_PLAY_NEXT" lang="7" text="Αναπαραγωγή στη συνέχεια"/>
+  <string id="CFW_PLAY_LAST" lang="7" text="Αναπαραγωγή στο τέλος"/>
+  <string id="CFW_PLAY_NEXT" lang="8" text="Riproduci dopo"/>
+  <string id="CFW_PLAY_LAST" lang="8" text="Riproduci per ultimo"/>
+  <string id="CFW_PLAY_NEXT" lang="9" text="Lejátszás következőként"/>
+  <string id="CFW_PLAY_LAST" lang="9" text="Lejátszás utolsóként"/>
+  <string id="CFW_PLAY_NEXT" lang="10" text="Speel hierna af"/>
+  <string id="CFW_PLAY_LAST" lang="10" text="Speel als laatste af"/>
+  <string id="CFW_PLAY_NEXT" lang="11" text="Spill av som neste"/>
+  <string id="CFW_PLAY_LAST" lang="11" text="Spill av til slutt"/>
+  <string id="CFW_PLAY_NEXT" lang="12" text="Reproduzir a seguir"/>
+  <string id="CFW_PLAY_LAST" lang="12" text="Reproduzir no fim"/>
+  <string id="CFW_PLAY_NEXT" lang="13" text="Воспроизвести следующим"/>
+  <string id="CFW_PLAY_LAST" lang="13" text="Воспроизвести последним"/>
+  <string id="CFW_PLAY_NEXT" lang="14" text="Odtwórz jako następny"/>
+  <string id="CFW_PLAY_LAST" lang="14" text="Odtwórz na końcu"/>
+  <string id="CFW_PLAY_NEXT" lang="15" text="Toista seuraavaksi"/>
+  <string id="CFW_PLAY_LAST" lang="15" text="Toista viimeisenä"/>
+  <string id="CFW_PLAY_NEXT" lang="16" text="Spela härnäst"/>
+  <string id="CFW_PLAY_LAST" lang="16" text="Spela sist"/>
+  <string id="CFW_PLAY_NEXT" lang="17" text="Sıradaki olarak çal"/>
+  <string id="CFW_PLAY_LAST" lang="17" text="En son çal"/>
+  <string id="CFW_PLAY_NEXT" lang="18" text="다음에 재생"/>
+  <string id="CFW_PLAY_LAST" lang="18" text="마지막에 재생"/>
+  <string id="CFW_PLAY_NEXT" lang="19" text="接着播放"/>
+  <string id="CFW_PLAY_LAST" lang="19" text="最后播放"/>
+  <string id="CFW_PLAY_NEXT" lang="20" text="接著播放"/>
+  <string id="CFW_PLAY_LAST" lang="20" text="最後播放"/>
+</locale>
