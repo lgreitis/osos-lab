@@ -9,6 +9,8 @@ def emit_header(document, string_ids=None):
         name = document.root.name
     elif document.music_entry:
         name = document.music_entry["id"]
+    elif document.main_entry:
+        name = document.main_entry["id"]
     else:
         name = next(iter(document.strings), None) or document.events[0].handler
     prefix = name.lower()

@@ -75,6 +75,7 @@ class Parser:
                 "string",
                 "screen-event",
                 "music-entry",
+                "main-entry",
             ),
         )
         for node in tree:
@@ -86,6 +87,7 @@ class Parser:
             and not document.strings
             and not document.events
             and document.music_entry is None
+            and document.main_entry is None
         ):
             raise ValueError("Incomplete UI declaration")
         validate_slots(document.fields)
@@ -141,6 +143,12 @@ class Parser:
                 raise ValueError("Duplicate Music menu entry")
             self.identifier(node)
             document.music_entry = dict(node.attrib)
+        elif node.tag == "main-entry":
+            attributes(node, "id title after open hilite preview", "message")
+            if document.main_entry is not None:
+                raise ValueError("Duplicate main menu entry")
+            self.identifier(node)
+            document.main_entry = dict(node.attrib)
 
     def parse_values(self, node):
         attributes(node, "id", children=("value",))

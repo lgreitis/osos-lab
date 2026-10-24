@@ -5,6 +5,7 @@
 #include "album_artists_ui.h"
 #include "cfw.h"
 #include "patch.h"
+#include "up_next.h"
 
 #define FIELD(type, object, offset) (*(type *)((uint8_t *)(object) + (offset)))
 
@@ -170,6 +171,7 @@ void cfw_album_artists_invalidate(void *track_data)
 
 PATCH_ARM void *cfw_album_artists_destroy_model(void *model)
 {
+    cfw_up_next_model_destroyed(model);
     if (FIELD(uint8_t, model, 0x45) == ARTWORK_MODEL_OWNERSHIP) {
         FIELD(uint8_t, model, 0x45) = 3;
         ((void (*)(void *))OSOS_MODEL_REF_RELEASE)(
@@ -482,6 +484,8 @@ done:
 
 PATCH_ARM int cfw_album_artists_action(void *controller, const char *action, uint32_t argument)
 {
+    if (cfw_up_next_action(controller, action, argument))
+        return 1;
     if (!cfw_string_equal(action, "CFW_AlbumArtists"))
         return ((int (*)(void *, const char *, uint32_t))OSOS_MUSIC_ACTION)(controller, action, argument);
     if (argument != OSOS_ACTION_SUPPORT_QUERY)

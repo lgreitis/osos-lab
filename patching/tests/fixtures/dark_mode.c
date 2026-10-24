@@ -161,6 +161,15 @@ void cfw_album_artists_menu_adjust_property(uint32_t type, uint32_t property, ui
     ++*out;
 }
 
+int cfw_up_next_property(void *model, uint32_t type, uint32_t property, uintptr_t *out)
+{
+    (void)model;
+    (void)type;
+    (void)property;
+    (void)out;
+    return 0;
+}
+
 #define osos_settings_action settings_action
 #define osos_settings_property settings_property
 #include "../../../payload/settings.c"

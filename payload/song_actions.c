@@ -5,6 +5,7 @@
 #include "play_next.h"
 #include "song_info.h"
 #include "song_info_ui.h"
+#include "up_next.h"
 
 int cfw_song_action_original(void *, const char *, uint32_t);
 int cfw_playlist_action_original(void *, const char *, uint32_t);
@@ -65,8 +66,10 @@ static int song_action(void *controller, enum song_source source,
             cfw_song_info_show(controller, selected);
         else
             cfw_play_next_add(player, selected, last);
-        if (!info)
+        if (!info) {
             osos_player_unlock(player);
+            cfw_up_next_refresh();
+        }
     }
     return 1;
 }
@@ -81,7 +84,8 @@ PATCH_ARM void cfw_song_menu_cancel(struct osos_context_menu *menu, uint32_t lab
 
 PATCH_ARM int cfw_song_action(void *controller, const char *action, uint32_t argument)
 {
-    if (song_action(controller, SONG_LIST, action, argument))
+    if (cfw_up_next_song_action(controller, action, argument) ||
+        song_action(controller, SONG_LIST, action, argument))
         return 1;
     return cfw_song_action_original(controller, action, argument);
 }

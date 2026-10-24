@@ -34,6 +34,11 @@
     "MusicMenu_ListItem_Artists": 229443532,
     "MediaLists_Artists_Screen": 229443568,
     "MediaLists_Artists_Screen_Default": 229443569,
-    "MediaLists_Albums_Screen": 229443565
+    "MediaLists_Albums_Screen": 229443565,
+    "MainMenu_List_NowPlaying": 229443479,
+    "MainMenu_Preview_Compilations": 229443495,
+    "PreviewArea_Watermark_Message": 229441979,
+    "PreviewArea_Watermark_Message2": 229441980,
+    "PreviewArea_Watermark_Message3": 229441981
   }
 }

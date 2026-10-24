@@ -4,6 +4,7 @@
 #include "cfw.h"
 #include "patch.h"
 #include "play_next.h"
+#include "up_next.h"
 
 int cfw_media_list_action_original(void *, const char *, uint32_t);
 
@@ -28,6 +29,7 @@ PATCH_ARM int cfw_media_list_action(void *controller, const char *action, uint32
         queue_last = last;
         ((int (*)(void *))OSOS_MEDIA_LIST_ADD_TO_OTG)(controller);
         queue_last = -1;
+        cfw_up_next_refresh();
     }
     return 1;
 }
