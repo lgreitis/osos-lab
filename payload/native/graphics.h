@@ -9,6 +9,12 @@ enum {
     OSOS_BMAP_HEADER_SIZE = 28,
 };
 
+/* Descriptor identity is retained separately from the changing model property ID. */
+static inline uint32_t osos_view_id(const void *view)
+{
+    return *(const uint32_t *)((const unsigned char *)view + 0x4c);
+}
+
 static inline int osos_bitmap_view_ready(void *view)
 {
     return *((unsigned char *)view + 0xa1) != 0;
@@ -90,11 +96,29 @@ static inline void osos_graphics_attach_bitmap(void *context, void *bitmap)
 
 /* Drawing colors are byte-order RGBA; COLR resource words are 0x00RRGGBB. */
 static inline void osos_surface_fill_rect(void *surface, const void *rect,
-                                          const unsigned char *color,
-                                          uint32_t mode, void *clip)
+                                          const unsigned char *color, uint32_t mode,
+                                          void *clip)
 {
     typedef void (*fn)(void *, const void *, const unsigned char *, uint32_t, void *);
     ((fn)OSOS_SURFACE_FILL_RECT)(surface, rect, color, mode, clip);
+}
+
+static inline void osos_graphics_fill_rect(void *context, const int32_t *rect)
+{
+    typedef void (*fn)(void *, const int32_t *);
+    ((fn)OSOS_GRAPHICS_FILL_RECT)(context, rect);
+}
+
+/* Match GraphicsContext_FillRect's origin, surface, mode and clip contract. */
+static inline void osos_graphics_fill_rect_unmapped(void *context, const int32_t *rect)
+{
+    const unsigned char *bytes = context;
+    int32_t x = *(const int32_t *)(bytes + 0x2c);
+    int32_t y = *(const int32_t *)(bytes + 0x30);
+    int32_t translated[] = {rect[0] + y, rect[1] + x, rect[2] + y, rect[3] + x};
+    void *surface = *(unsigned char **)(bytes + 0x1c) + 4;
+    osos_surface_fill_rect(surface, translated, bytes + 0x11, bytes[0x10],
+                           (unsigned char *)context + 0x34);
 }
 
 static inline void osos_graphics_set_color(void *context, const unsigned char *color)

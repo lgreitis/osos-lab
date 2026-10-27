@@ -5,22 +5,19 @@
 #include "patches/sites.h"
 
 /* Dark-mode software colors and manifest-selected bitmap artwork. */
-PATCH_JUMP(OSOS_RESOURCE_SERVICE_GET, 0xe92d40f8, 0xe1a05001, cfw_bitmap_resource_get);
 PATCH_CALL(OSOS_GRAPHICS_FILL_RECT_CALL, OSOS_SURFACE_FILL_RECT, cfw_dark_mode_fill);
 PATCH_CALL(OSOS_TEXT_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
-           cfw_dark_mode_text_color);
+           cfw_dark_mode_text_color_hook);
 PATCH_CALL(OSOS_MARQUEE_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
-           cfw_dark_mode_text_color);
+           cfw_dark_mode_marquee_color_hook);
 PATCH_CALL(OSOS_COVER_FLOW_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
            cfw_dark_mode_clear_color);
 PATCH_CALL(OSOS_ALBUM_ART_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
            cfw_dark_mode_clear_color);
 PATCH_CALL(OSOS_ARTWORK_REFLECTION_BLEND_CALL, OSOS_RGB565_BLEND_FIXED,
            cfw_dark_mode_reflection_blend);
-/* Lyrics must not inherit the idle clock's exemption from background darkening. */
-PATCH_WORD(OSOS_LYRICS_BACKGROUND_COLOR_WORD, 0x0dad0851, 0x0dad00cd);
-/* Give the input field Search's own black color; keyboard/results keep normal text. */
-PATCH_WORD(OSOS_SEARCH_INPUT_COLOR_WORD, 0x0dad00ce, 0x0dad0dcf);
+PATCH_CALL(OSOS_VIEW_BACKGROUND_FILL_CALL, OSOS_GRAPHICS_FILL_RECT,
+           cfw_dark_mode_background_fill_hook);
 
 /* Shared Settings hooks */
 PATCH_POINTER(OSOS_SETTINGS_PROPERTY_SLOT, OSOS_SETTINGS_PROPERTY,

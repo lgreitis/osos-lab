@@ -1,6 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include <assert.h>
 #include <string.h>
+#include <stdint.h>
+#include "../../../payload/native/bindings.h"
+static void fill(void *, const void *, const unsigned char *, uint32_t, void *);
+#undef OSOS_SURFACE_FILL_RECT
+#define OSOS_SURFACE_FILL_RECT ((uintptr_t)fill)
 /* Native layout assertions assume 32-bit pointers; this fixture runs on the host. */
 #define _Static_assert(...)
 #include "../../../payload/osos.h"
@@ -47,6 +52,10 @@ static int now_playing, now_playing_available = 1, icon_notifications;
 static unsigned icon_invalidations;
 static unsigned preview_invalidations;
 static unsigned char drawn[4];
+static int direct_fill;
+static unsigned char *drawing_context;
+static unsigned char bitmap[32];
+static uint32_t ordinary_view[0xa4 / 4];
 
 static int file_open(const struct osos_path *path, int mode, void **handle)
 {
@@ -134,7 +143,14 @@ static void notify(void *value, uint32_t type, uint32_t property)
 static void fill(void *target, const void *rect, const unsigned char *color,
                  uint32_t mode, void *clip)
 {
-    assert(target == &surface && rect == &model && mode == 7 && clip == &controller);
+    if (direct_fill) {
+        const int32_t expected[] = {22, 8, 42, 28};
+        assert(target == bitmap + 4 && mode == 0x22 && clip == drawing_context + 0x34);
+        assert(!memcmp(rect, expected, sizeof(expected)));
+    } else {
+        assert(target == &surface && rect == &model && mode == 7 &&
+               clip == &controller);
+    }
     memcpy(drawn, color, 4);
 }
 
@@ -174,6 +190,8 @@ const void *cfw_resource_bitmap(uint32_t id)
                : NULL;
 }
 
+static void graphics_fill(void *context, const int32_t *rect);
+#define osos_graphics_fill_rect graphics_fill
 #define osos_ui_string resource
 #define osos_ui_bitmap resource
 #define osos_file_open file_open
@@ -190,6 +208,59 @@ const void *cfw_resource_bitmap(uint32_t id)
 #define osos_gles_clear_color clear_color
 #define osos_rgb565_blend blend
 #include "../../../payload/dark_mode.c"
+
+static void graphics_fill(void *context, const int32_t *rect)
+{
+    (void)rect;
+    direct_fill = 0;
+    cfw_dark_mode_fill(&surface, &model, (unsigned char *)context + 0x11, 7,
+                       &controller);
+}
+
+static void check_cached_colors(void)
+{
+    const uint32_t text_views[] = {0x0dad030e, 0x0dad0607, 0x0dad061e, 0x0dad0ddc};
+    const uint32_t backgrounds[] = {0x0dad08c5, 0x0dad0925, 0x0dad092d, 0x0dad09ae};
+    const unsigned char cached_black[] = {0, 0, 0, 123};
+    const unsigned char selected_white[] = {255, 255, 255, 255};
+    uint32_t view[0xa4 / 4] = {0};
+    /* Keep the native pointer field aligned on a 64-bit host. */
+    uint64_t storage[16] = {0};
+    drawing_context = (unsigned char *)storage + 4;
+    *(unsigned char **)(drawing_context + 0x1c) = bitmap;
+    *(int32_t *)(drawing_context + 0x2c) = -3;
+    *(int32_t *)(drawing_context + 0x30) = 12;
+    drawing_context[0x10] = 0x22;
+    const unsigned char cached_white[] = {255, 255, 255, 173};
+    memcpy(drawing_context + 0x11, cached_white, 4);
+    const int32_t rect[] = {10, 11, 30, 31};
+    int was_active = assets_active;
+    const int modes[] = {0, 1, 0, 1, 1, 0};
+    for (unsigned cycle = 0; cycle < sizeof(modes) / sizeof(modes[0]); cycle++) {
+        assets_active = modes[cycle];
+        for (unsigned i = 0; i < 4; i++) {
+            view[0x4c / 4] = text_views[i];
+            view[0x44 / 4] =
+                0x1234 + cycle; /* Binding changes must not change identity. */
+            cfw_dark_mode_text_color(&surface, cached_black, view);
+            assert(!memcmp(drawn, cached_black, 4));
+            cfw_dark_mode_text_color(&surface, selected_white, view);
+            assert(!memcmp(drawn, selected_white, 4));
+            view[0x4c / 4] = backgrounds[i];
+            direct_fill = 1;
+            cfw_dark_mode_background_fill(drawing_context, rect, view);
+            assert(direct_fill && !memcmp(drawn, cached_white, 4));
+            assert(!memcmp(drawing_context + 0x11, cached_white, 4));
+        }
+        cfw_dark_mode_text_color(&surface, cached_black, ordinary_view);
+        assert(drawn[0] == (assets_active ? 0xe8 : 0) && drawn[3] == 123);
+        view[0x4c / 4] = 0x0dad092a; /* Lyrics remains themed. */
+        cfw_dark_mode_background_fill(drawing_context, rect, view);
+        assert(!direct_fill && drawn[0] == (assets_active ? 0x18 : 255) &&
+               drawn[3] == 173);
+    }
+    assets_active = was_active;
+}
 
 static int stock_actions, stock_properties, adjustments;
 
@@ -308,6 +379,7 @@ static void check_clicker(void)
 
 int main(void)
 {
+    check_cached_colors();
     uintptr_t value = 0;
     const uint32_t icons[] = {CFW_EQ_Icon, CFW_Info_Icon};
     for (unsigned i = 0; i < sizeof(icons) / sizeof(icons[0]); i++) {
@@ -352,16 +424,6 @@ int main(void)
             assert(cfw_settings_action(&controller, "CFW_DarkMode_Toggle", 0));
         int dark = cycle == 1;
         assert(cfw_dark_mode_enabled() == dark);
-        const uint32_t black = 0;
-        const uint32_t text_resources[] = {0x0dad030f, 0x0dad0dcf};
-        for (unsigned i = 0; i < 2; i++) {
-            uint32_t rgb =
-                *(const uint32_t *)cfw_dark_mode_color(text_resources[i], &black);
-            unsigned char rgba[] = {rgb >> 16, rgb >> 8, rgb, 123};
-            cfw_dark_mode_text_color(&surface, rgba);
-            assert(drawn[0] == 0 && drawn[1] == 0 && drawn[2] == dark &&
-                   drawn[3] == 123);
-        }
         assert(cfw_settings_property(&model, OSOS_RESOURCE_BMAP,
                                      CFW_DarkMode_PreviewImage, &value));
         assert(value == (dark ? CFW_DarkMode_Moon : IMG_SUN));
@@ -374,7 +436,7 @@ int main(void)
                 !memcmp(drawn, dark ? fills[i].dark : fills[i].light, sizeof(drawn)));
         }
         for (unsigned i = 0; i < sizeof(texts) / sizeof(texts[0]); i++) {
-            cfw_dark_mode_text_color(&surface, texts[i].light);
+            cfw_dark_mode_text_color(&surface, texts[i].light, ordinary_view);
             assert(
                 !memcmp(drawn, dark ? texts[i].dark : texts[i].light, sizeof(drawn)));
         }

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "assets.h"
-#include "dark_mode.h"
 #include "osos.h"
-#include "patch.h"
 
 /* RTH3 records replace palette/pixel storage without changing native headers. */
 struct theme_header {
@@ -214,12 +212,4 @@ void cfw_assets_set_enabled(int enabled)
 int cfw_assets_enabled(void)
 {
     return active;
-}
-
-void *cfw_bitmap_resource_get_original(void *service, uint32_t type, uint32_t id);
-
-PATCH_ARM const void *cfw_bitmap_resource_get(void *service, uint32_t type, uint32_t id)
-{
-    const void *resource = cfw_bitmap_resource_get_original(service, type, id);
-    return type == OSOS_RESOURCE_COLR ? cfw_dark_mode_color(id, resource) : resource;
 }

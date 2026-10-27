@@ -21,8 +21,6 @@ enum {
     ACCENT_TEXT_LIGHT = 0x3185d0,
     ACCENT_DARK = 0x00a1ff,
     IMG_SUN = 0x0dad0bff, /* Settings_Brightness_Image */
-    COLOR_CALENDAR_DAY = 0x0dad030f,
-    COLOR_SEARCH_INPUT = 0x0dad0dcf, /* Search_Keyboard_Background_Color */
 };
 
 static const struct osos_path settings_path = {0, "iPod_Control\\Device\\CFWDark"};
@@ -98,30 +96,33 @@ int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument
     return 1;
 }
 
-const void *cfw_dark_mode_color(uint32_t id, const void *color)
+static int native_text_color(const void *view)
 {
-    static const uint32_t dark_text = 0x000001;
-    static uint32_t idle_background;
-    static uint32_t light;
-    if (!cfw_dark_mode_enabled() || !color)
-        return color;
-    uint32_t rgb = *(const uint32_t *)color;
-    /* A one-step tint keeps text on light artwork out of the neutral-color remap. */
-    if (!rgb && (id == COLOR_CALENDAR_DAY || id == COLOR_SEARCH_INPUT))
-        return &dark_text;
-    /* The idle clock's light bitmap digits need their original light background. */
-    if (!idle_background) {
-        struct osos_string name;
-        osos_string_init(&name, "NowPlaying_Idle_Background");
-        idle_background = *osos_resource_name_slot(&name);
-        osos_string_destroy(&name);
+    switch (osos_view_id(view)) {
+    case 0x0dad030e: /* Alarms_PickDate_Preivew_NumericDay */
+    case 0x0dad0607: /* Settings_DateTime_NumericDay */
+    case 0x0dad061e: /* Settings_DateTime_Preivew_NumericDay */
+    case 0x0dad0ddc: /* Search_Input_Text */
+        return 1;
+    default:
+        return 0;
     }
-    uint32_t blue = rgb & 0xff;
-    if (id != idle_background || ((rgb >> 16) & 0xff) != blue ||
-        ((rgb >> 8) & 0xff) != blue || blue < BACKGROUND_LIGHT_MIN)
-        return color;
-    light = rgb - 1;
-    return &light;
+}
+
+/* These views retain light artwork in both modes. Resolve policy at draw time. */
+PATCH_ARM void cfw_dark_mode_background_fill(void *context, const int32_t *rect,
+                                             const void *view)
+{
+    switch (osos_view_id(view)) {
+    case 0x0dad08c5: /* NowPlaying_White_Background_View */
+    case 0x0dad0925: /* NowPlaying_Idle_Template */
+    case 0x0dad092d: /* NowPlaying_ChapterArt_BackgroundImage_View */
+    case 0x0dad09ae: /* RentalInfo_White_Background_View */
+        osos_graphics_fill_rect_unmapped(context, rect);
+        return;
+    default:
+        osos_graphics_fill_rect(context, rect);
+    }
 }
 
 static int accent_color(const unsigned char *color, uint32_t light, unsigned char *out)
@@ -174,10 +175,11 @@ PATCH_ARM uint32_t cfw_dark_mode_reflection_blend(uint32_t pixel, uint32_t backg
     return osos_rgb565_blend(pixel, background, weight);
 }
 
-PATCH_ARM void cfw_dark_mode_text_color(void *context, const unsigned char *color)
+PATCH_ARM void cfw_dark_mode_text_color(void *context, const unsigned char *color,
+                                        const void *view)
 {
     unsigned char mapped[4];
-    int enabled = cfw_dark_mode_enabled();
+    int enabled = cfw_dark_mode_enabled() && !native_text_color(view);
     if (enabled && (accent_color(color, ACCENT_FILL_LIGHT, mapped) ||
                     accent_color(color, ACCENT_TEXT_LIGHT, mapped))) {
         color = mapped;

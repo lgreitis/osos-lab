@@ -31,8 +31,6 @@ struct osos_path {
     char text[258];
 };
 
-#define OSOS_RESOURCE_COLR 0x434f4c52
-
 static void *allocate(uint32_t size)
 {
     if (no_memory)
@@ -78,20 +76,6 @@ static void osos_file_close(void *handle)
 
 #define OSOS_IMPORT_ALLOC allocate
 #define OSOS_IMPORT_FREE release
-
-void *cfw_bitmap_resource_get_original(void *service, uint32_t type, uint32_t id)
-{
-    (void)service;
-    (void)type;
-    (void)id;
-    return stock;
-}
-
-const void *cfw_dark_mode_color(uint32_t id, const void *color)
-{
-    assert(id == 7 && color == stock);
-    return stock + 1;
-}
 
 #include "../../../payload/assets.c"
 
@@ -272,7 +256,5 @@ int main(void)
     cfw_assets_cancel();
     assert(!allocations && !memcmp(stock, original, sizeof(stock)));
 
-    assert(cfw_bitmap_resource_get(NULL, 0x424d6170, 7) == stock);
-    assert(cfw_bitmap_resource_get(NULL, OSOS_RESOURCE_COLR, 7) == stock + 1);
     return 0;
 }
