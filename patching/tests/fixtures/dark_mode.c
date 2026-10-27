@@ -236,12 +236,47 @@ static void set_preference(void *object, uint32_t property, uint32_t type,
 
 #include "../../../payload/clicker.c"
 
-void cfw_album_artists_menu_adjust_property(uint32_t type, uint32_t property,
-                                            uintptr_t *out)
+void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
     assert(type == OSOS_PROPERTY_COUNT && property == 123 && *out == 5);
     adjustments++;
     ++*out;
+}
+
+int cfw_ui_handle_action(const char *action, uint32_t argument)
+{
+    (void)action;
+    (void)argument;
+    return 0;
+}
+
+int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
+{
+    (void)type;
+    (void)property;
+    (void)out;
+    return 0;
+}
+
+int cfw_ui_indexed_property(uint32_t type, uint32_t property, uint32_t index,
+                            uintptr_t *out)
+{
+    (void)type;
+    (void)property;
+    (void)index;
+    (void)out;
+    return 0;
+}
+
+int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
+                               uint32_t index, uintptr_t *out)
+{
+    (void)model;
+    (void)type;
+    (void)property;
+    (void)index;
+    (void)out;
+    return 0;
 }
 
 #define osos_settings_action settings_action

@@ -14,7 +14,7 @@ static unsigned char stock[] = {100, 0, 0, 0, 2, 0, 8, 0,   0, 0, 0,  0,   0, 0,
                                 2,   0, 0, 0, 3, 2, 1, 255, 6, 5, 4,  255, 0, 1};
 static unsigned char original[sizeof(stock)];
 const struct cfw_bitmap_asset cfw_bitmap_assets[] = {
-    {stock, sizeof(stock), 32, 40, 2, 2, 2, 1, 8, 0x25789516}};
+    {stock, sizeof(stock), 0x25789516}};
 const uint32_t cfw_bitmap_asset_count = 1, cfw_theme_max_bytes = 24;
 const unsigned char cfw_theme_catalog_hash[32] = {1, 2, 3};
 
@@ -121,8 +121,49 @@ static void rejected(const unsigned char *original)
     assert(!memcmp(stock, original, sizeof(stock)));
 }
 
+static void check_layouts(void)
+{
+    const uint32_t formats[] = {4, 8, 0x64, 0x65, 0x565, 0x1888};
+    const uint32_t depths[] = {4, 8, 8, 16, 16, 32};
+    for (unsigned header = 28; header <= 32; header += 4) {
+        for (unsigned i = 0; i < 6; i++) {
+            unsigned char data[256] = {0};
+            uint32_t colors = i == 2 || i == 3 ? 2 : 0;
+            uint32_t pixels = header + (colors ? 4 + colors * 4 : 0);
+            uint32_t size = pixels + 32;
+            data[0] = formats[i];
+            data[1] = formats[i] >> 8;
+            data[4] = 16;
+            data[6] = depths[i];
+            data[16] = 2;
+            data[20] = 4;
+            data[header - 4] = size - header;
+            if (colors)
+                data[header] = colors;
+            struct cfw_bitmap_asset asset = {data, size, 0};
+            struct bitmap_layout layout;
+            assert(bitmap_layout(&asset, &layout));
+            assert(layout.start == header + (colors ? 4 : 0));
+            assert(layout.pixels == pixels && layout.colors == colors);
+            assert(layout.width == 4 && layout.height == 2 && layout.stride == 16);
+            assert(layout.depth == depths[i]);
+            for (unsigned truncated = 0; truncated < size; truncated++) {
+                asset.size = truncated;
+                assert(!bitmap_layout(&asset, &layout));
+            }
+            asset.size = size;
+            data[4] = 0;
+            assert(!bitmap_layout(&asset, &layout));
+            data[4] = 16;
+            memset(data + 16, 255, 4);
+            assert(!bitmap_layout(&asset, &layout));
+        }
+    }
+}
+
 int main(void)
 {
+    check_layouts();
     memcpy(original, stock, sizeof(stock));
     assert(~checksum(UINT32_MAX, stock, sizeof(stock)) == cfw_bitmap_assets[0].crc);
     pack(1);
@@ -217,6 +258,11 @@ int main(void)
         header->crc = ~checksum(UINT32_MAX, (const void *)record, header->size);
         rejected(original);
     }
+
+    pack(1);
+    record->data[8] = 2;
+    header->crc = ~checksum(UINT32_MAX, (const void *)record, header->size);
+    rejected(original);
 
     pack(1);
     stock[0] ^= 1;

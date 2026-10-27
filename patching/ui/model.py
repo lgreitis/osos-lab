@@ -9,6 +9,7 @@ class Values:
     name: str
     numbers: list[int] = field(default_factory=list)
     labels: list[str] = field(default_factory=list)
+    numeric: bool = False
 
 
 @dataclass
@@ -50,22 +51,17 @@ class Document:
 @dataclass
 class FieldBinding:
     parent_item: int
-    selector_table: int
+    property: int
+    summary_property: int
+    screen: int
     default: int
-    labels: list[int]
-    marked: list[int]
-    summaries: list[int]
-    items: list[int]
-    parent_table: int = 0
-    parent_index: int = 0
 
 
 @dataclass
 class ActionBinding:
     item: int
-    index: int
-    table: int = 0
-    labels: list[int] = field(default_factory=list)
+    property: int
+    labels: list[str] = field(default_factory=list)
 
 
 @dataclass

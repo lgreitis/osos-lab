@@ -2,6 +2,7 @@
 """Offline UI declaration contracts."""
 
 import json
+import re
 import struct
 import sys
 import tempfile
@@ -10,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from patching.ui import generate, parser
-from patching.ui.codegen import emit_header
+from patching.ui.codegen import emit_header, emit_visibility
 from patching.ui.compiler import DocumentCompiler, compile_document
 from patching.ui.model import ScreenEvent
 from patching.ui.resources import (
@@ -32,6 +33,25 @@ def selector(name, slot, default=0, values="choices"):
     )
 
 
+def menu_rows(resources, table):
+    stock = blocks(resources.stock("ITEM", table))
+    additions = {}
+    for target, after, kind, row in resources.menu_items:
+        if target == table:
+            index = next(
+                i for i, (_, native) in enumerate(stock) if word(native, 0x30) == after
+            )
+            additions.setdefault(index, []).append((kind, row))
+    return [
+        row for i, native in enumerate(stock) for row in [native, *additions.get(i, [])]
+    ]
+
+
+def event_resource(resources, kind, resource_id):
+    resource_id = resources.event_aliases.get((kind, resource_id), resource_id)
+    return resources.added[kind, resource_id]
+
+
 def menu(rows):
     return (
         '<ui><values id="choices">'
@@ -41,6 +61,181 @@ def menu(rows):
 
 
 class UiTests(unittest.TestCase):
+    def test_eq_choices_use_native_models_and_shared_range_controls(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.read(root / "payload/custom_eq.ui")
+        resources.allocate("CFW_EQ_Icon")
+        compiled = compile_document(resources, document)
+        self.assertEqual(len(compiled.fields), 13)
+        self.assertEqual(
+            sum(len(document.values[item.choices].labels) for item in document.fields),
+            470,
+        )
+        rows = [
+            row
+            for (kind, resource_id), data in resources.added.items()
+            if kind == "ITEM" and (kind, resource_id) not in resources.original
+            for _, row in blocks(data)
+        ]
+        self.assertEqual(len(rows), 23)
+        for item in document.fields:
+            field = compiled.fields[item.slot]
+            if document.values[item.choices].numeric:
+                self.assertEqual(
+                    resources.added["SCST", field.screen].data, b"CFWRange"
+                )
+                self.assertEqual(
+                    word(event_resource(resources, "CEVT", field.screen), 0), 0
+                )
+                layout = resources.names[item.name + "_Layout"]
+                instances = [
+                    instance
+                    for _, group in blocks(resources.added["SLyt", layout])
+                    for _, instance in blocks(resources.current("SSin", word(group, 0)))
+                ]
+                title_instance = next(
+                    instance
+                    for instance in instances
+                    if word(instance, 4) == 0x0DAD020C
+                )
+                title_binding = dict(
+                    blocks(resources.current("VCvs", word(title_instance, 0)))
+                )[0x0DAD020E]
+                source = word(dict(blocks(title_binding))[0x534F5243], 0)
+                title_id = word(blocks(resources.added["SORC", source])[0][1], 4)
+                self.assertEqual(
+                    resources.added["Str ", title_id].data, item.title.encode() + b"\0"
+                )
+                control_instance = next(
+                    instance
+                    for instance in instances
+                    if word(instance, 4) == resources.names["CFW_Range_Template"]
+                )
+                controls = dict(
+                    blocks(resources.current("VCvs", word(control_instance, 0)))
+                )
+                for view in (
+                    "Settings_Brightness_Bar",
+                    "Settings_Brightness_Value_Text",
+                ):
+                    source = word(dict(blocks(controls[bindings[view]]))[0x534F5243], 0)
+                    binding = blocks(resources.added["SORC", source])[0][1]
+                    self.assertEqual(
+                        [word(binding, offset) for offset in (0, 4, 8)],
+                        [0x8900, field.property, 1],
+                    )
+            else:
+                events = resources.added["CEVT", field.screen]
+                self.assertEqual(word(events, 0), 1)
+                self.assertIn(item.name.encode(), events.data)
+        self.assertEqual(sum(kind == "View" for kind, _ in resources.added), 1)
+        self.assertEqual(sum(kind == "SEVT" for kind, _ in resources.added), 2)
+        self.assertNotIn(
+            b"CFW_EQ_Set_", b"".join(data.data for data in resources.added.values())
+        )
+        save = compiled.actions["CFW_EQ_Save"]
+        save_row = next(row for row in rows if word(row, 0x30) == save.item)
+        prototype = next(
+            row
+            for _, row in blocks(resources.stock("ITEM", "SettingsMenu_Items"))
+            if word(row, 0x30) == bindings["SettingsMenu_ListItem_Legal"]
+        )
+        self.assertEqual(save_row[0x64:0x65].origins, prototype[0x64:0x65].origins)
+        self.assertEqual(save_row.data[0x94], 1)
+        source = blocks(resources.added["SORC", word(save_row, 0x68)])[0][1]
+        self.assertEqual(
+            [word(source, offset) for offset in (0, 4, 8)], [0x8900, save.property, 1]
+        )
+        self.assertIn(
+            b"CFW_EQ_Save",
+            resources.added["CEVT", resources.names["CFW_EQ_Screen"]].data,
+        )
+        self.assertEqual(len(document.values["cfw_eq_precut_values"].numbers), 101)
+        self.assertEqual(
+            document.values["cfw_eq_precut_values"].numbers, list(range(0, -101, -1))
+        )
+
+    def test_layout_reuses_unchanged_instance_resources(self):
+        resources = Resources(
+            [], {"StatusBarWhite_Template": 100, "StatusBarWhite_Text": 101}
+        )
+        title = pack_blocks([(101, pack_blocks([(0x534F5243, struct.pack("<I", 0))]))])
+        untouched = pack_blocks([(200, bytes(8))])
+        resources.original = {
+            ("SLyt", 1): pack_blocks([(0, struct.pack("<I", 2))]),
+            ("SSin", 2): pack_blocks(
+                [
+                    (0, struct.pack("<6I", 10, 100, 100, 0, 0, 0)),
+                    (0, struct.pack("<6I", 11, 200, 200, 0, 0, 0)),
+                ]
+            ),
+            ("VCvs", 10): title,
+            ("VCvs", 11): untouched,
+            ("VCrv", 10): pack_blocks([(0, bytes(48))]),
+            ("VCrv", 11): pack_blocks([(0, bytes(48))]),
+            ("SEVT", 1): pack_blocks([]),
+        }
+        layout = resources.allocate()
+        resources.clone_layout(1, layout, 99, {200: 201}, item_table=55)
+        group = word(blocks(resources.added["SLyt", layout])[0][1], 0)
+        first, second = [row for _, row in blocks(resources.added["SSin", group])]
+        changed = word(first, 0)
+        self.assertNotEqual(changed, 10)
+        self.assertEqual(word(blocks(resources.added["VCvs", changed])[0][1], 12), 99)
+        self.assertEqual(word(second, 0), 11)
+        self.assertEqual(word(second, 4), 201)
+        self.assertEqual(word(second, 8), 201)
+        self.assertEqual(sum(kind == "VCvs" for kind, _ in resources.added), 1)
+        self.assertEqual(sum(kind == "VCrv" for kind, _ in resources.added), 1)
+        self.assertEqual(word(blocks(title)[0][1], 12), 0)
+
+    def test_visibility_metadata_supports_multiple_entries_and_stable_keys(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        documents = [
+            parser.parse(f'''<ui><music-entry id="{name}" title="{name}"
+            after="MusicMenu_ListItem_Artists" screen="MediaLists_Artists_Screen"
+            layout="MediaLists_Artists_Screen_Default" open="{name}" highlight="HandleMusicHilited"
+            main-visible="true" music-visible="false"/></ui>''')
+            for name in ("First", "Second")
+        ]
+        keys = []
+        for order in (documents, list(reversed(documents))):
+            resources = Resources(metadata["resources"], bindings)
+            for document in order:
+                compile_document(resources, document)
+            keys.append(
+                re.findall(
+                    r"CFWMenu_[0-9a-f]{8}", "\n".join(emit_visibility(resources))
+                )
+            )
+            self.assertEqual(
+                [entry["defaults"] for entry in resources.visibility], [1, 1]
+            )
+            for menu, anchor_name in (
+                ("Main", "MainMenu_List_Artists"),
+                ("Music", "MusicMenu_ListItem_Artists"),
+            ):
+                rows = menu_rows(resources, bindings[menu + "Menu_Items"])
+                anchor = next(
+                    i
+                    for i, (_, row) in enumerate(rows)
+                    if word(row, 0x30) == bindings[anchor_name]
+                )
+                self.assertEqual(
+                    [word(row, 0x30) for _, row in rows[anchor + 1 : anchor + 3]],
+                    [entry["items"][menu] for entry in resources.visibility],
+                )
+        self.assertEqual(keys[0], list(reversed(keys[1])))
+        for attribute in ('main-visible="yes"', 'music-visible="yes"'):
+            with self.assertRaises(ValueError):
+                parser.parse(f"""<ui><music-entry id="Entry" title="Entry" after="A"
+                    screen="S" layout="L" open="O" highlight="H" {attribute}/></ui>""")
+
     def test_cfw_info_preview_uses_static_bitmap_and_caption(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
@@ -75,9 +270,12 @@ class UiTests(unittest.TestCase):
                 )
             else:
                 self.assertEqual(content, b"RepriseOS\0")
-        events = resources.added["CEVT", bindings["SettingsMenus_Main_Screen"]]
-        original = resources.stock("CEVT", "SettingsMenus_Main_Screen")
-        appended = bytes(events.data[len(original) :])
+        appended = b"".join(
+            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
+        )
+        self.assertNotIn(
+            ("CEVT", bindings["SettingsMenus_Main_Screen"]), resources.added
+        )
         self.assertIn(b"CFW_Info_Screen", appended)
         self.assertIn(b"navigator.PushScreen", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
@@ -90,7 +288,8 @@ class UiTests(unittest.TestCase):
         document = parser.read(root / "payload/dark_mode.ui")
         compiled = compile_document(resources, document)
         stock = blocks(resources.stock("ITEM", "SettingsMenu_Items"))
-        rows = blocks(resources.added["ITEM", bindings["SettingsMenu_Items"]])
+        rows = menu_rows(resources, bindings["SettingsMenu_Items"])
+        self.assertNotIn(("ITEM", bindings["SettingsMenu_Items"]), resources.added)
         # Pinned 2.0.5 Brightness ID; 0x0dad0c71 is Backlight Timer.
         anchor = next(
             i for i, (_, row) in enumerate(rows) if word(row, 0x30) == 0x0DAD0C72
@@ -112,9 +311,12 @@ class UiTests(unittest.TestCase):
             [word(sources[1][1], offset) for offset in (0, 4, 8)],
             [0x8900, compiled.string_ids["CFW_DarkMode_Value"], 10],
         )
-        events = resources.added["CEVT", bindings["SettingsMenus_Main_Screen"]]
-        original = resources.stock("CEVT", "SettingsMenus_Main_Screen")
-        appended = bytes(events.data[len(original) :])
+        appended = b"".join(
+            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
+        )
+        self.assertNotIn(
+            ("CEVT", bindings["SettingsMenus_Main_Screen"]), resources.added
+        )
         self.assertIn(b"CFW_DarkMode_Toggle", appended)
         self.assertNotIn(b"navigator.PushScreen", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
@@ -154,7 +356,7 @@ class UiTests(unittest.TestCase):
         resources = Resources(metadata["resources"], bindings)
         document = parser.read(root / "payload/album_artists.ui")
         compiled = compile_document(resources, document)
-        rows = blocks(resources.added["ITEM", bindings["MusicMenu_Items"]])
+        rows = menu_rows(resources, bindings["MusicMenu_Items"])
         self.assertEqual(len(rows), 13)
         anchor = next(
             i
@@ -166,11 +368,13 @@ class UiTests(unittest.TestCase):
         self.assertNotEqual(item, bindings["MusicMenu_ListItem_Artists"])
         self.assertEqual(word(new_row, 0x60), 5)
         self.assertEqual(word(new_row, 0x64) & 0xFF, 1)
-        events = resources.added["CEVT", bindings["MainMenus_Music_Screen"]]
-        self.assertIn(f"list.pid.{item}.chosen".encode(), events.data)
-        self.assertIn(b"CFW_AlbumArtists", events.data)
-        self.assertIn(b"HandleMusicHilited", events.data)
-        main_rows = blocks(resources.added["ITEM", bindings["MainMenu_Items"]])
+        events = b"".join(
+            resources.event_extensions["CEVT", bindings["MainMenus_Music_Screen"]]
+        )
+        self.assertIn(f"list.pid.{item}.chosen".encode(), events)
+        self.assertIn(b"CFW_AlbumArtists", events)
+        self.assertIn(b"HandleMusicHilited", events)
+        main_rows = menu_rows(resources, bindings["MainMenu_Items"])
         main_anchor = next(
             i
             for i, (_, row) in enumerate(main_rows)
@@ -182,15 +386,18 @@ class UiTests(unittest.TestCase):
         self.assertNotEqual(main_item, item)
         self.assertEqual(word(main_row, 0x64) & 0xFF, 0)
         self.assertEqual(word(main_row, 0x68), word(new_row, 0x68))
-        main_events = resources.added["CEVT", bindings["MainMenus_Main_Screen"]]
-        self.assertIn(f"list.pid.{main_item}.chosen".encode(), main_events.data)
-        self.assertIn(b"CFW_AlbumArtists", main_events.data)
+        main_events = b"".join(
+            resources.event_extensions["CEVT", bindings["MainMenus_Main_Screen"]]
+        )
+        self.assertIn(f"list.pid.{main_item}.chosen".encode(), main_events)
+        self.assertIn(b"CFW_AlbumArtists", main_events)
         for table, inserted in (
             ("MainMenu_Items", main_anchor + 1),
             ("MusicMenu_Items", anchor + 1),
         ):
+            self.assertNotIn(("ITEM", bindings[table]), resources.added)
             stock = blocks(resources.stock("ITEM", table))
-            updated = blocks(resources.added["ITEM", bindings[table]])
+            updated = menu_rows(resources, bindings[table])
             del updated[inserted]
             self.assertEqual(len(stock), len(updated))
             for (_, before), (_, after) in zip(stock, updated):
@@ -202,15 +409,22 @@ class UiTests(unittest.TestCase):
         native_layout = resources.stock("SLst", "MediaLists_Artists_Screen")
         self.assertEqual(len(blocks(native_layout)), 1)
         self.assertEqual(word(blocks(resources.added["SLst", screen])[0][1], 0), layout)
-        for kind, new_id, original in (
-            ("SCST", screen, "MediaLists_Artists_Screen"),
-            ("CEVT", screen, "MediaLists_Artists_Screen"),
-            ("SEVT", layout, "MediaLists_Artists_Screen_Default"),
-        ):
-            self.assertEqual(
-                resources.added[kind, new_id].origins,
-                resources.stock(kind, original).origins,
-            )
+        self.assertEqual(
+            resources.added["SCST", screen].origins,
+            resources.stock("SCST", "MediaLists_Artists_Screen").origins,
+        )
+        self.assertEqual(
+            resources.event_aliases["CEVT", screen],
+            bindings["MediaLists_Artists_Screen"],
+        )
+        self.assertEqual(
+            resources.event_aliases["SEVT", layout],
+            bindings["MediaLists_Artists_Screen_Default"],
+        )
+        self.assertNotIn(("CEVT", screen), resources.added)
+        entry = resources.visibility[0]
+        self.assertEqual(entry["defaults"], 2)
+        self.assertEqual(entry["items"], {"Main": main_item, "Music": item})
         header = emit_header(document, compiled.string_ids)
         self.assertIn("#define CFW_AlbumArtists_Screen ", header)
 
@@ -239,13 +453,14 @@ class UiTests(unittest.TestCase):
                 (item.title + ": Unknown\0").encode(),
             )
         for item_event in document.events:
-            layouts = blocks(resources.stock("SLst", item_event.screen))
-            self.assertTrue(layouts)
-            for _, layout in layouts:
-                self.assertIn(
-                    b"contextualMenu.CFW_SongInfo",
-                    resources.added["SEVT", word(layout, 0)].data,
-                )
+            self.assertIn(
+                b"contextualMenu.CFW_SongInfo",
+                b"".join(
+                    resources.event_extensions[
+                        "CEVT", resources.native(item_event.screen)
+                    ]
+                ),
+            )
         header = emit_header(document, compiled.string_ids)
         self.assertIn("#define CFW_SongInfo_Screen ", header)
         self.assertIn("#define CFW_SongInfo_Layout ", header)
@@ -258,14 +473,15 @@ class UiTests(unittest.TestCase):
         resources.original = {
             ("SLst", 10): pack_blocks([(0, struct.pack("<I", 20))]),
             ("SEVT", 20): struct.pack("<I", 0),
+            ("CEVT", 10): struct.pack("<I", 0),
         }
         resources.bind_screen_event(document.events[0])
-        self.assertEqual(resources.added["SEVT", 20].word(0), 1)
+        self.assertEqual(len(resources.event_extensions["CEVT", 10]), 1)
         resources.bindings.clear()
         with self.assertRaises(KeyError):
             resources.bind_screen_event(document.events[0])
 
-    def test_screen_events_extend_each_layout_without_replacing_stock_events(self):
+    def test_screen_events_are_one_extension_for_all_layouts(self):
         document = parser.parse(
             '<ui><screen-event screen="10" event="contextualMenu.CFW_PlayNext" '
             'handler="CFW_PlayNext"/></ui>'
@@ -278,16 +494,16 @@ class UiTests(unittest.TestCase):
             ),
             ("SEVT", 20): stock,
             ("SEVT", 21): stock,
+            ("CEVT", 10): struct.pack("<I", 0),
         }
         resources.bind_screen_event(document.events[0])
         resources.bind_screen_event(ScreenEvent(10, "test.other", "OtherHandler"))
+        data = b"".join(resources.event_extensions["CEVT", 10])
+        self.assertIn(b"contextualMenu.CFW_PlayNext1", data)
+        self.assertIn(b"CFW_PlayNext\0\0\0\0", data)
+        self.assertIn(b"test.other1", data)
+        self.assertFalse(resources.added)
         for layout in (20, 21):
-            data = resources.added["SEVT", layout]
-            self.assertEqual(data.word(0), 3)
-            self.assertEqual(data.data[4 : len(stock)], stock[4:])
-            self.assertIn(b"contextualMenu.CFW_PlayNext1", data.data)
-            self.assertIn(b"CFW_PlayNext\0\0\0\0", data.data)
-            self.assertIn(b"test.other1", data.data)
             self.assertEqual(resources.original["SEVT", layout], stock)
 
     def test_storage_slots_survive_menu_reordering(self):
@@ -342,7 +558,7 @@ class UiTests(unittest.TestCase):
             (0, 10, 0, 10, 0),
             (0, 10, -1, 10, 0),
             (0, 10, 1, 3, 0),
-            (0, 100, 1, 10, 0),
+            (0, 1024, 1, 10, 0),
         ):
             first, last, step, scale, _ = numbers
             data = (
@@ -394,6 +610,7 @@ class UiTests(unittest.TestCase):
             {
                 "SettingsMenu_ListItem_Legal": LEGAL_ITEM,
                 "SettingsMenu_Items": 0x41,
+                "Settings_EQ_Items": 0x47,
                 "SettingsMenus_Main_Screen": MAIN_SCREEN,
                 "Notes_List_Screen_Alt": 0x0DAD09C3,
                 "Notes_List_Screen_Alt_Default": 0x0DAD09C4,
@@ -403,6 +620,7 @@ class UiTests(unittest.TestCase):
         struct.pack_into("<I", row, 0x30, LEGAL_ITEM)
         resources.original = {
             ("ITEM", 0x41): pack_blocks([(0, row)]),
+            ("ITEM", 0x47): pack_blocks([(0, row)]),
             ("SCST", MAIN_SCREEN): b"screen",
             ("SLst", 0x0DAD09C3): pack_blocks([(0, bytes(4))]),
             ("SLyt", 0x0DAD09C4): pack_blocks([(0, struct.pack("<I", 10))]),
@@ -411,17 +629,21 @@ class UiTests(unittest.TestCase):
         }
         resources.added, resources.names, resources.next_id = {}, {}, 0x0CF00000
         builder = DocumentCompiler(resources, document)
-        builder.menu(document.root)
-        self.assertEqual(builder.fields[0].parent_index, 2)
-        self.assertEqual(builder.fields[1].parent_index, 1)
-        self.assertEqual(builder.actions["TEST_Save"].index, 0)
+        table = builder.menu(document.root)
+        parent_rows = blocks(resources.added["ITEM", table])
+        self.assertEqual(word(parent_rows[2][1], 0x30), builder.fields[0].parent_item)
+        self.assertEqual(word(parent_rows[1][1], 0x30), builder.fields[1].parent_item)
+        self.assertEqual(
+            word(parent_rows[0][1], 0x30), builder.actions["TEST_Save"].item
+        )
         events = b"".join(
             bytes(data.data) if hasattr(data, "data") else data
             for (kind, _), data in resources.added.items()
             if kind == "CEVT"
         )
-        self.assertIn(b"TEST_Set_00_00", events)
-        self.assertIn(b"TEST_Set_01_01", events)
+        self.assertIn(b"FIRST", events)
+        self.assertIn(b"SECOND", events)
+        self.assertNotIn(b"TEST_Set_", events)
 
 
 if __name__ == "__main__":

@@ -12,24 +12,9 @@ def generate(catalog, directory):
     ]
     maximum = 0
     for a in catalog["bitmaps"]:
-        values = [
-            a[k]
-            for k in (
-                "bytes",
-                "data_offset",
-                "pixels_offset",
-                "palette_colors",
-                "stride",
-                "width",
-                "height",
-                "depth",
-                "crc32",
-            )
-        ]
         lines.append(
             f"    {{(unsigned char *)({a['offset']:#x} + OSOS_RUNTIME_BASE - OSOS_LOAD_OFFSET), "
-            + ", ".join(str(v) + "u" for v in values)
-            + "},"
+            f"{a['bytes']}u, {a['crc32']}u}},"
         )
         maximum += RECORD.size + ((a["bytes"] - a["data_offset"] + 3) & ~3)
     lines += [

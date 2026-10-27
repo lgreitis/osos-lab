@@ -1,65 +1,122 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-
 #include "ui.h"
 #include "osos.h"
+#include "cfw.h"
 
-static int set_label(uint32_t table, unsigned int index, uint32_t source)
+static void notify(uint32_t property)
 {
-    uint32_t size;
-    unsigned char *data =
-        osos_resource_get(osos_resource_bank(), 0x4954454d, table, &size);
-    /* Generated ITEM blocks have an eight-byte header and a 0x98-byte body. */
-    unsigned int offset = 12 + index * 0xa0;
-    if (!data || size < offset + 0x98)
-        return 0;
-    if (*(uint32_t *)(data + offset + 0x68) == source)
-        return 0;
-    *(uint32_t *)(data + offset + 0x68) = source;
-    return 1;
+    void *model = ((void *(*)(uint32_t))OSOS_UI_SERVICE_GET)(0x8900);
+    if (model)
+        osos_model_notify(model, OSOS_NOTIFY_ALL, property);
 }
 
-void cfw_ui_refresh(const struct cfw_ui_field *field, unsigned int selected)
+void cfw_ui_refresh(const struct cfw_ui_field *field)
 {
-    if (selected >= field->count)
-        return;
-    set_label(field->parent_table, field->parent_index, field->summaries[selected]);
-    for (unsigned int i = 0; i < field->count; i++)
-        set_label(field->selector_table, i,
-                  i == selected ? field->marked[i] : field->labels[i]);
-    osos_menu_item_changed(field->parent_item);
+    notify(field->property);
+    notify(field->summary_property);
 }
 
 void cfw_ui_status(const struct cfw_ui_action *action, unsigned int status)
 {
     if (status >= action->count)
         return;
-    set_label(action->table, action->index, action->labels[status]);
-    osos_menu_item_changed(action->item);
+    *action->status = status;
+    notify(action->property);
 }
 
-int cfw_ui_selection(const char *prefix, const char *action,
-                     const struct cfw_ui_field *fields, unsigned int count,
-                     unsigned int *field, unsigned int *value)
+int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
-    unsigned int i = 0;
-    if (!action)
-        return 0;
-    while (prefix[i] && action[i] == prefix[i])
-        i++;
-    if (prefix[i])
-        return 0;
-    const char *digits = action + i;
-    for (unsigned int n = 0; n < 5; n++) {
-        if (n == 2) {
-            if (digits[n] != '_')
+    for (uint32_t i = 0; i < cfw_ui_action_count; i++) {
+        const struct cfw_ui_action *action = cfw_ui_actions[i];
+        if (property == action->property) {
+            if (type == OSOS_PROPERTY_STRING)
+                *out = (uintptr_t)action->labels[*action->status];
+            else if (type == OSOS_PROPERTY_COUNT)
+                *out = 1;
+            else
                 return 0;
-        } else if (digits[n] < '0' || digits[n] > '9') {
-            return 0;
+            return 1;
         }
     }
-    if (digits[5])
-        return 0;
-    *field = (digits[0] - '0') * 10 + digits[1] - '0';
-    *value = (digits[3] - '0') * 10 + digits[4] - '0';
-    return *field < count && *value < fields[*field].count;
+    for (uint32_t i = 0; i < cfw_ui_field_count; i++) {
+        const struct cfw_ui_field *field = cfw_ui_fields[i];
+        uint32_t selected = field->model->values[field->slot];
+        if (selected >= field->count)
+            selected = field->default_value;
+        if (property == field->summary_property && type == OSOS_PROPERTY_COUNT) {
+            *out = 1;
+            return 1;
+        }
+        if (property == field->summary_property && type == OSOS_PROPERTY_STRING) {
+            char *text = field->state->summary;
+            const char *source = field->title;
+            while (*source)
+                *text++ = *source++;
+            *text++ = ':';
+            *text++ = ' ';
+            source = field->labels[selected];
+            do {
+                *text++ = *source;
+            } while (*source++);
+            *out = (uintptr_t)field->state->summary;
+            return 1;
+        }
+        if (property != field->property)
+            continue;
+        if (!field->numeric && type == OSOS_PROPERTY_COUNT) {
+            *out = field->count;
+        } else if (field->numeric && type == 0x436e746c) { /* Cntl */
+            field->state->value = selected;
+            field->state->minimum = 0;
+            field->state->maximum = field->count - 1;
+            *out = (uintptr_t)&field->state->value;
+        } else if (field->numeric && type == OSOS_PROPERTY_STRING) {
+            *out = (uintptr_t)field->labels[selected];
+        } else {
+            return 0;
+        }
+        return 1;
+    }
+    return 0;
+}
+
+int cfw_ui_indexed_property(uint32_t type, uint32_t property, uint32_t index,
+                            uintptr_t *out)
+{
+    for (uint32_t i = 0; i < cfw_ui_field_count; i++) {
+        const struct cfw_ui_field *field = cfw_ui_fields[i];
+        if (property != field->property || field->numeric || index >= field->count)
+            continue;
+        if (type == OSOS_PROPERTY_STRING) {
+            *out = (uintptr_t)field->labels[index];
+        } else if (type == OSOS_RESOURCE_BMAP) {
+            *out = index == field->model->values[field->slot]
+                       ? osos_ui_bitmap(OSOS_MENU_CHECKED_BITMAP)
+                       : 0;
+        } else {
+            return 0;
+        }
+        return 1;
+    }
+    return index == 0 ? cfw_ui_property(type, property, out) : 0;
+}
+
+int cfw_ui_handle_action(const char *action, uint32_t argument)
+{
+    for (uint32_t i = 0; i < cfw_ui_field_count; i++) {
+        const struct cfw_ui_field *field = cfw_ui_fields[i];
+        if (field->numeric || !cfw_string_equal(action, field->action))
+            continue;
+        if (argument != OSOS_ACTION_SUPPORT_QUERY) {
+            void *selection = ((void *(*)(void))OSOS_UI_SELECTION)();
+            uint32_t index =
+                ((uint32_t(*)(void *))osos_method(selection, 0x168))(selection);
+            if (index < field->count) {
+                field->model->change(field->slot, index);
+                field->model->commit();
+            }
+        }
+        return 1;
+    }
+    return 0;
 }

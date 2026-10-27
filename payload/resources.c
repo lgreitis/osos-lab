@@ -3,6 +3,25 @@
 #include "resources.h"
 #include "osos.h"
 #include "patch.h"
+#include "ui.h"
+
+PATCH_ARM void cfw_ui_append_resource_block(void *list, void *data, uint32_t size,
+                                            uint32_t metadata)
+{
+    typedef void (*append_fn)(void *, void *, uint32_t, uint32_t);
+    append_fn append = (append_fn)OSOS_RESOURCE_BLOCK_APPEND;
+    append(list, data, size, metadata);
+    const uint32_t *selectors = list;
+    if (selectors[2] != 0x4954454d || size < 0x34)
+        return;
+    /* Registration and live menus borrow the same mutable row payloads. */
+    uint32_t item = ((const uint32_t *)data)[0x30 / 4];
+    for (uint32_t i = 0; i < cfw_ui_menu_item_count; i++) {
+        const struct cfw_ui_menu_item *entry = &cfw_ui_menu_items[i];
+        if (entry->table == selectors[3] && entry->after == item)
+            append(list, entry->data, entry->size, entry->metadata);
+    }
+}
 
 const void *cfw_resource_bitmap(uint32_t id)
 {
@@ -41,6 +60,7 @@ PATCH_ARM const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size
 
 void cfw_install_resources(void *bank)
 {
+    cfw_ui_register_controllers();
     for (uint32_t i = 0; i < cfw_resource_name_count; i++) {
         struct osos_string name;
         osos_string_init(&name, cfw_resource_names[i].name);
@@ -55,6 +75,4 @@ void cfw_install_resources(void *bank)
         osos_resource_set(bank, resource->type, resource->id, resource->data,
                           resource->size);
     }
-    /* The native visibility registry was populated before these overrides. */
-    ((void (*)(uint32_t))OSOS_MENU_ITEMS_REGISTER_TYPE)(0x4954454d);
 }

@@ -25,6 +25,58 @@ static unsigned char *theme;
 static uint32_t record_count, record_layout;
 static int active;
 
+struct bitmap_layout {
+    uint32_t start, pixels, colors, stride, width, height, depth;
+};
+
+static uint32_t read16(const unsigned char *data)
+{
+    return data[0] | (uint32_t)data[1] << 8;
+}
+
+static uint32_t read32(const unsigned char *data)
+{
+    return read16(data) | read16(data + 2) << 16;
+}
+
+/* Theme records preserve the native header and palette count. */
+static int bitmap_layout(const struct cfw_bitmap_asset *asset, struct bitmap_layout *b)
+{
+    const unsigned char *data = asset->data;
+    if (asset->size < 28)
+        return 0;
+    b->start = read32(data + 24) == asset->size - 28 ? 28 : 32;
+    if (asset->size < b->start || read32(data + b->start - 4) != asset->size - b->start)
+        return 0;
+    uint32_t format = read16(data);
+    b->depth = read16(data + 6);
+    uint32_t depth = format == 4                         ? 4
+                     : format == 8 || format == 0x64     ? 8
+                     : format == 0x65 || format == 0x565 ? 16
+                     : format == 0x1888                  ? 32
+                                                         : 0;
+    b->stride = read16(data + 4);
+    b->height = read32(data + 16);
+    b->width = read32(data + 20);
+    if (!depth || b->depth != depth || !b->width || !b->height || !b->stride ||
+        b->width > b->stride * 8 / depth)
+        return 0;
+    b->colors = 0;
+    b->pixels = b->start;
+    if (format == 0x64 || format == 0x65) {
+        if (asset->size - b->start < 4)
+            return 0;
+        b->colors = read32(data + b->start);
+        b->start += 4;
+        if (!b->colors || b->colors > (1u << depth) ||
+            b->colors > (asset->size - b->start) / 4)
+            return 0;
+        b->pixels = b->start + b->colors * 4;
+    }
+    return b->height <= (asset->size - b->pixels) / b->stride &&
+           b->pixels + b->stride * b->height == asset->size;
+}
+
 static uint32_t checksum(uint32_t crc, const unsigned char *data, uint32_t size)
 {
     for (uint32_t i = 0; i < size; i++) {
@@ -51,23 +103,24 @@ static int valid_records(uint32_t size, uint32_t count)
 
         previous = record->asset;
         const struct cfw_bitmap_asset *asset = &cfw_bitmap_assets[record->asset];
-        if (record->offset != asset->start ||
-            record->size != asset->size - asset->start)
+        struct bitmap_layout bitmap;
+        if (!bitmap_layout(asset, &bitmap) || record->offset != bitmap.start ||
+            record->size != asset->size - bitmap.start)
             return 0;
-        uint32_t crc = checksum(UINT32_MAX, asset->data, asset->start);
-        crc = checksum(crc, active ? record->data : asset->data + asset->start,
+        uint32_t crc = checksum(UINT32_MAX, asset->data, bitmap.start);
+        crc = checksum(crc, active ? record->data : asset->data + bitmap.start,
                        record->size);
         if (~crc != asset->crc)
             return 0;
-        if (asset->colors) {
-            for (uint32_t y = 0; y < asset->height; y++) {
-                for (uint32_t x = 0; x < asset->width; x++) {
-                    uint32_t at = asset->pixels - asset->start + y * asset->stride +
-                                  x * (asset->depth / 8);
+        if (bitmap.colors) {
+            for (uint32_t y = 0; y < bitmap.height; y++) {
+                for (uint32_t x = 0; x < bitmap.width; x++) {
+                    uint32_t at = bitmap.pixels - bitmap.start + y * bitmap.stride +
+                                  x * (bitmap.depth / 8);
                     uint32_t index = record->data[at];
-                    if (asset->depth == 16)
+                    if (bitmap.depth == 16)
                         index |= (uint32_t)record->data[at + 1] << 8;
-                    if (index >= asset->colors)
+                    if (index >= bitmap.colors)
                         return 0;
                 }
             }

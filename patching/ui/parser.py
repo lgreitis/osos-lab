@@ -40,8 +40,8 @@ def range_label(number, scale, signed, suffix):
 
 
 def validate_values(value):
-    if not 1 <= len(value.labels) <= 100:
-        raise ValueError(f"Expected 1..100 choices: {value.name}")
+    if not 1 <= len(value.labels) <= 1024:
+        raise ValueError(f"Expected 1..1024 choices: {value.name}")
     if len(set(value.numbers)) != len(value.numbers):
         raise ValueError(f"Duplicate UI choice value: {value.name}")
 
@@ -146,11 +146,23 @@ class Parser:
         elif node.tag == "screen-event":
             document.events.append(self.parse_screen_event(node))
         elif node.tag == "music-entry":
-            attributes(node, "id title after screen layout open highlight")
+            attributes(
+                node,
+                "id title after screen layout open highlight",
+                "main-after main-visible music-visible",
+            )
             if document.music_entry is not None:
                 raise ValueError("Duplicate Music menu entry")
             self.identifier(node)
             document.music_entry = dict(node.attrib)
+            for attribute, default in (
+                ("main-visible", "false"),
+                ("music-visible", "true"),
+            ):
+                value = node.get(attribute, default)
+                if value not in ("true", "false"):
+                    raise ValueError(f"Invalid {attribute} on <music-entry>")
+                document.music_entry[attribute] = value
 
     def parse_values(self, node):
         attributes(node, "id", children=("value",))
@@ -164,6 +176,7 @@ class Parser:
     def parse_range(self, node):
         attributes(node, "id first last step", "scale suffix signed")
         value = Values(self.identifier(node))
+        value.numeric = True
         first, last, step = (integer(node, key) for key in ("first", "last", "step"))
         scale = integer(node, "scale", "1")
         signed = node.get("signed", "false")
@@ -175,8 +188,8 @@ class Parser:
             or signed not in ("true", "false")
         ):
             raise ValueError(f"Invalid UI range: {value.name}")
-        if (last - first) // step + 1 > 100:
-            raise ValueError("UI selectors support at most 100 choices")
+        if (last - first) // step + 1 > 1024:
+            raise ValueError("UI selectors support at most 1024 choices")
         value.numbers = list(range(first, last + (1 if step > 0 else -1), step))
         value.labels = [
             range_label(number, scale, signed == "true", node.get("suffix", ""))

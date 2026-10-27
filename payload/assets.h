@@ -5,7 +5,7 @@
 
 struct cfw_bitmap_asset {
     unsigned char *data;
-    uint32_t size, start, pixels, colors, stride, width, height, depth, crc;
+    uint32_t size, crc;
 };
 
 extern const struct cfw_bitmap_asset cfw_bitmap_assets[];

@@ -34,20 +34,6 @@ cfw_browser_destroy_original:
     mov r4, r0
     ldr pc, =OSOS_MODEL_DESTROY_RESUME
 
-.global cfw_main_menu_reset_original
-.type cfw_main_menu_reset_original,%function
-cfw_main_menu_reset_original:
-    push {r4, r5, r6, r7, r8, r9, r10, lr}
-    mov r9, r0
-    ldr pc, =OSOS_MAIN_MENU_RESET_RESUME
-
-.global cfw_music_menu_reset_original
-.type cfw_music_menu_reset_original,%function
-cfw_music_menu_reset_original:
-    push {r4, r5, r6, r7, r8, r9, r10, lr}
-    mov r8, r0
-    ldr pc, =OSOS_MUSIC_MENU_RESET_RESUME
-
 .global cfw_album_artist_filter_hook
 .type cfw_album_artist_filter_hook,%function
 cfw_album_artist_filter_hook:

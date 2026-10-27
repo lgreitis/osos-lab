@@ -119,23 +119,25 @@ PATCH_CALL(OSOS_ALBUM_ARTWORK_CREATE_CALL, OSOS_ALBUM_ARTWORK_CREATE,
 PATCH_JUMP(OSOS_MODEL_DESTROY_ENTRY, 0xe92d4010, 0xe1a04000,
            cfw_album_artists_destroy_model);
 PATCH_POINTER(OSOS_SETTINGS_INDEXED_PROPERTY_SLOT, OSOS_SETTINGS_INDEXED_PROPERTY,
-              cfw_album_artists_menu_item);
-PATCH_CALL_WORD(OSOS_MAIN_MENU_INDEX_CALL, 0xe12fff31,
-                cfw_album_artists_main_menu_index);
-PATCH_CALL_WORD(OSOS_MUSIC_MENU_INDEX_CALL, 0xe12fff31,
-                cfw_album_artists_music_menu_index);
-PATCH_CALL(OSOS_MAIN_MENU_TOGGLE_CALL, OSOS_MAIN_MENU_TOGGLE,
-           cfw_album_artists_main_menu_toggle);
+              cfw_settings_indexed_property);
+PATCH_CALL_WORD(OSOS_MAIN_MENU_INDEX_CALL, 0xe12fff31, cfw_ui_main_menu_index);
+PATCH_CALL_WORD(OSOS_MUSIC_MENU_INDEX_CALL, 0xe12fff31, cfw_ui_music_menu_index);
+PATCH_CALL(OSOS_MAIN_MENU_TOGGLE_CALL, OSOS_MAIN_MENU_TOGGLE, cfw_ui_main_menu_toggle);
 PATCH_CALL(OSOS_MUSIC_MENU_TOGGLE_CALL, OSOS_MUSIC_MENU_TOGGLE,
-           cfw_album_artists_music_menu_toggle);
-PATCH_CALL(OSOS_MUSIC_MENU_APPLY_CALL, OSOS_MUSIC_MENU_APPLY,
-           cfw_album_artists_menu_load);
-PATCH_JUMP(OSOS_MAIN_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a09000,
-           cfw_album_artists_main_menu_reset);
+           cfw_ui_music_menu_toggle);
+PATCH_CALL(OSOS_MUSIC_MENU_APPLY_CALL, OSOS_MUSIC_MENU_APPLY, cfw_ui_visibility_load);
+PATCH_JUMP(OSOS_MAIN_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a09000, cfw_ui_main_menu_reset);
 PATCH_JUMP(OSOS_MUSIC_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a08000,
-           cfw_album_artists_music_menu_reset);
+           cfw_ui_music_menu_reset);
 
 /* Resources */
+PATCH_CALL(OSOS_RESOURCE_BLOCK_APPEND_CALL, OSOS_RESOURCE_BLOCK_APPEND,
+           cfw_ui_append_resource_block);
+PATCH_CALL(OSOS_UI_LOAD_EVENTS_CALL, OSOS_UI_LOAD_LAYOUT_EVENTS, cfw_ui_load_events);
+PATCH_CALL(OSOS_UI_TEMPLATE_EVENTS_GET_CALL, OSOS_RESOURCE_GET, cfw_ui_event_resource);
+PATCH_CALL(OSOS_UI_LAYOUT_EVENTS_GET_CALL, OSOS_RESOURCE_GET, cfw_ui_event_resource);
+PATCH_CALL(OSOS_UI_CONTROLLER_EVENTS_GET_CALL, OSOS_RESOURCE_GET,
+           cfw_ui_event_resource);
 PATCH_CALL(OSOS_RESOURCE_INIT_CALL, OSOS_RESOURCE_BANK_INIT_OVERRIDES,
            cfw_resource_hook);
 PATCH_CALL(OSOS_RESOURCE_NEXT_TEMPLATE_CALL, OSOS_RESOURCE_NEXT, cfw_next_template);

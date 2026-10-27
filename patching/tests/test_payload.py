@@ -64,7 +64,9 @@ class PayloadTests(unittest.TestCase):
             for name in (
                 "album_artist",
                 "album_artists_index",
-                "album_artists_menu",
+                "ui_visibility",
+                "ui_model",
+                "eq_preferences",
                 "menu_resources",
                 "bitmap_assets",
                 "dark_mode",

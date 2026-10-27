@@ -38,6 +38,14 @@
     "SettingsInfo_Template_Brightness_Layout": 229444665,
     "SettingsMenus_Brightness_Layout": 229444740,
     "Settings_Icon_View": 229444656,
-    "Settings_InfoDetail_View": 229444657
+    "Settings_InfoDetail_View": 229444657,
+    "Settings_EQ_Items": 71,
+    "Settings_Brightness_Screen": 229444760,
+    "Settings_Brightness_Screen_Default": 229444761,
+    "Settings_Brightness_Template": 229444698,
+    "Settings_Brightness_Bar": 229444704,
+    "Settings_Brightness_Value_Text": 229444705,
+    "NowPlaying_StatusBar_Template": 229442060,
+    "NowPlaying_StatusBar_Text_View": 229442062
   }
 }

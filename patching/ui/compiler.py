@@ -59,10 +59,8 @@ class DocumentCompiler:
             screen_id,
             resources.stock("SCST", "Settings_Legal_Screen"),
         )
-        resources.add(
-            "CEVT",
-            screen_id,
-            resources.stock("CEVT", "Settings_Legal_Screen"),
+        resources.alias_events(
+            "CEVT", screen_id, resources.native("Settings_Legal_Screen")
         )
         layouts = blocks(resources.stock("SLst", "Settings_Legal_Screen"))
         put(layouts[0][1], 0, layout_id)
@@ -109,6 +107,11 @@ class DocumentCompiler:
         put(data, 0x68, title)
         return item, (0, data)
 
+    def model_row(self, property_id):
+        item, row = self.row(self.model_source(property_id))
+        row[1][0x94:0x95] = b"\x01"
+        return item, row
+
     def page(self, name, title, rows, events):
         resources = self.resources
         screen = resources.allocate(name + "_Screen")
@@ -126,11 +129,13 @@ class DocumentCompiler:
             screen,
             resources.stock("SCST", "SettingsMenus_Main_Screen"),
         )
-        resources.add("CEVT", screen, struct.pack("<I", len(events)) + b"".join(events))
+        resources.set_events(
+            "CEVT", screen, struct.pack("<I", len(events)) + b"".join(events)
+        )
         layouts = blocks(resources.stock("SLst", "Notes_List_Screen_Alt"))
         put(layouts[0][1], 0, layout)
         resources.add("SLst", screen, pack_blocks(layouts))
-        resources.replace(
+        resources.set_events(
             "SEVT",
             layout,
             struct.pack("<I", 2)
@@ -149,51 +154,107 @@ class DocumentCompiler:
         )
 
     def selector(self, item):
-        values = self.document.values[item.choices].labels
-        labels = [self.source(value) for value in values]
-        marked = [self.source(value + " *") for value in values]
-        summaries = [self.source(item.title + ": " + value) for value in values]
-        rows, events, items = [], [], []
-        for index, label in enumerate(labels):
-            row_id, row = self.row(
-                marked[index] if index == item.default_index else label
+        resources = self.resources
+        property_id, summary = resources.allocate(), resources.allocate()
+        if self.document.values[item.choices].numeric:
+            self.range_page(item, property_id)
+        else:
+            kind, prototype = blocks(resources.stock("ITEM", "Settings_EQ_Items"))[0]
+            row = Resource(prototype)
+            row_id = resources.allocate()
+            put(row, 0x30, row_id)
+            put(row, 0x68, self.model_source(property_id))
+            row[0x94:0x95] = b"\x01"
+            self.page(
+                item.name,
+                item.title,
+                [(kind, row)],
+                [menu_event(row_id, "chosen", item.name, "navigator.PopTopScreen", [])],
             )
-            items.append(row_id)
-            rows.append(row)
-            events.append(
-                menu_event(
-                    row_id,
-                    "chosen",
-                    f"{self.document.root.name}_Set_{item.slot:02d}_{index:02d}",
-                    "navigator.PopTopScreen",
-                    [],
-                )
-            )
-        table = self.page(item.name, item.title, rows, events)
-        parent_item, parent_row = self.row(summaries[item.default_index])
+        parent_item, parent_row = self.model_row(summary)
         self.fields[item.slot] = FieldBinding(
             parent_item=parent_item,
-            selector_table=table,
+            property=property_id,
+            summary_property=summary,
+            screen=resources.names[item.name + "_Screen"],
             default=item.default_index,
-            labels=labels,
-            marked=marked,
-            summaries=summaries,
-            items=items,
         )
         return parent_row, self.push(parent_item, item.name)
 
+    def model_source(self, property_id):
+        source = self.resources.allocate()
+        self.resources.add(
+            "SORC",
+            source,
+            pack_blocks([(0x534F5243, struct.pack("<III", 0x8900, property_id, 1))]),
+        )
+        return source
+
+    def range_page(self, item, property_id):
+        resources = self.resources
+        template_name = "CFW_Range_Template"
+        if template_name not in resources.names:
+            template = resources.allocate(template_name)
+            views = [
+                (kind, data)
+                for kind, data in blocks(
+                    resources.stock("View", "Settings_Brightness_Template")
+                )
+                if kind in (0x70676F67, 0x74657874)
+            ]
+            resources.add("View", template, pack_blocks(views))
+            resources.add(
+                "TMLT",
+                template,
+                resources.stock("TMLT", "Settings_Brightness_Template"),
+            )
+        template = resources.names[template_name]
+        screen = resources.allocate(item.name + "_Screen")
+        layout = resources.allocate(item.name + "_Layout")
+        resources.add("SCST", screen, b"CFWRange")
+        resources.set_events("CEVT", screen, struct.pack("<I", 0))
+        source = self.model_source(property_id)
+        binding = pack_blocks(
+            [
+                (
+                    resources.native(view),
+                    pack_blocks([(0x534F5243, struct.pack("<I", source))]),
+                )
+                for view in (
+                    "Settings_Brightness_Bar",
+                    "Settings_Brightness_Value_Text",
+                )
+            ]
+        )
+        resources.clone_layout(
+            resources.native("Settings_Brightness_Screen_Default"),
+            layout,
+            resources.source(item.title),
+            {resources.native("Settings_Brightness_Template"): template},
+            view_bindings={resources.native("Settings_Brightness_Template"): binding},
+        )
+        layouts = blocks(resources.stock("SLst", "Settings_Brightness_Screen"))
+        put(layouts[0][1], 0, layout)
+        resources.add("SLst", screen, pack_blocks(layouts))
+        resources.set_events(
+            "SEVT",
+            layout,
+            struct.pack("<I", 3)
+            + event("button.select.up", "navigator.PopTopScreen")
+            + event("button.menu.up", "navigator.PopTopScreen")
+            + event("button.menu.pressandhold", "navigator.PopToMainScreen"),
+        )
+
     def menu(self, menu):
         rows, events = [], []
-        for index, item in enumerate(menu.items):
-            row, chosen = self.menu_item(menu, item, index)
+        for item in menu.items:
+            row, chosen = self.menu_item(menu, item)
             rows.append(row)
             if chosen is not None:
                 events.append(chosen)
-        table = self.page(menu.name, menu.title, rows, events)
-        self.bind_menu_table(menu, table)
-        return table
+        return self.page(menu.name, menu.title, rows, events)
 
-    def menu_item(self, menu, item, index):
+    def menu_item(self, menu, item):
         if item.kind == "selector":
             return self.selector(item)
         if item.kind == "info":
@@ -205,12 +266,15 @@ class DocumentCompiler:
             # Native text rows omit the submenu arrow; no chosen event is bound.
             put(row[1], 0x60, 2)
             return row, None
-        row_id, row = self.row(self.source(item.title))
         if item.kind == "menu":
+            row_id, row = self.row(self.source(item.title))
             chosen = self.push(row_id, item.name)
             self.menu(item)
         else:
-            self.actions[item.name] = ActionBinding(item=row_id, index=index)
+            property_id = self.resources.allocate()
+            row_id, row = self.model_row(property_id)
+            put(row[1], 0x60, 2)
+            self.actions[item.name] = ActionBinding(item=row_id, property=property_id)
             chosen = menu_event(
                 row_id,
                 "chosen",
@@ -219,14 +283,6 @@ class DocumentCompiler:
                 [menu.name + "_Layout"],
             )
         return row, chosen
-
-    def bind_menu_table(self, menu, table):
-        for index, item in enumerate(menu.items):
-            if item.kind == "selector":
-                self.fields[item.slot].parent_table = table
-                self.fields[item.slot].parent_index = index
-            elif item.kind == "action":
-                self.actions[item.name].table = table
 
     def insert_settings(self):
         if not self.document.after:
@@ -263,24 +319,10 @@ class DocumentCompiler:
 
     def insert_settings_row(self, item):
         document, resources = self.document, self.resources
-        items = blocks(
-            resources.current("ITEM", resources.native("SettingsMenu_Items"))
-        )
-        anchor = next(
-            (
-                i
-                for i, (_, data) in enumerate(items)
-                if word(data, 0x30) == resources.native(document.after)
-            ),
-            None,
-        )
-        if anchor is None:
-            raise ValueError(
-                f"Settings anchor {document.after} missing for {document.root.name}"
-            )
-        items.insert(anchor + 1, item)
-        resources.replace(
-            "ITEM", resources.native("SettingsMenu_Items"), pack_blocks(items)
+        resources.insert_menu_item(
+            resources.native("SettingsMenu_Items"),
+            resources.native(document.after),
+            item,
         )
 
     def add_settings_preview(self, title):
@@ -295,7 +337,7 @@ class DocumentCompiler:
         if document.preview == "image":
             data = self.image_preview(data)
         resources.add("VLyt", preview_view, data)
-        resources.add("TEVT", preview_view, resources.original["TEVT", template])
+        resources.alias_events("TEVT", preview_view, template)
         resources.clone_layout(
             layout,
             preview,
@@ -383,10 +425,7 @@ class DocumentCompiler:
 
     def finish_bindings(self):
         for item in self.document.actions:
-            self.actions[item.name].labels = [
-                self.source(label)
-                for label in self.document.values[item.choices].labels
-            ]
+            self.actions[item.name].labels = self.document.values[item.choices].labels
 
 
 def compile_document(resources, document, text=""):
@@ -426,8 +465,8 @@ def compile_music_entry(resources, entry, compiled):
     title_id = resources.allocate(name + "_Title")
     title = resources.source(entry["title"], title_id)
     resources.clone_layout(resources.native(entry["layout"]), layout, title)
-    for kind in ("SCST", "CEVT"):
-        resources.add(kind, screen, resources.stock(kind, entry["screen"]))
+    resources.add("SCST", screen, resources.stock("SCST", entry["screen"]))
+    resources.alias_events("CEVT", screen, resources.native(entry["screen"]))
     layouts = blocks(resources.stock("SLst", entry["screen"]))
     if len(layouts) != 1:
         raise ValueError("Music entry expects a single-layout native screen")
@@ -437,12 +476,26 @@ def compile_music_entry(resources, entry, compiled):
         {name + "_Screen": screen, name + "_Layout": layout, name + "_Title": title_id}
     )
 
+    visibility = {
+        "id": name,
+        "title": title_id,
+        "items": {},
+        "anchors": {},
+        "defaults": 0,
+    }
     for menu, anchor_name, visible in (
-        ("Music", entry["after"], 1),
-        ("Main", "MainMenu_List_Artists", 0),
+        ("Music", entry["after"], entry["music-visible"] == "true"),
+        (
+            "Main",
+            entry.get(
+                "main-after",
+                entry["after"].replace("MusicMenu_ListItem_", "MainMenu_List_"),
+            ),
+            entry["main-visible"] == "true",
+        ),
     ):
         table = resources.native(menu + "Menu_Items")
-        rows = blocks(resources.current("ITEM", table))
+        rows = blocks(resources.stock("ITEM", table))
         anchor = next(
             (
                 i
@@ -456,13 +509,15 @@ def compile_music_entry(resources, entry, compiled):
         kind, prototype = rows[anchor]
         row = Resource(prototype)
         item = resources.allocate(name + "_" + menu + "Item")
+        visibility["items"][menu] = item
+        visibility["anchors"][menu] = resources.native(anchor_name)
+        visibility["defaults"] |= int(visible) << (menu == "Music")
         compiled.string_ids[name + "_" + menu + "Item"] = item
         put(row, 0x30, item)
         put(row, 0x60, 5)
         put(row, 0x64, visible)
         put(row, 0x68, title)
-        rows.insert(anchor + 1, (kind, row))
-        resources.replace("ITEM", table, pack_blocks(rows))
+        resources.insert_menu_item(table, resources.native(anchor_name), (kind, row))
         events = []
         for event_name, handler in (
             ("chosen", entry["open"]),
@@ -477,3 +532,4 @@ def compile_music_entry(resources, entry, compiled):
         resources.extend_events(
             "CEVT", resources.native(f"MainMenus_{menu}_Screen"), events
         )
+    resources.visibility.append(visibility)

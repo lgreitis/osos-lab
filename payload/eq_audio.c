@@ -21,12 +21,9 @@ int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS])
             const uint32_t *v = &values[1 + band * 4];
             int gain = cfw_eq_gain[v[3]];
             int precut = -cfw_eq_precut_values[values[CFW_EQ_PRECUT]];
-            /* UI values use tenths of dB; the DSP accepts half-dB steps. */
-            if (gain % 5 || precut % 5)
-                return 0;
             if (!cfw_eq_coefficients(next[rate][band], cfw_eq_types[v[0]],
-                                     cfw_eq_frequencies[v[1]], cfw_eq_q[v[2]], gain / 5,
-                                     band == 0 ? precut / 5 : 0, rate ? 48000 : 44100))
+                                     cfw_eq_frequencies[v[1]], cfw_eq_q[v[2]], gain,
+                                     band == 0 ? precut : 0, rate ? 48000 : 44100))
                 return 0;
         }
     }

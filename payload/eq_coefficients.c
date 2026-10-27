@@ -30,23 +30,23 @@ static void sine_cosine(double x, double *sine, double *cosine)
 }
 
 int cfw_eq_coefficients(int32_t out[5], unsigned int type, unsigned int hz,
-                        unsigned int q_tenths, int gain_half_db,
-                        unsigned int precut_half_db, unsigned int rate)
+                        unsigned int q_tenths, int gain_tenths_db,
+                        unsigned int precut_tenths_db, unsigned int rate)
 {
     if (type > CFW_EQ_HIGH_SHELF || hz < 20 || hz > 20000 || q_tenths < 3 ||
-        q_tenths > 40 || gain_half_db < -24 || gain_half_db > 24 ||
-        precut_half_db > 20 || (rate != 44100 && rate != 48000))
+        q_tenths > 40 || gain_tenths_db < -120 || gain_tenths_db > 120 ||
+        precut_tenths_db > 100 || (rate != 44100 && rate != 48000))
         return 0;
 
     double b0 = 1.0, b1 = 0.0, b2 = 0.0, a0 = 1.0, a1 = 0.0, a2 = 0.0;
-    double attenuation = exponential(-2.302585092994045684 * precut_half_db / 40.0);
-    if (type != CFW_EQ_OFF && gain_half_db != 0) {
+    double attenuation = exponential(-2.302585092994045684 * precut_tenths_db / 200.0);
+    if (type != CFW_EQ_OFF && gain_tenths_db != 0) {
         double s, c;
         sine_cosine(6.283185307179586477 * hz / rate, &s, &c);
-        double a = exponential(2.302585092994045684 * gain_half_db / 80.0);
+        double a = exponential(2.302585092994045684 * gain_tenths_db / 400.0);
         double alpha = s * 5.0 / q_tenths;
         double beta =
-            2.0 * exponential(2.302585092994045684 * gain_half_db / 160.0) * alpha;
+            2.0 * exponential(2.302585092994045684 * gain_tenths_db / 800.0) * alpha;
 
         /* RBJ Audio EQ Cookbook, using Q for both bells and shelves.
          * https://www.w3.org/TR/audio-eq-cookbook/ */

@@ -14,6 +14,14 @@ struct cfw_resource_name {
     uint32_t id;
 };
 
+struct cfw_ui_menu_item {
+    uint32_t table, after, size, metadata;
+    unsigned char *data;
+};
+
+extern const struct cfw_ui_menu_item cfw_ui_menu_items[];
+extern const uint32_t cfw_ui_menu_item_count;
+
 extern const struct cfw_resource cfw_resources[];
 extern const uint32_t cfw_resource_count;
 extern const struct cfw_resource_name cfw_resource_names[];
