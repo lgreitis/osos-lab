@@ -13,15 +13,15 @@
 #define OSOS_NOTIFY_ALL 0x2a2a2a2a
 #define OSOS_ACTION_SUPPORT_QUERY 0xdeadbeef
 #define OSOS_MENU_CHECKED_BITMAP 17
-#define OSOS_UI_SERVICE_GET service
-#define OSOS_UI_SELECTION get_selection
-#define OSOS_WHEEL_DECODE wheel_decode
-#define OSOS_WHEEL_STEP wheel_step
-#define OSOS_CONTROLLER_HANDLE_EVENT delegate_event
-#define OSOS_CONTROLLER_DEACTIVATE deactivate
-#define OSOS_CONTROLLER_CREATE_SCREEN create_screen
-#define OSOS_CONTROLLER_REGISTRY get_registry
-#define OSOS_UI_REGISTER_CONTROLLERS register_controllers
+#define osos_ui_service_get service
+#define osos_ui_selection get_selection
+#define osos_wheel_decode wheel_decode
+#define osos_wheel_step wheel_step
+#define osos_controller_handle_event delegate_event
+#define osos_controller_deactivate deactivate
+#define osos_controller_create_screen create_screen
+#define osos_controller_registry get_registry
+#define osos_ui_register_controllers register_controllers
 
 static uint32_t values[] = {0, 1}, selected;
 static unsigned changes, commits, notifications, delegated, deactivated;
@@ -65,15 +65,9 @@ static void *get_selection(void)
     return &selected;
 }
 
-static uint32_t selected_index(void *p)
+static uint32_t osos_selection_index(void *p)
 {
     return *(uint32_t *)p;
-}
-
-static uintptr_t osos_method(void *p, unsigned offset)
-{
-    assert(p == &selected && offset == 0x168);
-    return (uintptr_t)selected_index;
 }
 
 static uintptr_t osos_ui_bitmap(uint32_t id)

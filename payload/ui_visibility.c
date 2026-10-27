@@ -49,8 +49,7 @@ static void save_preferences(const struct cfw_ui_visibility *entry)
 
 static void apply(const struct cfw_ui_visibility *entry, unsigned menu)
 {
-    ((int (*)(uint32_t, uint32_t))OSOS_MENU_ITEM_SET_VISIBLE)(
-        entry->items[menu], (*entry->visible >> menu) & 1);
+    osos_menu_item_set_visible(entry->items[menu], (*entry->visible >> menu) & 1);
 }
 
 static const uint32_t *native_rows(unsigned menu)
@@ -62,11 +61,6 @@ static const uint32_t *native_rows(unsigned menu)
 static uint32_t native_count(unsigned menu)
 {
     return menu ? OSOS_MUSIC_MENU_SETTINGS_COUNT : OSOS_MAIN_MENU_SETTINGS_COUNT;
-}
-
-static uint32_t selected_index(void *selection)
-{
-    return ((uint32_t(*)(void *))osos_method(selection, 0x168))(selection);
 }
 
 void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property, uintptr_t *out)
@@ -81,10 +75,8 @@ void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property, uintptr
 int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
                                uint32_t index, uintptr_t *out)
 {
-    typedef int (*native)(void *, uint32_t, uint32_t, uint32_t, uintptr_t *);
-    native get = (native)OSOS_SETTINGS_INDEXED_PROPERTY;
     if (property != 0x8909 && property != 0x890a)
-        return get(model, type, property, index, out);
+        return osos_settings_indexed_property(model, type, property, index, out);
     unsigned menu = property == 0x890a;
     const uint32_t *rows = native_rows(menu);
     uint32_t original = cfw_ui_visibility_index(menu, index, rows, native_count(menu));
@@ -98,7 +90,7 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
             if (rows[original * 5] == entry->anchors[menu])
                 break;
     }
-    int result = get(model, type, property, original, out);
+    int result = osos_settings_indexed_property(model, type, property, original, out);
     if (!result)
         return 0;
     if (entry && type == OSOS_PROPERTY_STRING) {
@@ -106,8 +98,8 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
     } else if (type == OSOS_RESOURCE_BMAP) {
         int checked = entry ? (*entry->visible >> menu) & 1
                             : ((const uint8_t *)rows)[original * 20 + 16] != 0;
-        void *selection = ((void *(*)(void))OSOS_UI_SELECTION)();
-        int selected = index == selected_index(selection);
+        void *selection = osos_ui_selection();
+        int selected = index == osos_selection_index(selection);
         uint32_t icon = checked ? OSOS_MENU_CHECKED_BITMAP + selected
                         : selected && original == native_count(menu) - 1
                             ? OSOS_MENU_RESET_BITMAP
@@ -119,13 +111,13 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
 
 PATCH_ARM uint32_t cfw_ui_main_menu_index(void *selection)
 {
-    return cfw_ui_visibility_index(0, selected_index(selection), native_rows(0),
+    return cfw_ui_visibility_index(0, osos_selection_index(selection), native_rows(0),
                                    native_count(0));
 }
 
 PATCH_ARM uint32_t cfw_ui_music_menu_index(void *selection)
 {
-    return cfw_ui_visibility_index(1, selected_index(selection), native_rows(1),
+    return cfw_ui_visibility_index(1, osos_selection_index(selection), native_rows(1),
                                    native_count(1));
 }
 
@@ -133,8 +125,7 @@ static void toggle(void *model, unsigned menu, uint32_t index)
 {
     if (!(index & CFW_UI_CUSTOM_ROW)) {
         if (index < native_count(menu) - 1)
-            ((void (*)(void *, uint32_t))(menu ? OSOS_MUSIC_MENU_TOGGLE
-                                               : OSOS_MAIN_MENU_TOGGLE))(model, index);
+            osos_menu_toggle(model, menu, index);
         return;
     }
     index &= ~CFW_UI_CUSTOM_ROW;
@@ -160,7 +151,7 @@ PATCH_ARM void cfw_ui_music_menu_toggle(void *model, uint32_t index)
 
 PATCH_ARM void *cfw_ui_visibility_load(void *model)
 {
-    void *result = ((void *(*)(void *))OSOS_MUSIC_MENU_APPLY)(model);
+    void *result = osos_music_menu_apply(model);
     load_preferences();
     for (uint32_t i = 0; i < cfw_ui_visibility_count; i++)
         for (unsigned menu = 0; menu < 2; menu++)

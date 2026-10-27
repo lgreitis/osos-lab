@@ -29,22 +29,17 @@ static void append_events(void *map, uint32_t type, uint32_t id)
         struct osos_string bytes;
         uint32_t allocator = 0;
         uint32_t stream[31];
-        typedef void (*string_fn)(void *, const void *, uint32_t, void *);
-        typedef void (*stream_fn)(void *, void *, uint32_t);
-        typedef void (*read_fn)(void *, void *);
-        typedef void (*destroy_fn)(void *, uint32_t, void *);
-        ((string_fn)OSOS_STRING_INIT_BYTES)(&bytes, events->data, events->size,
-                                            &allocator);
-        ((stream_fn)OSOS_STRING_STREAM_INIT)(stream, &bytes, 0xc);
+        osos_string_init_bytes(&bytes, events->data, events->size, &allocator);
+        osos_string_stream_init(stream, &bytes, 0xc);
         osos_string_destroy(&bytes);
-        ((read_fn)OSOS_UI_EVENT_MAP_READ)(stream, map);
-        ((destroy_fn)OSOS_STRING_STREAM_DESTROY)(stream, 2, 0);
+        osos_ui_event_map_read(stream, map);
+        osos_string_stream_destroy(stream, 2, 0);
     }
 }
 
 PATCH_ARM void cfw_ui_load_events(void *layout)
 {
-    ((void (*)(void *))OSOS_UI_LOAD_LAYOUT_EVENTS)(layout);
+    osos_ui_load_layout_events(layout);
     unsigned char *object = layout;
     void *map = object + 0x38;
     uint32_t **instance = *(uint32_t ***)(object + 0x10);

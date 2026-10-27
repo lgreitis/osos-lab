@@ -8,9 +8,7 @@
 PATCH_ARM void cfw_ui_append_resource_block(void *list, void *data, uint32_t size,
                                             uint32_t metadata)
 {
-    typedef void (*append_fn)(void *, void *, uint32_t, uint32_t);
-    append_fn append = (append_fn)OSOS_RESOURCE_BLOCK_APPEND;
-    append(list, data, size, metadata);
+    osos_resource_block_append(list, data, size, metadata);
     const uint32_t *selectors = list;
     if (selectors[2] != 0x4954454d || size < 0x34)
         return;
@@ -19,7 +17,7 @@ PATCH_ARM void cfw_ui_append_resource_block(void *list, void *data, uint32_t siz
     for (uint32_t i = 0; i < cfw_ui_menu_item_count; i++) {
         const struct cfw_ui_menu_item *entry = &cfw_ui_menu_items[i];
         if (entry->table == selectors[3] && entry->after == item)
-            append(list, entry->data, entry->size, entry->metadata);
+            osos_resource_block_append(list, entry->data, entry->size, entry->metadata);
     }
 }
 

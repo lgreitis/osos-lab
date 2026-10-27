@@ -7,8 +7,6 @@
 
 enum {
     SETTINGS_PREFS_OFFSET = 0x378,
-    PREF_GET_SLOT = 0xdc,
-    PREF_SET_SLOT = 0xd4,
     CLICKER_PREF = 0x608c,
     CLICKER_BOTH = 0x608d,
     CLICKER_OFF = 0x608e,
@@ -38,18 +36,14 @@ static void *prefs(void *model)
 
 static uint32_t clicker_get(void *model)
 {
-    typedef uint32_t (*fn)(void *, uint32_t, uint32_t);
     void *preferences = prefs(model);
-    return ((fn)osos_method(preferences, PREF_GET_SLOT))(preferences, CLICKER_PREF,
-                                                         PREF_TYPE);
+    return osos_preferences_get(preferences, CLICKER_PREF, PREF_TYPE);
 }
 
 static void clicker_set(void *model, uint32_t value)
 {
-    typedef void (*fn)(void *, uint32_t, uint32_t, uint32_t);
     void *preferences = prefs(model);
-    ((fn)osos_method(preferences, PREF_SET_SLOT))(preferences, CLICKER_PREF, PREF_TYPE,
-                                                  value);
+    osos_preferences_set(preferences, CLICKER_PREF, PREF_TYPE, value);
 }
 
 PATCH_ARM int cfw_clicker_action(void *controller, const char *action,

@@ -74,8 +74,8 @@ static void osos_file_close(void *handle)
     assert(handle == &disk);
 }
 
-#define OSOS_IMPORT_ALLOC allocate
-#define OSOS_IMPORT_FREE release
+#define osos_import_alloc allocate
+#define osos_import_free release
 
 #include "../../../payload/assets.c"
 

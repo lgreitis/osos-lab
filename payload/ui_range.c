@@ -12,9 +12,9 @@ static PATCH_ARM int range_event(void *controller, void *event)
             if (field->screen != screen || !field->numeric)
                 continue;
 
-            ((void (*)(void *))OSOS_WHEEL_DECODE)(event);
-            int delta = ((int (*)(uint32_t, uint32_t))OSOS_WHEEL_STEP)(
-                *(uint32_t *)((unsigned char *)event + 0xc), 0x10);
+            osos_wheel_decode(event);
+            int delta =
+                osos_wheel_step(*(uint32_t *)((unsigned char *)event + 0xc), 0x10);
             int64_t value = (int64_t)field->model->values[field->slot] + delta;
             if (value < 0)
                 value = 0;
@@ -28,7 +28,7 @@ static PATCH_ARM int range_event(void *controller, void *event)
         return 1;
     }
 
-    return ((int (*)(void *, void *))OSOS_CONTROLLER_HANDLE_EVENT)(controller, event);
+    return osos_controller_handle_event(controller, event);
 }
 
 static PATCH_ARM uint32_t range_deactivate(void *controller, uint32_t leaving)
@@ -38,8 +38,7 @@ static PATCH_ARM uint32_t range_deactivate(void *controller, uint32_t leaving)
         if (cfw_ui_fields[i]->screen == screen)
             cfw_ui_fields[i]->model->commit();
 
-    return ((uint32_t(*)(void *, uint32_t))OSOS_CONTROLLER_DEACTIVATE)(controller,
-                                                                       leaving);
+    return osos_controller_deactivate(controller, leaving);
 }
 
 /* Preserve the native RTTI prefix, resource-screen lifecycle and deleting destructor. */
@@ -54,16 +53,14 @@ PATCH_COPY(range_vtable, 12 + 0xf4, OSOS_CONTROLLER_SCREEN_VTABLE + 0xf4, 0x128 
 static PATCH_ARM void *range_create(const char *name, uint32_t screen, uint32_t layout,
                                     uint32_t transition)
 {
-    typedef void *(*factory)(const char *, uint32_t, uint32_t, uint32_t);
     unsigned char *controller =
-        ((factory)OSOS_CONTROLLER_CREATE_SCREEN)(name, screen, layout, transition);
+        osos_controller_create_screen(name, screen, layout, transition);
     *(const uintptr_t **)controller = range_vtable + 3;
     return controller;
 }
 
 void cfw_ui_register_controllers(void)
 {
-    void *registry = ((void *(*)(void))OSOS_CONTROLLER_REGISTRY)();
-    typedef void (*register_fn)(void *, const char *, void *, void *);
-    ((register_fn)OSOS_UI_REGISTER_CONTROLLERS)(registry, "CFWRange", 0, range_create);
+    void *registry = osos_controller_registry();
+    osos_ui_register_controllers(registry, "CFWRange", 0, range_create);
 }

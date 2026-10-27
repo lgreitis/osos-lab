@@ -27,7 +27,7 @@ PATCH_ARM int cfw_media_list_action(void *controller, const char *action,
         /* Reuse Add to On-The-Go: it filters the library to the selected album or
            artist, then reaches cfw_queue_selection instead of the OTG playlist. */
         queue_last = last;
-        ((int (*)(void *))OSOS_MEDIA_LIST_ADD_TO_OTG)(controller);
+        osos_media_list_add_to_otg(controller);
         queue_last = -1;
     }
     return 1;
@@ -35,9 +35,8 @@ PATCH_ARM int cfw_media_list_action(void *controller, const char *action,
 
 PATCH_ARM int cfw_queue_selection(void *otg, int row, void *browser, int save)
 {
-    typedef int (*add)(void *, int, void *, int);
     if (queue_last < 0)
-        return ((add)OSOS_OTG_ADD_BROWSER)(otg, row, browser, save);
+        return osos_otg_add_browser(otg, row, browser, save);
     /* Album and artist rows always add their whole filtered selection. */
     if (row != -1)
         return 0;

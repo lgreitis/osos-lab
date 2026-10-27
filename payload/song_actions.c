@@ -112,8 +112,7 @@ PATCH_ARM void cfw_now_playing_menu_cancel(struct osos_context_menu *menu,
 PATCH_ARM int cfw_now_playing_action(void *controller, const char *action,
                                      uint32_t argument)
 {
-    typedef int (*fn)(void *, const char *, uint32_t);
     if (song_action(controller, NOW_PLAYING, action, argument))
         return 1;
-    return ((fn)OSOS_NOW_PLAYING_ACTION)(controller, action, argument);
+    return osos_now_playing_action(controller, action, argument);
 }

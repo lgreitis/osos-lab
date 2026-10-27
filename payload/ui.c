@@ -5,7 +5,7 @@
 
 static void notify(uint32_t property)
 {
-    void *model = ((void *(*)(uint32_t))OSOS_UI_SERVICE_GET)(0x8900);
+    void *model = osos_ui_service_get(0x8900);
     if (model)
         osos_model_notify(model, OSOS_NOTIFY_ALL, property);
 }
@@ -116,9 +116,8 @@ int cfw_ui_handle_action(const char *action, uint32_t argument)
             continue;
 
         if (argument != OSOS_ACTION_SUPPORT_QUERY) {
-            void *selection = ((void *(*)(void))OSOS_UI_SELECTION)();
-            uint32_t index =
-                ((uint32_t(*)(void *))osos_method(selection, 0x168))(selection);
+            void *selection = osos_ui_selection();
+            uint32_t index = osos_selection_index(selection);
             if (index < field->count) {
                 field->model->change(field->slot, index);
                 field->model->commit();

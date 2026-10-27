@@ -178,11 +178,8 @@ void cfw_song_info_show(void *controller, struct osos_media_item *item)
     metadata(item);
     flush();
 
-    typedef void *(*registry)(void);
-    typedef void *(*create)(void *, uint32_t, uint32_t, uint32_t);
-    typedef void (*push)(void *, void *);
-    void *screen = ((create)OSOS_CREATE_SCREEN_CONTROLLER)(
-        ((registry)OSOS_CONTROLLER_REGISTRY)(), CFW_SongInfo_Screen,
-        CFW_SongInfo_Layout, 2); /* foregroundpush */
-    ((push)osos_method(controller, 0xd0))(controller, screen);
+    void *screen =
+        osos_create_screen_controller(osos_controller_registry(), CFW_SongInfo_Screen,
+                                      CFW_SongInfo_Layout, 2); /* foregroundpush */
+    osos_controller_push(controller, screen);
 }

@@ -8,7 +8,7 @@
 #define CFW_OSOS_H
 #define CFW_PATCH_H
 #define PATCH_ARM
-#define OSOS_RESOURCE_BLOCK_APPEND append_block
+#define osos_resource_block_append append_block
 #define OSOS_RESOURCE_BMAP 0x424d6170
 
 struct osos_string {

@@ -141,7 +141,7 @@ static int valid_records(uint32_t size, uint32_t count)
 void cfw_assets_cancel(void)
 {
     if (theme) {
-        ((void (*)(void *))OSOS_IMPORT_FREE)(theme);
+        osos_import_free(theme);
         theme = 0;
     }
 }
@@ -168,7 +168,7 @@ int cfw_assets_prepare(void)
     for (unsigned i = 0; valid && i < sizeof(header.catalog); i++)
         valid = header.catalog[i] == cfw_theme_catalog_hash[i];
     if (valid) {
-        theme = ((void *(*)(uint32_t))OSOS_IMPORT_ALLOC)(header.size);
+        theme = osos_import_alloc(header.size);
         valid = theme && read_exact(handle, theme, header.size);
     }
 

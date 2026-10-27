@@ -545,5 +545,446 @@ static inline void osos_file_close(void *handle)
     ((fn)OSOS_FILE_CLOSE)(handle);
 }
 
+/* Resource-screen factories receive name, screen, layout and transition. */
+typedef void *(*osos_controller_factory)(const char *, uint32_t, uint32_t, uint32_t);
+
+struct osos_album_group {
+    uint32_t token, artist, display_artist;
+    uint32_t artwork;
+    uint32_t tracks, flags;
+};
+
+_Static_assert(sizeof(struct osos_album_group) == 24, "Album group layout");
+
+static inline void *osos_import_alloc(uint32_t bytes)
+{
+    typedef void *(*fn)(uint32_t);
+    return ((fn)OSOS_IMPORT_ALLOC)(bytes);
+}
+
+static inline void osos_import_free(void *allocation)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_IMPORT_FREE)(allocation);
+}
+
+static inline void *osos_cpp_new(uint32_t bytes)
+{
+    typedef void *(*fn)(uint32_t);
+    return ((fn)OSOS_CPP_NEW)(bytes);
+}
+
+static inline int osos_import_string_cache_release(void *cache, uint32_t token)
+{
+    typedef int (*fn)(void *, uint32_t);
+    return ((fn)OSOS_IMPORT_STRING_CACHE_RELEASE)(cache, token);
+}
+
+static inline int osos_import_string_cache_read(void *cache, uint32_t token, void *text,
+                                                uint32_t *bytes, uint32_t capacity)
+{
+    typedef int (*fn)(void *, uint32_t, void *, uint32_t *, uint32_t);
+    return ((fn)OSOS_IMPORT_STRING_CACHE_READ)(cache, token, text, bytes, capacity);
+}
+
+static inline int osos_import_file_position(void *file, uint64_t *position)
+{
+    typedef int (*fn)(void *, uint64_t *);
+    return ((fn)OSOS_IMPORT_FILE_POSITION)(file, position);
+}
+
+static inline int osos_itunes_import_tracks(void *reader)
+{
+    typedef int (*fn)(void *);
+    return ((fn)OSOS_ITUNES_IMPORT_TRACKS)(reader);
+}
+
+static inline int osos_itunes_skip_bytes(void *reader, int32_t bytes)
+{
+    typedef int (*fn)(void *, int32_t);
+    return ((fn)OSOS_ITUNES_SKIP_BYTES)(reader, bytes);
+}
+
+static inline int osos_itunes_import_string(void *reader, uint32_t output_encoding,
+                                            uint32_t mhod_type, void *cache,
+                                            uint32_t *token, uint32_t glyph_field,
+                                            int collect_characters)
+{
+    typedef int (*fn)(void *, uint32_t, uint32_t, void *, uint32_t *, uint32_t, int);
+    return ((fn)OSOS_ITUNES_IMPORT_STRING)(reader, output_encoding, mhod_type, cache,
+                                           token, glyph_field, collect_characters);
+}
+
+static inline void osos_trackdata_destroy_storage(void *track_data)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_TRACKDATA_DESTROY_STORAGE)(track_data);
+}
+
+static inline int osos_string_cache_view(void *cache, uint32_t token,
+                                         const uint16_t **text, uint32_t *bytes)
+{
+    typedef int (*fn)(void *, uint32_t, const uint16_t **, uint32_t *);
+    return ((fn)OSOS_STRING_CACHE_VIEW)(cache, token, text, bytes);
+}
+
+static inline int osos_text_compare(void *context, const uint16_t *left,
+                                    uint32_t left_units, const uint16_t *right,
+                                    uint32_t right_units)
+{
+    typedef int (*fn)(void *, const uint16_t *, uint32_t, const uint16_t *, uint32_t);
+    return ((fn)OSOS_TEXT_COMPARE)(context, left, left_units, right, right_units);
+}
+
+static inline void osos_string_init_bytes(struct osos_string *string, const void *data,
+                                          uint32_t size, void *allocator)
+{
+    typedef void (*fn)(struct osos_string *, const void *, uint32_t, void *);
+    ((fn)OSOS_STRING_INIT_BYTES)(string, data, size, allocator);
+}
+
+static inline void osos_string_stream_init(void *stream, struct osos_string *string,
+                                           uint32_t mode)
+{
+    typedef void (*fn)(void *, struct osos_string *, uint32_t);
+    ((fn)OSOS_STRING_STREAM_INIT)(stream, string, mode);
+}
+
+static inline void osos_string_stream_destroy(void *stream, uint32_t flags,
+                                              void *storage)
+{
+    typedef void (*fn)(void *, uint32_t, void *);
+    ((fn)OSOS_STRING_STREAM_DESTROY)(stream, flags, storage);
+}
+
+static inline void osos_ui_event_map_read(void *stream, void *map)
+{
+    typedef void (*fn)(void *, void *);
+    ((fn)OSOS_UI_EVENT_MAP_READ)(stream, map);
+}
+
+static inline void osos_ui_load_layout_events(void *layout)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_UI_LOAD_LAYOUT_EVENTS)(layout);
+}
+
+static inline void osos_resource_block_append(void *list, void *data, uint32_t size,
+                                              uint32_t metadata)
+{
+    typedef void (*fn)(void *, void *, uint32_t, uint32_t);
+    ((fn)OSOS_RESOURCE_BLOCK_APPEND)(list, data, size, metadata);
+}
+
+static inline void *osos_ui_service_get(uint32_t id)
+{
+    typedef void *(*fn)(uint32_t);
+    return ((fn)OSOS_UI_SERVICE_GET)(id);
+}
+
+static inline void *osos_ui_selection(void)
+{
+    typedef void *(*fn)(void);
+    return ((fn)OSOS_UI_SELECTION)();
+}
+
+static inline int osos_menu_item_set_visible(uint32_t item, uint32_t visible)
+{
+    typedef int (*fn)(uint32_t, uint32_t);
+    return ((fn)OSOS_MENU_ITEM_SET_VISIBLE)(item, visible);
+}
+
+static inline int osos_settings_indexed_property(void *model, uint32_t type,
+                                                 uint32_t property, uint32_t index,
+                                                 uintptr_t *out)
+{
+    typedef int (*fn)(void *, uint32_t, uint32_t, uint32_t, uintptr_t *);
+    return ((fn)OSOS_SETTINGS_INDEXED_PROPERTY)(model, type, property, index, out);
+}
+
+static inline void *osos_music_menu_apply(void *model)
+{
+    typedef void *(*fn)(void *);
+    return ((fn)OSOS_MUSIC_MENU_APPLY)(model);
+}
+
+static inline int osos_music_action(void *controller, const char *action,
+                                    uint32_t argument)
+{
+    typedef int (*fn)(void *, const char *, uint32_t);
+    return ((fn)OSOS_MUSIC_ACTION)(controller, action, argument);
+}
+
+static inline int osos_now_playing_action(void *controller, const char *action,
+                                          uint32_t argument)
+{
+    typedef int (*fn)(void *, const char *, uint32_t);
+    return ((fn)OSOS_NOW_PLAYING_ACTION)(controller, action, argument);
+}
+
+static inline void osos_wheel_decode(void *event)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_WHEEL_DECODE)(event);
+}
+
+static inline int osos_wheel_step(uint32_t delta, uint32_t step)
+{
+    typedef int (*fn)(uint32_t, uint32_t);
+    return ((fn)OSOS_WHEEL_STEP)(delta, step);
+}
+
+static inline int osos_controller_handle_event(void *controller, void *event)
+{
+    typedef int (*fn)(void *, void *);
+    return ((fn)OSOS_CONTROLLER_HANDLE_EVENT)(controller, event);
+}
+
+static inline uint32_t osos_controller_deactivate(void *controller, uint32_t leaving)
+{
+    typedef uint32_t (*fn)(void *, uint32_t);
+    return ((fn)OSOS_CONTROLLER_DEACTIVATE)(controller, leaving);
+}
+
+static inline void *osos_controller_create_screen(const char *name, uint32_t screen,
+                                                  uint32_t layout, uint32_t transition)
+{
+    typedef void *(*fn)(const char *, uint32_t, uint32_t, uint32_t);
+    return ((fn)OSOS_CONTROLLER_CREATE_SCREEN)(name, screen, layout, transition);
+}
+
+static inline void *osos_controller_registry(void)
+{
+    typedef void *(*fn)(void);
+    return ((fn)OSOS_CONTROLLER_REGISTRY)();
+}
+
+static inline void *osos_create_screen_controller(void *registry, uint32_t screen,
+                                                  uint32_t layout, uint32_t transition)
+{
+    typedef void *(*fn)(void *, uint32_t, uint32_t, uint32_t);
+    return ((fn)OSOS_CREATE_SCREEN_CONTROLLER)(registry, screen, layout, transition);
+}
+
+static inline void osos_ui_register_controllers(void *registry, const char *name,
+                                                osos_controller_factory ordinary,
+                                                osos_controller_factory resource)
+{
+    typedef void (*fn)(void *, const char *, osos_controller_factory,
+                       osos_controller_factory);
+    ((fn)OSOS_UI_REGISTER_CONTROLLERS)(registry, name, ordinary, resource);
+}
+
+static inline int osos_media_list_add_to_otg(void *controller)
+{
+    typedef int (*fn)(void *);
+    return ((fn)OSOS_MEDIA_LIST_ADD_TO_OTG)(controller);
+}
+
+static inline int osos_otg_add_browser(void *otg, int row, void *browser, int save)
+{
+    typedef int (*fn)(void *, int, void *, int);
+    return ((fn)OSOS_OTG_ADD_BROWSER)(otg, row, browser, save);
+}
+
+static inline void *osos_browser_owner(void *browser)
+{
+    typedef void *(*fn)(void *);
+    return ((fn)OSOS_BROWSER_OWNER)(browser);
+}
+
+static inline struct osos_media_list *osos_browser_current_list(void *browser)
+{
+    typedef struct osos_media_list *(*fn)(void *);
+    return ((fn)OSOS_BROWSER_CURRENT_LIST)(browser);
+}
+
+static inline uint32_t osos_browser_build_songs(void *browser)
+{
+    typedef uint32_t (*fn)(void *);
+    return ((fn)OSOS_BROWSER_BUILD_SONGS)(browser);
+}
+
+static inline int osos_browser_order_mode(void *browser)
+{
+    typedef int (*fn)(void *);
+    return ((fn)OSOS_BROWSER_ORDER_MODE)(browser);
+}
+
+static inline int osos_browser_create(void *owner, void **browser)
+{
+    typedef int (*fn)(void *, void **);
+    return ((fn)OSOS_BROWSER_CREATE)(owner, browser);
+}
+
+static inline int osos_browser_filter(void *browser, struct osos_media_entry *entry,
+                                      struct osos_media_list *list)
+{
+    typedef int (*fn)(void *, struct osos_media_entry *, struct osos_media_list *);
+    return ((fn)OSOS_BROWSER_FILTER)(browser, entry, list);
+}
+
+static inline int osos_browser_invalidate(void *browser)
+{
+    typedef int (*fn)(void *);
+    return ((fn)OSOS_BROWSER_INVALIDATE)(browser);
+}
+
+static inline void osos_browser_clear_artists(void *browser)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_BROWSER_CLEAR_ARTISTS)(browser);
+}
+
+static inline void osos_browser_clear_albums(void *browser)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_BROWSER_CLEAR_ALBUMS)(browser);
+}
+
+static inline void osos_browser_clear_songs(void *browser)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_BROWSER_CLEAR_SONGS)(browser);
+}
+
+static inline uint32_t osos_browser_artwork(void *owner,
+                                            struct osos_media_record *record)
+{
+    typedef uint32_t (*fn)(void *, struct osos_media_record *);
+    return ((fn)OSOS_BROWSER_ARTWORK)(owner, record);
+}
+
+static inline int osos_browser_album_group(void *browser, void *callback,
+                                           uint32_t field_low, uint32_t field_high,
+                                           uint32_t index,
+                                           struct osos_media_entry *entry,
+                                           struct osos_media_record *record, int first)
+{
+    typedef int (*fn)(void *, void *, uint32_t, uint32_t, uint32_t,
+                      struct osos_media_entry *, struct osos_media_record *, int);
+    return ((fn)OSOS_BROWSER_ALBUM_GROUP)(browser, callback, field_low, field_high,
+                                          index, entry, record, first);
+}
+
+static inline void osos_album_vector_append(void *vector, struct osos_album_group *row)
+{
+    typedef void (*fn)(void *, struct osos_album_group *);
+    ((fn)OSOS_ALBUM_VECTOR_APPEND)(vector, row);
+}
+
+static inline struct osos_media_entry *
+osos_list_order_entry(struct osos_media_list *list, int mode, uint32_t grouped,
+                      uint32_t index)
+{
+    typedef struct osos_media_entry *(*fn)(struct osos_media_list *, int, uint32_t,
+                                           uint32_t);
+    return ((fn)OSOS_LIST_ORDER_ENTRY)(list, mode, grouped, index);
+}
+
+static inline void *osos_model_create(uint32_t ownership)
+{
+    typedef void *(*fn)(uint32_t);
+    return ((fn)OSOS_MODEL_CREATE)(ownership);
+}
+
+static inline void osos_model_ref_init(void **reference, void *model, int flags)
+{
+    typedef void (*fn)(void **, void *, int);
+    ((fn)OSOS_MODEL_REF_INIT)(reference, model, flags);
+}
+
+static inline void osos_model_ref_assign(void *reference, void *source)
+{
+    typedef void (*fn)(void *, void *);
+    ((fn)OSOS_MODEL_REF_ASSIGN)(reference, source);
+}
+
+static inline void osos_model_ref_release(void *reference)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_MODEL_REF_RELEASE)(reference);
+}
+
+static inline void *osos_model_ref_get(void *reference)
+{
+    typedef void *(*fn)(void *);
+    return ((fn)OSOS_MODEL_REF_GET)(reference);
+}
+
+static inline void *osos_model_init_borrowed(void *model, uint8_t item_flags,
+                                             void *browser)
+{
+    typedef void *(*fn)(void *, uint8_t, void *);
+    return ((fn)OSOS_MODEL_INIT_BORROWED)(model, item_flags, browser);
+}
+
+static inline void osos_model_album_subtitle(void *model, int index,
+                                             struct osos_native_string *out)
+{
+    typedef void (*fn)(void *, int, struct osos_native_string *);
+    ((fn)OSOS_MODEL_ALBUM_SUBTITLE)(model, index, out);
+}
+
+static inline uint32_t osos_select_artwork_source(void *selection, uint32_t category)
+{
+    typedef uint32_t (*fn)(void *, uint32_t);
+    return ((fn)OSOS_SELECT_ARTWORK_SOURCE)(selection, category);
+}
+
+static inline void *osos_album_artwork_create(uint32_t kind, uint32_t selector)
+{
+    typedef void *(*fn)(uint32_t, uint32_t);
+    return ((fn)OSOS_ALBUM_ARTWORK_CREATE)(kind, selector);
+}
+
+static inline uint32_t osos_selection_index(void *selection)
+{
+    typedef uint32_t (*fn)(void *);
+    return ((fn)osos_method(selection, 0x168))(selection);
+}
+
+static inline uint32_t osos_preferences_get(void *preferences, uint32_t key,
+                                            uint32_t type)
+{
+    typedef uint32_t (*fn)(void *, uint32_t, uint32_t);
+    return ((fn)osos_method(preferences, 0xdc))(preferences, key, type);
+}
+
+static inline void osos_preferences_set(void *preferences, uint32_t key, uint32_t type,
+                                        uint32_t value)
+{
+    typedef void (*fn)(void *, uint32_t, uint32_t, uint32_t);
+    ((fn)osos_method(preferences, 0xd4))(preferences, key, type, value);
+}
+
+static inline void osos_menu_toggle(void *model, unsigned menu, uint32_t index)
+{
+    typedef void (*fn)(void *, uint32_t);
+    fn toggle = menu ? (fn)OSOS_MUSIC_MENU_TOGGLE : (fn)OSOS_MAIN_MENU_TOGGLE;
+    toggle(model, index);
+}
+
+static inline void osos_model_destroy(void *model)
+{
+    typedef void (*fn)(void *);
+    ((fn)osos_method(model, 0x1c))(model);
+}
+
+static inline void osos_library_model_prepare_artists(void *model)
+{
+    typedef void (*reset_fn)(void *);
+    typedef void (*configure_fn)(void *, uint32_t, uint32_t);
+    ((reset_fn)osos_method(model, 0x38))(model);
+    ((reset_fn)osos_method(model, 0xd8))(model);
+    ((configure_fn)osos_method(model, 0x5c))(model, 0x11, 0);
+}
+
+static inline void osos_controller_push(void *controller, void *screen)
+{
+    typedef void (*fn)(void *, void *);
+    ((fn)osos_method(controller, 0xd0))(controller, screen);
+}
+
 #endif
 #endif

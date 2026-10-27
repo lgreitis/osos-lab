@@ -10,17 +10,30 @@
 #define CFW_OSOS_H
 #define CFW_PATCH_H
 #define PATCH_ARM
+
 struct osos_media_record {
-    union { void *owner; uint8_t bytes[0x118]; } data;
+    union {
+        void *owner;
+        uint8_t bytes[0x118];
+    } data;
 };
-struct osos_media_item { struct osos_media_record *record; };
+
+struct osos_media_item {
+    struct osos_media_record *record;
+};
+
 struct file {
     uint64_t offset;
     const uint16_t *text;
     uint32_t units;
     int decode_error, skip_error, position_error;
 };
-struct reader { struct file *file; void *owner; };
+
+struct reader {
+    struct file *file;
+    void *owner;
+};
+
 static void mock_destroy(void *);
 static int mock_release(void *, uint32_t);
 static int mock_read(void *, uint32_t, void *, uint32_t *, uint32_t);
@@ -30,16 +43,16 @@ static int mock_skip(void *, int32_t);
 static int mock_position(void *, uint64_t *);
 static void *mock_alloc(uint32_t);
 static void mock_free(void *);
-#define OSOS_TRACKDATA_DESTROY_STORAGE mock_destroy
+#define osos_trackdata_destroy_storage mock_destroy
 #define OSOS_TRACKDATA_ARTIST_CACHE_OFFSET 0x118
-#define OSOS_IMPORT_STRING_CACHE_RELEASE mock_release
-#define OSOS_IMPORT_STRING_CACHE_READ mock_read
-#define OSOS_ITUNES_IMPORT_STRING mock_decode
-#define OSOS_ITUNES_IMPORT_TRACKS mock_tracks
-#define OSOS_ITUNES_SKIP_BYTES mock_skip
-#define OSOS_IMPORT_FILE_POSITION mock_position
-#define OSOS_IMPORT_ALLOC mock_alloc
-#define OSOS_IMPORT_FREE mock_free
+#define osos_import_string_cache_release mock_release
+#define osos_import_string_cache_read mock_read
+#define osos_itunes_import_string mock_decode
+#define osos_itunes_import_tracks mock_tracks
+#define osos_itunes_skip_bytes mock_skip
+#define osos_import_file_position mock_position
+#define osos_import_alloc mock_alloc
+#define osos_import_free mock_free
 #define OSOS_ITUNES_READER_FILE_OFFSET offsetof(struct reader, file)
 #define OSOS_ITUNES_READER_OWNER_OFFSET offsetof(struct reader, owner)
 #include "../../../payload/album_artist.c"
@@ -49,11 +62,15 @@ void cfw_album_artists_invalidate(void *track_data)
     assert(track_data == owner);
 }
 
-struct cached { uint16_t *text; uint32_t bytes, refs; };
+struct cached {
+    uint16_t *text;
+    uint32_t bytes, refs;
+};
 static struct cached tokens[4096];
 static uint32_t next_token = 1, live_refs;
 static int fail_alloc, track_status, frozen;
 static void (*during_import)(struct reader *);
+
 static int mock_release(void *cache, uint32_t token)
 {
     assert(cache == string_cache && tokens[token].refs);
@@ -67,7 +84,8 @@ static int mock_release(void *cache, uint32_t token)
     return 0;
 }
 
-static int mock_read(void *cache, uint32_t token, void *out, uint32_t *bytes, uint32_t limit)
+static int mock_read(void *cache, uint32_t token, void *out, uint32_t *bytes,
+                     uint32_t limit)
 {
     assert(cache == string_cache && tokens[token].refs);
     *bytes = tokens[token].bytes < limit ? tokens[token].bytes : limit;
@@ -79,7 +97,8 @@ static int mock_decode(void *context, uint32_t encoding, uint32_t type, void *ca
                        uint32_t *token, uint32_t glyph_field, int collect)
 {
     struct file *file = ((struct reader *)context)->file;
-    assert(encoding == 1 && type == 22 && cache == string_cache && glyph_field == 0 && collect == 1);
+    assert(encoding == 1 && type == 22 && cache == string_cache && glyph_field == 0 &&
+           collect == 1);
     if (file->decode_error) {
         file->offset += 8;
         return file->decode_error;
@@ -131,8 +150,16 @@ static int mock_position(void *object, uint64_t *out)
     return file->position_error;
 }
 
-static void *mock_alloc(uint32_t bytes) { return fail_alloc ? NULL : malloc(bytes); }
-static void mock_free(void *data) { free(data); }
+static void *mock_alloc(uint32_t bytes)
+{
+    return fail_alloc ? NULL : malloc(bytes);
+}
+
+static void mock_free(void *data)
+{
+    free(data);
+}
+
 static void mock_destroy(void *track_data)
 {
     assert(track_data != owner);
@@ -171,7 +198,8 @@ static void retain(struct reader *reader, struct osos_media_record *record,
     assert(reader->file->offset == start + 16 + units * 2 + padding);
 }
 
-static void expect(struct osos_media_record *record, const uint16_t *text, uint32_t units)
+static void expect(struct osos_media_record *record, const uint16_t *text,
+                   uint32_t units)
 {
     uint16_t copied[255];
     uint32_t copied_units = cfw_album_artist_read(record, copied, 255);
@@ -184,7 +212,11 @@ static uint8_t library_a[0x200], library_b[0x200];
 static struct osos_media_record imported;
 static const uint16_t artist[] = {'A', 'r', 't', 'i', 's', 't'};
 static const uint16_t other[] = {'O', 't', 'h', 'e', 'r'};
-static void import_one(struct reader *reader) { retain(reader, &imported, artist, 6, 3); }
+
+static void import_one(struct reader *reader)
+{
+    retain(reader, &imported, artist, 6, 3);
+}
 
 int main(void)
 {
@@ -259,7 +291,8 @@ int main(void)
     file.decode_error = file.skip_error = 0;
 
     uint16_t long_name[256];
-    for (unsigned i = 0; i < 254; i++) long_name[i] = 0x65e5;
+    for (unsigned i = 0; i < 254; i++)
+        long_name[i] = 0x65e5;
     long_name[254] = 0xd83d;
     long_name[255] = 0xde00;
     retain(&reader, &next, long_name, 256, 0);
@@ -299,5 +332,6 @@ int main(void)
     assert(cfw_album_artist_import_tracks(&reader) == 0);
     clear();
     assert(live_refs == 0);
-    puts("Album Artist: lookup, collisions, deduplication, reloads, failures and Unicode bounds passed");
+    puts("Album Artist: lookup, collisions, deduplication, reloads, failures and "
+         "Unicode bounds passed");
 }

@@ -93,23 +93,15 @@ void cfw_play_next_add(struct osos_player *player, struct osos_media_item *selec
 
 void cfw_play_next_add_browser(struct osos_player *player, void *browser, int last)
 {
-    typedef struct osos_media_list *(*current_list)(void *);
-    typedef uint32_t (*build_songs)(void *);
-    typedef int (*order_mode)(void *);
-    typedef struct osos_media_entry *(*get_entry)(void *, int, uint32_t, uint32_t);
-    typedef int (*matches)(void *, struct osos_media_entry *, void *);
-
     struct osos_media_entry *current = current_entry(player);
     if (!current || !browser)
         return;
-    struct osos_media_list *source = ((current_list)OSOS_BROWSER_CURRENT_LIST)(browser);
+    struct osos_media_list *source = osos_browser_current_list(browser);
     if (!source || !osos_list_root(source))
         return;
     /* Same song list and order as the native On-The-Go path for this selection. */
-    ((build_songs)OSOS_BROWSER_BUILD_SONGS)(browser);
-    int mode = osos_list_is_shuffled(source)
-                   ? 2
-                   : ((order_mode)OSOS_BROWSER_ORDER_MODE)(browser);
+    osos_browser_build_songs(browser);
+    int mode = osos_list_is_shuffled(source) ? 2 : osos_browser_order_mode(browser);
     uint32_t grouped = *((uint8_t *)browser + OSOS_BROWSER_ORDER_FLAG_OFFSET) != 0;
     unsigned count = osos_list_root(source)->tracks;
 
@@ -119,9 +111,9 @@ void cfw_play_next_add_browser(struct osos_player *player, void *browser, int la
         /* Play Next inserts each song directly after the current one, so walk backwards. */
         unsigned index = last ? i : count - 1 - i;
         struct osos_media_entry *entry =
-            ((get_entry)OSOS_LIST_ORDER_ENTRY)(source, mode, grouped, index);
+            osos_list_order_entry(source, mode, grouped, index);
         if (!entry || !entry->song.record ||
-            !((matches)OSOS_BROWSER_FILTER)(browser, entry, source))
+            !osos_browser_filter(browser, entry, source))
             continue;
         struct osos_media_list *queue = player->playback.list;
         if (osos_list_root(queue)->tracks >= UINT16_MAX - 1)
@@ -129,7 +121,7 @@ void cfw_play_next_add_browser(struct osos_player *player, void *browser, int la
         /* Each insertion invalidates the shuffle index; rebuild it from the ranks and
            revalidate before insert_song walks it again. */
         if (osos_list_is_shuffled(queue))
-            ((get_entry)OSOS_LIST_ORDER_ENTRY)(queue, 2, 0, 0);
+            osos_list_order_entry(queue, 2, 0, 0);
         current = current_entry(player);
         if (!current)
             break;
