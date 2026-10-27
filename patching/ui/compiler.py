@@ -393,6 +393,15 @@ def compile_document(resources, document, text=""):
     compiled = CompiledDocument()
     if document.music_entry:
         compile_music_entry(resources, document.music_entry, compiled)
+    for clone in document.clones:
+        screen, layout, title = resources.clone_screen(clone)
+        compiled.string_ids.update(
+            {
+                clone.name + "_Screen": screen,
+                clone.name + "_Layout": layout,
+                clone.name + "_Title": title,
+            }
+        )
     for binding in document.events:
         resources.bind_screen_event(binding)
     builder = None

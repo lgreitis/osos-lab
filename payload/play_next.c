@@ -4,14 +4,14 @@
 #include "play_next.h"
 #include "play_next_ui.h"
 
-static struct osos_media_entry *insert_song(struct osos_player *player,
-                                            struct osos_media_entry *entry,
-                                            struct osos_media_entry *current, int last)
+static struct osos_media_entry *insert_entry(struct osos_media_list *list,
+                                             struct osos_media_entry *entry,
+                                             struct osos_media_entry *current,
+                                             unsigned current_index, int last)
 {
-    struct osos_media_list *list = player->playback.list;
     unsigned count = osos_list_root(list)->tracks;
     int reverse = osos_list_is_reversed(list);
-    unsigned position = last ? count : (unsigned)player->current_index + 1;
+    unsigned position = last ? count : current_index + 1;
     unsigned rank = reverse ? count - position : position;
     struct osos_media_entry *after = last ? osos_list_root(list)->group.last : current;
     if (reverse)
@@ -33,6 +33,14 @@ static struct osos_media_entry *insert_song(struct osos_player *player,
     }
     osos_database_end_update(osos_list_database(list));
     return inserted;
+}
+
+static struct osos_media_entry *insert_song(struct osos_player *player,
+                                            struct osos_media_entry *entry,
+                                            struct osos_media_entry *current, int last)
+{
+    return insert_entry(player->playback.list, entry, current,
+                        (unsigned)player->current_index, last);
 }
 
 /* Caller holds the player lock. Rebinding the source invalidates cached track order. */
@@ -136,4 +144,49 @@ void cfw_play_next_add_browser(struct osos_player *player, void *browser, int la
     osos_player_rebuild_artwork(player);
     if (inserted)
         invalidate_next(player);
+}
+
+/* Caller holds the player lock. Appends one song to the end of a playlist. A list
+   that is playing is the queue itself, so it gets the same care as Play Last.
+   player may be NULL while the library loads, when nothing can be playing. */
+struct osos_media_entry *cfw_list_append(struct osos_player *player,
+                                         struct osos_media_list *list,
+                                         struct osos_media_entry *entry)
+{
+    struct osos_media_entry *root = osos_list_root(list);
+    if (!root || root->groups || root->tracks >= UINT16_MAX - 1)
+        return NULL;
+    int playing = player && player->playback.list == list;
+    if (playing && !current_entry(player))
+        return NULL;
+    int stale = 0;
+    if (osos_list_is_shuffled(list)) {
+        struct osos_media_order *order = osos_list_shuffle_index(list);
+        if (!order || order->count != root->tracks) {
+            if (playing)
+                return NULL;
+            /* Not built for this list yet: append in play order, rebuild later. */
+            stale = 1;
+        }
+    }
+    if (playing)
+        osos_player_stop_artwork(player);
+    struct osos_media_entry *inserted;
+    if (stale) {
+        struct osos_media_entry *cursor[] = {root, root->group.last};
+        if (osos_list_is_reversed(list))
+            cursor[1] = NULL;
+        osos_database_begin_update(osos_list_database(list));
+        inserted = osos_media_entry_copy(entry, list, cursor, 0);
+        osos_media_list_invalidate_order(list, 2);
+        osos_database_end_update(osos_list_database(list));
+    } else {
+        inserted = insert_entry(list, entry, NULL, 0, 1);
+    }
+    if (playing) {
+        osos_player_rebuild_artwork(player);
+        if (inserted)
+            invalidate_next(player);
+    }
+    return inserted;
 }

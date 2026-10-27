@@ -38,6 +38,13 @@
     "SettingsInfo_Template_Brightness_Layout": 229444665,
     "SettingsMenus_Brightness_Layout": 229444740,
     "Settings_Icon_View": 229444656,
-    "Settings_InfoDetail_View": 229444657
+    "Settings_InfoDetail_View": 229444657,
+    "MediaLists_Playlists_Screen": 229443590,
+    "Search_Main_Screen": 229445087,
+    "Search_Main_Screen_WithKeyboardNow": 229445091,
+    "MainMenu_Template": 229441970,
+    "MediaLists_Playlists_Screen_Default": 229443591,
+    "CoverFlow_Screen": 229443052,
+    "CoverFlow_Screen_Backside": 229443058
   }
 }

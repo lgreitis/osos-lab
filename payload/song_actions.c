@@ -3,6 +3,7 @@
 #include "cfw.h"
 #include "patch.h"
 #include "play_next.h"
+#include "playlist_add.h"
 #include "song_info.h"
 #include "song_info_ui.h"
 
@@ -49,6 +50,23 @@ static int selected_item(void *controller, enum song_source source,
 static int song_action(void *controller, enum song_source source,
                        const char *action, uint32_t argument)
 {
+    if (cfw_string_equal(action, "CFW_AddToPlaylist")) {
+        /* The screen event then opens the playlist chooser. */
+        if (argument != OSOS_ACTION_SUPPORT_QUERY) {
+            struct osos_media_item item;
+            cfw_playlist_add_select(selected_item(controller, source, &item) ? &item
+                                                                               : NULL);
+        }
+        return 1;
+    }
+    if (source == PLAYLIST && cfw_string_equal(action, "CFW_RemoveFromPlaylist")) {
+        if (argument != OSOS_ACTION_SUPPORT_QUERY) {
+            struct osos_media_item item;
+            if (selected_item(controller, source, &item))
+                cfw_playlist_remove(controller, &item);
+        }
+        return 1;
+    }
     int info = cfw_string_equal(action, "CFW_SongInfo");
     int last = cfw_string_equal(action, "CFW_PlayLast");
     if (!info && (source == NOW_PLAYING ||
@@ -75,6 +93,7 @@ PATCH_ARM void cfw_song_menu_cancel(struct osos_context_menu *menu, uint32_t lab
                                     const char *action, uint32_t flags)
 {
     cfw_play_next_menu(menu);
+    cfw_playlist_add_menu(menu);
     osos_context_menu_append(menu, CFW_SONG_INFO_LABEL, "CFW_SongInfo", 1);
     osos_context_menu_append(menu, label, action, flags);
 }
@@ -104,6 +123,7 @@ PATCH_ARM void cfw_now_playing_menu_cancel(struct osos_context_menu *menu,
                                            uint32_t label, const char *action,
                                            uint32_t flags)
 {
+    cfw_playlist_add_menu(menu);
     osos_context_menu_append(menu, CFW_SONG_INFO_LABEL, "CFW_SongInfo", 1);
     osos_context_menu_append(menu, label, action, flags);
 }

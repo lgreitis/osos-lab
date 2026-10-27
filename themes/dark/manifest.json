@@ -430,5 +430,23 @@
     "type": "BMap",
     "id": "0x0DAD0129",
     "file": "cover-flow-proxy-itunes-u.png"
+  },
+  {
+    "name": "System_Input_Field_Left_Image",
+    "type": "BMap",
+    "id": "0x0DAD0197",
+    "file": "system-input-field-left.png"
+  },
+  {
+    "name": "System_Input_Field_Right_Image",
+    "type": "BMap",
+    "id": "0x0DAD0198",
+    "file": "system-input-field-right.png"
+  },
+  {
+    "name": "System_Input_Field_Middle_Image",
+    "type": "BMap",
+    "id": "0x0DAD0199",
+    "file": "system-input-field-middle.png"
   }
 ]

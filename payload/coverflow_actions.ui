@@ -1,0 +1,17 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <!-- Play Next and Play Last labels come from play_next.ui. -->
+  <string id="CFW_COVERFLOW_ADD_TO_PLAYLIST" text="Add to Playlist"/>
+  <string id="CFW_COVERFLOW_CANCEL" text="Cancel"/>
+  <!-- Back of an album only: hold Center on a song for the menu. -->
+  <screen-event screen="CoverFlow_Screen" layout="CoverFlow_Screen_Backside"
+                event="button.select.pressandhold" handler="CFW_CoverFlowMenu"/>
+  <screen-event screen="CoverFlow_Screen" layout="CoverFlow_Screen_Backside"
+                event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
+  <screen-event screen="CoverFlow_Screen" layout="CoverFlow_Screen_Backside"
+                event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
+  <screen-event screen="CoverFlow_Screen" layout="CoverFlow_Screen_Backside"
+                event="contextualMenu.CFW_AddToPlaylist" handler="CFW_AddToPlaylist"
+                action="navigator.PushScreen"
+                arguments="CFW_AddToPlaylist_Screen, CFW_AddToPlaylist_Layout"/>
+</ui>
