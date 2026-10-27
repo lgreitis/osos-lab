@@ -17,7 +17,8 @@ PATCH_ARM void cfw_selection_menu_cancel(struct osos_context_menu *menu, uint32_
     osos_context_menu_append(menu, label, action, flags);
 }
 
-PATCH_ARM int cfw_media_list_action(void *controller, const char *action, uint32_t argument)
+PATCH_ARM int cfw_media_list_action(void *controller, const char *action,
+                                    uint32_t argument)
 {
     int last = cfw_string_equal(action, "CFW_PlayLast");
     if (!last && !cfw_string_equal(action, "CFW_PlayNext"))

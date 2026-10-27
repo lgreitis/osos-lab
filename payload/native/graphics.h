@@ -5,93 +5,12 @@
 enum {
     OSOS_RESOURCE_BMAP = 0x424d6170,
     OSOS_RESOURCE_DRAW = 0x44726177,
-    OSOS_RESOURCE_COLR = 0x434f4c52,
-    OSOS_BMAP_HEADER_SIZE = 28,
 };
 
 /* Descriptor identity is retained separately from the changing model property ID. */
 static inline uint32_t osos_view_id(const void *view)
 {
     return *(const uint32_t *)((const unsigned char *)view + 0x4c);
-}
-
-static inline int osos_bitmap_view_ready(void *view)
-{
-    return *((unsigned char *)view + 0xa1) != 0;
-}
-
-static inline uint32_t osos_bitmap_view_type(void *view)
-{
-    return *(uint32_t *)((unsigned char *)view + 0x40);
-}
-
-static inline uint32_t osos_bitmap_view_id(void *view)
-{
-    return *(uint32_t *)((unsigned char *)view + 0x44);
-}
-
-static inline void *osos_bitmap_view_service(void *view)
-{
-    return *(void **)((unsigned char *)view + 0x38);
-}
-
-static inline void *osos_bitmap_view_context(void *view)
-{
-    return *(void **)((unsigned char *)view + 0x15c);
-}
-
-static inline void *osos_bitmap_view_bitmap(void *view)
-{
-    return (unsigned char *)view + 0xa4;
-}
-
-static inline void *osos_graphics_bitmap(void *context)
-{
-    return *(void **)((unsigned char *)context + 0x1c);
-}
-
-static inline const unsigned char *osos_bitmap_pixels(void *bitmap)
-{
-    return *(const unsigned char **)((unsigned char *)bitmap + 4);
-}
-
-/* Draw paths call the loader even when the owned bitmap is already cached. */
-static inline int osos_bitmap_cache_ready(void *cache)
-{
-    return *((unsigned char *)cache + 8) != 0;
-}
-
-static inline void *osos_bitmap_cache_service(void *cache)
-{
-    return *(void **)cache;
-}
-
-static inline uint32_t osos_bitmap_cache_id(void *cache)
-{
-    return *(uint32_t *)((unsigned char *)cache + 4);
-}
-
-static inline void *osos_bitmap_cache_bitmap(void *cache)
-{
-    return (unsigned char *)cache + 0xc;
-}
-
-static inline void *osos_resource_service_get(void *service, uint32_t type, uint32_t id)
-{
-    typedef void *(*fn)(void *, uint32_t, uint32_t);
-    return ((fn)OSOS_RESOURCE_SERVICE_GET)(service, type, id);
-}
-
-static inline void osos_bitmap_load_resource(void *bitmap, const void *data)
-{
-    typedef void (*fn)(void *, const void *, uint32_t, uint32_t);
-    ((fn)OSOS_BITMAP_LOAD_RESOURCE)(bitmap, data, 0, 0);
-}
-
-static inline void osos_graphics_attach_bitmap(void *context, void *bitmap)
-{
-    typedef void (*fn)(void *, void *);
-    ((fn)OSOS_GRAPHICS_ATTACH_BITMAP)(context, bitmap);
 }
 
 /* Drawing colors are byte-order RGBA; COLR resource words are 0x00RRGGBB. */

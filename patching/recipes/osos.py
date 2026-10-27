@@ -96,7 +96,7 @@ def build_recipe(
     for i, (kind, resource_id) in enumerate(resources.added):
         if kind == "BMap" and require(symbols, f"resource_{i}") % 4:
             raise ValueError(f"Embedded bitmap {resource_id:#x} is not word-aligned")
-    patches = declarations.collect(directory, units, prefix)
+    patches = declarations.collect(directory, "payload", prefix)
     used = symbols["__payload_end"] - symbols["__payload_start"]
     capacity = symbols["__payload_limit"] - symbols["__payload_start"]
     print(

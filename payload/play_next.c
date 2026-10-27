@@ -74,7 +74,8 @@ void cfw_play_next_menu(struct osos_context_menu *menu)
     }
 }
 
-void cfw_play_next_add(struct osos_player *player, struct osos_media_item *selected, int last)
+void cfw_play_next_add(struct osos_player *player, struct osos_media_item *selected,
+                       int last)
 {
     struct osos_media_entry *current = current_entry(player);
     if (current) {
@@ -106,7 +107,9 @@ void cfw_play_next_add_browser(struct osos_player *player, void *browser, int la
         return;
     /* Same song list and order as the native On-The-Go path for this selection. */
     ((build_songs)OSOS_BROWSER_BUILD_SONGS)(browser);
-    int mode = osos_list_is_shuffled(source) ? 2 : ((order_mode)OSOS_BROWSER_ORDER_MODE)(browser);
+    int mode = osos_list_is_shuffled(source)
+                   ? 2
+                   : ((order_mode)OSOS_BROWSER_ORDER_MODE)(browser);
     uint32_t grouped = *((uint8_t *)browser + OSOS_BROWSER_ORDER_FLAG_OFFSET) != 0;
     unsigned count = osos_list_root(source)->tracks;
 

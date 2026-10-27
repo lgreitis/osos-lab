@@ -141,15 +141,25 @@ def serialized_string(value):
     return struct.pack("<I", len(data)) + data
 
 
-def menu_event(item, event, handler, action, arguments):
+def event(name, action=None, *, handler="", arguments=()):
     return (
-        serialized_string(f"list.pid.{item}.{event}")
+        serialized_string(name)
         + b"1"
         + serialized_string(handler)
-        + struct.pack("<I", 1)
-        + serialized_string(action)
-        + struct.pack("<I", len(arguments))
-        + b"".join(serialized_string(argument) for argument in arguments)
+        + struct.pack("<I", int(action is not None))
+        + (
+            serialized_string(action)
+            + struct.pack("<I", len(arguments))
+            + b"".join(serialized_string(argument) for argument in arguments)
+            if action is not None
+            else b""
+        )
+    )
+
+
+def menu_event(item, name, handler, action=None, arguments=()):
+    return event(
+        f"list.pid.{item}.{name}", action, handler=handler, arguments=arguments
     )
 
 
@@ -217,23 +227,21 @@ class Resources:
         self.add(kind, resource_id, data)
 
     def bind_screen_event(self, binding):
-        encoded = (
-            serialized_string(binding.event)
-            + b"1"
-            + serialized_string(binding.handler)
-            + struct.pack("<I", 0)
-        )
+        encoded = event(binding.event, handler=binding.handler)
         self.extend_events("CEVT", self.native(binding.screen), [encoded])
 
     def source(self, text, string_id=None):
         if string_id is None:
             string_id = self.allocate()
-        source_id = self.allocate()
         self.add("Str ", string_id, text.encode("utf-8") + b"\0")
+        return self.property_source(0x80, string_id)
+
+    def property_source(self, service, property_id):
+        source_id = self.allocate()
         self.add(
             "SORC",
             source_id,
-            pack_blocks([(0x534F5243, struct.pack("<III", 0x80, string_id, 1))]),
+            pack_blocks([(0x534F5243, struct.pack("<III", service, property_id, 1))]),
         )
         return source_id
 
@@ -353,14 +361,3 @@ class Resources:
             if changed:
                 data = pack_blocks(bindings)
         return data
-
-
-def event(name, action):
-    return (
-        serialized_string(name)
-        + b"1"
-        + serialized_string("")
-        + struct.pack("<I", 1)
-        + serialized_string(action)
-        + struct.pack("<I", 0)
-    )

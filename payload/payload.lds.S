@@ -22,5 +22,6 @@ SECTIONS {
     __payload_limit = ALIGN(0x1000);
     ASSERT(__payload_limit <= CFW_PAYLOAD_BASE + CFW_PAYLOAD_BYTES,
            "CFW payload exceeds reserved memory")
-    /DISCARD/ : { *(.cfw.patch) *(.comment) *(.ARM.attributes) *(.ARM.exidx*) *(.ARM.extab*) }
+    .cfw.patch 0 (INFO) : { *(.cfw.patch) }
+    /DISCARD/ : { *(.comment) *(.ARM.attributes) *(.ARM.exidx*) *(.ARM.extab*) }
 }

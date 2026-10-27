@@ -11,7 +11,6 @@ from .resources import (
     menu_event,
     pack_blocks,
     put,
-    serialized_string,
     word,
 )
 
@@ -108,7 +107,7 @@ class DocumentCompiler:
         return item, (0, data)
 
     def model_row(self, property_id):
-        item, row = self.row(self.model_source(property_id))
+        item, row = self.row(self.resources.property_source(0x8900, property_id))
         row[1][0x94:0x95] = b"\x01"
         return item, row
 
@@ -163,7 +162,7 @@ class DocumentCompiler:
             row = Resource(prototype)
             row_id = resources.allocate()
             put(row, 0x30, row_id)
-            put(row, 0x68, self.model_source(property_id))
+            put(row, 0x68, resources.property_source(0x8900, property_id))
             row[0x94:0x95] = b"\x01"
             self.page(
                 item.name,
@@ -177,18 +176,8 @@ class DocumentCompiler:
             property=property_id,
             summary_property=summary,
             screen=resources.names[item.name + "_Screen"],
-            default=item.default_index,
         )
         return parent_row, self.push(parent_item, item.name)
-
-    def model_source(self, property_id):
-        source = self.resources.allocate()
-        self.resources.add(
-            "SORC",
-            source,
-            pack_blocks([(0x534F5243, struct.pack("<III", 0x8900, property_id, 1))]),
-        )
-        return source
 
     def range_page(self, item, property_id):
         resources = self.resources
@@ -213,7 +202,7 @@ class DocumentCompiler:
         layout = resources.allocate(item.name + "_Layout")
         resources.add("SCST", screen, b"CFWRange")
         resources.set_events("CEVT", screen, struct.pack("<I", 0))
-        source = self.model_source(property_id)
+        source = resources.property_source(0x8900, property_id)
         binding = pack_blocks(
             [
                 (
@@ -373,13 +362,8 @@ class DocumentCompiler:
             else:
                 name = document.root.name + "_Preview" + suffix
                 self.string_ids[name] = property_id = resources.allocate(name)
-            sources[resources.native(view)] = source = resources.allocate()
-            resources.add(
-                "SORC",
-                source,
-                pack_blocks(
-                    [(0x534F5243, struct.pack("<III", 0x8900, property_id, 1))]
-                ),
+            sources[resources.native(view)] = resources.property_source(
+                0x8900, property_id
             )
         views = []
         for view, options in blocks(data):
@@ -401,12 +385,7 @@ class DocumentCompiler:
     def bind_settings_events(self, item_id):
         document = self.document
         if document.root.kind == "toggle":
-            chosen = (
-                serialized_string(f"list.pid.{item_id}.chosen")
-                + b"1"
-                + serialized_string(document.root.name + "_Toggle")
-                + struct.pack("<I", 0)
-            )
+            chosen = menu_event(item_id, "chosen", document.root.name + "_Toggle")
         else:
             chosen = self.push(item_id, document.root.name, document.open_action)
         events = [
@@ -422,10 +401,6 @@ class DocumentCompiler:
         self.resources.extend_events(
             "CEVT", self.resources.native("SettingsMenus_Main_Screen"), events
         )
-
-    def finish_bindings(self):
-        for item in self.document.actions:
-            self.actions[item.name].labels = self.document.values[item.choices].labels
 
 
 def compile_document(resources, document, text=""):
@@ -452,7 +427,6 @@ def compile_document(resources, document, text=""):
     if builder is not None:
         builder.insert_settings()
         compiled.string_ids.update(builder.string_ids)
-        builder.finish_bindings()
         compiled.fields = builder.fields
         compiled.actions = builder.actions
     return compiled
@@ -523,12 +497,7 @@ def compile_music_entry(resources, entry, compiled):
             ("chosen", entry["open"]),
             ("delayedselected", entry["highlight"]),
         ):
-            events.append(
-                serialized_string(f"list.pid.{item}.{event_name}")
-                + b"1"
-                + serialized_string(handler)
-                + struct.pack("<I", 0)
-            )
+            events.append(menu_event(item, event_name, handler))
         resources.extend_events(
             "CEVT", resources.native(f"MainMenus_{menu}_Screen"), events
         )

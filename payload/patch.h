@@ -7,7 +7,7 @@
 /* Native ARM call sites can enter marked C functions directly. */
 #define PATCH_ARM __attribute__((target("arm")))
 
-/* Build metadata; the linker discards it from the installed payload. */
+/* Build metadata retained in the ELF, outside the installed payload. */
 struct cfw_patch {
     uint32_t kind, address, expected, extra, value;
     char symbol[64];

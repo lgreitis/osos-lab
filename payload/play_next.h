@@ -5,7 +5,8 @@
 
 void cfw_play_next_menu(struct osos_context_menu *menu);
 /* Caller holds the player lock while resolving the item and inserting it. */
-void cfw_play_next_add(struct osos_player *player, struct osos_media_item *item, int last);
+void cfw_play_next_add(struct osos_player *player, struct osos_media_item *item,
+                       int last);
 /* Caller holds the player lock. Queues every song selected by the browser's filters. */
 void cfw_play_next_add_browser(struct osos_player *player, void *browser, int last);
 #endif

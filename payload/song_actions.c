@@ -46,13 +46,13 @@ static int selected_item(void *controller, enum song_source source,
     return osos_media_item_valid(selected);
 }
 
-static int song_action(void *controller, enum song_source source,
-                       const char *action, uint32_t argument)
+static int song_action(void *controller, enum song_source source, const char *action,
+                       uint32_t argument)
 {
     int info = cfw_string_equal(action, "CFW_SongInfo");
     int last = cfw_string_equal(action, "CFW_PlayLast");
-    if (!info && (source == NOW_PLAYING ||
-                  (!last && !cfw_string_equal(action, "CFW_PlayNext"))))
+    if (!info &&
+        (source == NOW_PLAYING || (!last && !cfw_string_equal(action, "CFW_PlayNext"))))
         return 0;
     if (argument != OSOS_ACTION_SUPPORT_QUERY) {
         struct osos_player *player = osos_player_get();
@@ -86,7 +86,8 @@ PATCH_ARM int cfw_song_action(void *controller, const char *action, uint32_t arg
     return cfw_song_action_original(controller, action, argument);
 }
 
-PATCH_ARM int cfw_playlist_action(void *controller, const char *action, uint32_t argument)
+PATCH_ARM int cfw_playlist_action(void *controller, const char *action,
+                                  uint32_t argument)
 {
     if (song_action(controller, PLAYLIST, action, argument))
         return 1;

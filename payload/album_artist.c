@@ -4,7 +4,6 @@
 #include "album_artists.h"
 #include "patch.h"
 
-
 struct artist_entry {
     uint32_t id_low, id_high, token;
     int used;
@@ -108,7 +107,8 @@ int cfw_album_artist_import(void *reader, struct osos_media_record *record,
     if (!string_cache || body_bytes < 16)
         return ((skip)OSOS_ITUNES_SKIP_BYTES)(reader, (int32_t)body_bytes);
     const uint32_t *id = persistent_id(record);
-    struct artist_entry *entry = capacity ? slot(entries, capacity, id[0], id[1]) : NULL;
+    struct artist_entry *entry =
+        capacity ? slot(entries, capacity, id[0], id[1]) : NULL;
     if ((!entry || !entry->used) && !grow())
         return ((skip)OSOS_ITUNES_SKIP_BYTES)(reader, (int32_t)body_bytes);
 
@@ -118,10 +118,11 @@ int cfw_album_artist_import(void *reader, struct osos_media_record *record,
     if (((position)OSOS_IMPORT_FILE_POSITION)(file, &start))
         return ((skip)OSOS_ITUNES_SKIP_BYTES)(reader, (int32_t)body_bytes);
 
-    typedef int (*import)(void *, uint32_t, uint32_t, void *, uint32_t *, uint32_t, int);
+    typedef int (*import)(void *, uint32_t, uint32_t, void *, uint32_t *, uint32_t,
+                          int);
     uint32_t token = 0;
-    int status = ((import)OSOS_ITUNES_IMPORT_STRING)(
-        reader, 1, 22, string_cache, &token, 0, 1);
+    int status =
+        ((import)OSOS_ITUNES_IMPORT_STRING)(reader, 1, 22, string_cache, &token, 0, 1);
     int cursor_status = ((position)OSOS_IMPORT_FILE_POSITION)(file, &end);
     if (cursor_status || end < start || end - start > body_bytes) {
         release(token);
@@ -155,16 +156,16 @@ uint32_t cfw_album_artist_token(struct osos_media_record *record)
     return slot(entries, capacity, id[0], id[1])->token;
 }
 
-uint32_t cfw_album_artist_read(struct osos_media_record *record,
-                                uint16_t *text, uint32_t max_units)
+uint32_t cfw_album_artist_read(struct osos_media_record *record, uint16_t *text,
+                               uint32_t max_units)
 {
     uint32_t token = cfw_album_artist_token(record);
     if (!token || !max_units || max_units > INT32_MAX / 2)
         return 0;
     uint32_t bytes = 0;
     typedef int (*read)(void *, uint32_t, void *, uint32_t *, uint32_t);
-    if (((read)OSOS_IMPORT_STRING_CACHE_READ)(
-            string_cache, token, text, &bytes, max_units * 2))
+    if (((read)OSOS_IMPORT_STRING_CACHE_READ)(string_cache, token, text, &bytes,
+                                              max_units * 2))
         return 0;
     uint32_t units = bytes / 2;
     if (units && text[units - 1] >= 0xd800 && text[units - 1] <= 0xdbff)

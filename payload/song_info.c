@@ -46,8 +46,8 @@ static void decimal(uint32_t value)
 static void flush(void)
 {
     if (body.resource)
-        osos_resource_set(osos_resource_bank(), 0x53747220, body.resource,
-                          body.data, body.size + 1);
+        osos_resource_set(osos_resource_bank(), 0x53747220, body.resource, body.data,
+                          body.size + 1);
 }
 
 static void label(uint32_t resource, const char *name)
@@ -61,7 +61,7 @@ static void label(uint32_t resource, const char *name)
 }
 
 static void text_field(struct osos_media_item *item, uint32_t resource,
-                        const char *name, enum osos_media_text field)
+                       const char *name, enum osos_media_text field)
 {
     struct osos_native_string string;
     osos_native_string_init(&string);
@@ -78,7 +78,8 @@ static void text_field(struct osos_media_item *item, uint32_t resource,
     osos_native_string_destroy(&string);
 }
 
-static void number_field(uint32_t resource, const char *name, uint32_t number, const char *unit)
+static void number_field(uint32_t resource, const char *name, uint32_t number,
+                         const char *unit)
 {
     label(resource, name);
     if (!number) {
@@ -115,7 +116,8 @@ static void duration(uint32_t milliseconds)
     two_digits(seconds % 60);
 }
 
-static void ordinal(uint32_t resource, const char *name, uint32_t number, uint16_t total)
+static void ordinal(uint32_t resource, const char *name, uint32_t number,
+                    uint16_t total)
 {
     number_field(resource, name, number, "");
     if (number && total >= number) {
@@ -137,8 +139,10 @@ static void metadata(struct osos_media_item *item)
     duration(osos_media_item_duration(item));
     /* Song records keep track/disc totals beside their 16-bit ordinals. */
     const uint8_t *record = (const uint8_t *)item->record;
-    ordinal(CFW_INFO_TRACK, "Track", osos_media_item_track(item), *(const uint16_t *)(record + 0x86));
-    ordinal(CFW_INFO_DISC, "Disc", osos_media_item_disc(item), *(const uint16_t *)(record + 0x8a));
+    ordinal(CFW_INFO_TRACK, "Track", osos_media_item_track(item),
+            *(const uint16_t *)(record + 0x86));
+    ordinal(CFW_INFO_DISC, "Disc", osos_media_item_disc(item),
+            *(const uint16_t *)(record + 0x8a));
     number_field(CFW_INFO_BITRATE, "Bitrate", osos_media_item_bitrate(item), " kbps");
     label(CFW_INFO_FILE_SIZE, "File size");
     uint32_t bytes = osos_media_item_file_size(item);
@@ -182,4 +186,3 @@ void cfw_song_info_show(void *controller, struct osos_media_item *item)
         CFW_SongInfo_Layout, 2); /* foregroundpush */
     ((push)osos_method(controller, 0xd0))(controller, screen);
 }
-

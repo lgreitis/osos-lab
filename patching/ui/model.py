@@ -54,14 +54,12 @@ class FieldBinding:
     property: int
     summary_property: int
     screen: int
-    default: int
 
 
 @dataclass
 class ActionBinding:
     item: int
     property: int
-    labels: list[str] = field(default_factory=list)
 
 
 @dataclass

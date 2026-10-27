@@ -11,6 +11,7 @@ static PATCH_ARM int range_event(void *controller, void *event)
             const struct cfw_ui_field *field = cfw_ui_fields[i];
             if (field->screen != screen || !field->numeric)
                 continue;
+
             ((void (*)(void *))OSOS_WHEEL_DECODE)(event);
             int delta = ((int (*)(uint32_t, uint32_t))OSOS_WHEEL_STEP)(
                 *(uint32_t *)((unsigned char *)event + 0xc), 0x10);
@@ -19,12 +20,14 @@ static PATCH_ARM int range_event(void *controller, void *event)
                 value = 0;
             if (value >= field->count)
                 value = field->count - 1;
+
             if ((uint32_t)value != field->model->values[field->slot])
                 field->model->change(field->slot, (uint32_t)value);
             return 1;
         }
         return 1;
     }
+
     return ((int (*)(void *, void *))OSOS_CONTROLLER_HANDLE_EVENT)(controller, event);
 }
 
@@ -34,6 +37,7 @@ static PATCH_ARM uint32_t range_deactivate(void *controller, uint32_t leaving)
     for (uint32_t i = 0; i < cfw_ui_field_count; i++)
         if (cfw_ui_fields[i]->screen == screen)
             cfw_ui_fields[i]->model->commit();
+
     return ((uint32_t(*)(void *, uint32_t))OSOS_CONTROLLER_DEACTIVATE)(controller,
                                                                        leaving);
 }

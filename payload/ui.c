@@ -38,11 +38,13 @@ int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
             return 1;
         }
     }
+
     for (uint32_t i = 0; i < cfw_ui_field_count; i++) {
         const struct cfw_ui_field *field = cfw_ui_fields[i];
         uint32_t selected = field->model->values[field->slot];
         if (selected >= field->count)
             selected = field->default_value;
+
         if (property == field->summary_property && type == OSOS_PROPERTY_COUNT) {
             *out = 1;
             return 1;
@@ -61,8 +63,10 @@ int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
             *out = (uintptr_t)field->state->summary;
             return 1;
         }
+
         if (property != field->property)
             continue;
+
         if (!field->numeric && type == OSOS_PROPERTY_COUNT) {
             *out = field->count;
         } else if (field->numeric && type == 0x436e746c) { /* Cntl */
@@ -77,6 +81,7 @@ int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
         }
         return 1;
     }
+
     return 0;
 }
 
@@ -87,6 +92,7 @@ int cfw_ui_indexed_property(uint32_t type, uint32_t property, uint32_t index,
         const struct cfw_ui_field *field = cfw_ui_fields[i];
         if (property != field->property || field->numeric || index >= field->count)
             continue;
+
         if (type == OSOS_PROPERTY_STRING) {
             *out = (uintptr_t)field->labels[index];
         } else if (type == OSOS_RESOURCE_BMAP) {
@@ -98,6 +104,7 @@ int cfw_ui_indexed_property(uint32_t type, uint32_t property, uint32_t index,
         }
         return 1;
     }
+
     return index == 0 ? cfw_ui_property(type, property, out) : 0;
 }
 
@@ -107,6 +114,7 @@ int cfw_ui_handle_action(const char *action, uint32_t argument)
         const struct cfw_ui_field *field = cfw_ui_fields[i];
         if (field->numeric || !cfw_string_equal(action, field->action))
             continue;
+
         if (argument != OSOS_ACTION_SUPPORT_QUERY) {
             void *selection = ((void *(*)(void))OSOS_UI_SELECTION)();
             uint32_t index =
@@ -118,5 +126,6 @@ int cfw_ui_handle_action(const char *action, uint32_t argument)
         }
         return 1;
     }
+
     return 0;
 }

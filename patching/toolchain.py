@@ -36,6 +36,20 @@ def run(command, cwd, env=None):
     return result.stdout
 
 
+def read_section(directory, output, section, prefix):
+    path = (directory / (output + section)).resolve()
+    # objcopy leaves an existing dump untouched when the section is missing.
+    path.write_bytes(b"")
+    run(
+        [prefix + "objcopy", "--dump-section", f"{section}={path}", output + ".elf"],
+        directory,
+    )
+    data = path.read_bytes()
+    if not data:
+        raise ValueError(f"Missing {section} metadata in {output}")
+    return data
+
+
 def compile_payload(
     directory,
     source,

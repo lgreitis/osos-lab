@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Emit C source and headers from compiled resources and bindings."""
 
+import json
 import struct
 
 from .resources import Resource
@@ -43,8 +44,6 @@ def array(name, values, public=False, ctype="uint32_t"):
 
 
 def string_array(name, values):
-    import json
-
     return (
         f"static const char *const {name}[] = {{"
         + ", ".join(json.dumps(v, ensure_ascii=False) for v in values)
@@ -53,8 +52,6 @@ def string_array(name, values):
 
 
 def emit_bindings(document, fields, actions):
-    import json
-
     lines = []
     prefix = document.root.name.lower()
     for values in document.values.values():
@@ -73,11 +70,12 @@ def emit_bindings(document, fields, actions):
         ]
     for item in document.actions:
         binding = actions[item.name]
+        labels = document.values[item.choices].labels
         name = item.name.lower()
         lines.append(f"static uint32_t {name}_selected_status;")
         lines.append(
             f"const struct cfw_ui_action {name} = {{"
-            f"{binding.property:#x}, {len(binding.labels)}, "
+            f"{binding.property:#x}, {len(labels)}, "
             f"{item.choices}_labels, &{name}_selected_status}};"
         )
     if fields:
@@ -93,7 +91,7 @@ def emit_bindings(document, fields, actions):
                         f"{binding.summary_property:#x}",
                         f"{binding.screen:#x}",
                         str(len(values.labels)),
-                        str(binding.default),
+                        str(item.default_index),
                         str(item.slot),
                         str(int(values.numeric)),
                         json.dumps(item.name),
@@ -221,8 +219,6 @@ def emit_events(resources):
 
 
 def emit_visibility(resources):
-    import json
-
     lines, entries, keys = [], [], set()
     for i, entry in enumerate(resources.visibility):
         key = 2166136261
