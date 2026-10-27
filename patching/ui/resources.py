@@ -171,7 +171,10 @@ class Resources:
         self.next_id = 0x0CF00000
 
     def native(self, name):
-        return self.bindings[name] if isinstance(name, str) else name
+        if not isinstance(name, str):
+            return name
+        # CFW resources allocated earlier (e.g. screen clones) are referable by name.
+        return self.bindings[name] if name in self.bindings else self.names[name]
 
     def stock(self, kind, name):
         return self.original[kind, self.native(name)]
@@ -200,14 +203,27 @@ class Resources:
         self.added[key] = Resource(data)
 
     def bind_screen_event(self, binding):
-        encoded = (
-            serialized_string(binding.event)
-            + b"1"
-            + serialized_string(binding.handler)
-            + struct.pack("<I", 0)
-        )
-        for _, layout in blocks(self.original["SLst", self.native(binding.screen)]):
-            self.extend_events("SEVT", word(layout, 0), [encoded])
+        encoded = serialized_string(binding.event) + b"1" + serialized_string(binding.handler)
+        if binding.action:
+            encoded += (
+                struct.pack("<I", 1)
+                + serialized_string(binding.action)
+                + struct.pack("<I", len(binding.arguments))
+                + b"".join(serialized_string(argument) for argument in binding.arguments)
+            )
+        else:
+            encoded += struct.pack("<I", 0)
+        layouts = [
+            word(layout, 0)
+            for _, layout in blocks(self.current("SLst", self.native(binding.screen)))
+        ]
+        if binding.layout != "":
+            only = self.native(binding.layout)
+            if only not in layouts:
+                raise ValueError("Screen event layout is not a layout of its screen")
+            layouts = [only]
+        for layout in layouts:
+            self.extend_events("SEVT", layout, [encoded])
 
     def source(self, text, string_id=None):
         if string_id is None:
@@ -253,6 +269,42 @@ class Resources:
             self.add("SSin", list_id, pack_blocks(instances))
         self.add("SLyt", new_id, pack_blocks(layout))
         self.add("SEVT", new_id, self.original["SEVT", original_id])
+
+    def clone_screen(self, clone):
+        """Build <name>_Screen with one layout cloned from a stock screen layout."""
+        stock_layout = self.native(clone.layout)
+        dropped = {self.native(template) for template in clone.drop}
+        screen = self.allocate(clone.name + "_Screen")
+        layout = self.allocate(clone.name + "_Layout")
+        title_id = self.allocate(clone.name + "_Title")
+        title = self.source(clone.title, title_id)
+        self.add("SCST", screen, self.stock("SCST", clone.screen))
+        self.add("CEVT", screen, struct.pack("<I", 0))
+        entries = [
+            item
+            for _, item in blocks(self.stock("SLst", clone.screen))
+            if word(item, 0) == stock_layout
+        ]
+        if len(entries) != 1:
+            raise ValueError("Screen clone layout is not a layout of its screen")
+        put(entries[0], 0, layout)
+        self.add("SLst", screen, pack_blocks([(0, entries[0])]))
+        cloned = blocks(self.original["SLyt", stock_layout])
+        for _, item in cloned:
+            instances = [
+                (kind, instance)
+                for kind, instance in blocks(self.original["SSin", word(item, 0)])
+                if word(instance, 4) not in dropped
+            ]
+            put(item, 0, instances_id := self.allocate())
+            for _, instance in instances:
+                self.clone_instance(instance, {}, title, None)
+            self.add("SSin", instances_id, pack_blocks(instances))
+        self.add("SLyt", layout, pack_blocks(cloned))
+        # Stock layout events are not inherited (they navigate to the stock screen's
+        # other layouts); declare the clone's events with <screen-event>.
+        self.add("SEVT", layout, struct.pack("<I", 0))
+        return screen, layout, title_id
 
     def clone_instance(self, instance, substitutions, title_source, item_table):
         original_id = word(instance, 0)

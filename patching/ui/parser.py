@@ -5,7 +5,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .model import Document, Item, ScreenEvent, Values
+from .model import Document, Item, ScreenClone, ScreenEvent, Values
 
 
 def attributes(node, required="", optional="", children=()):
@@ -74,6 +74,7 @@ class Parser:
                 "settings-entry",
                 "string",
                 "screen-event",
+                "screen-clone",
                 "music-entry",
                 "bitmap",
             ),
@@ -86,6 +87,7 @@ class Parser:
             document.root is None
             and not document.strings
             and not document.events
+            and not document.clones
             and document.music_entry is None
         ):
             raise ValueError("Incomplete UI declaration")
@@ -145,6 +147,17 @@ class Parser:
             )
         elif node.tag == "screen-event":
             document.events.append(self.parse_screen_event(node))
+        elif node.tag == "screen-clone":
+            attributes(node, "id screen layout title", "drop")
+            document.clones.append(
+                ScreenClone(
+                    self.identifier(node),
+                    resource_reference(node.attrib["screen"]),
+                    resource_reference(node.attrib["layout"]),
+                    node.attrib["title"],
+                    tuple(resource_reference(v) for v in node.get("drop", "").split()),
+                )
+            )
         elif node.tag == "music-entry":
             attributes(node, "id title after screen layout open highlight")
             if document.music_entry is not None:
@@ -234,13 +247,25 @@ class Parser:
         )
 
     def parse_screen_event(self, node):
-        attributes(node, "screen event handler")
-        if not node.attrib["event"] or not node.attrib["handler"]:
-            raise ValueError("Screen events require an event and handler")
+        attributes(node, "screen event", "handler action arguments layout")
+        action = node.get("action", "")
+        # Native events may run only a navigator action (empty handler).
+        if not node.attrib["event"] or not (node.get("handler") or action):
+            raise ValueError("Screen events require an event and handler or action")
+        arguments = tuple(
+            argument.strip()
+            for argument in node.get("arguments", "").split(",")
+            if argument.strip()
+        )
+        if arguments and not action:
+            raise ValueError("Screen event arguments require an action")
         return ScreenEvent(
             resource_reference(node.attrib["screen"]),
             node.attrib["event"],
-            node.attrib["handler"],
+            node.get("handler", ""),
+            action,
+            arguments,
+            resource_reference(node.attrib["layout"]) if "layout" in node.attrib else "",
         )
 
     def apply_settings_entry(self):

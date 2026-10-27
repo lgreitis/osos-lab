@@ -28,6 +28,23 @@ class ScreenEvent:
     screen: str | int
     event: str
     handler: str
+    # Optional native follow-up, e.g. navigator.PushScreen with its arguments.
+    action: str = ""
+    arguments: tuple[str, ...] = ()
+    # Optional: bind only on this layout of the screen instead of all of them.
+    layout: str | int = ""
+
+
+@dataclass
+class ScreenClone:
+    """A new screen reusing a stock screen's controller and one of its layouts."""
+
+    name: str
+    screen: str | int
+    layout: str | int
+    title: str
+    # Template instances (by template resource) left out of the cloned layout.
+    drop: tuple[str | int, ...] = ()
 
 
 @dataclass
@@ -40,6 +57,7 @@ class Document:
     open_action: str = ""
     strings: dict[str, str] = field(default_factory=dict)
     events: list[ScreenEvent] = field(default_factory=list)
+    clones: list[ScreenClone] = field(default_factory=list)
     music_entry: dict[str, str] | None = None
     preview: str = ""
     preview_image: str = ""

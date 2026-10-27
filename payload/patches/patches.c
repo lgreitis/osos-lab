@@ -159,3 +159,37 @@ PATCH_CALL(OSOS_MEDIA_LIST_OTG_ADD_CALL, OSOS_OTG_ADD_BROWSER, cfw_queue_selecti
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_A, 0xe92d43f0, 0xe24dd06c, cfw_iap_auth_verify);
 /* stmdb sp!,{r2,r3,r4,lr}; cmp r1,#0 */
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_B, 0xe92d401c, 0xe3510000, cfw_iap_auth_verify);
+
+/* Rename Playlist: remember the held row, then add the item before Cancel. */
+PATCH_POINTER(OSOS_PLAYLISTS_MENU_SLOT, OSOS_PLAYLISTS_BUILD_MENU, cfw_playlists_menu);
+PATCH_POINTER(OSOS_PLAYLISTS_TRANSITION_MENU_SLOT, OSOS_PLAYLISTS_BUILD_MENU,
+              cfw_playlists_menu);
+PATCH_CALL(OSOS_PLAYLISTS_CANCEL_APPEND_CALL, OSOS_CONTEXT_MENU_APPEND,
+           cfw_playlists_menu_cancel);
+/* movs r2, r1; mov r3, r0 */
+PATCH_JUMP(OSOS_PLAYLIST_GET_NAME, 0xe1b02001, 0xe1a03000, cfw_playlist_get_name);
+PATCH_CALL(OSOS_SEARCH_CONSTRUCT_CALL, OSOS_SEARCH_CONSTRUCT, cfw_search_construct);
+PATCH_CALL(OSOS_SEARCH_SET_QUERY_CALL, OSOS_MODEL_RESOURCE_SET,
+           cfw_search_set_query);
+PATCH_POINTER(OSOS_SEARCH_MENU_ON_KEYBOARD_SLOT, OSOS_SEARCH_MENU_ON_KEYBOARD,
+              cfw_search_menu_on_keyboard);
+PATCH_POINTER(OSOS_SEARCH_TRANSITION_MENU_ON_KEYBOARD_SLOT,
+              OSOS_SEARCH_MENU_ON_KEYBOARD, cfw_search_menu_on_keyboard);
+
+/* Add to Playlist: re-apply saved additions whenever the library is loaded. */
+PATCH_CALL(OSOS_DATABASE_LOAD_BOOT_CALL, OSOS_DATABASE_LOAD, cfw_database_load);
+PATCH_CALL(OSOS_DATABASE_LOAD_RELOAD_CALL, OSOS_DATABASE_LOAD, cfw_database_load);
+/* Remove from Playlist: note which song list builds the hold menu. */
+PATCH_POINTER(OSOS_NESTED_PLAYLISTS_MENU_SLOT, OSOS_NESTED_PLAYLISTS_BUILD_MENU,
+              cfw_nested_playlists_menu);
+PATCH_POINTER(OSOS_NESTED_PLAYLISTS_TRANSITION_MENU_SLOT, OSOS_NESTED_PLAYLISTS_BUILD_MENU,
+              cfw_nested_playlists_menu);
+
+/* Cover Flow: hold Center on a song on the back of an album. */
+PATCH_POINTER(OSOS_COVERFLOW_ACTION_SLOT, OSOS_COVERFLOW_ACTION, cfw_coverflow_action);
+PATCH_POINTER(OSOS_COVERFLOW_TRANSITION_ACTION_SLOT, OSOS_COVERFLOW_ACTION,
+              cfw_coverflow_action);
+/* push {r4-r9, lr}; movs r5, r1 */
+PATCH_JUMP(OSOS_COVERFLOW_APPEAR, 0xe92d43f0, 0xe1b05001, cfw_coverflow_appear);
+/* Remove from Playlist: reload the song list when the row's blink ends. */
+PATCH_CALL(OSOS_LIST_BLINK_DONE_CALL, OSOS_VIEW_SEND_EVENT, cfw_list_blink_done);

@@ -1,0 +1,29 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <string id="CFW_RENAME_PLAYLIST" text="Rename Playlist"/>
+  <!-- Keyboard-only rename screen: the stock Search controller and its keyboard
+       layout, without the search results list (MainMenu_Template). -->
+  <screen-clone id="CFW_RenamePlaylist"
+                screen="Search_Main_Screen"
+                layout="Search_Main_Screen_WithKeyboardNow"
+                title="Rename Playlist"
+                drop="MainMenu_Template"/>
+  <!-- Hold Center on a playlist, choose Rename Playlist: run the action, then open
+       the rename screen. -->
+  <screen-event screen="MediaLists_Playlists_Screen"
+                event="contextualMenu.CFW_RenamePlaylist"
+                handler="CFW_RenamePlaylist"
+                action="navigator.PushScreen"
+                arguments="CFW_RenamePlaylist_Screen, CFW_RenamePlaylist_Layout"/>
+  <!-- Menu saves the name (cfw_search_menu_on_keyboard) and then closes. -->
+  <screen-event screen="CFW_RenamePlaylist_Screen"
+                event="button.menu.up"
+                handler="HandleMenuOnKeyboard"/>
+  <screen-event screen="CFW_RenamePlaylist_Screen"
+                event="controller.CFW_RenameDone"
+                action="navigator.PopTopScreen"/>
+  <!-- The keyboard's own done key hides the keyboard: close without renaming. -->
+  <screen-event screen="CFW_RenamePlaylist_Screen"
+                event="controller.HideKeyboard"
+                action="navigator.PopTopScreen"/>
+</ui>
