@@ -593,8 +593,15 @@ PATCH_ARM void cfw_list_blink_done(void *view, void *event, int flags)
 {
     typedef void (*send)(void *, void *, int);
     ((send)OSOS_VIEW_SEND_EVENT)(view, event, flags);
-    if (reload.controller && reload.view == view && current_list_view() == view)
+    if (!reload.controller)
+        return;
+    /* Only the blink that the removal started counts. Any other blink (picking
+       a song blinks its row too) means the song list is gone or moved on, so
+       drop the reload rather than touch a controller that may no longer exist. */
+    if (reload.view == view && current_list_view() == view)
         reload_song_list();
+    else
+        reload.controller = reload.view = NULL;
 }
 
 void cfw_playlist_remove(void *controller, struct osos_media_item *item)
@@ -615,6 +622,9 @@ void cfw_playlist_remove(void *controller, struct osos_media_item *item)
     void *ui = ((get_ui)OSOS_LIST_VIEW_MODEL)();
     int row = ui ? ((highlighted)osos_method(ui, OSOS_LIST_VIEW_HIGHLIGHTED))(ui) : -1;
     void *view = current_list_view();
+    /* A song picked for Add to Playlist may be this very entry. */
+    if (pending == entry)
+        pending = NULL;
     delete_entry(list, entry);
     forget(list, record);
     reload.controller = controller;
