@@ -10,6 +10,9 @@
 uint32_t cfw_irq_save(void);
 void cfw_irq_restore(uint32_t flags);
 
+extern const struct cfw_ui_model cfw_eq_model;
+uint32_t cfw_eq_snapshot(int32_t coefficients[3][5], uint32_t *rate);
+
 int cfw_eq_action(const char *action, uint32_t argument);
 void cfw_eq_load_preferences(void);
 int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS]);

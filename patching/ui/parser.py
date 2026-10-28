@@ -70,6 +70,7 @@ class Parser:
                 "range",
                 "menu",
                 "text",
+                "canvas",
                 "toggle",
                 "settings-entry",
                 "string",
@@ -112,13 +113,13 @@ class Parser:
             )
             validate_values(value)
             document.values[value.name] = value
-        elif node.tag in ("menu", "text", "toggle"):
+        elif node.tag in ("menu", "text", "toggle", "canvas"):
             if document.root is not None:
                 raise ValueError("Expected one root menu or page per UI declaration")
-            if node.tag == "toggle":
+            if node.tag in ("toggle", "canvas"):
                 attributes(node, "id title")
                 document.root = Item(
-                    "toggle", self.identifier(node), node.attrib["title"]
+                    node.tag, self.identifier(node), node.attrib["title"]
                 )
             else:
                 document.root = (
@@ -198,7 +199,9 @@ class Parser:
         return value
 
     def parse_menu(self, node):
-        attributes(node, "id title", children=("menu", "selector", "action", "info"))
+        attributes(
+            node, "id title", children=("menu", "selector", "action", "info", "canvas")
+        )
         item = Item("menu", self.identifier(node), node.attrib["title"])
         for child in node:
             if child.tag == "menu":
@@ -206,18 +209,21 @@ class Parser:
             else:
                 row = self.parse_row(child)
             item.items.append(row)
+        # Native VMax controls the row count only for the final dynamic item.
+        if any(row.hide_when_zero for row in item.items[:-1]):
+            raise ValueError("A hide-when-zero action must be the final menu row")
         if not item.items:
             raise ValueError(f"Empty UI menu: {item.name}")
         return item
 
     def parse_row(self, node):
-        if node.tag == "info":
+        if node.tag in ("info", "canvas"):
             attributes(node, "id title")
-            return Item("info", self.identifier(node), node.attrib["title"])
+            return Item(node.tag, self.identifier(node), node.attrib["title"])
         required = "id title values"
         if node.tag == "selector":
             required += " slot default"
-        attributes(node, required)
+        attributes(node, required, "hide-when-zero" if node.tag == "action" else "")
         name, ref = self.identifier(node), node.attrib["values"]
         if ref not in self.document.values:
             raise ValueError(f"Unknown values for {name}: {ref}")
@@ -225,6 +231,10 @@ class Parser:
         if node.tag == "selector":
             self.bind_selector(node, row)
         else:
+            hidden = node.get("hide-when-zero", "false")
+            if hidden not in ("true", "false"):
+                raise ValueError("Invalid hide-when-zero on <action>")
+            row.hide_when_zero = hidden == "true"
             self.document.actions.append(row)
         return row
 

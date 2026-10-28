@@ -76,7 +76,7 @@ def emit_bindings(document, fields, actions):
         lines.append(
             f"const struct cfw_ui_action {name} = {{"
             f"{binding.property:#x}, {len(labels)}, "
-            f"{item.choices}_labels, &{name}_selected_status}};"
+            f"{item.choices}_labels, &{name}_selected_status, {int(item.hide_when_zero)}}};"
         )
     if fields:
         lines.append(f"const struct cfw_ui_field {prefix}_fields[{len(fields)}] = {{")

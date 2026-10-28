@@ -32,7 +32,7 @@ int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
             if (type == OSOS_PROPERTY_STRING)
                 *out = (uintptr_t)action->labels[*action->status];
             else if (type == OSOS_PROPERTY_COUNT)
-                *out = 1;
+                *out = !action->hide_when_zero || *action->status != 0;
             else
                 return 0;
             return 1;

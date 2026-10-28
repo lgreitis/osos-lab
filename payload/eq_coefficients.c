@@ -85,3 +85,50 @@ int cfw_eq_coefficients(int32_t out[5], unsigned int type, unsigned int hz,
     return out[4] > -SCALE && out[4] < SCALE && (int64_t)SCALE + out[3] + out[4] > 0 &&
            (int64_t)SCALE - out[3] + out[4] > 0;
 }
+
+/* Natural log via range reduction and the rapidly converging atanh series. */
+static double logarithm(double value)
+{
+    int power = 0;
+    while (value >= 2.0) {
+        value *= 0.5;
+        power++;
+    }
+    while (value < 1.0) {
+        value *= 2.0;
+        power--;
+    }
+    double z = (value - 1.0) / (value + 1.0), term = z, sum = z;
+    for (unsigned int n = 3; n <= 23; n += 2) {
+        term *= z * z;
+        sum += term / n;
+    }
+    return 2.0 * sum + power * 0.693147180559945309;
+}
+
+int cfw_eq_response(const int32_t coefficients[3][5], double hz, unsigned int rate)
+{
+    if (!(hz >= 20.0 && hz <= 20000.01) || (rate != 44100 && rate != 48000))
+        return 0;
+    double s, c;
+    sine_cosine(6.283185307179586477 * hz / rate, &s, &c);
+    double c2 = c * c - s * s, s2 = 2.0 * s * c, power = 1.0;
+    for (unsigned int band = 0; band < 3; band++) {
+        const int32_t *k = coefficients[band];
+        double nr = k[0] + k[1] * c + k[2] * c2;
+        double ni = k[1] * s + k[2] * s2;
+        double dr = SCALE + k[3] * c + k[4] * c2;
+        double di = k[3] * s + k[4] * s2;
+        double denominator = dr * dr + di * di;
+        if (!(denominator > 0.0))
+            return 480;
+        power *= (nr * nr + ni * ni) / denominator;
+    }
+    /* Bound the plot, including singular or underflowed responses. */
+    if (!(power > 0.000015848931924611))
+        return -480;
+    if (!(power < 63095.7344480193))
+        return 480;
+    double tenths = logarithm(power) * 43.42944819032518;
+    return (int)(tenths + (tenths < 0.0 ? -0.5 : 0.5));
+}

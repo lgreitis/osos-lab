@@ -16,7 +16,6 @@
 #define osos_ui_service_get service
 #define osos_ui_selection get_selection
 #define osos_wheel_decode wheel_decode
-#define osos_wheel_step wheel_step
 #define osos_controller_handle_event delegate_event
 #define osos_controller_deactivate deactivate
 #define osos_controller_create_screen create_screen
@@ -50,7 +49,7 @@ static const struct cfw_ui_field fields[] = {
 const struct cfw_ui_field *const cfw_ui_fields[] = {&fields[0], &fields[1]};
 const uint32_t cfw_ui_field_count = 2;
 static uint32_t status;
-static const struct cfw_ui_action action = {30, 3, labels, &status};
+static const struct cfw_ui_action action = {30, 3, labels, &status, 1};
 const struct cfw_ui_action *const cfw_ui_actions[] = {&action};
 const uint32_t cfw_ui_action_count = 1;
 
@@ -86,10 +85,44 @@ static void wheel_decode(void *event)
     (void)event;
 }
 
-static int wheel_step(uint32_t delta, uint32_t step)
+static int wheel_primed, wheel_remainder, wheel_constructions;
+
+static void *osos_wheel_accumulator_init(void *state, int threshold,
+                                         unsigned char accelerate, uint32_t interval)
 {
-    assert(step == 16);
-    return (int32_t)delta;
+    assert(threshold == 5 && !accelerate && interval == 350);
+    assert(++wheel_constructions == 1);
+    return state;
+}
+
+static void osos_wheel_accumulator_reset(void *state)
+{
+    (void)state;
+    wheel_primed = wheel_remainder = 0;
+}
+
+static int osos_wheel_accumulator_step(void *state, int motion, uint32_t speed)
+{
+    (void)state;
+    assert(speed == 0);
+    if (!wheel_primed) {
+        wheel_primed = 1;
+        return 0;
+    }
+    int total = wheel_remainder + motion;
+    wheel_remainder = total % 5;
+    return total / 5;
+}
+
+static uint32_t osos_button_ui_key(void *event)
+{
+    return (((uint32_t *)event)[4] >> 16) & 0xff;
+}
+
+static uint32_t osos_controller_activate(void *controller, uint32_t entering)
+{
+    assert(controller == controller_storage);
+    return entering;
 }
 
 static int delegate_event(void *controller, void *event)
@@ -131,6 +164,7 @@ static void register_controllers(void *r, const char *name, void *ordinary,
 int main(void)
 {
     uintptr_t out = 0;
+    assert(cfw_ui_property(OSOS_PROPERTY_COUNT, 30, &out) && out == 0);
     assert(cfw_ui_property(OSOS_PROPERTY_COUNT, 10, &out) && out == 3);
     assert(cfw_ui_indexed_property(OSOS_PROPERTY_STRING, 10, 2, &out));
     assert(!strcmp((char *)out, "High"));
@@ -156,13 +190,22 @@ int main(void)
     assert(cfw_ui_indexed_property(OSOS_PROPERTY_STRING, 30, 0, &out));
     assert(!strcmp((char *)out, "High"));
     assert(!cfw_ui_indexed_property(OSOS_PROPERTY_STRING, 30, 1, &out));
+    cfw_ui_status(&action, 0);
+    assert(cfw_ui_property(OSOS_PROPERTY_COUNT, 30, &out) && out == 0);
     cfw_ui_register_controllers();
     void *controller = range_create("Range", 200, 201, 2);
     assert(*(const uintptr_t **)controller == range_vtable + 3);
     assert(cfw_ui_property(0x436e746c, 20, &out));
     assert(((int32_t *)out)[0] == 1 && ((int32_t *)out)[1] == 0 &&
            ((int32_t *)out)[2] == 2);
-    uint32_t event[] = {0, 0x15, 0, 100};
+    assert(range_activate(controller, 1) == 1);
+    uint32_t event[] = {0, 0x15, 0, 0, 0};
+    range_event(controller, event);
+    event[3] = 2;
+    range_event(controller, event);
+    range_event(controller, event);
+    assert(values[1] == 1);
+    event[3] = 1;
     assert(range_event(controller, event) == 1 && values[1] == 2);
     assert(commits == 1); /* Wheel previews do not write preferences. */
     assert(cfw_ui_property(0x436e746c, 20, &out));
@@ -175,14 +218,30 @@ int main(void)
     unsigned before = changes;
     range_event(controller, event);
     assert(changes == before);
+    event[1] = 6;
+    event[4] = 0x5a << 16;
+    range_event(controller, event);
+    assert(values[1] == 0);
+    event[1] = 0x0d;
+    range_event(controller, event);
+    assert(values[1] == 1);
+    range_event(controller, event);
+    assert(values[1] == 2);
+    event[4] = 0x59 << 16;
+    range_event(controller, event);
+    assert(values[1] == 1);
+    range_event(controller, event);
+    assert(values[1] == 0 && commits == 1);
     event[1] = 2;
     assert(range_event(controller, event) == 7 && delegated == 1);
     assert(range_deactivate(controller, 1) == 1 && deactivated == 1 && commits == 2);
     controller = range_create("Range", 200, 201, 2);
+    range_activate(controller, 1);
+    assert(!wheel_primed && !wheel_remainder);
     assert(cfw_ui_property(0x436e746c, 20, &out));
     assert(((int32_t *)out)[0] == 0 && ((int32_t *)out)[1] == 0 &&
            ((int32_t *)out)[2] == 2);
     cfw_ui_refresh(&fields[0]);
-    assert(notifications == 3);
+    assert(notifications == 4);
     return 0;
 }

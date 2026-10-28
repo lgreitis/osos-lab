@@ -728,10 +728,48 @@ static inline void osos_wheel_decode(void *event)
     ((fn)OSOS_WHEEL_DECODE)(event);
 }
 
-static inline int osos_wheel_step(uint32_t delta, uint32_t step)
+static inline uint32_t osos_button_ui_key(void *event)
 {
-    typedef int (*fn)(uint32_t, uint32_t);
-    return ((fn)OSOS_WHEEL_STEP)(delta, step);
+    typedef uint32_t (*fn)(void *);
+    return ((fn)OSOS_BUTTON_EVENT_UI_KEY)(event);
+}
+
+static inline int osos_hold_locked(void)
+{
+    typedef int (*fn)(void);
+    return ((fn)OSOS_HOLD_LOGICAL_STATE)();
+}
+
+static inline void osos_system_hold_changed(void *system, int locked)
+{
+    typedef void (*fn)(void *, int);
+    ((fn)OSOS_SYSTEM_HOLD_CHANGED)(system, locked);
+}
+
+static inline uint32_t osos_controller_activate(void *controller, uint32_t entering)
+{
+    typedef uint32_t (*fn)(void *, uint32_t);
+    return ((fn)OSOS_CONTROLLER_ACTIVATE)(controller, entering);
+}
+
+static inline void *osos_wheel_accumulator_init(void *state, int threshold,
+                                                unsigned char accelerate,
+                                                uint32_t interval)
+{
+    typedef void *(*fn)(void *, int, unsigned char, uint32_t);
+    return ((fn)OSOS_WHEEL_ACCUMULATOR_INIT)(state, threshold, accelerate, interval);
+}
+
+static inline int osos_wheel_accumulator_step(void *state, int motion, uint32_t speed)
+{
+    typedef int (*fn)(void *, int, uint32_t);
+    return ((fn)OSOS_WHEEL_ACCUMULATOR_STEP)(state, motion, speed);
+}
+
+static inline void osos_wheel_accumulator_reset(void *state)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_WHEEL_ACCUMULATOR_RESET)(state);
 }
 
 static inline int osos_controller_handle_event(void *controller, void *event)

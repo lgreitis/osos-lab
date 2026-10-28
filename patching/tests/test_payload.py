@@ -67,6 +67,7 @@ class PayloadTests(unittest.TestCase):
                 "ui_visibility",
                 "ui_model",
                 "eq_preferences",
+                "eq_canvas",
                 "menu_resources",
                 "bitmap_assets",
                 "dark_mode",

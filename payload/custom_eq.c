@@ -88,10 +88,15 @@ static void change_value(uint32_t field, uint32_t value)
 {
     if (!initialized)
         defaults();
+    if (field >= CFW_EQ_FIELDS || value >= cfw_eq_fields[field].count ||
+        settings[field] == value)
+        return;
     uint32_t previous = settings[field];
     settings[field] = value;
     if (cfw_eq_publish(settings)) {
         dirty = 1;
+        if (save_status == 2)
+            save_status = 0;
         cfw_ui_refresh(&cfw_eq_fields[field]);
     } else {
         settings[field] = previous;

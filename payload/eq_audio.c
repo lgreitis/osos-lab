@@ -8,6 +8,7 @@
 
 static int32_t published[2][3][5];
 static volatile uint32_t generation;
+static volatile uint32_t response_rate = 44100;
 static void *current_state;
 static uint32_t current_generation;
 static uint32_t old_state[OSOS_EQ_STATE_BYTES / 4] __attribute__((aligned(8)));
@@ -38,6 +39,20 @@ int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS])
     return 1;
 }
 
+/* Snapshot the same quantized bank used by playback; never retain the audio state. */
+uint32_t cfw_eq_snapshot(int32_t coefficients[3][5], uint32_t *rate)
+{
+    uint32_t flags = cfw_irq_save();
+    *rate = response_rate;
+    uint32_t version = generation;
+    for (unsigned int band = 0; band < 3; band++)
+        for (unsigned int c = 0; c < 5; c++)
+            coefficients[band][c] =
+                version ? published[*rate == 48000][band][c] : (c == 0 ? 1 << 24 : 0);
+    cfw_irq_restore(flags);
+    return version;
+}
+
 static int install_coefficients(void *state, int force)
 {
     unsigned char *eq = state;
@@ -48,6 +63,7 @@ static int install_coefficients(void *state, int force)
         return 0;
     }
     uint32_t flags = cfw_irq_save();
+    response_rate = rate;
     uint32_t version = generation;
     if (!force && current_state == state && current_generation == version) {
         cfw_irq_restore(flags);

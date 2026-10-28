@@ -61,6 +61,58 @@ def menu(rows):
 
 
 class UiTests(unittest.TestCase):
+    def test_hidden_action_requires_final_menu_row(self):
+        action = (
+            '<action id="SAVE" title="Save" values="choices" hide-when-zero="true"/>'
+        )
+        info = '<info id="INFO" title="Info"/>'
+        with self.assertRaisesRegex(ValueError, "final menu row"):
+            parser.parse(menu([action, info]))
+        document = parser.parse(menu([info, action]))
+        self.assertTrue(document.root.items[-1].hide_when_zero)
+
+    def test_canvas_has_fixed_extents_without_scroll_or_brightness_bindings(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        compile_document(
+            resources,
+            parser.parse('<ui><canvas id="CFW_EQCanvas" title="Graphic EQ"/></ui>'),
+        )
+        screen = resources.names["CFW_EQCanvas_Screen"]
+        self.assertEqual(resources.added["SCST", screen].data, b"CFWCanvas")
+        [(template, views)] = [
+            (resource_id, data)
+            for (kind, resource_id), data in resources.added.items()
+            if kind == "View"
+        ]
+        [(kind, view)] = blocks(views)
+        self.assertEqual((kind, word(view, 0x4C)), (0x63667763, 0x63667763))
+        # Overlap the header divider; extents remain independent of parent content.
+        self.assertEqual(
+            struct.unpack("<12i", view[:0x30].data),
+            (0, 0, 0, 23, 0, 0, 217, 0, 6, 320, 0, 5),
+        )
+        layout = resources.names["CFW_EQCanvas_Layout"]
+        instances = [
+            instance
+            for _, group in blocks(resources.added["SLyt", layout])
+            for _, instance in blocks(resources.current("SSin", word(group, 0)))
+        ]
+        canvas = next(
+            instance for instance in instances if word(instance, 4) == template
+        )
+        self.assertEqual(word(canvas, 0x10) >> 16 & 0xFF, 0)
+        self.assertEqual(blocks(resources.current("VCvs", word(canvas, 0))), [])
+        events = event_resource(resources, "SEVT", layout)
+        self.assertEqual(
+            events.data,
+            struct.pack("<I", 2)
+            + event("button.menu.up", "navigator.PopTopScreen")
+            + event("button.menu.pressandhold", "navigator.PopToMainScreen"),
+        )
+
     def test_eq_choices_use_native_models_and_shared_range_controls(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
@@ -80,7 +132,7 @@ class UiTests(unittest.TestCase):
             if kind == "ITEM" and (kind, resource_id) not in resources.original
             for _, row in blocks(data)
         ]
-        self.assertEqual(len(rows), 23)
+        self.assertEqual(len(rows), 24)
         for item in document.fields:
             field = compiled.fields[item.slot]
             if document.values[item.choices].numeric:
@@ -131,11 +183,15 @@ class UiTests(unittest.TestCase):
                 events = resources.added["CEVT", field.screen]
                 self.assertEqual(word(events, 0), 1)
                 self.assertIn(item.name.encode(), events.data)
-        self.assertEqual(sum(kind == "View" for kind, _ in resources.added), 1)
+        self.assertEqual(sum(kind == "View" for kind, _ in resources.added), 2)
         self.assertEqual(sum(kind == "SEVT" for kind, _ in resources.added), 2)
         self.assertNotIn(
             b"CFW_EQ_Set_", b"".join(data.data for data in resources.added.values())
         )
+        self.assertEqual(document.root.items[1].kind, "canvas")
+        self.assertEqual(document.root.items[1].title, "Graphic EQ")
+        self.assertTrue(document.actions[0].hide_when_zero)
+        self.assertEqual(len(resources.menu_items), 1)
         save = compiled.actions["CFW_EQ_Save"]
         save_row = next(row for row in rows if word(row, 0x30) == save.item)
         prototype = next(

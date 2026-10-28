@@ -104,6 +104,10 @@ int main(void)
     assert(!writes);
     cfw_eq_model.change(0, 38);
     assert(settings[0] == 38 && dirty && refreshes == 1 && !writes);
+    cfw_eq_model.change(CFW_EQ_FIELDS, 0);
+    cfw_eq_model.change(0, 101);
+    cfw_eq_model.change(0, 38);
+    assert(refreshes == 1 && settings[0] == 38);
     write_failure = 1;
     cfw_eq_model.commit();
     assert(dirty && status == 1 && writes == 1);

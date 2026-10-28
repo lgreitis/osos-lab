@@ -41,6 +41,7 @@ struct cfw_ui_action {
     uint32_t property, count;
     const char *const *labels;
     uint32_t *status;
+    uint32_t hide_when_zero;
 };
 
 extern const struct cfw_ui_field *const cfw_ui_fields[];
@@ -55,4 +56,5 @@ int cfw_ui_indexed_property(uint32_t type, uint32_t property, uint32_t index,
                             uintptr_t *out);
 int cfw_ui_handle_action(const char *action, uint32_t argument);
 void cfw_ui_register_controllers(void);
+void cfw_ui_register_canvas(void);
 #endif
