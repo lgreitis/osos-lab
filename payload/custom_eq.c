@@ -31,11 +31,19 @@ struct eq_file {
     uint32_t checksum;
 };
 
-static uint32_t checksum(const struct eq_file *file)
+enum { EQ_LEGACY_FIELDS = 13 };
+
+struct legacy_eq_file {
+    uint32_t magic, version;
+    uint32_t values[EQ_LEGACY_FIELDS];
+    uint32_t checksum;
+};
+
+static uint32_t checksum(const void *file, unsigned int size)
 {
     const unsigned char *bytes = (const unsigned char *)file;
     uint32_t hash = 2166136261u;
-    for (unsigned int i = 0; i < sizeof(*file) - 4; i++)
+    for (unsigned int i = 0; i < size - 4; i++)
         hash = (hash ^ bytes[i]) * 16777619u;
     return hash;
 }
@@ -53,14 +61,24 @@ void cfw_eq_load_preferences(void)
 {
     struct eq_file file;
     defaults();
-    if (!cfw_preferences_read(&settings_path, &file, sizeof(file)) ||
-        file.magic != 0x51455743 || (file.version != 1 && file.version != 2) ||
-        file.checksum != checksum(&file))
+    if (!cfw_preferences_read(&settings_path, &file, 8) || file.magic != 0x51455743)
         return;
-    if (file.version == 1) {
-        if (file.values[CFW_EQ_PRECUT] > 20)
+    if (file.version == 1 || file.version == 2) {
+        struct legacy_eq_file legacy;
+        if (!cfw_preferences_read(&settings_path, &legacy, sizeof(legacy)) ||
+            legacy.checksum != checksum(&legacy, sizeof(legacy)))
             return;
-        file.values[CFW_EQ_PRECUT] *= 5;
+        if (legacy.version == 1) {
+            if (legacy.values[CFW_EQ_PRECUT] > 20)
+                return;
+            legacy.values[CFW_EQ_PRECUT] *= 5;
+        }
+        for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
+            file.values[i] = i < EQ_LEGACY_FIELDS ? legacy.values[i] : settings[i];
+    } else if (file.version != 3 ||
+               !cfw_preferences_read(&settings_path, &file, sizeof(file)) ||
+               file.checksum != checksum(&file, sizeof(file))) {
+        return;
     }
     for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
         if (file.values[i] >= cfw_eq_fields[i].count)
@@ -75,10 +93,10 @@ static void save_preferences(void)
 {
     struct eq_file file;
     file.magic = 0x51455743;
-    file.version = 2;
+    file.version = 3;
     for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
         file.values[i] = settings[i];
-    file.checksum = checksum(&file);
+    file.checksum = checksum(&file, sizeof(file));
     save_status = !cfw_preferences_write(&settings_path, &file, sizeof(file));
     if (!save_status)
         dirty = 0;

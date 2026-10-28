@@ -106,14 +106,15 @@ static double logarithm(double value)
     return 2.0 * sum + power * 0.693147180559945309;
 }
 
-int cfw_eq_response(const int32_t coefficients[3][5], double hz, unsigned int rate)
+int cfw_eq_response(const int32_t coefficients[CFW_EQ_BANDS][5], double hz,
+                    unsigned int rate)
 {
     if (!(hz >= 20.0 && hz <= 20000.01) || (rate != 44100 && rate != 48000))
         return 0;
     double s, c;
     sine_cosine(6.283185307179586477 * hz / rate, &s, &c);
     double c2 = c * c - s * s, s2 = 2.0 * s * c, power = 1.0;
-    for (unsigned int band = 0; band < 3; band++) {
+    for (unsigned int band = 0; band < CFW_EQ_BANDS; band++) {
         const int32_t *k = coefficients[band];
         double nr = k[0] + k[1] * c + k[2] * c2;
         double ni = k[1] * s + k[2] * s2;

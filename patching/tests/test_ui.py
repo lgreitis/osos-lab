@@ -121,10 +121,10 @@ class UiTests(unittest.TestCase):
         document = parser.read(root / "payload/custom_eq.ui")
         resources.allocate("CFW_EQ_Icon")
         compiled = compile_document(resources, document)
-        self.assertEqual(len(compiled.fields), 13)
+        self.assertEqual(len(compiled.fields), 21)
         self.assertEqual(
             sum(len(document.values[item.choices].labels) for item in document.fields),
-            470,
+            716,
         )
         rows = [
             row
@@ -132,7 +132,7 @@ class UiTests(unittest.TestCase):
             if kind == "ITEM" and (kind, resource_id) not in resources.original
             for _, row in blocks(data)
         ]
-        self.assertEqual(len(rows), 24)
+        self.assertEqual(len(rows), 38)
         for item in document.fields:
             field = compiled.fields[item.slot]
             if document.values[item.choices].numeric:

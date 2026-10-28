@@ -74,9 +74,9 @@ class EqCoefficientsTests(unittest.TestCase):
             for rate in (44100, 48000):
                 for q in (3, 7, 40):
                     for gain in (-120, 0, 120):
-                        bank = ((ctypes.c_int32 * 5) * 3)()
+                        bank = ((ctypes.c_int32 * 5) * 5)()
                         for band, (kind, hz) in enumerate(
-                            ((2, 80), (1, 1000), (3, 16000))
+                            ((2, 80), (1, 1000), (3, 16000), (1, 250), (1, 4000))
                         ):
                             self.assertEqual(
                                 fn(

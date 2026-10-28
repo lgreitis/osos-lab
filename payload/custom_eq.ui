@@ -71,6 +71,18 @@
       <selector id="CFW_EQ_Band3_Q" title="Q" values="cfw_eq_q" slot="11" default="7"/>
       <selector id="CFW_EQ_Band3_Gain" title="Gain" values="cfw_eq_gain" slot="12" default="0"/>
     </menu>
+    <menu id="CFW_EQ_Band4" title="Band 4">
+      <selector id="CFW_EQ_Band4_Type" title="Type" values="cfw_eq_types" slot="13" default="0"/>
+      <selector id="CFW_EQ_Band4_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="14" default="250"/>
+      <selector id="CFW_EQ_Band4_Q" title="Q" values="cfw_eq_q" slot="15" default="7"/>
+      <selector id="CFW_EQ_Band4_Gain" title="Gain" values="cfw_eq_gain" slot="16" default="0"/>
+    </menu>
+    <menu id="CFW_EQ_Band5" title="Band 5">
+      <selector id="CFW_EQ_Band5_Type" title="Type" values="cfw_eq_types" slot="17" default="0"/>
+      <selector id="CFW_EQ_Band5_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="18" default="4000"/>
+      <selector id="CFW_EQ_Band5_Q" title="Q" values="cfw_eq_q" slot="19" default="7"/>
+      <selector id="CFW_EQ_Band5_Gain" title="Gain" values="cfw_eq_gain" slot="20" default="0"/>
+    </menu>
     <action id="CFW_EQ_Save" title="Save settings" values="cfw_eq_save_status" hide-when-zero="true"/>
   </menu>
   <bitmap id="CFW_EQ_Icon" file="assets/settings-eq.png" format="gray8"/>

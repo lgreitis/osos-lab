@@ -33,6 +33,8 @@ enum {
 enum {
     CANVAS_WIDTH = 320,
     CANVAS_HEIGHT = 217,
+    BAND_LEFT = 42,
+    BAND_WIDTH = 54,
     BAND_TOP = 18,
     BAND_BOTTOM = 108,
     BAND_ZERO = (BAND_TOP + BAND_BOTTOM) / 2,
@@ -122,7 +124,8 @@ static PATCH_ARM int canvas_event(void *controller, void *event)
         if (!delta)
             return 1;
         if (editor.mode == MODE_BAND) {
-            editor.band = canvas_clamp((int64_t)editor.band + delta, 0, 2);
+            editor.band =
+                canvas_clamp((int64_t)editor.band + delta, 0, CFW_EQ_BANDS - 1);
         } else if (editor.mode == MODE_PARAMETER) {
             editor.parameter =
                 canvas_clamp((int64_t)editor.parameter + delta, 0, PARAM_COUNT - 1);
@@ -281,7 +284,7 @@ static int response_y(int value)
 static void canvas_response(void *context, const int32_t *bounds,
                             const unsigned char colors[COLOR_COUNT][4])
 {
-    int32_t coefficients[3][5];
+    int32_t coefficients[CFW_EQ_BANDS][5];
     uint32_t rate;
     uint32_t version = cfw_eq_snapshot(coefficients, &rate);
     if (!response_valid || version != response_version ||
@@ -350,14 +353,42 @@ static void canvas_response(void *context, const int32_t *bounds,
     }
 }
 
+static const char *canvas_frequency(int band, char text[12])
+{
+    const char *label = canvas_value(band, PARAM_FREQUENCY);
+    unsigned int digits = 0;
+    while (label[digits] >= '0' && label[digits] <= '9')
+        digits++;
+    if (digits < 4)
+        return label;
+    unsigned int end = digits;
+    while (end > digits - 3 && label[end - 1] == '0')
+        end--;
+    unsigned int n = 0;
+    for (unsigned int i = 0; i < end; i++) {
+        if (i == digits - 3)
+            text[n++] = '.';
+        text[n++] = label[i];
+    }
+    text[n++] = 'k';
+    text[n++] = ' ';
+    text[n++] = 'H';
+    text[n++] = 'z';
+    text[n] = 0;
+    return text;
+}
+
 static void canvas_bands(void *context, const int32_t *bounds,
                          const unsigned char colors[COLOR_COUNT][4])
 {
-    canvas_rect(context, bounds, 42, BAND_TOP, 259, 1, colors[COLOR_GRID]);
-    canvas_rect(context, bounds, 42, BAND_BOTTOM, 259, 1, colors[COLOR_GRID]);
-    canvas_rect(context, bounds, 59 + editor.band * 88, 4, 58, TYPE_TOP - 7,
-                colors[COLOR_SELECTION]);
-    canvas_rect(context, bounds, 42, BAND_ZERO, 259, 1, colors[COLOR_ZERO]);
+    canvas_rect(context, bounds, BAND_LEFT, BAND_TOP, BAND_WIDTH * CFW_EQ_BANDS, 1,
+                colors[COLOR_GRID]);
+    canvas_rect(context, bounds, BAND_LEFT, BAND_BOTTOM, BAND_WIDTH * CFW_EQ_BANDS, 1,
+                colors[COLOR_GRID]);
+    canvas_rect(context, bounds, BAND_LEFT + 2 + editor.band * BAND_WIDTH, 4,
+                BAND_WIDTH - 4, TYPE_TOP - 7, colors[COLOR_SELECTION]);
+    canvas_rect(context, bounds, BAND_LEFT, BAND_ZERO, BAND_WIDTH * CFW_EQ_BANDS, 1,
+                colors[COLOR_ZERO]);
     canvas_text(context, bounds, 2, BAND_TOP - 9, 34, 18, "+12", 0, colors[COLOR_MUTED],
                 colors[COLOR_BACKGROUND]);
     canvas_text(context, bounds, 2, BAND_ZERO - 9, 34, 18, "0", 0, colors[COLOR_MUTED],
@@ -365,8 +396,9 @@ static void canvas_bands(void *context, const int32_t *bounds,
     canvas_text(context, bounds, 2, BAND_BOTTOM - 9, 34, 18, "-12", 0,
                 colors[COLOR_MUTED], colors[COLOR_BACKGROUND]);
 
-    for (int band = 0; band < 3; band++) {
-        int x = 88 + band * 88;
+    for (int band = 0; band < CFW_EQ_BANDS; band++) {
+        int x = BAND_LEFT + BAND_WIDTH / 2 + band * BAND_WIDTH;
+        char frequency[12];
         int y = BAND_ZERO - cfw_eq_gain[canvas_index(band, PARAM_GAIN)] *
                                 (BAND_BOTTOM - BAND_ZERO) / 120;
         int selected = band == editor.band;
@@ -374,16 +406,16 @@ static void canvas_bands(void *context, const int32_t *bounds,
         const unsigned char *color = colors[off        ? COLOR_BORDER
                                             : selected ? COLOR_ACCENT
                                                        : COLOR_INACTIVE];
-        canvas_rect(context, bounds, x - 10, BAND_TOP, 20, BAND_BOTTOM - BAND_TOP,
+        canvas_rect(context, bounds, x - 8, BAND_TOP, 16, BAND_BOTTOM - BAND_TOP,
                     colors[COLOR_TRACK]);
-        canvas_rect(context, bounds, x - 20, BAND_ZERO, 40, 1, colors[COLOR_ZERO]);
+        canvas_rect(context, bounds, x - 16, BAND_ZERO, 32, 1, colors[COLOR_ZERO]);
         int top = y < BAND_ZERO ? y : BAND_ZERO;
         int height = y < BAND_ZERO ? BAND_ZERO - y : y - BAND_ZERO;
         if (height)
-            canvas_rect(context, bounds, x - 10, top, 20, height, color);
-        canvas_rect(context, bounds, x - 16, y - 3, 32, 6, color);
-        canvas_text(context, bounds, x - 43, TYPE_TOP - 25, 86, 22,
-                    off ? "Off" : canvas_value(band, PARAM_FREQUENCY), 0,
+            canvas_rect(context, bounds, x - 8, top, 16, height, color);
+        canvas_rect(context, bounds, x - 12, y - 3, 24, 6, color);
+        canvas_text(context, bounds, x - 25, TYPE_TOP - 25, 50, 22,
+                    off ? "Off" : canvas_frequency(band, frequency), 0,
                     colors[selected ? COLOR_ACCENT : COLOR_MUTED],
                     colors[selected ? COLOR_SELECTION : COLOR_BACKGROUND]);
     }

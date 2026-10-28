@@ -61,6 +61,14 @@ const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
     FIELD(CFW_EQ_BAND3_GAIN, "Gain", gain_labels, 49),
     FIELD(CFW_EQ_BAND3_FREQUENCY, "Frequency", frequency_labels, 32),
     FIELD(CFW_EQ_BAND3_Q, "Q", q_labels, 38),
+    FIELD(CFW_EQ_BAND4_TYPE, "Type", type_labels, 4),
+    FIELD(CFW_EQ_BAND4_GAIN, "Gain", gain_labels, 49),
+    FIELD(CFW_EQ_BAND4_FREQUENCY, "Frequency", frequency_labels, 32),
+    FIELD(CFW_EQ_BAND4_Q, "Q", q_labels, 38),
+    FIELD(CFW_EQ_BAND5_TYPE, "Type", type_labels, 4),
+    FIELD(CFW_EQ_BAND5_GAIN, "Gain", gain_labels, 49),
+    FIELD(CFW_EQ_BAND5_FREQUENCY, "Frequency", frequency_labels, 32),
+    FIELD(CFW_EQ_BAND5_Q, "Q", q_labels, 38),
 };
 #undef FIELD
 const int32_t cfw_eq_gain[49] = {-120, -115, -110, -105, -100, -95, -90, -85, -80, -75,
@@ -79,7 +87,7 @@ static void change_value(uint32_t field, uint32_t value)
     }
 }
 
-uint32_t cfw_eq_snapshot(int32_t out[3][5], uint32_t *rate)
+uint32_t cfw_eq_snapshot(int32_t out[CFW_EQ_BANDS][5], uint32_t *rate)
 {
     snapshots++;
     *rate = 44100;
@@ -87,9 +95,11 @@ uint32_t cfw_eq_snapshot(int32_t out[3][5], uint32_t *rate)
         assert(cfw_eq_coefficients(out[0], CFW_EQ_LOW_SHELF, 60, 7, 75, 65, *rate));
         assert(cfw_eq_coefficients(out[1], CFW_EQ_PEAKING, 160, 12, 70, 0, *rate));
         assert(cfw_eq_coefficients(out[2], CFW_EQ_HIGH_SHELF, 40, 19, -5, 0, *rate));
+        for (unsigned i = 3; i < CFW_EQ_BANDS; i++)
+            assert(cfw_eq_coefficients(out[i], CFW_EQ_OFF, 1000, 7, 0, 0, *rate));
         return version;
     }
-    for (unsigned i = 0; i < 3; i++)
+    for (unsigned i = 0; i < CFW_EQ_BANDS; i++)
         assert(cfw_eq_coefficients(out[i], 1, 1000, 7,
                                    cfw_eq_gain[values[CFW_EQ_BAND1_GAIN + i * 4]], 0,
                                    *rate));
@@ -369,10 +379,20 @@ int main(void)
         frequency_labels[i] = "20000 Hz";
     for (int i = 0; i < 38; i++)
         q_labels[i] = "4.0";
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < CFW_EQ_BANDS; i++) {
         values[CFW_EQ_BAND1_GAIN + i * 4] = 24;
         values[CFW_EQ_BAND1_Q + i * 4] = 4;
     }
+    frequency_labels[18] = "1000 Hz";
+    frequency_labels[19] = "1250 Hz";
+    frequency_labels[29] = "12500 Hz";
+    char compact[12];
+    values[CFW_EQ_BAND5_FREQUENCY] = 18;
+    assert(!strcmp(canvas_frequency(4, compact), "1k Hz"));
+    values[CFW_EQ_BAND5_FREQUENCY] = 19;
+    assert(!strcmp(canvas_frequency(4, compact), "1.25k Hz"));
+    values[CFW_EQ_BAND5_FREQUENCY] = 29;
+    assert(!strcmp(canvas_frequency(4, compact), "12.5k Hz"));
     canvas_reset();
     assert(editor.mode == MODE_BAND && editor.band == 0);
     wheel(0);
@@ -413,7 +433,7 @@ int main(void)
     assert(editor.mode == MODE_BAND);
 
     for (int mode = MODE_BAND; mode <= MODE_EDIT; mode++) {
-        for (int band = 0; band < 3; band++) {
+        for (int band = 0; band < CFW_EQ_BANDS; band++) {
             for (int parameter = 0; parameter < PARAM_COUNT; parameter++) {
                 canvas_reset();
                 editor.mode = mode;
@@ -422,7 +442,7 @@ int main(void)
                 wheel(0);
                 wheel(INT_MAX);
                 if (mode == MODE_BAND)
-                    assert(editor.band == 2);
+                    assert(editor.band == CFW_EQ_BANDS - 1);
                 else if (mode == MODE_PARAMETER)
                     assert(editor.parameter == PARAM_COUNT - 1);
                 else
