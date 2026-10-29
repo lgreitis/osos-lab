@@ -40,18 +40,13 @@ RepriseOS package and builds a companion using that iPod's identity.
 
 ## Features
 
-- Five-band custom EQ with a graphical editor and adjustable filter types,
-  frequency, gain, Q and precut.
+- Three-band custom EQ with adjustable filter types, frequency, gain, Q and precut.
 - Play Next and Play Last from song, album and artist context menus.
 - EU volume limit removal for European iPods.
 - Song Info from song and Now Playing context menus.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Dark Mode, with an On/Off toggle in Settings.
-
-Open **Settings → Custom EQ → Graphic EQ** to edit all five bands. Use the wheel
-to select a band, then Center to select and edit its Type, Gain, Frequency or Q.
-Switch Hold on to view the combined EQ response and off to return to editing.
 
 **Album Artists** groups tracks by their Album Artist tag, using Artist when that
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →
