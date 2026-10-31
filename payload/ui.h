@@ -31,15 +31,16 @@ struct cfw_ui_field_state {
 
 struct cfw_ui_field {
     uint32_t property, summary_property, screen, count, default_value, slot, numeric;
-    const char *action, *title;
-    const char *const *labels;
+    const char *action;
+    uint32_t title;
+    const uint32_t *labels;
     const struct cfw_ui_model *model;
     struct cfw_ui_field_state *state;
 };
 
 struct cfw_ui_action {
     uint32_t property, count;
-    const char *const *labels;
+    const uint32_t *labels;
     uint32_t *status;
     uint32_t hide_when_zero;
 };

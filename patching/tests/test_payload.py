@@ -45,18 +45,53 @@ class PayloadTests(unittest.TestCase):
             check=True,
         )
 
+    def test_generated_resources_compile_with_and_without_translations(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        for sources in (
+            sorted((root / "payload").glob("*.ui")),
+            [root / "payload/play_next.ui"],
+        ):
+            with (
+                self.subTest(sources=sources),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                path = generate(
+                    Resources(metadata["resources"], bindings),
+                    sources,
+                    Path(temporary),
+                    "test",
+                )
+                subprocess.run(
+                    [
+                        "cc",
+                        "-std=c11",
+                        "-Wall",
+                        "-Wextra",
+                        "-Werror",
+                        "-fsyntax-only",
+                        "-D_Static_assert(...)=",
+                        "-I",
+                        str(root / "payload"),
+                        str(path),
+                    ],
+                    check=True,
+                )
+
     def test_native_contracts(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
         bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
         with tempfile.TemporaryDirectory(prefix="payload-test-") as temporary:
             directory = Path(temporary)
-            generate(
+            generated = generate(
                 Resources(metadata["resources"], bindings),
                 [
                     root / "payload/dark_mode.ui",
                     root / "payload/custom_eq.ui",
                     root / "payload/cfw_info.ui",
+                    root / "payload/song_info.ui",
                 ],
                 directory,
                 "test",
@@ -70,12 +105,17 @@ class PayloadTests(unittest.TestCase):
                 "eq_audio",
                 "eq_canvas",
                 "menu_resources",
+                "song_info",
+                "ui_language",
                 "bitmap_assets",
                 "dark_mode",
                 "osos_handoff",
             ):
                 with self.subTest(fixture=name):
                     executable = directory / name
+                    flags = []
+                    if name == "song_info":
+                        flags.extend(["-D_Static_assert(...)=", str(generated)])
                     subprocess.run(
                         [
                             "cc",
@@ -84,6 +124,7 @@ class PayloadTests(unittest.TestCase):
                             "-Wextra",
                             "-Werror",
                             "-fsanitize=address,undefined",
+                            *flags,
                             "-g",
                             "-I",
                             str(directory),

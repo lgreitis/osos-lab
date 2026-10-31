@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <ui>
-  <menu id="CFW_SongInfo" title="Song Info">
+  <menu id="CFW_SongInfo" title="@CFW_SONG_INFO_LABEL">
     <info id="CFW_INFO_TITLE" title="Title"/>
     <info id="CFW_INFO_ARTIST" title="Artist"/>
     <info id="CFW_INFO_ALBUM" title="Album"/>
@@ -18,7 +18,6 @@
     <info id="CFW_INFO_PLAY_COUNT" title="Play count"/>
     <info id="CFW_INFO_SKIP_COUNT" title="Skip count"/>
   </menu>
-  <string id="CFW_SONG_INFO_LABEL" text="Song Info"/>
   <screen-event screen="MediaLists_Songs_Screen" event="contextualMenu.CFW_SongInfo" handler="CFW_SongInfo"/>
   <screen-event screen="MediaLists_NestedPlaylists_Screen" event="contextualMenu.CFW_SongInfo" handler="CFW_SongInfo"/>
   <screen-event screen="MediaLists_Genius_Screen" event="contextualMenu.CFW_SongInfo" handler="CFW_SongInfo"/>

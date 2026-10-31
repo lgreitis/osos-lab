@@ -1,0 +1,468 @@
+<locale>
+  <string id="CFW_SONG_INFO_LABEL" text="Song Info"/>
+  <string id="CFW_SONG_UNKNOWN" text="Unknown"/>
+  <string id="CFW_SONG_UNRATED" text="Unrated"/>
+  <format id="CFW_SONG_TITLE_FORMAT" text="Title: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" text="Artist: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" text="Album Artist: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" text="Year: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" text="Genre: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" text="Composer: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" text="Grouping: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" text="Duration: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" text="Track: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" text="Disc: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" text="Bitrate: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" text="File size: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" text="Rating: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" text="Play count: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" text="Skip count: %1$s"/>
+  <format id="CFW_SONG_NUMBER" text="%1$u"/>
+  <format id="CFW_SONG_ORDINAL" text="%1$u of %2$u"/>
+  <format id="CFW_SONG_TIME" text="%1$u:%2$s%3$u"/>
+  <format id="CFW_SONG_TIME_HOURS" text="%1$u:%2$s%3$u:%4$s%5$u"/>
+  <format id="CFW_SONG_KBPS" text="%1$u kbps"/>
+  <format id="CFW_SONG_SIZE" text="%1$u.%2$u MiB"/>
+  <format id="CFW_SONG_STARS" text="%1$u/5"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="1" text="曲の情報"/>
+  <string id="CFW_SONG_UNKNOWN" lang="1" text="不明"/>
+  <string id="CFW_SONG_UNRATED" lang="1" text="未評価"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="1" text="タイトル：%1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="1" text="アーティスト：%1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="1" text="アルバム：%1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="1" text="アルバムアーティスト：%1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="1" text="年：%1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="1" text="ジャンル：%1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="1" text="作曲者：%1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="1" text="グループ：%1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="1" text="再生時間：%1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="1" text="トラック：%1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="1" text="ディスク：%1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="1" text="ビットレート：%1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="1" text="ファイルサイズ：%1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="1" text="評価：%1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="1" text="再生回数：%1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="1" text="スキップ回数：%1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="1" text="%1$u / %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="1" text="%1$u.%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="2" text="Informace o skladbě"/>
+  <string id="CFW_SONG_UNKNOWN" lang="2" text="Neznámé"/>
+  <string id="CFW_SONG_UNRATED" lang="2" text="Nehodnoceno"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="2" text="Název: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="2" text="Interpret: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="2" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="2" text="Interpret alba: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="2" text="Rok: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="2" text="Žánr: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="2" text="Skladatel: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="2" text="Seskupení: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="2" text="Délka: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="2" text="Stopa: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="2" text="Disk: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="2" text="Datový tok: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="2" text="Velikost souboru: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="2" text="Hodnocení: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="2" text="Počet přehrání: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="2" text="Počet přeskočení: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="2" text="%1$u z %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="2" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="3" text="Sangoplysninger"/>
+  <string id="CFW_SONG_UNKNOWN" lang="3" text="Ukendt"/>
+  <string id="CFW_SONG_UNRATED" lang="3" text="Ikke bedømt"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="3" text="Titel: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="3" text="Kunstner: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="3" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="3" text="Albumkunstner: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="3" text="År: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="3" text="Genre: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="3" text="Komponist: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="3" text="Gruppering: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="3" text="Varighed: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="3" text="Spornummer: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="3" text="Disk: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="3" text="Bithastighed: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="3" text="Filstørrelse: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="3" text="Bedømmelse: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="3" text="Afspilninger: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="3" text="Overspringninger: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="3" text="%1$u af %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="3" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="4" text="Titelinformationen"/>
+  <string id="CFW_SONG_UNKNOWN" lang="4" text="Unbekannt"/>
+  <string id="CFW_SONG_UNRATED" lang="4" text="Nicht bewertet"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="4" text="Titel: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="4" text="Interpret: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="4" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="4" text="Albuminterpret: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="4" text="Jahr: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="4" text="Genre: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="4" text="Komponist: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="4" text="Gruppierung: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="4" text="Dauer: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="4" text="Titelnummer: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="4" text="CD: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="4" text="Bitrate: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="4" text="Dateigr&#246;&#223;e: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="4" text="Bewertung: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="4" text="Wiedergaben: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="4" text="&#220;bersprungen: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="4" text="%1$u von %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="4" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="5" text="Información de la canción"/>
+  <string id="CFW_SONG_UNKNOWN" lang="5" text="Desconocido"/>
+  <string id="CFW_SONG_UNRATED" lang="5" text="Sin valorar"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="5" text="Título: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="5" text="Artista: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="5" text="Álbum: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="5" text="Artista del álbum: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="5" text="Año: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="5" text="Género: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="5" text="Compositor: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="5" text="Agrupación: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="5" text="Duración: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="5" text="Pista: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="5" text="Disco: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="5" text="Tasa de bits: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="5" text="Tamaño del archivo: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="5" text="Valoración: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="5" text="Reproducciones: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="5" text="Omisiones: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="5" text="%1$u de %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="5" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="6" text="Informations du morceau"/>
+  <string id="CFW_SONG_UNKNOWN" lang="6" text="Inconnu"/>
+  <string id="CFW_SONG_UNRATED" lang="6" text="Non noté"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="6" text="Titre : %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="6" text="Artiste : %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="6" text="Album : %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="6" text="Artiste de l'album : %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="6" text="Année : %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="6" text="Genre : %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="6" text="Compositeur : %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="6" text="Regroupement : %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="6" text="Durée : %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="6" text="Piste : %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="6" text="Disque : %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="6" text="Débit : %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="6" text="Taille du fichier : %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="6" text="Note : %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="6" text="Lectures : %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="6" text="Sauts : %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="6" text="%1$u sur %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="6" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="7" text="Πληροφορίες τραγουδιού"/>
+  <string id="CFW_SONG_UNKNOWN" lang="7" text="Άγνωστο"/>
+  <string id="CFW_SONG_UNRATED" lang="7" text="Χωρίς βαθμολογία"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="7" text="Τίτλος: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="7" text="Καλλιτέχνης: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="7" text="Άλμπουμ: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="7" text="Καλλιτέχνης άλμπουμ: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="7" text="Έτος: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="7" text="Είδος: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="7" text="Συνθέτης: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="7" text="Ομαδοποίηση: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="7" text="Διάρκεια: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="7" text="Κομμάτι: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="7" text="Δίσκος: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="7" text="Ρυθμός bit: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="7" text="Μέγεθος αρχείου: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="7" text="Βαθμολογία: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="7" text="Αναπαραγωγές: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="7" text="Παραλείψεις: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="7" text="%1$u από %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="7" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="8" text="Informazioni sul brano"/>
+  <string id="CFW_SONG_UNKNOWN" lang="8" text="Sconosciuto"/>
+  <string id="CFW_SONG_UNRATED" lang="8" text="Senza valutazione"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="8" text="Titolo: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="8" text="Artista: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="8" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="8" text="Artista album: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="8" text="Anno: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="8" text="Genere: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="8" text="Compositore: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="8" text="Raggruppamento: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="8" text="Durata: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="8" text="Traccia: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="8" text="Disco: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="8" text="Bitrate: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="8" text="Dimensione file: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="8" text="Valutazione: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="8" text="Riproduzioni: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="8" text="Salti: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="8" text="%1$u di %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="8" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="9" text="Dalinformációk"/>
+  <string id="CFW_SONG_UNKNOWN" lang="9" text="Ismeretlen"/>
+  <string id="CFW_SONG_UNRATED" lang="9" text="Nincs értékelés"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="9" text="Cím: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="9" text="Előadó: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="9" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="9" text="Album előadója: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="9" text="Év: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="9" text="Műfaj: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="9" text="Zeneszerző: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="9" text="Csoportosítás: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="9" text="Időtartam: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="9" text="Sorszám: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="9" text="Lemez: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="9" text="Bitráta: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="9" text="Fájlméret: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="9" text="Értékelés: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="9" text="Lejátszások: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="9" text="Kihagyások: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="9" text="%2$u közül %1$u"/>
+  <format id="CFW_SONG_SIZE" lang="9" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="10" text="Nummerinformatie"/>
+  <string id="CFW_SONG_UNKNOWN" lang="10" text="Onbekend"/>
+  <string id="CFW_SONG_UNRATED" lang="10" text="Niet beoordeeld"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="10" text="Titel: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="10" text="Artiest: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="10" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="10" text="Albumartiest: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="10" text="Jaar: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="10" text="Genre: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="10" text="Componist: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="10" text="Groepering: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="10" text="Duur: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="10" text="Track: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="10" text="Schijf: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="10" text="Bitsnelheid: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="10" text="Bestandsgrootte: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="10" text="Beoordeling: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="10" text="Aantal keer afgespeeld: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="10" text="Aantal keer overgeslagen: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="10" text="%1$u van %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="10" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="11" text="Sanginformasjon"/>
+  <string id="CFW_SONG_UNKNOWN" lang="11" text="Ukjent"/>
+  <string id="CFW_SONG_UNRATED" lang="11" text="Ikke vurdert"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="11" text="Tittel: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="11" text="Artist: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="11" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="11" text="Albumartist: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="11" text="År: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="11" text="Sjanger: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="11" text="Komponist: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="11" text="Gruppering: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="11" text="Varighet: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="11" text="Spor: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="11" text="Plate: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="11" text="Bithastighet: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="11" text="Filstørrelse: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="11" text="Vurdering: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="11" text="Avspillinger: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="11" text="Hopp: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="11" text="%1$u av %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="11" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="12" text="Informações da música"/>
+  <string id="CFW_SONG_UNKNOWN" lang="12" text="Desconhecido"/>
+  <string id="CFW_SONG_UNRATED" lang="12" text="Sem classificação"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="12" text="Título: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="12" text="Artista: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="12" text="Álbum: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="12" text="Artista do álbum: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="12" text="Ano: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="12" text="Género: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="12" text="Compositor: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="12" text="Agrupamento: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="12" text="Duração: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="12" text="Faixa: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="12" text="Disco: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="12" text="Taxa de bits: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="12" text="Tamanho do ficheiro: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="12" text="Classificação: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="12" text="Reproduções: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="12" text="Vezes ignorada: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="12" text="%1$u de %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="12" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="13" text="Информация о песне"/>
+  <string id="CFW_SONG_UNKNOWN" lang="13" text="Неизвестно"/>
+  <string id="CFW_SONG_UNRATED" lang="13" text="Без оценки"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="13" text="Название: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="13" text="Исполнитель: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="13" text="Альбом: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="13" text="Исполнитель альбома: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="13" text="Год: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="13" text="Жанр: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="13" text="Композитор: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="13" text="Группировка: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="13" text="Длительность: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="13" text="Трек: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="13" text="Диск: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="13" text="Битрейт: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="13" text="Размер файла: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="13" text="Оценка: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="13" text="Воспроизведения: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="13" text="Пропуски: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="13" text="%1$u из %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="13" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="14" text="Informacje o utworze"/>
+  <string id="CFW_SONG_UNKNOWN" lang="14" text="Nieznane"/>
+  <string id="CFW_SONG_UNRATED" lang="14" text="Bez oceny"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="14" text="Tytuł: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="14" text="Wykonawca: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="14" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="14" text="Wykonawca albumu: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="14" text="Rok: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="14" text="Gatunek: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="14" text="Kompozytor: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="14" text="Grupowanie: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="14" text="Czas trwania: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="14" text="Utwór: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="14" text="Płyta: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="14" text="Przepływność: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="14" text="Rozmiar pliku: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="14" text="Ocena: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="14" text="Odtworzenia: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="14" text="Pominięcia: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="14" text="%1$u z %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="14" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="15" text="Kappaleen tiedot"/>
+  <string id="CFW_SONG_UNKNOWN" lang="15" text="Tuntematon"/>
+  <string id="CFW_SONG_UNRATED" lang="15" text="Ei arviota"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="15" text="Nimi: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="15" text="Artisti: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="15" text="Albumi: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="15" text="Albumin artisti: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="15" text="Vuosi: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="15" text="Tyylilaji: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="15" text="Säveltäjä: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="15" text="Ryhmittely: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="15" text="Kesto: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="15" text="Raita: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="15" text="Levy: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="15" text="Bittinopeus: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="15" text="Tiedoston koko: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="15" text="Arvio: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="15" text="Toistokerrat: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="15" text="Ohituskerrat: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="15" text="%1$u / %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="15" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="16" text="Låtinformation"/>
+  <string id="CFW_SONG_UNKNOWN" lang="16" text="Okänd"/>
+  <string id="CFW_SONG_UNRATED" lang="16" text="Ej betygsatt"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="16" text="Titel: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="16" text="Artist: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="16" text="Album: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="16" text="Albumartist: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="16" text="År: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="16" text="Genre: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="16" text="Kompositör: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="16" text="Gruppering: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="16" text="Längd: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="16" text="Spår: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="16" text="Skiva: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="16" text="Bithastighet: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="16" text="Filstorlek: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="16" text="Betyg: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="16" text="Spelningar: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="16" text="Överhoppningar: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="16" text="%1$u av %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="16" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="17" text="Parça bilgileri"/>
+  <string id="CFW_SONG_UNKNOWN" lang="17" text="Bilinmiyor"/>
+  <string id="CFW_SONG_UNRATED" lang="17" text="Derecelendirilmemiş"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="17" text="Başlık: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="17" text="Sanatçı: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="17" text="Albüm: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="17" text="Albüm sanatçısı: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="17" text="Yıl: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="17" text="Tür: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="17" text="Besteci: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="17" text="Gruplama: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="17" text="Süre: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="17" text="Parça: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="17" text="Disk: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="17" text="Bit hızı: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="17" text="Dosya boyutu: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="17" text="Derecelendirme: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="17" text="Çalma sayısı: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="17" text="Atlama sayısı: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="17" text="%1$u / %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="17" text="%1$u,%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="18" text="곡 정보"/>
+  <string id="CFW_SONG_UNKNOWN" lang="18" text="알 수 없음"/>
+  <string id="CFW_SONG_UNRATED" lang="18" text="평가 없음"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="18" text="제목: %1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="18" text="아티스트: %1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="18" text="앨범: %1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="18" text="앨범 아티스트: %1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="18" text="연도: %1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="18" text="장르: %1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="18" text="작곡가: %1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="18" text="그룹: %1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="18" text="재생 시간: %1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="18" text="트랙: %1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="18" text="디스크: %1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="18" text="비트 전송률: %1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="18" text="파일 크기: %1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="18" text="평가: %1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="18" text="재생 횟수: %1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="18" text="건너뛴 횟수: %1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="18" text="%1$u / %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="18" text="%1$u.%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="19" text="歌曲信息"/>
+  <string id="CFW_SONG_UNKNOWN" lang="19" text="未知"/>
+  <string id="CFW_SONG_UNRATED" lang="19" text="未评分"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="19" text="标题：%1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="19" text="艺术家：%1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="19" text="专辑：%1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="19" text="专辑艺术家：%1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="19" text="年份：%1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="19" text="类型：%1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="19" text="作曲者：%1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="19" text="分组：%1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="19" text="时长：%1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="19" text="音轨：%1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="19" text="光盘：%1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="19" text="比特率：%1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="19" text="文件大小：%1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="19" text="评分：%1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="19" text="播放次数：%1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="19" text="跳过次数：%1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="19" text="%1$u / %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="19" text="%1$u.%2$u MiB"/>
+
+  <string id="CFW_SONG_INFO_LABEL" lang="20" text="歌曲資訊"/>
+  <string id="CFW_SONG_UNKNOWN" lang="20" text="未知"/>
+  <string id="CFW_SONG_UNRATED" lang="20" text="未評分"/>
+  <format id="CFW_SONG_TITLE_FORMAT" lang="20" text="標題：%1$s"/>
+  <format id="CFW_SONG_ARTIST_FORMAT" lang="20" text="演出者：%1$s"/>
+  <format id="CFW_SONG_ALBUM_FORMAT" lang="20" text="專輯：%1$s"/>
+  <format id="CFW_SONG_ALBUM_ARTIST_FORMAT" lang="20" text="專輯演出者：%1$s"/>
+  <format id="CFW_SONG_YEAR_FORMAT" lang="20" text="年份：%1$s"/>
+  <format id="CFW_SONG_GENRE_FORMAT" lang="20" text="類型：%1$s"/>
+  <format id="CFW_SONG_COMPOSER_FORMAT" lang="20" text="作曲者：%1$s"/>
+  <format id="CFW_SONG_GROUPING_FORMAT" lang="20" text="群組：%1$s"/>
+  <format id="CFW_SONG_DURATION_FORMAT" lang="20" text="長度：%1$s"/>
+  <format id="CFW_SONG_TRACK_FORMAT" lang="20" text="音軌：%1$s"/>
+  <format id="CFW_SONG_DISC_FORMAT" lang="20" text="光碟：%1$s"/>
+  <format id="CFW_SONG_BITRATE_FORMAT" lang="20" text="位元率：%1$s"/>
+  <format id="CFW_SONG_FILE_SIZE_FORMAT" lang="20" text="檔案大小：%1$s"/>
+  <format id="CFW_SONG_RATING_FORMAT" lang="20" text="評分：%1$s"/>
+  <format id="CFW_SONG_PLAY_COUNT_FORMAT" lang="20" text="播放次數：%1$s"/>
+  <format id="CFW_SONG_SKIP_COUNT_FORMAT" lang="20" text="略過次數：%1$s"/>
+  <format id="CFW_SONG_ORDINAL" lang="20" text="%1$u / %2$u"/>
+  <format id="CFW_SONG_SIZE" lang="20" text="%1$u.%2$u MiB"/>
+</locale>

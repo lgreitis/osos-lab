@@ -1,0 +1,23 @@
+<locale>
+  <string id="CFW_Info_Title" text="CFW Info"/>
+  <string id="CFW_Info_Title" lang="1" text="CFW情報"/>
+  <string id="CFW_Info_Title" lang="2" text="Informace o CFW"/>
+  <string id="CFW_Info_Title" lang="3" text="CFW-oplysninger"/>
+  <string id="CFW_Info_Title" lang="4" text="CFW-Informationen"/>
+  <string id="CFW_Info_Title" lang="5" text="Información sobre CFW"/>
+  <string id="CFW_Info_Title" lang="6" text="Informations sur le CFW"/>
+  <string id="CFW_Info_Title" lang="7" text="Πληροφορίες για το CFW"/>
+  <string id="CFW_Info_Title" lang="8" text="Informazioni su CFW"/>
+  <string id="CFW_Info_Title" lang="9" text="CFW-információk"/>
+  <string id="CFW_Info_Title" lang="10" text="CFW-informatie"/>
+  <string id="CFW_Info_Title" lang="11" text="CFW-informasjon"/>
+  <string id="CFW_Info_Title" lang="12" text="Informações sobre a CFW"/>
+  <string id="CFW_Info_Title" lang="13" text="Информация о CFW"/>
+  <string id="CFW_Info_Title" lang="14" text="Informacje o CFW"/>
+  <string id="CFW_Info_Title" lang="15" text="CFW-tiedot"/>
+  <string id="CFW_Info_Title" lang="16" text="Information om CFW"/>
+  <string id="CFW_Info_Title" lang="17" text="CFW Bilgileri"/>
+  <string id="CFW_Info_Title" lang="18" text="CFW 정보"/>
+  <string id="CFW_Info_Title" lang="19" text="CFW 信息"/>
+  <string id="CFW_Info_Title" lang="20" text="CFW 資訊"/>
+</locale>

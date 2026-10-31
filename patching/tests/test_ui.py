@@ -10,9 +10,10 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from patching.ui import generate, parser
-from patching.ui.codegen import emit_header, emit_visibility
+from patching.ui import parser
+from patching.ui.codegen import emit_header, emit_resources, emit_visibility
 from patching.ui.compiler import DocumentCompiler, compile_document
+from patching.ui.generator import generate
 from patching.ui.model import ScreenEvent
 from patching.ui.resources import (
     Resources,
@@ -159,7 +160,8 @@ class UiTests(unittest.TestCase):
                 source = word(dict(blocks(title_binding))[0x534F5243], 0)
                 title_id = word(blocks(resources.added["SORC", source])[0][1], 4)
                 self.assertEqual(
-                    resources.added["Str ", title_id].data, item.title.encode() + b"\0"
+                    resources.added["Str ", title_id].data,
+                    document.text(item.title).default.encode() + b"\0",
                 )
                 control_instance = next(
                     instance
@@ -291,6 +293,93 @@ class UiTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 parser.parse(f"""<ui><music-entry id="Entry" title="Entry" after="A"
                     screen="S" layout="L" open="O" highlight="H" {attribute}/></ui>""")
+    def test_translation_codegen_sorts_by_resource_id_and_language(self):
+        resources = Resources([])
+        resources.translations.update(
+            {
+                (200, 4): b"last\0",
+                (100, 4): b"second\0",
+                (101, 0): b"third\0",
+                (100, 2): b"first\0",
+            }
+        )
+        output = "\n".join(emit_resources(resources))
+        table = output.split("cfw_translations[] = {\n", 1)[1].split("};", 1)[0]
+        self.assertEqual(
+            table,
+            "    {0x64, 2, translation_0},\n"
+            "    {0x64, 4, translation_1},\n"
+            "    {0x65, 0, translation_2},\n"
+            "    {0xc8, 4, translation_3},\n",
+        )
+        for index, text in enumerate((b"first\0", b"second\0", b"third\0", b"last\0")):
+            encoded = ", ".join(f"0x{byte:02x}" for byte in text)
+            self.assertIn(f"translation_{index}[] = {{{encoded}}};", output)
+
+    def test_song_info_loads_catalog_and_generates_format_signatures(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        document = parser.read(root / "payload/song_info.ui")
+        self.assertEqual(
+            document.text(document.root.title).translations[4], "Titelinformationen"
+        )
+        shared_formats = {
+            "CFW_SONG_NUMBER",
+            "CFW_SONG_TIME",
+            "CFW_SONG_TIME_HOURS",
+            "CFW_SONG_KBPS",
+            "CFW_SONG_STARS",
+        }
+        for name in set(document.strings) - shared_formats:
+            with self.subTest(string=name):
+                self.assertEqual(set(document.translations[name]), set(range(1, 21)))
+        resources = Resources(metadata["resources"], bindings)
+        compiled = compile_document(resources, document)
+        for name, signature in document.formats.items():
+            self.assertEqual(resources.formats[compiled.string_ids[name]], signature)
+        for item in document.root.items:
+            self.assertNotIn(
+                (compiled.string_ids[item.name], 4), resources.translations
+            )
+        self.assertIn('"uu"', "\n".join(emit_resources(resources)))
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "bad.ui"
+            source.write_text("<ui/>")
+            source.with_suffix(".lo").write_text(
+                '<locale><format id="BAD" text="%n"/></locale>'
+            )
+            with self.assertRaisesRegex(ValueError, "bad.lo"):
+                parser.read(source)
+
+    def test_locale_formats_validate_types_and_allow_reordered_arguments(self):
+        document = parser.parse(
+            '<ui><string id="NAME" text="Name"/></ui>',
+            '<locale><format id="ROW" text="%1$s: %2$u%%"/>'
+            '<format id="ROW" lang="4" text="%2$u%% - %1$s %1$s"/></locale>',
+        )
+        self.assertEqual(document.formats, {"ROW": "su"})
+        self.assertEqual(parser.format_signature("%s: %u"), "su")
+        for text in ("%", "%d", "%n", "%0$s", "%9$s", "%2$s", "%1$s %1$u", "%s %2$u"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                parser.format_signature(text)
+        with self.assertRaisesRegex(ValueError, "Mismatched"):
+            parser.parse(
+                '<ui><format id="ROW" text="%s"/>'
+                '<format id="ROW" lang="4" text="%u"/></ui>'
+            )
+        with self.assertRaises(ValueError):
+            parser.parse(
+                '<ui><string id="ROW" text="Row"/></ui>',
+                '<locale><string id="ROW" text="Other"/></locale>',
+            )
+
+    def test_all_payload_documents_generate_together_with_translated_examples(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        self.assert_all_payload_translations(root, resources)
 
     def test_cfw_info_preview_uses_static_bitmap_and_caption(self):
         root = Path(__file__).resolve().parents[2]
@@ -335,6 +424,143 @@ class UiTests(unittest.TestCase):
         self.assertIn(b"CFW_Info_Screen", appended)
         self.assertIn(b"navigator.PushScreen", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
+
+    def assert_all_payload_translations(self, root, resources):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            result = generate(
+                resources,
+                sorted((root / "payload").glob("*.ui")),
+                directory,
+                "test-revision",
+                "1.2.3",
+            )
+            self.assertIn("cfw_translations[]", result.read_text())
+            self.assertTrue((directory / "cfw_info_ui.h").exists())
+        defaults = [
+            bytes(data.data)
+            for (kind, _), data in resources.added.items()
+            if kind == "Str "
+        ]
+        translations = list(resources.translations.values())
+        self.assertIn(b"Dark Mode\0", defaults)
+        self.assertIn(b"Dunkler Modus\0", translations)
+        self.assertIn(b"RepriseOS 1.2.3\0", defaults)
+        self.assertIn(b"Build: test-revision\0", defaults)
+        self.assertIn(b"Custom firmware for iPod.\0", defaults)
+        self.assertIn(b"Project:\nhttps://github.com/lgreitis/osos-lab\0", defaults)
+        self.assertIn(b"CFW-Informationen\0", translations)
+        info = parser.read(root / "payload/cfw_info.ui")
+        self.assertEqual(set(info.strings), {"CFW_Info_Title"})
+        self.assertFalse(any(data.startswith(b"@CFW_Info") for data in defaults))
+
+    def test_text_page_variants_expand_build_placeholders_and_keep_literal_strings(
+        self,
+    ):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            source = directory / "page.ui"
+            source.write_text(
+                '<ui><text id="PAGE" title="@TITLE" file="@body.txt"/>'
+                '<string id="TITLE" text="Page"/>'
+                '<string id="TITLE" lang="4" text="Seite"/>'
+                '<string id="BODY" text="Version {build_version}"/>'
+                '<string id="BODY" lang="4" text="Build {build_revision}&#10;@literal"/>'
+                "</ui>"
+            )
+            (directory / "@body.txt").write_text("@BODY\n\n@@literal")
+            generate(resources, [source], directory / "generated", "abc123")
+        defaults = [
+            bytes(data.data)
+            for (kind, _), data in resources.added.items()
+            if kind == "Str "
+        ]
+        self.assertIn(b"Version Development\0", defaults)
+        self.assertIn(b"@literal\0", defaults)
+        self.assertIn(b"Build abc123\n@literal\0", resources.translations.values())
+        self.assertIn(b"Seite\0", resources.translations.values())
+
+    def test_music_title_references_and_empty_translation_codegen(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.read(root / "payload/album_artists.ui")
+        document.music_entry["title"] = "@TITLE"
+        document.strings["TITLE"] = "Album Artists"
+        document.translations["TITLE"] = {4: "Albuminterpreten"}
+        compiled = compile_document(resources, document)
+        self.assertEqual(
+            resources.translations[compiled.string_ids["CFW_AlbumArtists_Title"], 4],
+            b"Albuminterpreten\0",
+        )
+        output = "\n".join(emit_resources(Resources([])))
+        self.assertIn("cfw_translation_count = 0;", output)
+        self.assertIn("{0, 0, 0},", output)
+
+    def test_references_compose_with_independent_language_fallbacks(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.parse(
+            '<ui><values id="choices"><value number="0" label="@OFF"/></values>'
+            '<range id="levels" first="0" last="1" step="1" suffix="@UNIT"/>'
+            '<menu id="TEST" title="@TITLE">'
+            '<selector id="STATE" title="@TITLE" values="choices" slot="0" default="0"/>'
+            '<selector id="LEVEL" title="Level" values="levels" slot="1" default="0"/>'
+            '<info id="INFO" title="@TITLE" unknown="@OFF"/>'
+            '<action id="SAVE" title="@TITLE" values="choices"/></menu>'
+            '<string id="TITLE" text="State"/><string id="TITLE" lang="4" text="Status"/>'
+            '<string id="OFF" text="Off"/><string id="OFF" lang="2" text="Non"/>'
+            '<string id="UNIT" text=" units"/><string id="UNIT" lang="4" text=" Einheiten"/>'
+            "</ui>"
+        )
+        compiled = compile_document(resources, document)
+
+        title = compiled.fields[0].title
+        label = compiled.fields[0].labels[0]
+        self.assertEqual(bytes(resources.added["Str ", title].data), b"State\0")
+        self.assertEqual(resources.translations[title, 4], b"Status\0")
+        self.assertEqual(bytes(resources.added["Str ", label].data), b"Off\0")
+        self.assertEqual(resources.translations[label, 2], b"Non\0")
+        self.assertNotIn((title, 2), resources.translations)
+        self.assertNotIn((label, 4), resources.translations)
+        self.assertEqual(compiled.actions["SAVE"].labels, [label])
+        unit = compiled.fields[1].labels[0]
+        self.assertEqual(resources.translations[unit, 4], b"0 Einheiten\0")
+        self.assertEqual(
+            resources.translations[compiled.string_ids["INFO"], 4], b"Status: Off\0"
+        )
+        self.assertEqual(document.text("@@literal").default, "@literal")
+        self.assertEqual(document.text("literal").default, "literal")
+        with self.assertRaisesRegex(ValueError, "Undefined UI string"):
+            document.text("@MISSING")
+        with self.assertRaisesRegex(ValueError, "Undefined UI string"):
+            parser.parse('<ui><string id="OTHER" text="x"/></ui>').text("@TITLE")
+
+    def test_string_languages_require_unique_variants_and_default(self):
+        document = parser.parse(
+            '<ui><string id="TITLE" lang="4" text="Deutsch"/>'
+            '<string id="TITLE" text="English"/></ui>'
+        )
+        self.assertEqual(document.strings, {"TITLE": "English"})
+        self.assertEqual(document.translations, {"TITLE": {4: "Deutsch"}})
+        for declarations in (
+            '<string id="TITLE" lang="4" text="Deutsch"/>',
+            '<string id="TITLE" text="A"/><string id="TITLE" text="B"/>',
+            '<string id="TITLE" text="A"/><string id="TITLE" lang="21" text="B"/>',
+            '<string id="TITLE" text="A"/><string id="TITLE" lang="-1" text="B"/>',
+            '<string id="TITLE" text="A"/><string id="title" text="B"/>',
+            '<string id="TITLE" text="A"/><string id="TITLE" lang="4" text="B"/>'
+            '<string id="TITLE" lang="4" text="C"/>',
+        ):
+            with self.subTest(declarations=declarations), self.assertRaises(ValueError):
+                parser.parse("<ui>" + declarations + "</ui>")
 
     def test_settings_toggle_preserves_stock_rows_and_has_no_navigation(self):
         root = Path(__file__).resolve().parents[2]

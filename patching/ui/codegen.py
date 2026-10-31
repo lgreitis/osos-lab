@@ -56,14 +56,24 @@ def emit_bindings(document, fields, actions):
     prefix = document.root.name.lower()
     for values in document.values.values():
         lines.append(array(values.name, values.numbers, public=True, ctype="int32_t"))
-        lines.append(string_array(values.name + "_labels", values.labels))
     if fields:
         lines.append(f"extern const struct cfw_ui_model {prefix}_model;")
     for item in document.fields:
-        labels = document.values[item.choices].labels
+        labels = document.labels(item.choices)
+        title = document.text(item.title)
         size = (
-            len(item.title.encode()) + 3 + max(len(label.encode()) for label in labels)
+            max(
+                len(text.encode())
+                for text in [title.default, *title.translations.values()]
+            )
+            + 3
         )
+        size += max(
+            len(text.encode())
+            for label in labels
+            for text in [label.default, *label.translations.values()]
+        )
+        lines.append(array(f"{prefix}_labels_{item.slot}", fields[item.slot].labels))
         lines += [
             f"static char {prefix}_summary_{item.slot}[{size}];",
             f"static struct cfw_ui_field_state {prefix}_state_{item.slot} = {{.summary = {prefix}_summary_{item.slot}}};",
@@ -72,11 +82,12 @@ def emit_bindings(document, fields, actions):
         binding = actions[item.name]
         labels = document.values[item.choices].labels
         name = item.name.lower()
+        lines.append(array(name + "_labels", binding.labels))
         lines.append(f"static uint32_t {name}_selected_status;")
         lines.append(
             f"const struct cfw_ui_action {name} = {{"
             f"{binding.property:#x}, {len(labels)}, "
-            f"{item.choices}_labels, &{name}_selected_status, {int(item.hide_when_zero)}}};"
+            f"{name}_labels, &{name}_selected_status, {int(item.hide_when_zero)}}};"
         )
     if fields:
         lines.append(f"const struct cfw_ui_field {prefix}_fields[{len(fields)}] = {{")
@@ -95,8 +106,8 @@ def emit_bindings(document, fields, actions):
                         str(item.slot),
                         str(int(values.numeric)),
                         json.dumps(item.name),
-                        json.dumps(item.title),
-                        f"{item.choices}_labels",
+                        f"{binding.title:#x}",
+                        f"{prefix}_labels_{item.slot}",
                         f"&{prefix}_model",
                         f"&{prefix}_state_{item.slot}",
                     ]
@@ -165,6 +176,33 @@ def emit_resources(resources):
     lines += [
         "};",
         f"const uint32_t cfw_resource_name_count = {len(resources.names)};",
+        "",
+    ]
+    translations = []
+    for index, ((string_id, language), data) in enumerate(
+        sorted(resources.translations.items())
+    ):
+        encoded = ", ".join(f"0x{byte:02x}" for byte in data)
+        lines.append(
+            f"static const unsigned char translation_{index}[] = {{{encoded}}};"
+        )
+        translations.append(f"    {{{string_id:#x}, {language}, translation_{index}}},")
+    lines += [
+        "const struct cfw_translation cfw_translations[] = {",
+        *(translations or ["    {0, 0, 0},"]),
+        "};",
+        f"const uint32_t cfw_translation_count = {len(translations)};",
+        "",
+    ]
+    formats = [
+        f'    {{{resource_id:#x}, "{signature}"}},'
+        for resource_id, signature in resources.formats.items()
+    ]
+    lines += [
+        "const struct cfw_format_spec cfw_formats[] = {",
+        *(formats or ['    {0, ""},']),
+        "};",
+        f"const uint32_t cfw_format_count = {len(formats)};",
         "",
     ]
 

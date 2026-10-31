@@ -3,65 +3,20 @@
 #include "song_info.h"
 
 #include "album_artist.h"
+#include "resources.h"
 #include "song_info_ui.h"
 
 /* UI actions run sequentially; each completed row is copied into the resource bank. */
-static struct {
-    char data[1024];
-    unsigned size;
-    uint32_t resource;
-} body;
+static char body[1024];
 
-static void append(const char *text)
+static void write_field(uint32_t resource, uint32_t format, const char *value)
 {
-    while (*text) {
-        unsigned bytes = 1;
-        unsigned char first = (unsigned char)*text;
-        if (first >= 0xc0 && first < 0xe0)
-            bytes = 2;
-        else if (first >= 0xe0 && first < 0xf0)
-            bytes = 3;
-        else if (first >= 0xf0)
-            bytes = 4;
-        if (body.size + bytes >= sizeof(body.data))
-            break;
-        for (unsigned i = 0; i < bytes && *text; i++)
-            body.data[body.size++] = *text++;
-    }
-    body.data[body.size] = 0;
-}
-
-static void decimal(uint32_t value)
-{
-    char digits[11];
-    unsigned start = sizeof(digits) - 1;
-    digits[start] = 0;
-    do {
-        digits[--start] = '0' + value % 10;
-        value /= 10;
-    } while (value);
-    append(digits + start);
-}
-
-static void flush(void)
-{
-    if (body.resource)
-        osos_resource_set(osos_resource_bank(), 0x53747220, body.resource, body.data,
-                          body.size + 1);
-}
-
-static void label(uint32_t resource, const char *name)
-{
-    flush();
-    body.resource = resource;
-    body.size = 0;
-    body.data[0] = 0;
-    append(name);
-    append(": ");
+    unsigned size = cfw_format(body, sizeof(body), format, value);
+    osos_resource_set(osos_resource_bank(), 0x53747220, resource, body, size + 1);
 }
 
 static void text_field(struct osos_media_item *item, uint32_t resource,
-                       const char *name, enum osos_media_text field)
+                        uint32_t format, enum osos_media_text field)
 {
     struct osos_native_string string;
     osos_native_string_init(&string);
@@ -73,110 +28,92 @@ static void text_field(struct osos_media_item *item, uint32_t resource,
         osos_native_string_assign_utf16(&string, text, units);
     }
     const char *text = osos_native_string_data(&string);
-    label(resource, name);
-    append(text && *text ? text : "Unknown");
+    write_field(resource, format, text && *text ? text : cfw_string(CFW_SONG_UNKNOWN));
     osos_native_string_destroy(&string);
 }
 
-static void number_field(uint32_t resource, const char *name, uint32_t number,
-                         const char *unit)
+static void number_field(uint32_t resource, uint32_t format, uint32_t number)
 {
-    label(resource, name);
-    if (!number) {
-        append("Unknown");
-        return;
-    }
-    decimal(number);
-    append(unit);
-}
-
-static void two_digits(uint32_t number)
-{
-    if (number < 10)
-        append("0");
-    decimal(number);
+    char value[11];
+    cfw_format(value, sizeof(value), CFW_SONG_NUMBER, number);
+    write_field(resource, format, number ? value : cfw_string(CFW_SONG_UNKNOWN));
 }
 
 static void duration(uint32_t milliseconds)
 {
-    label(CFW_INFO_DURATION, "Duration");
+    char value[32];
     if (!milliseconds) {
-        append("Unknown");
+        write_field(CFW_INFO_DURATION, CFW_SONG_DURATION_FORMAT, cfw_string(CFW_SONG_UNKNOWN));
         return;
     }
     uint32_t seconds = milliseconds / 1000;
+    uint32_t minutes = seconds / 60 % 60;
+    uint32_t remainder = seconds % 60;
     if (seconds >= 3600) {
-        decimal(seconds / 3600);
-        append(":");
-        two_digits(seconds / 60 % 60);
+        cfw_format(value, sizeof(value), CFW_SONG_TIME_HOURS, seconds / 3600,
+                   minutes < 10 ? "0" : "", minutes, remainder < 10 ? "0" : "", remainder);
     } else {
-        decimal(seconds / 60);
+        cfw_format(value, sizeof(value), CFW_SONG_TIME, seconds / 60,
+                   remainder < 10 ? "0" : "", remainder);
     }
-    append(":");
-    two_digits(seconds % 60);
+    write_field(CFW_INFO_DURATION, CFW_SONG_DURATION_FORMAT, value);
 }
 
-static void ordinal(uint32_t resource, const char *name, uint32_t number,
-                    uint16_t total)
+static void ordinal(uint32_t resource, uint32_t format, uint32_t number, uint16_t total)
 {
-    number_field(resource, name, number, "");
+    char value[32];
     if (number && total >= number) {
-        append(" of ");
-        decimal(total);
+        cfw_format(value, sizeof(value), CFW_SONG_ORDINAL, number, (uint32_t)total);
+        write_field(resource, format, value);
+    } else {
+        number_field(resource, format, number);
     }
 }
 
 static void metadata(struct osos_media_item *item)
 {
-    text_field(item, CFW_INFO_TITLE, "Title", OSOS_MEDIA_TITLE);
-    text_field(item, CFW_INFO_ARTIST, "Artist", OSOS_MEDIA_ARTIST);
-    text_field(item, CFW_INFO_ALBUM, "Album", OSOS_MEDIA_ALBUM);
-    text_field(item, CFW_INFO_ALBUM_ARTIST, "Album Artist", 0);
-    number_field(CFW_INFO_YEAR, "Year", osos_media_item_year(item), "");
-    text_field(item, CFW_INFO_GENRE, "Genre", OSOS_MEDIA_GENRE);
-    text_field(item, CFW_INFO_COMPOSER, "Composer", OSOS_MEDIA_COMPOSER);
-    text_field(item, CFW_INFO_GROUPING, "Grouping", OSOS_MEDIA_GROUPING);
+    text_field(item, CFW_INFO_TITLE, CFW_SONG_TITLE_FORMAT, OSOS_MEDIA_TITLE);
+    text_field(item, CFW_INFO_ARTIST, CFW_SONG_ARTIST_FORMAT, OSOS_MEDIA_ARTIST);
+    text_field(item, CFW_INFO_ALBUM, CFW_SONG_ALBUM_FORMAT, OSOS_MEDIA_ALBUM);
+    text_field(item, CFW_INFO_ALBUM_ARTIST, CFW_SONG_ALBUM_ARTIST_FORMAT, 0);
+    number_field(CFW_INFO_YEAR, CFW_SONG_YEAR_FORMAT, osos_media_item_year(item));
+    text_field(item, CFW_INFO_GENRE, CFW_SONG_GENRE_FORMAT, OSOS_MEDIA_GENRE);
+    text_field(item, CFW_INFO_COMPOSER, CFW_SONG_COMPOSER_FORMAT, OSOS_MEDIA_COMPOSER);
+    text_field(item, CFW_INFO_GROUPING, CFW_SONG_GROUPING_FORMAT, OSOS_MEDIA_GROUPING);
     duration(osos_media_item_duration(item));
     /* Song records keep track/disc totals beside their 16-bit ordinals. */
     const uint8_t *record = (const uint8_t *)item->record;
-    ordinal(CFW_INFO_TRACK, "Track", osos_media_item_track(item),
-            *(const uint16_t *)(record + 0x86));
-    ordinal(CFW_INFO_DISC, "Disc", osos_media_item_disc(item),
-            *(const uint16_t *)(record + 0x8a));
-    number_field(CFW_INFO_BITRATE, "Bitrate", osos_media_item_bitrate(item), " kbps");
-    label(CFW_INFO_FILE_SIZE, "File size");
+    ordinal(CFW_INFO_TRACK, CFW_SONG_TRACK_FORMAT, osos_media_item_track(item), *(const uint16_t *)(record + 0x86));
+    ordinal(CFW_INFO_DISC, CFW_SONG_DISC_FORMAT, osos_media_item_disc(item), *(const uint16_t *)(record + 0x8a));
+    char value[32];
+    uint32_t bitrate = osos_media_item_bitrate(item);
+    cfw_format(value, sizeof(value), CFW_SONG_KBPS, bitrate);
+    write_field(CFW_INFO_BITRATE, CFW_SONG_BITRATE_FORMAT,
+                bitrate ? value : cfw_string(CFW_SONG_UNKNOWN));
     uint32_t bytes = osos_media_item_file_size(item);
     if (bytes) {
-        decimal(bytes / 1048576);
-        append(".");
-        decimal(bytes % 1048576 * 10 / 1048576);
-        append(" MiB");
-    } else {
-        append("Unknown");
+        cfw_format(value, sizeof(value), CFW_SONG_SIZE,
+                   bytes / 1048576, bytes % 1048576 * 10 / 1048576);
     }
-    label(CFW_INFO_RATING, "Rating");
+    write_field(CFW_INFO_FILE_SIZE, CFW_SONG_FILE_SIZE_FORMAT,
+                bytes ? value : cfw_string(CFW_SONG_UNKNOWN));
     int32_t rating = osos_media_item_rating(item);
     if (rating > 0 && rating <= 100) {
-        decimal(rating / 20);
-        append("/5");
-    } else {
-        append("Unrated");
+        cfw_format(value, sizeof(value), CFW_SONG_STARS, (uint32_t)rating / 20);
     }
-    label(CFW_INFO_PLAY_COUNT, "Play count");
-    decimal(osos_media_item_play_count(item));
-    label(CFW_INFO_SKIP_COUNT, "Skip count");
-    decimal(osos_media_item_skip_count(item));
+    write_field(CFW_INFO_RATING, CFW_SONG_RATING_FORMAT,
+                rating > 0 && rating <= 100 ? value : cfw_string(CFW_SONG_UNRATED));
+    cfw_format(value, sizeof(value), CFW_SONG_NUMBER, osos_media_item_play_count(item));
+    write_field(CFW_INFO_PLAY_COUNT, CFW_SONG_PLAY_COUNT_FORMAT, value);
+    cfw_format(value, sizeof(value), CFW_SONG_NUMBER, osos_media_item_skip_count(item));
+    write_field(CFW_INFO_SKIP_COUNT, CFW_SONG_SKIP_COUNT_FORMAT, value);
 }
 
 void cfw_song_info_show(void *controller, struct osos_media_item *item)
 {
     if (!item || !item->record || !osos_media_item_valid(item))
         return;
-    body.size = 0;
-    body.resource = 0;
-    body.data[0] = 0;
     metadata(item);
-    flush();
 
     void *screen =
         osos_create_screen_controller(osos_controller_registry(), CFW_SongInfo_Screen,

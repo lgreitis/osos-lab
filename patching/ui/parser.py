@@ -52,6 +52,36 @@ def validate_slots(fields):
         raise ValueError("Settings slots must be unique and contiguous from zero")
 
 
+def format_signature(text):
+    arguments = {}
+    position = 0
+    sequential = 0
+    numbered = None
+    while position < len(text):
+        if text[position] != "%":
+            position += 1
+            continue
+        if text[position : position + 2] == "%%":
+            position += 2
+            continue
+        match = re.match(r"%(?:([1-8])\$)?([su])", text[position:])
+        if match is None:
+            raise ValueError(f"Invalid UI format placeholder: {text[position:]}")
+        explicit, kind = match.groups()
+        if numbered is not None and numbered != bool(explicit):
+            raise ValueError("Cannot mix numbered and sequential UI placeholders")
+        numbered = bool(explicit)
+        sequential += 1
+        index = int(explicit) if explicit else sequential
+        if index > 8 or (index in arguments and arguments[index] != kind):
+            raise ValueError("Invalid UI format argument types or count")
+        arguments[index] = kind
+        position += match.end()
+    if set(arguments) != set(range(1, len(arguments) + 1)):
+        raise ValueError("UI format arguments must be contiguous from one")
+    return "".join(arguments[index] for index in range(1, len(arguments) + 1))
+
+
 class Parser:
     """Track document-wide names and bindings while reading nested menu nodes."""
 
@@ -60,7 +90,7 @@ class Parser:
         self.names = set()
         self.entry = None
 
-    def parse(self, tree):
+    def parse(self, tree, locale=None):
         if tree.tag != "ui":
             raise ValueError("Expected <ui> root")
         attributes(
@@ -74,6 +104,7 @@ class Parser:
                 "toggle",
                 "settings-entry",
                 "string",
+                "format",
                 "screen-event",
                 "music-entry",
                 "bitmap",
@@ -81,8 +112,23 @@ class Parser:
         )
         for node in tree:
             self.parse_declaration(node)
+        if locale is not None:
+            if locale.tag != "locale":
+                raise ValueError("Expected <locale> root")
+            attributes(locale, children=("string", "format"))
+            for node in locale:
+                self.parse_declaration(node)
         self.apply_settings_entry()
         document = self.document
+        for name in document.translations:
+            if name not in document.strings:
+                raise ValueError(f"Missing default UI string: {name}")
+            if name in document.formats:
+                signature = format_signature(document.strings[name])
+                for translated in document.translations[name].values():
+                    if format_signature(translated) != signature:
+                        raise ValueError(f"Mismatched UI format arguments: {name}")
+                document.formats[name] = signature
         if (
             document.root is None
             and not document.strings
@@ -132,9 +178,6 @@ class Parser:
             if self.entry is not None:
                 raise ValueError("Duplicate Settings menu entry")
             self.entry = node
-        elif node.tag == "string":
-            attributes(node, "id text")
-            document.strings[self.identifier(node)] = node.attrib["text"]
         elif node.tag == "bitmap":
             attributes(node, "id file", "format")
             bitmap_format = node.get("format", "auto")
@@ -144,6 +187,25 @@ class Parser:
                 node.attrib["file"],
                 bitmap_format,
             )
+        elif node.tag in ("string", "format"):
+            attributes(node, "id text", "lang")
+            name = node.attrib["id"]
+            if name not in document.translations:
+                self.identifier(node)
+                document.translations[name] = {}
+                if node.tag == "format":
+                    document.formats[name] = ""
+            elif (node.tag == "format") != (name in document.formats):
+                raise ValueError(f"Cannot mix string and format declarations: {name}")
+            if "lang" in node.attrib:
+                language = integer(node, "lang", minimum=0, maximum=20)
+                if language in document.translations[name]:
+                    raise ValueError(f"Duplicate UI string language: {name}")
+                document.translations[name][language] = node.attrib["text"]
+            else:
+                if name in document.strings:
+                    raise ValueError(f"Duplicate default UI string: {name}")
+                document.strings[name] = node.attrib["text"]
         elif node.tag == "screen-event":
             document.events.append(self.parse_screen_event(node))
         elif node.tag == "music-entry":
@@ -192,8 +254,11 @@ class Parser:
         if (last - first) // step + 1 > 1024:
             raise ValueError("UI selectors support at most 1024 choices")
         value.numbers = list(range(first, last + (1 if step > 0 else -1), step))
+        suffix = node.get("suffix", "")
+        if suffix.startswith("@"):
+            value.suffix, suffix = suffix, ""
         value.labels = [
-            range_label(number, scale, signed == "true", node.get("suffix", ""))
+            range_label(number, scale, signed == "true", suffix)
             for number in value.numbers
         ]
         return value
@@ -217,9 +282,17 @@ class Parser:
         return item
 
     def parse_row(self, node):
-        if node.tag in ("info", "canvas"):
+        if node.tag == "canvas":
             attributes(node, "id title")
             return Item(node.tag, self.identifier(node), node.attrib["title"])
+        if node.tag == "info":
+            attributes(node, "id title", "unknown")
+            return Item(
+                "info",
+                self.identifier(node),
+                node.attrib["title"],
+                unknown=node.get("unknown", "Unknown"),
+            )
         required = "id title values"
         if node.tag == "selector":
             required += " slot default"
@@ -299,16 +372,23 @@ def resource_reference(value):
     raise ValueError(f"Invalid native resource reference: {value}")
 
 
-def parse(data):
+def parse(data, locale=None):
     try:
         tree = ET.fromstring(data)
+        locale_tree = ET.fromstring(locale) if locale is not None else None
     except ET.ParseError as error:
         raise ValueError(f"Invalid UI XML: {error}") from error
-    return Parser().parse(tree)
+    return Parser().parse(tree, locale_tree)
 
 
 def read(source):
+    source = Path(source)
     try:
-        return parse(Path(source).read_text())
+        locale = source.with_suffix(".lo")
+        document = parse(
+            source.read_text(), locale.read_text() if locale.exists() else None
+        )
+        document.namespace = source.stem
+        return document
     except ValueError as error:
-        raise ValueError(f"{source}: {error}") from error
+        raise ValueError(f"{source} (locale {locale}): {error}") from error

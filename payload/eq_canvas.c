@@ -6,6 +6,7 @@
 #include "custom_eq.h"
 #include "eq_coefficients.h"
 #include "dark_mode.h"
+#include "resources.h"
 
 enum {
     CANVAS_TYPE = 0x63667763, /* cfwc */
@@ -219,7 +220,7 @@ static void canvas_load_fonts(void)
 static const char *canvas_value(int band, int parameter)
 {
     const struct cfw_ui_field *field = canvas_field(band, parameter);
-    return field->labels[canvas_index(band, parameter)];
+    return cfw_string(field->labels[canvas_index(band, parameter)]);
 }
 
 static void canvas_rect(void *context, const int32_t *bounds, int x, int y, int width,
@@ -306,7 +307,7 @@ static void canvas_response(void *context, const int32_t *bounds,
                         colors[COLOR_TEXT], colors[COLOR_BACKGROUND]);
     if (canvas_fonts[0][0] & ~1u) {
         const struct cfw_ui_field *precut = &cfw_eq_fields[CFW_EQ_PRECUT];
-        const char *value = precut->labels[precut->model->values[precut->slot]];
+        const char *value = cfw_string(precut->labels[precut->model->values[precut->slot]]);
         osos_graphics_set_font(context, canvas_fonts[0]);
         int value_width = osos_graphics_text_width(context, value);
         int label_width = osos_graphics_text_width(context, "Precut");
@@ -450,7 +451,7 @@ static void canvas_parameters(void *context, const int32_t *bounds,
                 canvas_rect(context, bounds, left + 2, top + 2, width - 4, height - 4,
                             background);
         }
-        const char *title = cfw_eq_fields[canvas_fields[parameter]].title;
+        const char *title = cfw_string(cfw_eq_fields[canvas_fields[parameter]].title);
         const unsigned char *label_color =
             colors[editing ? COLOR_ON_ACCENT : COLOR_MUTED];
         const unsigned char *value_color =

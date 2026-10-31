@@ -28,6 +28,9 @@ static int dark, text_font, pen_x, pen_y, draw_mode;
 static unsigned char draw_color[4];
 static unsigned char pixels[217][320][3];
 static const char *gain_labels[49], *frequency_labels[32], *q_labels[38];
+static uint32_t gain_labels_ids[49], frequency_labels_ids[32], q_labels_ids[38];
+static const uint32_t type_labels_ids[] = {1, 2, 3, 4};
+static const uint32_t precut_labels_ids[] = {5};
 static uint32_t values[CFW_EQ_FIELDS];
 static unsigned changes, commits, snapshots, version;
 static int rejected, locked, example_response;
@@ -41,12 +44,31 @@ static void commit_values(void)
 const struct cfw_ui_model cfw_eq_model = {values, change_value, commit_values};
 #define FIELD(slot_, title_, labels_, count_)                                          \
     [slot_] = {.slot = slot_,                                                          \
-               .title = title_,                                                        \
-               .labels = labels_,                                                      \
+               .title = 128 + slot_,                                                   \
+               .labels = labels_##_ids,                                                \
                .count = count_,                                                        \
                .model = &cfw_eq_model}
 static const char *const type_labels[] = {"Off", "Peaking", "Low shelf", "High shelf"};
 static const char *const precut_labels[] = {"0.0 dB"};
+const char *cfw_string(uint32_t id)
+{
+    if (id >= 128) {
+        if (id == 128)
+            return "Precut";
+        static const char *const titles[] = {"Type", "Frequency", "Q", "Gain"};
+        return titles[(id - 129) % 4];
+    }
+    if (id >= 90)
+        return q_labels[id - 90];
+    if (id >= 58)
+        return frequency_labels[id - 58];
+    if (id >= 9)
+        return gain_labels[id - 9];
+    if (id == 5)
+        return precut_labels[0];
+    assert(id >= 1 && id <= 4);
+    return type_labels[id - 1];
+}
 const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
     FIELD(CFW_EQ_PRECUT, "Precut", precut_labels, 1),
     FIELD(CFW_EQ_BAND1_TYPE, "Type", type_labels, 4),
@@ -374,11 +396,11 @@ static void wheel(int delta)
 int main(void)
 {
     for (int i = 0; i < 49; i++)
-        gain_labels[i] = "+12.0 dB";
+        gain_labels[i] = "+12.0 dB", gain_labels_ids[i] = 9 + i;
     for (int i = 0; i < 32; i++)
-        frequency_labels[i] = "20000 Hz";
+        frequency_labels[i] = "20000 Hz", frequency_labels_ids[i] = 58 + i;
     for (int i = 0; i < 38; i++)
-        q_labels[i] = "4.0";
+        q_labels[i] = "4.0", q_labels_ids[i] = 90 + i;
     for (int i = 0; i < CFW_EQ_BANDS; i++) {
         values[CFW_EQ_BAND1_GAIN + i * 4] = 24;
         values[CFW_EQ_BAND1_Q + i * 4] = 4;

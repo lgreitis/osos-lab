@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from patching.recipes.companion import build_recipe as build_companion_recipe
 from patching.recipes.osos import build_recipe
 from patching.toolchain import run
+from tools import languages
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -99,6 +100,11 @@ def build_osos(config, out, inputs, recipe_only=False, info=None):
     files = recipe.save(out, "osos")
     if not recipe_only:
         assemble(config, files, out / "osos-cfw.bin", inputs)
+        languages.build_assets(
+            config.work / "payload/language-catalog.json",
+            inputs / "osos.bin",
+            out / "languages",
+        )
 
 
 def build_apple(config, out, inputs, recipe_only=False, nor=None):

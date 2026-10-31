@@ -13,9 +13,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import firmware as firmware_profile
 from patching.ui import Resources, generate
 from patching.ui.resources import Resource, Template
+from tools import firmware as firmware_profile
 
 ROOT = Path(__file__).resolve().parents[1]
 
