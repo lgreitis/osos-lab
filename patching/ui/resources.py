@@ -180,6 +180,7 @@ class Resources:
         }
         self.added = {}
         self.translations = {}
+        self.strings = {}
         self.formats = {}
         self.names = {}
         self.event_aliases = {}
@@ -253,6 +254,7 @@ class Resources:
         if isinstance(text, str):
             text = Text(text)
         self.add("Str ", string_id, text.default.encode("utf-8") + b"\0")
+        self.strings[string_id] = text
         for language, translated in sorted(text.translations.items()):
             self.translations[string_id, language] = translated.encode("utf-8") + b"\0"
 

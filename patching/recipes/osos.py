@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .. import assets, declarations, ui
 from ..declarations import Copy, Kind
+from ..languages import export_catalog
 from ..symbols import require
 from ..toolchain import compile_payload
 from .segments import Input, Recipe
@@ -14,6 +15,15 @@ from .segments import Input, Recipe
 BASE = 0x08000000
 IMAGE_HEADER_SIZE = 0x800
 IMAGE_SIZE_FIELDS = (0xC, 0x10, 0x14)
+UI_SOURCES = (
+    "cfw_info.ui",
+    "custom_eq.ui",
+    "play_next.ui",
+    "song_info.ui",
+    "album_artists.ui",
+    "dark_mode.ui",
+    "queue_selection.ui",
+)
 
 
 @dataclass(frozen=True)
@@ -59,21 +69,14 @@ def build_recipe(
     resources = ui.Resources(templates, bindings)
     generated_ui = ui.generate(
         resources,
-        [
-            source / name
-            for name in (
-                "cfw_info.ui",
-                "custom_eq.ui",
-                "play_next.ui",
-                "song_info.ui",
-                "album_artists.ui",
-                "dark_mode.ui",
-                "queue_selection.ui",
-            )
-        ],
+        [source / name for name in UI_SOURCES],
         directory,
         revision,
         version,
+    )
+    (directory / "language-catalog.json").write_text(
+        json.dumps(export_catalog(resources, fingerprint), ensure_ascii=False, indent=2)
+        + "\n"
     )
     units = payload_units(source, generated_ui)
     catalog = json.loads((source.parent / "firmware/bitmaps.json").read_text())

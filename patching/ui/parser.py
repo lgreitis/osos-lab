@@ -385,8 +385,10 @@ def read(source):
     source = Path(source)
     try:
         locale = source.with_suffix(".lo")
-        return parse(
+        document = parse(
             source.read_text(), locale.read_text() if locale.exists() else None
         )
+        document.namespace = source.stem
+        return document
     except ValueError as error:
         raise ValueError(f"{source} (locale {locale}): {error}") from error

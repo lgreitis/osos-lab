@@ -8,6 +8,11 @@ from dataclasses import dataclass, field
 class Text:
     default: str
     translations: dict[int, str] = field(default_factory=dict)
+    parts: tuple[tuple[str, str], ...] = ()
+
+    @property
+    def recipe(self):
+        return self.parts or (("", self.default),)
 
     @classmethod
     def join(cls, *parts):
@@ -20,6 +25,7 @@ class Text:
                 )
                 for language in languages
             },
+            tuple(component for part in parts for component in part.recipe),
         )
 
 
@@ -70,6 +76,7 @@ class Document:
     preview_image: str = ""
     preview_caption: str = ""
     bitmaps: dict[str, tuple[str, str]] = field(default_factory=dict)
+    namespace: str = "inline"
 
     def text(self, value):
         if isinstance(value, Text):
@@ -81,7 +88,12 @@ class Document:
         name = value[1:]
         if name not in self.strings:
             raise ValueError(f"Undefined UI string reference: {value}")
-        return Text(self.strings[name], self.translations.get(name, {}))
+        default = self.strings[name]
+        return Text(
+            default,
+            self.translations.get(name, {}),
+            ((f"cfw:{self.namespace}/{name}", default),),
+        )
 
     def labels(self, name):
         values = self.values[name]

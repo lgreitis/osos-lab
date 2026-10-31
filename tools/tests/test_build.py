@@ -12,8 +12,35 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import release
 import setup
 
+import build
+
 
 class BuildTests(unittest.TestCase):
+    def test_local_osos_build_emits_matching_language_assets(self):
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            patch.object(build, "build_recipe") as recipe,
+            patch.object(build, "assemble") as assemble,
+            patch.object(build.languages, "build_assets") as languages,
+        ):
+            root = Path(temporary)
+            config = build.BuildConfig(root / "work", "arm-", 1)
+            output, inputs = root / "out", root / "inputs"
+            info = {"revision": "test", "version": "0.0.0-dev"}
+            build.build_osos(config, output, inputs, info=info)
+            assemble.assert_called_once()
+            languages.assert_called_once_with(
+                config.work / "payload/language-catalog.json",
+                inputs / "osos.bin",
+                output / "languages",
+            )
+            self.assertEqual(recipe.call_args.args[-2:], ("test", "0.0.0-dev"))
+            assemble.reset_mock()
+            languages.reset_mock()
+            build.build_osos(config, output, None, recipe_only=True, info=info)
+            assemble.assert_not_called()
+            languages.assert_not_called()
+
     def test_release_replaces_owned_artifacts_and_preserves_device_builds(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

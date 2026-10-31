@@ -68,6 +68,18 @@ the vtable at `0x0898ba50`; the locale setter at slot `0x74` (`0x08122df0`) call
 The CFW resolver reads this code through the global UI service and maps it through
 the language table, so no Settings model is required.
 
+Direct disassembly of the pinned image also confirms Settings property `0x8916`:
+`0x081e1d84` returns a `VMin` of zero and `VMax` of 21. The indexed-property branch
+at `0x081e32c0` calls `0x081e1ea8`, which retrieves the table entry's string ID.
+`0x0821e360` obtains the selection index through vtable slot `0x168` and passes it
+to `0x081e226c` without a bounds check. Do not pass an external index to this
+routine or merely increase the native language count.
+
+The setter at `0x08193f34` updates locale/provider fields; this alone does not
+prove that every view has released borrowed text pointers. External runtime
+selection remains gated on that lifetime analysis. The host-side export and pack
+compiler are documented in [languages.md](languages.md#external-language-packs-implementation-status).
+
 The existing resource-service hook resolves translated `Str ` IDs before the
 original lookup. Untranslated IDs and other resource types are passed through.
 Existing dynamic Settings sources remain unchanged. Dark Mode and CFW Info

@@ -120,7 +120,7 @@ class DocumentCompiler:
             for paragraph in text.strip().split("\n\n")
             if paragraph.strip()
         ]
-        for paragraph in paragraphs:
+        for index, paragraph in enumerate(paragraphs):
             kind, prototype = legal_views[1]
             view = Resource(prototype)
             view_id = resources.allocate()
@@ -128,7 +128,11 @@ class DocumentCompiler:
             put(view, 0x10, previous)
             put(view, 0x14, 0 if previous == 0 else 3)
             put(view, 0x30, view_id)
-            put(view, 0x64, self.source(paragraph))
+            key = f"cfw:{self.document.namespace}/paragraph/{index}"
+            resolved = self.document.text(paragraph)
+            if not resolved.parts:
+                resolved.parts = ((key, resolved.default),)
+            put(view, 0x64, self.source(resolved))
             views.append((kind, view))
             previous = view_id
         kind, prototype = legal_views[-1]
@@ -140,7 +144,7 @@ class DocumentCompiler:
 
     def source(self, *parts):
         text = Text.join(*(self.document.text(part) for part in parts))
-        key = text.default, tuple(sorted(text.translations.items()))
+        key = text.recipe
         if key not in self.sources:
             self.sources[key] = self.resources.source(text)
         return self.sources[key]
@@ -492,11 +496,9 @@ def compile_document(resources, document, text=""):
         if document.root.kind == "canvas":
             builder.canvas_page(document.root)
 
-    for name, default in document.strings.items():
+    for name in document.strings:
         compiled.string_ids[name] = resource_id = resources.allocate()
-        resources.string(
-            resource_id, Text(default, document.translations.get(name, {}))
-        )
+        resources.string(resource_id, document.text("@" + name))
         if name in document.formats:
             resources.formats[resource_id] = document.formats[name]
 
