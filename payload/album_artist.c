@@ -5,8 +5,13 @@
 #include "patch.h"
 
 struct artist_entry {
-    uint32_t id_low, id_high, token;
+    uint32_t id_low, id_high, token, sort_album_artist, sort_artist;
     int used;
+};
+
+enum {
+    MHOD_SORT_ARTIST = 23,
+    MHOD_SORT_ALBUM_ARTIST = 29,
 };
 
 /* Share native strings; the side table owns one reference per retained field. */
@@ -25,8 +30,11 @@ static void clear(void)
 {
     if (owner)
         cfw_album_artists_invalidate(owner);
-    for (uint32_t i = 0; i < capacity; i++)
+    for (uint32_t i = 0; i < capacity; i++) {
         release(entries[i].token);
+        release(entries[i].sort_album_artist);
+        release(entries[i].sort_artist);
+    }
     if (entries)
         osos_import_free(entries);
     entries = NULL;
@@ -58,7 +66,7 @@ static int grow(void)
     if (!table)
         return 0;
     for (uint32_t i = 0; i < size; i++) {
-        table[i].token = 0;
+        table[i].token = table[i].sort_album_artist = table[i].sort_artist = 0;
         table[i].used = 0;
     }
     for (uint32_t i = 0; i < capacity; i++) {
@@ -75,6 +83,27 @@ static int grow(void)
 static const uint32_t *persistent_id(struct osos_media_record *record)
 {
     return (const uint32_t *)((const uint8_t *)record + 0x110);
+}
+
+static struct artist_entry *find_record(struct osos_media_record *record)
+{
+    if (!record || !capacity || *(void **)record != owner)
+        return NULL;
+    const uint32_t *id = persistent_id(record);
+    struct artist_entry *entry = slot(entries, capacity, id[0], id[1]);
+    return entry->used ? entry : NULL;
+}
+
+static uint32_t *metadata_field(struct artist_entry *entry, uint32_t mhod_type)
+{
+    switch (mhod_type) {
+    case MHOD_SORT_ALBUM_ARTIST:
+        return &entry->sort_album_artist;
+    case MHOD_SORT_ARTIST:
+        return &entry->sort_artist;
+    default:
+        return &entry->token;
+    }
 }
 
 PATCH_ARM int cfw_album_artist_import_tracks(void *reader)
@@ -96,7 +125,7 @@ PATCH_ARM void cfw_album_artist_destroy_tracks(void *track_data)
 }
 
 int cfw_album_artist_import(void *reader, struct osos_media_record *record,
-                            uint32_t body_bytes)
+                            uint32_t body_bytes, uint32_t mhod_type)
 {
     /* Native skip treats negative lengths as relative seeks. */
     if (body_bytes > INT32_MAX)
@@ -115,7 +144,8 @@ int cfw_album_artist_import(void *reader, struct osos_media_record *record,
         return osos_itunes_skip_bytes(reader, (int32_t)body_bytes);
 
     uint32_t token = 0;
-    int status = osos_itunes_import_string(reader, 1, 22, string_cache, &token, 0, 1);
+    int status =
+        osos_itunes_import_string(reader, 1, mhod_type, string_cache, &token, 0, 1);
     int cursor_status = osos_import_file_position(file, &end);
     if (cursor_status || end < start || end - start > body_bytes) {
         release(token);
@@ -134,19 +164,30 @@ int cfw_album_artist_import(void *reader, struct osos_media_record *record,
     }
 
     entry = slot(entries, capacity, id[0], id[1]);
-    release(entry->token);
-    if (!entry->used)
+    if (!entry->used) {
         count++;
-    *entry = (struct artist_entry){id[0], id[1], token, 1};
+        entry->id_low = id[0];
+        entry->id_high = id[1];
+        entry->used = 1;
+    }
+    uint32_t *field = metadata_field(entry, mhod_type);
+    release(*field);
+    *field = token;
     return 0;
 }
 
 uint32_t cfw_album_artist_token(struct osos_media_record *record)
 {
-    if (!record || !capacity || *(void **)record != owner)
+    struct artist_entry *entry = find_record(record);
+    return entry ? entry->token : 0;
+}
+
+uint32_t cfw_album_artist_sort_token(struct osos_media_record *record, int album_artist)
+{
+    struct artist_entry *entry = find_record(record);
+    if (!entry)
         return 0;
-    const uint32_t *id = persistent_id(record);
-    return slot(entries, capacity, id[0], id[1])->token;
+    return album_artist ? entry->sort_album_artist : entry->sort_artist;
 }
 
 uint32_t cfw_album_artist_read(struct osos_media_record *record, uint16_t *text,

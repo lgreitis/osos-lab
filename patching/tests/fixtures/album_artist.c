@@ -97,8 +97,8 @@ static int mock_decode(void *context, uint32_t encoding, uint32_t type, void *ca
                        uint32_t *token, uint32_t glyph_field, int collect)
 {
     struct file *file = ((struct reader *)context)->file;
-    assert(encoding == 1 && type == 22 && cache == string_cache && glyph_field == 0 &&
-           collect == 1);
+    assert(encoding == 1 && (type == 22 || type == 23 || type == 29) &&
+           cache == string_cache && glyph_field == 0 && collect == 1);
     if (file->decode_error) {
         file->offset += 8;
         return file->decode_error;
@@ -188,14 +188,22 @@ static struct osos_media_record record(void *library, uint32_t low, uint32_t hig
     return result;
 }
 
-static void retain(struct reader *reader, struct osos_media_record *record,
-                   const uint16_t *text, uint32_t units, uint32_t padding)
+static void retain_field(struct reader *reader, struct osos_media_record *record,
+                         const uint16_t *text, uint32_t units, uint32_t padding,
+                         uint32_t type)
 {
     reader->file->text = text;
     reader->file->units = units;
     uint64_t start = reader->file->offset;
-    assert(cfw_album_artist_import(reader, record, 16 + units * 2 + padding) == 0);
+    assert(cfw_album_artist_import(reader, record, 16 + units * 2 + padding, type) ==
+           0);
     assert(reader->file->offset == start + 16 + units * 2 + padding);
+}
+
+static void retain(struct reader *reader, struct osos_media_record *record,
+                   const uint16_t *text, uint32_t units, uint32_t padding)
+{
+    retain_field(reader, record, text, units, padding, 22);
 }
 
 static void expect(struct osos_media_record *record, const uint16_t *text,
@@ -287,7 +295,7 @@ int main(void)
     file.position_error = 0;
     file.decode_error = -108;
     file.skip_error = -36;
-    assert(cfw_album_artist_import(&reader, &next, 28) == -36);
+    assert(cfw_album_artist_import(&reader, &next, 28, 22) == -36);
     file.decode_error = file.skip_error = 0;
 
     uint16_t long_name[256];
@@ -300,7 +308,7 @@ int main(void)
 
     /* Oversized MHOD lengths must fail without issuing a negative native seek. */
     uint64_t position = file.offset;
-    assert(cfw_album_artist_import(&reader, &next, UINT32_MAX) == -0xd0);
+    assert(cfw_album_artist_import(&reader, &next, UINT32_MAX, 22) == -0xd0);
     assert(file.offset == position);
 
     /* Both the raw token and a full-size read remain available to other patches. */
@@ -311,6 +319,28 @@ int main(void)
     cfw_album_artist_destroy_tracks(&library_b);
     assert(!owner && !string_cache && !capacity && !live_refs);
     expect(&next, NULL, 0);
+    assert(cfw_album_artist_import_tracks(&reader) == 0);
+
+    /* Sort fields can arrive before the display name and own separate references. */
+    retain_field(&reader, &next, artist, 6, 2, 29);
+    retain_field(&reader, &next, other, 5, 1, 23);
+    assert(live_refs == 2 && count == 1);
+    uint32_t album_sort = cfw_album_artist_sort_token(&next, 1);
+    uint32_t artist_sort = cfw_album_artist_sort_token(&next, 0);
+    assert(album_sort && artist_sort && album_sort != artist_sort);
+    assert(!cfw_album_artist_token(&next));
+    retain(&reader, &next, artist, 6, 0);
+    assert(cfw_album_artist_token(&next) == album_sort && live_refs == 3);
+    retain_field(&reader, &next, other, 5, 0, 29);
+    assert(cfw_album_artist_sort_token(&next, 1) == artist_sort && live_refs == 3);
+    expect(&next, artist, 6);
+    file.decode_error = -108;
+    retain_field(&reader, &next, NULL, 0, 4, 29);
+    file.decode_error = 0;
+    assert(!cfw_album_artist_sort_token(&next, 1) && live_refs == 2);
+    assert(cfw_album_artist_sort_token(&next, 0) == artist_sort);
+    cfw_album_artist_destroy_tracks(&library_b);
+    assert(!live_refs && !cfw_album_artist_sort_token(&next, 0));
     assert(cfw_album_artist_import_tracks(&reader) == 0);
 
     /* Stock finalization freezes reference accounting; destruction frees storage. */

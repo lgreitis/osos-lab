@@ -15,6 +15,7 @@ cfw_album_artist_import_hook:
     ldr r2, [sp, #0x228]
     ldr r3, [sp, #0x224]
     sub r2, r2, r3
+    ldr r3, [sp, #0x22c]
     mov r0, r7
     mov r1, r4
     bl cfw_album_artist_import

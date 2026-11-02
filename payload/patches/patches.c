@@ -87,10 +87,15 @@ PATCH_POINTER(OSOS_NOW_PLAYING_SECONDARY_ACTION_SLOT, OSOS_NOW_PLAYING_ACTION,
               cfw_now_playing_action);
 PATCH_CALL(OSOS_TRACKDATA_DESTROY_STORAGE_CALL, OSOS_TRACKDATA_DESTROY_STORAGE,
            cfw_album_artist_destroy_tracks);
-/* Retain the Album Artist MHOD that the native importer discards. */
+/* Retain Album Artist and sort names that the native importer discards. */
 PATCH_CALL(OSOS_ITUNES_IMPORT_TRACKS_CALL, OSOS_ITUNES_IMPORT_TRACKS,
            cfw_album_artist_import_tracks);
 PATCH_CALL_WORD(OSOS_ITUNES_ALBUM_ARTIST_SLOT, OSOS_ITUNES_ALBUM_ARTIST_DISCARD_WORD,
+                cfw_album_artist_import_hook);
+PATCH_CALL_WORD(OSOS_ITUNES_SORT_ARTIST_SLOT, OSOS_ITUNES_SORT_ARTIST_DISCARD_WORD,
+                cfw_album_artist_import_hook);
+PATCH_CALL_WORD(OSOS_ITUNES_SORT_ALBUM_ARTIST_SLOT,
+                OSOS_ITUNES_SORT_ALBUM_ARTIST_DISCARD_WORD,
                 cfw_album_artist_import_hook);
 
 PATCH_POINTER(OSOS_MUSIC_ACTION_SLOT, OSOS_MUSIC_ACTION, cfw_album_artists_action);

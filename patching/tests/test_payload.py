@@ -57,6 +57,7 @@ class PayloadTests(unittest.TestCase):
                     root / "payload/dark_mode.ui",
                     root / "payload/custom_eq.ui",
                     root / "payload/cfw_info.ui",
+                    root / "payload/album_artists.ui",
                 ],
                 directory,
                 "test",
@@ -64,6 +65,7 @@ class PayloadTests(unittest.TestCase):
             for name in (
                 "album_artist",
                 "album_artists_index",
+                "album_artists",
                 "ui_visibility",
                 "ui_model",
                 "eq_preferences",
