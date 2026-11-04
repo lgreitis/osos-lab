@@ -55,6 +55,7 @@ class PayloadTests(unittest.TestCase):
                 Resources(metadata["resources"], bindings),
                 [
                     root / "payload/dark_mode.ui",
+                    root / "payload/chapters.ui",
                     root / "payload/song_info.ui",
                     root / "payload/custom_eq.ui",
                     root / "payload/cfw_info.ui",
@@ -64,6 +65,7 @@ class PayloadTests(unittest.TestCase):
                 "test",
             )
             for name in (
+                "chapters",
                 "context_menu",
                 "song_actions",
                 "song_info",

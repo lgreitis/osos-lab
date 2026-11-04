@@ -516,6 +516,7 @@ OSOS_MEDIA_GETTER(track, uint16_t, 0xbc)
 OSOS_MEDIA_GETTER(disc, uint16_t, 0xc0)
 OSOS_MEDIA_GETTER(play_count, uint32_t, 0xc4)
 OSOS_MEDIA_GETTER(skip_count, uint32_t, 0xcc)
+OSOS_MEDIA_GETTER(chapter_count, uint32_t, OSOS_MEDIA_CHAPTER_COUNT_SLOT)
 #undef OSOS_MEDIA_GETTER
 
 static inline void osos_player_current_item(struct osos_player *player,
