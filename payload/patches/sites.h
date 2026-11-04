@@ -94,3 +94,10 @@
 /* iAP accessory authentication: device-signature verifier entries. */
 #define OSOS_IAP_AUTH_VERIFY_A 0x0812dca8
 #define OSOS_IAP_AUTH_VERIFY_B 0x081592fc
+
+/* Podcast episode context menu: vtable slots and Cancel append. */
+#define OSOS_EPISODE_MENU_SLOT 0x089a67d4
+#define OSOS_EPISODE_SECONDARY_MENU_SLOT 0x089aaea4
+#define OSOS_EPISODE_ACTION_SLOT 0x089a67a0
+#define OSOS_EPISODE_SECONDARY_ACTION_SLOT 0x089aae70
+#define OSOS_EPISODE_CANCEL_APPEND_CALL 0x08230a10

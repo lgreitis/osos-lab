@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "osos.h"
 #include "cfw.h"
+#include "chapters.h"
 #include "patch.h"
 #include "play_next.h"
 #include "song_info.h"
@@ -105,6 +106,7 @@ PATCH_ARM void cfw_now_playing_menu_cancel(struct osos_context_menu *menu,
                                            uint32_t label, const char *action,
                                            uint32_t flags)
 {
+    cfw_chapters_menu(menu);
     osos_context_menu_append(menu, CFW_SONG_INFO_LABEL, "CFW_SongInfo", 1);
     osos_context_menu_append(menu, label, action, flags);
 }
@@ -112,7 +114,8 @@ PATCH_ARM void cfw_now_playing_menu_cancel(struct osos_context_menu *menu,
 PATCH_ARM int cfw_now_playing_action(void *controller, const char *action,
                                      uint32_t argument)
 {
-    if (song_action(controller, NOW_PLAYING, action, argument))
+    if (cfw_chapters_action(controller, action, argument) ||
+        song_action(controller, NOW_PLAYING, action, argument))
         return 1;
     return osos_now_playing_action(controller, action, argument);
 }

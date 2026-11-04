@@ -164,3 +164,13 @@ PATCH_CALL(OSOS_MEDIA_LIST_OTG_ADD_CALL, OSOS_OTG_ADD_BROWSER, cfw_queue_selecti
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_A, 0xe92d43f0, 0xe24dd06c, cfw_iap_auth_verify);
 /* stmdb sp!,{r2,r3,r4,lr}; cmp r1,#0 */
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_B, 0xe92d401c, 0xe3510000, cfw_iap_auth_verify);
+
+/* Podcast episode list chapter browser. */
+PATCH_POINTER(OSOS_EPISODE_MENU_SLOT, OSOS_EPISODE_CONTEXT_MENU, cfw_episode_menu);
+PATCH_POINTER(OSOS_EPISODE_SECONDARY_MENU_SLOT, OSOS_EPISODE_CONTEXT_MENU,
+              cfw_episode_menu);
+PATCH_POINTER(OSOS_EPISODE_ACTION_SLOT, OSOS_EPISODE_ACTION, cfw_episode_action);
+PATCH_POINTER(OSOS_EPISODE_SECONDARY_ACTION_SLOT, OSOS_EPISODE_ACTION,
+              cfw_episode_action);
+PATCH_CALL(OSOS_EPISODE_CANCEL_APPEND_CALL, OSOS_CONTEXT_MENU_APPEND,
+           cfw_episode_menu_cancel);
