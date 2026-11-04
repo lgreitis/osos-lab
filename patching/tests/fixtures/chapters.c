@@ -11,6 +11,7 @@
 #define OSOS_PROPERTY_STRING 0x53747220
 #define OSOS_RESOURCE_BMAP 0x424d6170
 #include "chapters_ui.h"
+#include "../../../payload/native/bindings.h"
 
 struct osos_media_item {
     void *record;
@@ -33,6 +34,17 @@ static int record_a, record_b, controller;
 static struct osos_media_item playing = {&record_a, {0, 1, 0}};
 static uint32_t count = 9, selected, duration = 9000, seek_to;
 static unsigned locks, seeks, pushes, menus, creates;
+static unsigned restores, restored_offset;
+static void *restored_controller;
+
+static void osos_controller_restore_layout(void *owner, unsigned offset)
+{
+    assert(!locks);
+    restores++;
+    restored_offset = offset;
+    restored_controller = owner;
+}
+
 static uint32_t time_offset;
 static int valid = 1, video, unnamed, create_failed;
 static const char *title_text = "Überblick 🎧";
@@ -393,5 +405,62 @@ int main(void)
         assert(menus == previous_menus && pushes == previous_pushes &&
                episode_plays == 1);
     }
+    /* A suppressed dismissal must either push a screen or restore its source. */
+    count = 9;
+    valid = 1;
+    model_missing = 0;
+    create_failed = 0;
+    playing.record = &record_a;
+    library_item.record = &record_b;
+    library_item.reserved[1] = playing.reserved[1];
+    for (unsigned episode = 0; episode < 2; episode++) {
+        const char *action = episode ? "CFW_EpisodeChapters" : "CFW_NowPlayingChapters";
+        int (*handler)(void *, const char *, uint32_t) =
+            episode ? cfw_episode_action : cfw_chapters_action;
+        unsigned offset = episode ? OSOS_EPISODE_LAYOUT_OFFSET
+                                  : OSOS_NOW_PLAYING_LAYOUT_OFFSET;
+        if (episode)
+            cfw_episode_menu(&controller, 4);
+        restores = 0;
+        unsigned before_pushes = pushes, before_creates = creates;
+        handler(&controller, action, OSOS_ACTION_SUPPORT_QUERY);
+        assert(!restores && pushes == before_pushes && creates == before_creates);
+        handler(&controller, action, 0);
+        assert(!restores && pushes == before_pushes + 1);
+        create_failed = 1;
+        handler(&controller, action, 0);
+        assert(restores == 1 && restored_offset == offset);
+        assert(restored_controller == &controller && pushes == before_pushes + 1);
+        create_failed = 0;
+        count = 0;
+        handler(&controller, action, 0);
+        assert(restores == 2 && restored_offset == offset);
+        count = 9;
+        valid = 0;
+        handler(&controller, action, 0);
+        assert(restores == 3 && restored_offset == offset);
+        valid = 1;
+        assert(pushes == before_pushes + 1 && !locks);
+    }
+    restores = 0;
+    library_item.record = &record_a;
+    cfw_episode_action(&controller, "CFW_EpisodeChapters", 0);
+    assert(restores == 1 && restored_offset == OSOS_EPISODE_LAYOUT_OFFSET);
+    library_item.record = &record_b;
+    library_item.reserved[1]++;
+    cfw_episode_action(&controller, "CFW_EpisodeChapters", 0);
+    assert(restores == 2);
+    library_item.reserved[1]--;
+    model_missing = 1;
+    cfw_episode_action(&controller, "CFW_EpisodeChapters", 0);
+    assert(restores == 3);
+    model_missing = 0;
+    cfw_episode_action(&other_controller, "CFW_EpisodeChapters", 0);
+    assert(restores == 4 && restored_controller == &other_controller);
+    cfw_episode_menu(&controller, -1);
+    cfw_episode_action(&controller, "CFW_EpisodeChapters", 0);
+    assert(restores == 5 && restored_controller == &controller);
+    cfw_episode_action(&controller, "CFW_EpisodeChapters", OSOS_ACTION_SUPPORT_QUERY);
+    assert(restores == 5);
     return 0;
 }

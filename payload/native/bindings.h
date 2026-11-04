@@ -223,6 +223,7 @@
 #define OSOS_NOW_PLAYING_LAYOUT_OFFSET 0x11c
 #define OSOS_SONG_LAYOUT_OFFSET 0x108 /* Songs and Genius share this offset. */
 #define OSOS_PLAYLIST_LAYOUT_OFFSET 0x120
+#define OSOS_EPISODE_LAYOUT_OFFSET 0x100
 
 /* Resource-controller layout caches precede the stored layout ID (2.0.5). */
 #define OSOS_LAYOUT_CACHE_TO_ID 0x30

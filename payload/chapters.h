@@ -6,7 +6,8 @@ struct osos_context_menu;
 struct osos_media_item;
 int cfw_chapters_same_item(struct osos_media_item *a, struct osos_media_item *b);
 uint32_t cfw_chapters_count(struct osos_media_item *item);
-void cfw_chapters_show_episode(void *controller, struct osos_media_item *item, int row);
+/* Return nonzero after pushing the screen, or zero if it could not be opened. */
+int cfw_chapters_show_episode(void *controller, struct osos_media_item *item, int row);
 void cfw_episode_play_chapter(void *controller, int row, struct osos_media_item *item,
                               uint32_t index);
 void cfw_chapters_menu(struct osos_context_menu *menu);

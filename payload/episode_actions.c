@@ -48,12 +48,14 @@ PATCH_ARM int cfw_episode_action(void *controller, const char *action,
 {
     if (!cfw_string_equal(action, "CFW_EpisodeChapters"))
         return osos_episode_action(controller, action, argument);
-    if (argument != OSOS_ACTION_SUPPORT_QUERY && episode_menu.available &&
-        controller == episode_menu.controller) {
+    if (argument != OSOS_ACTION_SUPPORT_QUERY) {
         struct osos_media_item item;
-        if (episode_chapter_count(controller, episode_menu.row, &item) &&
-            cfw_chapters_same_item(&item, &episode_menu.item))
-            cfw_chapters_show_episode(controller, &item, episode_menu.row);
+        if (episode_menu.available && controller == episode_menu.controller &&
+            episode_chapter_count(controller, episode_menu.row, &item) &&
+            cfw_chapters_same_item(&item, &episode_menu.item) &&
+            cfw_chapters_show_episode(controller, &item, episode_menu.row))
+            return 1;
+        osos_controller_restore_layout(controller, OSOS_EPISODE_LAYOUT_OFFSET);
     }
     return 1;
 }

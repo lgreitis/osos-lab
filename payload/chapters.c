@@ -45,26 +45,28 @@ void cfw_chapters_menu(struct osos_context_menu *menu)
         osos_context_menu_append(menu, CFW_CHAPTERS_LABEL, "CFW_NowPlayingChapters", 1);
 }
 
-static void push_chapters(void *controller)
+static int push_chapters(void *controller)
 {
     if (!chapters.count)
-        return;
+        return 0;
     void *screen = osos_create_screen_controller(
         osos_controller_registry(), CFW_Chapters_Screen, CFW_Chapters_Layout, 2);
-    if (screen)
-        osos_controller_push(controller, screen);
+    if (!screen)
+        return 0;
+    osos_controller_push(controller, screen);
+    return 1;
 }
 
-void cfw_chapters_show_episode(void *controller, struct osos_media_item *item, int row)
+int cfw_chapters_show_episode(void *controller, struct osos_media_item *item, int row)
 {
     chapters.item = *item;
     chapters.count = cfw_chapters_count(&chapters.item);
     chapters.episode_controller = controller;
     chapters.episode_row = row;
-    push_chapters(controller);
+    return push_chapters(controller);
 }
 
-static void open_chapters(void *controller)
+static int open_chapters(void *controller)
 {
     struct osos_player *player = osos_player_get();
     osos_player_lock(player);
@@ -73,7 +75,7 @@ static void open_chapters(void *controller)
     osos_player_current_item(player, &chapters.item);
     chapters.count = cfw_chapters_count(&chapters.item);
     osos_player_unlock(player);
-    push_chapters(controller);
+    return push_chapters(controller);
 }
 
 static void select_chapter(uint32_t index)
@@ -106,10 +108,13 @@ int cfw_chapters_action(void *controller, const char *action, uint32_t argument)
     if (!open && !cfw_string_equal(action, "CFW_Chapters_Select"))
         return 0;
     if (argument != OSOS_ACTION_SUPPORT_QUERY) {
-        if (open)
-            open_chapters(controller);
-        else
+        if (open) {
+            if (!open_chapters(controller))
+                osos_controller_restore_layout(controller,
+                                                OSOS_NOW_PLAYING_LAYOUT_OFFSET);
+        } else {
             select_chapter(osos_selection_index(osos_ui_selection()));
+        }
     }
     return 1;
 }
