@@ -42,7 +42,7 @@ void cfw_chapters_menu(struct osos_context_menu *menu)
     uint32_t count = cfw_chapters_count(&item);
     osos_player_unlock(player);
     if (count)
-        osos_context_menu_append(menu, CFW_CHAPTERS_LABEL, "CFW_Chapters", 1);
+        osos_context_menu_append(menu, CFW_CHAPTERS_LABEL, "CFW_NowPlayingChapters", 1);
 }
 
 static void push_chapters(void *controller)
@@ -102,7 +102,7 @@ static void select_chapter(uint32_t index)
 
 int cfw_chapters_action(void *controller, const char *action, uint32_t argument)
 {
-    int open = cfw_string_equal(action, "CFW_Chapters");
+    int open = cfw_string_equal(action, "CFW_NowPlayingChapters");
     if (!open && !cfw_string_equal(action, "CFW_Chapters_Select"))
         return 0;
     if (argument != OSOS_ACTION_SUPPORT_QUERY) {

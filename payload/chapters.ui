@@ -2,6 +2,6 @@
 <ui>
   <list id="CFW_Chapters" title="Chapters"/>
   <string id="CFW_CHAPTERS_LABEL" text="Chapters"/>
-  <screen-event screen="NowPlaying_Screen" event="contextualMenu.CFW_Chapters" handler="CFW_Chapters"/>
+  <screen-event screen="NowPlaying_Screen" event="contextualMenu.CFW_NowPlayingChapters" handler="CFW_NowPlayingChapters"/>
   <screen-event screen="MediaLists_PodcastEpisodes_Screen" event="contextualMenu.CFW_EpisodeChapters" handler="CFW_EpisodeChapters"/>
 </ui>
