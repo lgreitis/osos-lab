@@ -61,10 +61,15 @@ static int song_action(void *controller, enum song_source source, const char *ac
         struct osos_media_item item;
         struct osos_media_item *selected =
             selected_item(controller, source, &item) ? &item : NULL;
-        if (info)
-            cfw_song_info_show(controller, selected);
-        else
+        if (info) {
+            if (!cfw_song_info_show(controller, selected))
+                osos_controller_restore_layout(
+                    controller, source == NOW_PLAYING ? OSOS_NOW_PLAYING_LAYOUT_OFFSET
+                                : source == PLAYLIST  ? OSOS_PLAYLIST_LAYOUT_OFFSET
+                                                      : OSOS_SONG_LAYOUT_OFFSET);
+        } else {
             cfw_play_next_add(player, selected, last);
+        }
         if (!info)
             osos_player_unlock(player);
     }

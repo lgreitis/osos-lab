@@ -5,6 +5,7 @@
 
 #include "osos.h"
 
-void cfw_song_info_show(void *controller, struct osos_media_item *item);
+/* Return nonzero after pushing the screen, or zero if it could not be opened. */
+int cfw_song_info_show(void *controller, struct osos_media_item *item);
 
 #endif
