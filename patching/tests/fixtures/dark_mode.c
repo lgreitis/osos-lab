@@ -352,6 +352,32 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
 
 #define osos_settings_action settings_action
 #define osos_settings_property settings_property
+
+int cfw_chapters_action(void *c, const char *a, uint32_t n)
+{
+    (void)c;
+    (void)a;
+    (void)n;
+    return 0;
+}
+
+int cfw_chapters_property(uint32_t t, uint32_t p, uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)o;
+    return 0;
+}
+
+int cfw_chapters_indexed_property(uint32_t t, uint32_t p, uint32_t i, uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)i;
+    (void)o;
+    return 0;
+}
+
 #include "../../../payload/settings.c"
 
 static void check_clicker(void)

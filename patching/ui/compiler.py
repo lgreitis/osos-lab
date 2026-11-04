@@ -196,6 +196,32 @@ class DocumentCompiler:
             [name + "_Screen", name + "_Layout", "foregroundpush"],
         )
 
+    def list_page(self, item):
+        """A native scrolling list whose rows are supplied by a runtime model."""
+        resources = self.resources
+        property_id = resources.allocate(item.name + "_Rows")
+        detail = resources.allocate(item.name + "_Detail")
+        bindings = [(0x534F5243, struct.pack("<III", 0x8900, property_id, 1))]
+        row_id, row = self.sound_check_row(bindings, detail)
+        row[1][0x94:0x95] = b"\x01"
+        self.page(
+            item.name,
+            item.title,
+            [row],
+            [
+                menu_event(
+                    row_id,
+                    "chosen",
+                    item.name + "_Select",
+                    "navigator.PopTopScreen",
+                    [],
+                ),
+            ],
+        )
+        for suffix in ("_Rows", "_Detail", "_Screen", "_Layout"):
+            name = item.name + suffix
+            self.string_ids[name] = resources.names[name]
+
     def selector(self, item):
         resources = self.resources
         property_id, summary = resources.allocate(), resources.allocate()
@@ -332,26 +358,39 @@ class DocumentCompiler:
         self.add_settings_preview(title)
         self.bind_settings_events(item_id)
 
-    def toggle_row(self, title):
+    def sound_check_row(self, bindings, value):
         resources = self.resources
-        item_id = resources.allocate()
-        kind, prototype = next(
-            (kind, data)
-            for kind, data in blocks(resources.stock("ITEM", "SettingsMenu_Items"))
-            if word(data, 0x30) == resources.native("SettingsMenu_ListItem_SoundCheck")
+        prototype = next(
+            (
+                (kind, data)
+                for kind, data in blocks(resources.stock("ITEM", "SettingsMenu_Items"))
+                if word(data, 0x30)
+                == resources.native("SettingsMenu_ListItem_SoundCheck")
+            ),
+            None,
         )
-        row = Resource(prototype)
-        name = self.document.root.name
-        value = resources.allocate(name + "_Value")
+        if prototype is None:
+            raise ValueError(
+                "Native Settings menu is missing the Sound Check row template"
+            )
+        kind, data = prototype
+        row = Resource(data)
+        item_id = resources.allocate()
         source = resources.allocate()
-        bindings = blocks(resources.current("SORC", title))
         # Sound Check's second source binds the blue inline text (destination 10).
         bindings.append((0x534F5243, struct.pack("<III", 0x8900, value, 10)))
         resources.add("SORC", source, pack_blocks(bindings))
         put(row, 0x30, item_id)
         put(row, 0x68, source)
-        self.string_ids.update({name + "_Item": item_id, name + "_Value": value})
         return item_id, (kind, row)
+
+    def toggle_row(self, title):
+        name = self.document.root.name
+        value = self.resources.allocate(name + "_Value")
+        bindings = blocks(self.resources.current("SORC", title))
+        item_id, row = self.sound_check_row(bindings, value)
+        self.string_ids.update({name + "_Item": item_id, name + "_Value": value})
+        return item_id, row
 
     def insert_settings_row(self, item):
         document, resources = self.document, self.resources
@@ -466,6 +505,8 @@ def compile_document(resources, document, text=""):
                 compiled.string_ids[name] = resources.names[name]
         if document.root.kind == "text":
             builder.text_page(text)
+        if document.root.kind == "list":
+            builder.list_page(document.root)
         if document.root.kind == "canvas":
             builder.canvas_page(document.root)
 
