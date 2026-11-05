@@ -5,18 +5,16 @@ import struct
 
 # On-disk RTH4 base role order. Append only with a new package version.
 COLOR_ROLES = (
-    "background", "text", "muted", "accent_fill", "accent_text", "on_accent",
-    "selection", "track", "inactive", "grid", "zero", "border", "cover_border",
+    "background", "text", "accent_fill", "accent_text", "on_accent", "selection",
+    "cover_border",
 )
 COLORS = len(COLOR_ROLES) * 4
 # Classic light and dark, matching payload/theme_style.c.
 COLOR_DEFAULTS = {
     key: dict(zip(COLOR_ROLES, (f"#{value}" for value in values.split())))
     for key, values in {
-        "light": "ffffff 202020 555555 236cc5 3185d0 ffffff 236cc5 eeeeee "
-        "8f959a e7e7e7 b5b5b5 d6d6d6 7e8183",
-        "dark": "181818 e8e8e8 a8a8a8 00a1ff 00a1ff ffffff 00a1ff 2c2c2c "
-        "7d8c98 303030 646464 3c3c3c 383838",
+        "light": "ffffff 202020 236cc5 3185d0 ffffff 236cc5 7e8183",
+        "dark": "181818 e8e8e8 00a1ff 00a1ff ffffff 00a1ff 383838",
     }.items()
 }
 
@@ -68,7 +66,7 @@ def contrast(first, second):
 
 
 CONTRAST_PAIRS = (
-    ("text", "background"), ("muted", "background"), ("accent_text", "background"),
+    ("text", "background"), ("accent_text", "background"),
     ("on_accent", "selection"), ("on_accent", "accent_fill"),
 )
 

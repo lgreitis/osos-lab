@@ -162,26 +162,31 @@ enum {
     COLOR_BACKGROUND,
     COLOR_CURVE,
     COLOR_FILL,
+    COLOR_TEXT,
+    COLOR_ON_FILL,
+    COLOR_ROLES,
+    /* Derived from the roles above when drawing. */
+    COLOR_MUTED = COLOR_ROLES,
     COLOR_TRACK,
     COLOR_INACTIVE,
     COLOR_GRID,
     COLOR_ZERO,
     COLOR_BORDER,
-    COLOR_TEXT,
-    COLOR_MUTED,
-    COLOR_ON_FILL,
-    COLOR_ROLES,
-    /* Derived from the roles above when drawing. */
-    COLOR_SELECTION = COLOR_ROLES,
+    COLOR_SELECTION,
     COLOR_LABEL,
     COLOR_COUNT,
 };
 
 /* Role references keep the custom canvas in the same theme as native views. */
 static const enum cfw_theme_role canvas_roles[COLOR_ROLES] = {
-    CFW_THEME_BACKGROUND, CFW_THEME_ACCENT_TEXT, CFW_THEME_ACCENT_FILL, CFW_THEME_TRACK,
-    CFW_THEME_INACTIVE,   CFW_THEME_GRID,        CFW_THEME_ZERO,        CFW_THEME_BORDER,
-    CFW_THEME_TEXT,       CFW_THEME_MUTED,       CFW_THEME_ON_ACCENT,
+    CFW_THEME_BACKGROUND, CFW_THEME_ACCENT_TEXT, CFW_THEME_ACCENT_FILL,
+    CFW_THEME_TEXT,       CFW_THEME_ON_ACCENT,
+};
+
+/* Grays are the background mixed toward the text by weight/255. */
+static const unsigned char canvas_grays[][2] = {
+    {COLOR_TRACK, 22},    {COLOR_GRID, 28},     {COLOR_BORDER, 46},
+    {COLOR_ZERO, 89},     {COLOR_INACTIVE, 130}, {COLOR_MUTED, 185},
 };
 
 static int canvas_distance(const unsigned char *a, const unsigned char *b)
@@ -195,6 +200,9 @@ static int canvas_distance(const unsigned char *a, const unsigned char *b)
  * and the text on dark ones. */
 static void canvas_derive_colors(unsigned char colors[COLOR_COUNT][4])
 {
+    for (unsigned i = 0; i < sizeof(canvas_grays) / sizeof(canvas_grays[0]); i++)
+        cfw_theme_mix(colors[canvas_grays[i][0]], colors[COLOR_BACKGROUND],
+                      colors[COLOR_TEXT], canvas_grays[i][1]);
     cfw_theme_mix(colors[COLOR_SELECTION], colors[COLOR_BACKGROUND], colors[COLOR_CURVE],
                   cfw_theme_color_dark(colors[COLOR_BACKGROUND]) ? 43 : 20);
     const unsigned char *label =

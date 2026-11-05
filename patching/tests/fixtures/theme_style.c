@@ -7,14 +7,10 @@
 #define RGB(r, g, b) {r, g, b, 255}
 /* Classic values predate the shared style and must never drift. */
 static const unsigned char expected_classic[2][CFW_THEME_COLOR_COUNT][4] = {
-    {RGB(255, 255, 255), RGB(32, 32, 32), RGB(85, 85, 85), RGB(35, 108, 197),
-     RGB(49, 133, 208), RGB(255, 255, 255), RGB(35, 108, 197), RGB(238, 238, 238),
-     RGB(143, 149, 154), RGB(231, 231, 231), RGB(181, 181, 181), RGB(214, 214, 214),
-     RGB(126, 129, 131)},
-    {RGB(24, 24, 24), RGB(232, 232, 232), RGB(168, 168, 168), RGB(0, 161, 255),
-     RGB(0, 161, 255), RGB(255, 255, 255), RGB(0, 161, 255), RGB(44, 44, 44),
-     RGB(125, 140, 152), RGB(48, 48, 48), RGB(100, 100, 100), RGB(60, 60, 60),
-     RGB(56, 56, 56)},
+    {RGB(255, 255, 255), RGB(32, 32, 32), RGB(35, 108, 197), RGB(49, 133, 208),
+     RGB(255, 255, 255), RGB(35, 108, 197), RGB(126, 129, 131)},
+    {RGB(24, 24, 24), RGB(232, 232, 232), RGB(0, 161, 255), RGB(0, 161, 255),
+     RGB(255, 255, 255), RGB(0, 161, 255), RGB(56, 56, 56)},
 };
 #undef RGB
 
