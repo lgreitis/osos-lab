@@ -588,6 +588,28 @@ class UiTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             resources.bind_screen_event(document.events[0])
 
+    def test_screen_controller_replaces_native_controller_name(self):
+        document = parser.parse(
+            '<ui><screen-controller screen="Settings" controller="CFWSettingsMain"/></ui>'
+        )
+        resources = Resources([], {"Settings": 10})
+        resources.original = {("SCST", 10): b"TSilverSettingsMenuListCntlr"}
+        compile_document(resources, document)
+        self.assertEqual(resources.added["SCST", 10].data, b"CFWSettingsMain")
+        self.assertEqual(resources.original["SCST", 10], b"TSilverSettingsMenuListCntlr")
+        for declaration in (
+            '<screen-controller screen="Settings" controller="CFW Main"/>',
+            '<screen-controller screen="Settings"/>',
+            '<screen-controller screen="Settings" controller="A"/>'
+            '<screen-controller screen="Settings" controller="B"/>',
+        ):
+            with self.subTest(declaration=declaration), self.assertRaises(ValueError):
+                parser.parse(f"<ui>{declaration}</ui>")
+        missing = Resources([], {"Settings": 10})
+        missing.original = {}
+        with self.assertRaises(KeyError):
+            compile_document(missing, document)
+
     def test_screen_events_are_one_extension_for_all_layouts(self):
         document = parser.parse(
             '<ui><screen-event screen="10" event="contextualMenu.CFW_PlayNext" '

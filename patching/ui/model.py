@@ -43,6 +43,7 @@ class Document:
     open_action: str = ""
     strings: dict[str, str] = field(default_factory=dict)
     events: list[ScreenEvent] = field(default_factory=list)
+    controllers: dict[str | int, str] = field(default_factory=dict)
     music_entry: dict[str, str] | None = None
     preview: str = ""
     preview_image: str = ""

@@ -246,6 +246,12 @@ int main(void)
     assert(scan(forward, out, 5, &overflow) == 5 && !overflow);
     assert(scan(forward, out, 5, NULL) == 5);
     assert(scan(forward, NULL, 0, &overflow) == 0 && overflow);
+    assert(metadata_reads == 1);
+    static const struct entry probe_skip[] = {{"badx", 1}, {"file", 0}, {"b", 1}, {"c", 1},
+                                              {NULL, 0}};
+    overflow = -1;
+    assert(scan(probe_skip, NULL, 0, &overflow) == 0 && overflow);
+    assert(metadata_reads == 2 && !strcmp(last_read, "themes/b/theme.bin"));
 
     /* Invalid entries never count toward overflow. */
     static const struct entry invalid_tail[] = {

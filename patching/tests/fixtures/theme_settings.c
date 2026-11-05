@@ -92,12 +92,18 @@ const struct osos_path cfw_theme_classic_baseline = {0, "themes/classic/default.
 const struct osos_path cfw_theme_classic_dark = {0, "themes/classic/dark.bin"};
 
 static int discovery_overflow, no_custom;
+static unsigned probes;
 
 uint32_t cfw_theme_discovery_scan(struct cfw_theme_choice *out, uint32_t capacity,
                                   int *overflow)
 {
-    assert(capacity >= 1);
     scans++;
+    if (!capacity) {
+        assert(!out);
+        probes++;
+        *overflow = !no_custom;
+        return 0;
+    }
     *overflow = discovery_overflow;
     if (no_custom)
         return 0;
@@ -200,10 +206,29 @@ int main(void)
     cfw_theme_input_drained();
     stores = 0;
     no_custom = 0;
+    unsigned before_probes = probes, before_allocs = alloc_attempts;
     cfw_theme_settings_refresh();
-    assert(theme_visible && dark_visible && count == 1);
-    assert(cfw_theme_settings_action(NULL, "CFW_Theme_Open", 0));
+    assert(theme_visible && dark_visible && !count && !choices);
+    assert(probes == before_probes + 1 && alloc_attempts == before_allocs);
     uintptr_t value;
+    /* Without memory the picker offers Classic plus an error row. */
+    fail_alloc = 1;
+    assert(cfw_theme_settings_action(NULL, "CFW_Theme_Open", 0));
+    fail_alloc = 0;
+    assert(!choices && !count && !strcmp(error, "Not enough memory"));
+    assert(
+        cfw_theme_settings_property(OSOS_PROPERTY_COUNT, CFW_Theme_Choices, &value) &&
+        value == 2);
+    assert(cfw_theme_settings_indexed_property(OSOS_PROPERTY_STRING, CFW_Theme_Choices,
+                                               1, &value));
+    assert(!strcmp((const char *)value, "Not enough memory"));
+    choose(1);
+    assert(!stores && !switcher.active.custom);
+    cfw_theme_settings_close();
+    unsigned live_before = live_bytes;
+    assert(cfw_theme_settings_action(NULL, "CFW_Theme_Open", 0));
+    assert(choices && count == 1 && !error);
+    assert(live_bytes == live_before + THEME_CHOICES * sizeof(struct cfw_theme_choice));
     assert(
         cfw_theme_settings_property(OSOS_PROPERTY_COUNT, CFW_Theme_Choices, &value) &&
         value == 2);
@@ -265,6 +290,19 @@ int main(void)
     choose(1);
     assert(!switcher.active.custom && !strcmp(error, "Could not load theme"));
     reads_fail = 0;
+    /* Closing the picker releases the list; stale rows and Select are inert. */
+    cfw_theme_settings_close();
+    cfw_theme_settings_close();
+    assert(!choices && !count && !overflow && !cfw_theme_settings_selected());
+    assert(cfw_theme_settings_indexed_property(OSOS_PROPERTY_STRING, CFW_Theme_Choices,
+                                               1, &value) &&
+           (const char *)value == error);
+    assert(!cfw_theme_settings_indexed_property(OSOS_PROPERTY_STRING, CFW_Theme_Choices,
+                                                2, &value));
+    accepted = stores;
+    cfw_theme_input_drained();
+    choose(1);
+    assert(stores == accepted && !switcher.active.custom);
     assert(!allocations && opens == closes && notices && invalidations);
     /* A saved custom selection is applied at boot; a missing pack recovers stock. */
     initialized = 0;

@@ -76,6 +76,7 @@ class Parser:
                 "settings-entry",
                 "string",
                 "screen-event",
+                "screen-controller",
                 "music-entry",
                 "bitmap",
             ),
@@ -88,6 +89,7 @@ class Parser:
             document.root is None
             and not document.strings
             and not document.events
+            and not document.controllers
             and document.music_entry is None
         ):
             raise ValueError("Incomplete UI declaration")
@@ -152,6 +154,15 @@ class Parser:
             )
         elif node.tag == "screen-event":
             document.events.append(self.parse_screen_event(node))
+        elif node.tag == "screen-controller":
+            attributes(node, "screen controller")
+            screen = resource_reference(node.attrib["screen"])
+            controller = node.attrib["controller"]
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", controller):
+                raise ValueError(f"Invalid screen controller: {controller}")
+            if screen in document.controllers:
+                raise ValueError(f"Duplicate screen controller: {screen}")
+            document.controllers[screen] = controller
         elif node.tag == "music-entry":
             attributes(
                 node,

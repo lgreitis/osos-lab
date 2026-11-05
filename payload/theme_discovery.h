@@ -11,7 +11,9 @@ struct cfw_theme_choice {
 int cfw_theme_discovery_path(const char *id, const char *file, struct osos_path *out);
 /* Scans /themes into a caller-owned array, sorted by id. Keeps no state.
  * When more valid themes exist than capacity, the smallest ids are kept and
- * *overflow is set (overflow may be NULL). Returns the number stored. */
+ * *overflow is set (overflow may be NULL). Returns the number stored.
+ * Capacity 0 is an existence probe: entries may be NULL, and the scan stops at
+ * the first valid theme with *overflow set. */
 uint32_t cfw_theme_discovery_scan(struct cfw_theme_choice *entries, uint32_t capacity,
                                   int *overflow);
 

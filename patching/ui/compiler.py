@@ -524,6 +524,10 @@ def compile_document(resources, document, text=""):
         compile_music_entry(resources, document.music_entry, compiled)
     for binding in document.events:
         resources.bind_screen_event(binding)
+    for screen, controller in document.controllers.items():
+        screen = resources.native(screen)
+        resources.stock("SCST", screen)
+        resources.replace("SCST", screen, controller.encode("ascii"))
     builder = None
     if document.root:
         builder = DocumentCompiler(resources, document)
