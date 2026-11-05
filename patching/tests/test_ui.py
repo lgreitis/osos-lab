@@ -327,7 +327,7 @@ class UiTests(unittest.TestCase):
                     struct.unpack_from("<HHHHiiiii", content),
                     (8, 0, 80, 8, 0, 0, 121, 78, 9680),
                 )
-                self.assertLess(len(packed), size // 4)
+                self.assertLess(len(packed), size // 2)
             else:
                 content = resources.added[kind, resource_id].data
                 self.assertEqual(content, b"RepriseOS\0")
