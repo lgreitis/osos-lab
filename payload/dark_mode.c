@@ -8,18 +8,20 @@
 #include "preferences.h"
 #include "patch.h"
 #include "resources.h"
+#include "theme_style.h"
 
 enum {
     DARK_MODE_OFF_RECORD = 0x304b5244, /* DRK0 */
     DARK_MODE_ON_RECORD = 0x314b5244,  /* DRK1 */
+    /* Native colors are Classic light; these identify what each one draws. */
     BACKGROUND_LIGHT_MIN = 0xb0,
-    BACKGROUND_DARK_BASE = 0x18,
-    COVER_FLOW_BORDER_DARK = 0x38,
     TEXT_DARK_MAX = 0x80,
-    TEXT_LIGHT_BASE = 0xe8,
+    TEXT_LIGHT_REFERENCE =
+        0x20, /* Classic light text role; native black maps below it. */
+    COVER_FLOW_BORDER_LIGHT =
+        0x7e8183, /* CoverFlow_Backside_Border_Color (0x0dad05d8) */
     ACCENT_FILL_LIGHT = 0x236cc5,
     ACCENT_TEXT_LIGHT = 0x3185d0,
-    ACCENT_DARK = 0x00a1ff,
     IMG_SUN = 0x0dad0bff, /* Settings_Brightness_Image */
 };
 
@@ -125,53 +127,98 @@ PATCH_ARM void cfw_dark_mode_background_fill(void *context, const int32_t *rect,
     }
 }
 
-static int accent_color(const unsigned char *color, uint32_t light, unsigned char *out)
+/* Classic light passes through untouched; any other style recolors native draws. */
+static int themed(void)
 {
-    uint32_t rgb = (color[0] << 16) | (color[1] << 8) | color[2];
-    if (rgb != light)
-        return 0;
-    out[0] = (ACCENT_DARK >> 16) & 0xff;
-    out[1] = (ACCENT_DARK >> 8) & 0xff;
-    out[2] = ACCENT_DARK & 0xff;
+    return cfw_dark_mode_enabled() || cfw_theme_style_custom() ||
+           cfw_theme_accent_get();
+}
+
+/* Accent presets keep native background clears and blends at their stock values. */
+static int background_themed(void)
+{
+    return cfw_dark_mode_enabled() || cfw_theme_style_custom();
+}
+
+static const unsigned char *role(enum cfw_theme_role value)
+{
+    return cfw_theme_color(value, cfw_dark_mode_enabled());
+}
+
+static uint32_t rgb(const unsigned char *color)
+{
+    return (color[0] << 16) | (color[1] << 8) | color[2];
+}
+
+static int gray(const unsigned char *color)
+{
+    return color[0] == color[1] && color[1] == color[2];
+}
+
+static unsigned char clamp(int value)
+{
+    return value < 0 ? 0 : value > 255 ? 255 : value;
+}
+
+static const unsigned char *recolor(const unsigned char *color,
+                                    const unsigned char *target, unsigned char *out)
+{
+    out[0] = target[0];
+    out[1] = target[1];
+    out[2] = target[2];
     out[3] = color[3];
-    return 1;
+    return out;
+}
+
+/* Offset each role channel by the native shade, retaining the native gradations. */
+static const unsigned char *shade(const unsigned char *color,
+                                  const unsigned char *target, int offset,
+                                  unsigned char *out)
+{
+    for (unsigned i = 0; i < 3; i++)
+        out[i] = clamp(target[i] + offset);
+    out[3] = color[3];
+    return out;
 }
 
 PATCH_ARM void cfw_dark_mode_fill(void *surface, const void *rect,
                                   const unsigned char *color, uint32_t mode, void *clip)
 {
     unsigned char mapped[4];
-    int enabled = cfw_dark_mode_enabled();
-    int shade = -1;
-    if (enabled && color[0] == color[1] && color[1] == color[2] &&
-        color[0] >= BACKGROUND_LIGHT_MIN)
-        shade = BACKGROUND_DARK_BASE + (255 - color[0]) / 4;
-    /* CoverFlow_Backside_Border_Color (COLR 0x0dad05d8). */
-    else if (enabled && color[0] == 0x7e && color[1] == 0x81 && color[2] == 0x83)
-        shade = COVER_FLOW_BORDER_DARK;
-    else if (enabled && accent_color(color, ACCENT_FILL_LIGHT, mapped))
-        color = mapped;
-    if (shade >= 0) {
-        mapped[0] = mapped[1] = mapped[2] = shade;
-        mapped[3] = color[3];
-        color = mapped;
+    if (themed()) {
+        const unsigned char *background = role(CFW_THEME_BACKGROUND);
+        /* Lighter native grays become darker backgrounds; a dark role inverts them. */
+        if (gray(color) && color[0] >= BACKGROUND_LIGHT_MIN)
+            color = shade(color, background,
+                          cfw_theme_color_dark(background) ? (255 - color[0]) / 4
+                                                           : color[0] - 255,
+                          mapped);
+        else if (rgb(color) == COVER_FLOW_BORDER_LIGHT)
+            color = recolor(color, role(CFW_THEME_COVER_BORDER), mapped);
+        else if (rgb(color) == ACCENT_FILL_LIGHT)
+            color = recolor(color, role(CFW_THEME_ACCENT_FILL), mapped);
     }
     osos_surface_fill_rect(surface, rect, color, mode, clip);
 }
 
 PATCH_ARM void cfw_dark_mode_clear_color(int red, int green, int blue, int alpha)
 {
-    if (cfw_dark_mode_enabled())
-        red = green = blue = BACKGROUND_DARK_BASE * 0x10000 / 255;
+    if (background_themed()) {
+        const unsigned char *background = role(CFW_THEME_BACKGROUND);
+        red = background[0] * 0x10000 / 255;
+        green = background[1] * 0x10000 / 255;
+        blue = background[2] * 0x10000 / 255;
+    }
     osos_gles_clear_color(red, green, blue, alpha);
 }
 
 PATCH_ARM uint32_t cfw_dark_mode_reflection_blend(uint32_t pixel, uint32_t background,
                                                   int weight)
 {
-    if (cfw_dark_mode_enabled())
-        background = ((BACKGROUND_DARK_BASE >> 3) << 11) |
-                     ((BACKGROUND_DARK_BASE >> 2) << 5) | (BACKGROUND_DARK_BASE >> 3);
+    if (background_themed()) {
+        const unsigned char *color = role(CFW_THEME_BACKGROUND);
+        background = ((color[0] >> 3) << 11) | ((color[1] >> 2) << 5) | (color[2] >> 3);
+    }
     return osos_rgb565_blend(pixel, background, weight);
 }
 
@@ -179,15 +226,17 @@ PATCH_ARM void cfw_dark_mode_text_color(void *context, const unsigned char *colo
                                         const void *view)
 {
     unsigned char mapped[4];
-    int enabled = cfw_dark_mode_enabled() && !native_text_color(view);
-    if (enabled && (accent_color(color, ACCENT_FILL_LIGHT, mapped) ||
-                    accent_color(color, ACCENT_TEXT_LIGHT, mapped))) {
-        color = mapped;
-    } else if (enabled && color[0] == color[1] && color[1] == color[2] &&
-               color[0] <= TEXT_DARK_MAX) {
-        mapped[0] = mapped[1] = mapped[2] = TEXT_LIGHT_BASE - color[0] / 2;
-        mapped[3] = color[3];
-        color = mapped;
+    if (themed() && !native_text_color(view)) {
+        const unsigned char *text = role(CFW_THEME_TEXT);
+        if (rgb(color) == ACCENT_FILL_LIGHT)
+            color = recolor(color, role(CFW_THEME_ACCENT_FILL), mapped);
+        else if (rgb(color) == ACCENT_TEXT_LIGHT)
+            color = recolor(color, role(CFW_THEME_ACCENT_TEXT), mapped);
+        else if (gray(color) && color[0] <= TEXT_DARK_MAX)
+            color = shade(color, text,
+                          cfw_theme_color_dark(text) ? color[0] - TEXT_LIGHT_REFERENCE
+                                                     : -(color[0] / 2),
+                          mapped);
     }
     osos_graphics_set_color(context, color);
 }
