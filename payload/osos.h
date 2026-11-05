@@ -507,6 +507,9 @@ static inline void osos_media_item_text(struct osos_media_item *item,
         typedef type (*fn)(struct osos_media_item *);                                  \
         return ((fn)osos_method(item, slot))(item);                                    \
     }
+OSOS_MEDIA_GETTER(bookmark, uint32_t, 0x90)
+OSOS_MEDIA_GETTER(start_time, uint32_t, 0x94)
+OSOS_MEDIA_GETTER(stop_time, uint32_t, 0x98)
 OSOS_MEDIA_GETTER(duration, uint32_t, 0xa0)
 OSOS_MEDIA_GETTER(file_size, uint32_t, 0xac)
 OSOS_MEDIA_GETTER(bitrate, uint16_t, 0xb0)
@@ -516,6 +519,7 @@ OSOS_MEDIA_GETTER(track, uint16_t, 0xbc)
 OSOS_MEDIA_GETTER(disc, uint16_t, 0xc0)
 OSOS_MEDIA_GETTER(play_count, uint32_t, 0xc4)
 OSOS_MEDIA_GETTER(skip_count, uint32_t, 0xcc)
+OSOS_MEDIA_GETTER(remembers_position, uint32_t, 0xe8)
 #undef OSOS_MEDIA_GETTER
 
 static inline void osos_player_current_item(struct osos_player *player,
