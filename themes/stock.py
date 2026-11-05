@@ -11,6 +11,7 @@ import zlib
 from pathlib import Path
 
 from patching.theme_format import HEADER, MAGIC, RECORD, catalog_hash, digest
+from themes.style import classic_style
 
 
 def compile_baseline(catalog, firmware):
@@ -19,7 +20,7 @@ def compile_baseline(catalog, firmware):
         "sha256": digest(firmware),
     }:
         raise ValueError("Expected the pinned original OSOS image")
-    body = bytearray()
+    body = bytearray(classic_style("light"))
     assets = catalog["bitmaps"]
     if not assets or len(assets) > 1024:
         raise ValueError("Unsupported bitmap catalog size")
@@ -39,7 +40,7 @@ def compile_baseline(catalog, firmware):
         body += bytes(-len(payload) % 4)
     return (
         HEADER.pack(
-            MAGIC, catalog_hash(catalog), len(assets), len(body), zlib.crc32(body)
+            MAGIC, catalog_hash(catalog), 0, len(body), len(assets), zlib.crc32(body)
         )
         + body
     )

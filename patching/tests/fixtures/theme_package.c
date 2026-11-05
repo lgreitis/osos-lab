@@ -17,9 +17,8 @@ static void baseline_validation(void)
     unsigned attempts = alloc_attempts;
     assert(cfw_theme_baseline_valid(&baseline));
     assert(alloc_attempts == attempts && !allocations);
-    for (unsigned fault = 0; fault < 8; fault++) {
+    for (unsigned fault = 0; fault < 9; fault++) {
         make_baseline();
-        uint32_t *header = (void *)files[1].data;
         switch (fault) {
         case 0:
             missing_files = 2;
@@ -34,10 +33,7 @@ static void baseline_validation(void)
             files[1].data[60] ^= 1;
             break;
         case 4: /* Well-formed but incomplete baseline. */
-            header[9] = 1;
-            header[10] = 24;
-            header[11] = ~crc_update(UINT32_MAX, files[1].data + 48, 24);
-            files[1].size = 72;
+            make_pack(&files[1], 0, 1, 0);
             break;
         case 5:
             files[1].size++;
@@ -47,6 +43,9 @@ static void baseline_validation(void)
             break;
         case 7:
             reads_fail = 1;
+            break;
+        case 8: /* A dark pack cannot serve as the light baseline. */
+            make_pack(&files[1], 1, 2, 0);
             break;
         }
         assert(!cfw_theme_baseline_valid(&baseline));
@@ -97,17 +96,10 @@ int main(void)
     cfw_theme_transaction_release(&tx);
     memset(active_bits, 0, sizeof(active_bits));
     assert(!memcmp(pixels, original, sizeof(pixels)));
-    /* Legacy RTH3 artwork uses the same prepare/swap/restore contract. */
-    make_target(0);
-    memmove(files[0].data + 48, files[0].data + 52 + 64, 24);
-    uint32_t *legacy_header = (void *)files[0].data;
-    legacy_header[0] = RTH3_MAGIC;
-    legacy_header[9] = 1;
-    legacy_header[10] = 24;
-    legacy_header[11] = ~crc_update(UINT32_MAX, files[0].data + 48, 24);
-    files[0].size = 72;
+    /* Classic artwork uses RTH4 but keeps the built-in style. */
+    make_pack(&files[0], 1, 1, 1);
     assert(cfw_theme_pack_read(&incoming, 1, 1, &pack));
-    assert(!pack.records_offset && pack.count == 1);
+    assert(pack.records_offset == CFW_THEME_STYLE_BYTES && pack.count == 1 && !pack.custom);
     assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
     cfw_theme_pack_release(&pack);
     assert(!tx.custom && tx.dark && !tx.applied);
@@ -134,11 +126,11 @@ int main(void)
     files[0].size++;
     rejection();
     make_target(0);
-    ((struct record *)(files[0].data + 52 + 64))->asset = 2;
+    ((struct record *)(files[0].data + 52 + CFW_THEME_STYLE_BYTES))->asset = 2;
     fix_crc();
     rejection();
     make_target(0);
-    files[0].data[52 + 64 + 12 + 8] = 2;
+    files[0].data[52 + CFW_THEME_STYLE_BYTES + 12 + 8] = 2;
     fix_crc();
     rejection(); /* palette index */
     make_target(0);
@@ -146,7 +138,7 @@ int main(void)
     fix_crc();
     rejection(); /* opacity */
     make_target(0);
-    files[0].data[52 + 64 + 23] = 1;
+    files[0].data[52 + CFW_THEME_STYLE_BYTES + 23] = 1;
     fix_crc();
     rejection(); /* padding */
     make_target(0);
@@ -175,8 +167,8 @@ int main(void)
     make_target(0);
     struct pack_header *h = (void *)files[0].data;
     h->count = 0;
-    h->size = 64;
-    files[0].size = 52 + 64;
+    h->size = CFW_THEME_STYLE_BYTES;
+    files[0].size = 52 + CFW_THEME_STYLE_BYTES;
     fix_crc();
     assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
     assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));

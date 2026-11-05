@@ -57,6 +57,7 @@ class PayloadTests(unittest.TestCase):
                     root / "payload/dark_mode.ui",
                     root / "payload/song_info.ui",
                     root / "payload/theme_settings.ui",
+                    root / "payload/accent_settings.ui",
                     root / "payload/custom_eq.ui",
                     root / "payload/cfw_info.ui",
                     root / "payload/album_artists.ui",

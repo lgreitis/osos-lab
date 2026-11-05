@@ -68,6 +68,7 @@ def build_recipe(
                 "song_info.ui",
                 "album_artists.ui",
                 "theme_settings.ui",
+                "accent_settings.ui",
                 "dark_mode.ui",
                 "queue_selection.ui",
             )

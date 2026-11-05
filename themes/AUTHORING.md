@@ -22,8 +22,10 @@ RTM4/RTH4 covers:
 
 - **Colors**: the 16 color roles below, for a light and/or dark appearance.
   All colors are opaque; `#RRGGBB` only.
+- **Accents**: per-appearance values for the named accent colors chosen on the
+  device, and the selection bar style.
 - **Bitmaps**: replacing existing firmware `BMap` assets at the same size,
-  using the same rules as the RTH3 compiler (`themes/compiler.py`): exact
+  using the same rules as the Classic dark compiler (`themes/compiler.py`): exact
   native dimensions, native pixel format, and the existing palette size
   (indexed art is reduced to fit).
 
@@ -77,7 +79,18 @@ the device.
   bitmaps. Omitted bitmaps use original stock artwork, including in dark
   appearances; Classic dark artwork is not inherited.
 - `colors`: any subset of the roles. Roles you leave out keep their Classic
-  default.
+  default. `icon_tint` is also accepted here; it defaults to `accent_text`.
+- `accents`: optional object keyed by accent name (`blue`, `purple`, `pink`,
+  `red`, `orange`, `green`, `teal`, `yellow`, `graphite`). Each value is any
+  subset of `accent_fill`, `accent_text`, `selection`, `on_accent`,
+  `icon_tint`, `eq_accent`, `eq_selection` and `eq_on_accent`. When the user
+  picks that accent, these replace the matching roles. Omitted names and roles
+  use built-in values for the appearance; `report.json` lists the names that
+  fell back and the contrast of each resolved text/background pair.
+- `rendering`: optional. `selection` is `native` (default; the stock gradient
+  bar recolored from `selection`) or `flat` (a solid `selection` bar).
+  `preview_icons` is `native` (default) or `accent`; it is stored with
+  `icon_tint` but has no native drawing consumer.
 - `bitmaps`: each entry gives a catalog `id` (hex string), a catalog `name`,
   or both. If both are given they must refer to the same asset. A name that
   appears more than once in the catalog must be referenced by `id`. Each asset
@@ -100,7 +113,7 @@ the device.
 | accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text |
 | accent_text | `#3185d0` | `#00a1ff` | Native accent text |
 | on_accent | `#ffffff` | `#ffffff` | Reserved foreground; no native drawing consumer |
-| selection | `#236cc5` | `#00a1ff` | Reserved selection fill; no native drawing consumer |
+| selection | `#236cc5` | `#00a1ff` | List selection bar |
 | track | `#eeeeee` | `#2c2c2c` | EQ control tracks |
 | inactive | `#8f959a` | `#7d8c98` | EQ inactive controls |
 | grid | `#e7e7e7` | `#303030` | EQ graph grid |
@@ -112,8 +125,14 @@ the device.
 | eq_on_accent | `#ffffff` | `#101010` | EQ text on active controls |
 
 Native hooks map stock RGB values rather than individual views. These roles do
-not control every label, icon or selection. Accent presets override accent
+not control every label or icon. Accent presets override accent
 fills and their foregrounds; Theme Default preserves the package colors.
+
+The list selection bar is drawn once into a shared cached bitmap and redrawn
+when its style changes. Classic with Theme Default or Blue keeps the stock bar
+unchanged. Otherwise the gradient ends at `selection`, starts at `selection`
+lightened 25% toward white, and has a top line lightened 55%; `flat` uses
+`selection` for all three.
 
 ## Compiled folder
 
@@ -124,25 +143,32 @@ fills and their foregrounds; Theme Default preserves the package colors.
 | `report.json` | Host-side report; the device does not need it |
 
 All integers are little-endian. `hash` is the SHA-256 `catalog_hash` of the
-bitmap catalog, the same value RTH3 uses.
+bitmap catalog.
 
 - `theme.bin` (`<4s32sI32s48s`): `RTM4`, hash, appearance mask (`1` light,
   `2` dark), ASCII id (NUL-terminated and zero-padded), UTF-8 name
   (NUL-terminated and zero-padded).
 - Appearance pack header (`<4s32sIIII`, 52 bytes): `RTH4`, hash, appearance
   (`0` light, `1` dark), body size, record count, CRC32 of the body.
-- Body: 16 RGBA colors in role order (64 bytes, alpha always 255). These are
-  followed by `record count` RTH3-style records: `<III asset_index, offset,
-  size>`, then `size` bytes of native bitmap data, zero-padded to a 4-byte
-  boundary. Records are sorted by unique, ascending asset index. A pack may
-  have no records. The body can be at most `64 + Σ(12 + align4(bytes −
-  data_offset))` over every catalog bitmap.
+- Body: a 360-byte style prefix followed by bitmap records. The prefix holds
+  16 RGBA colors in role order (64 bytes), then a little-endian flags word
+  (`1` flat selection, `2` accent preview icons), the RGBA icon tint, and
+  9 accents × 8 roles of RGBA in the name and role order listed above. Every
+  alpha byte is 255.
+- Records: `record count` entries of `<III asset_index, offset, size>`, then
+  `size` bytes of native bitmap data, zero-padded to a 4-byte boundary.
+  Records are sorted by unique, ascending asset index. A pack may have no
+  records. The body can be at most `360 + Σ(12 + align4(bytes − data_offset))`
+  over every catalog bitmap.
 
 `themes.package` provides `inspect_metadata`, `inspect_appearance`, and
 `validate_package` to check compiled files against a catalog. The compiler
 runs these checks on its own output before writing.
 
-Classic dark artwork uses RTH3 (`themes/build.py`, `themes/compiler.py`).
+Classic packs use the same RTH4 layout with the Classic colors in the prefix:
+`themes/classic/dark.bin` (`themes/build.py`, `themes/compiler.py`) and the
+stock baseline below. The firmware validates their prefix but applies its
+built-in Classic style.
 
 ## Stock restoration data
 
@@ -155,7 +181,7 @@ python3 -m themes.stock --input /path/to/original/osos.bin \
 ```
 
 The extractor verifies the firmware SHA-256 and every bitmap CRC before writing.
-The 599-record baseline is 3,218,168 bytes for the current catalog. The
+The 599-record baseline is 3,218,532 bytes for the current catalog. The
 transaction reader streams it with a 256-byte scratch buffer, retaining only
 records required to restore artwork changed by the previous theme. Boot validates this file before enabling theming.
 Install it at `themes/classic/default.bin`.

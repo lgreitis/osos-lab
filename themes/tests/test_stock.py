@@ -4,6 +4,7 @@ import unittest
 import zlib
 
 from patching.theme_format import HEADER, RECORD, catalog_hash, digest
+from themes.style import STYLE_BYTES, classic_style
 from themes.stock import compile_baseline
 
 
@@ -28,10 +29,12 @@ class StockTests(unittest.TestCase):
         body = pack[HEADER.size :]
         self.assertEqual(
             HEADER.unpack_from(pack),
-            (b"RTH3", catalog_hash(self.catalog), 1, 24, zlib.crc32(body)),
+            (b"RTH4", catalog_hash(self.catalog), 0, len(body), 1, zlib.crc32(body)),
         )
-        self.assertEqual(RECORD.unpack_from(body), (0, 32, 9))
-        self.assertEqual(body[12:], self.firmware[40:49] + bytes(3))
+        self.assertEqual(body[:STYLE_BYTES], classic_style("light"))
+        records = body[STYLE_BYTES:]
+        self.assertEqual(RECORD.unpack_from(records), (0, 32, 9))
+        self.assertEqual(records[12:], self.firmware[40:49] + bytes(3))
 
     def test_rejects_wrong_firmware_or_catalog_before_output(self):
         with self.assertRaises(ValueError):

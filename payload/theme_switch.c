@@ -19,7 +19,7 @@ static void switch_zero(void *out, unsigned bytes)
 
 int cfw_theme_selection_valid(const struct cfw_theme_selection *s)
 {
-    if (!s || s->dark > 1 || s->accent != CFW_THEME_ACCENT_DEFAULT)
+    if (!s || s->dark > 1 || s->accent >= CFW_THEME_ACCENT_COUNT)
         return 0;
     static const char *const reserved[] = {"default", "dark", "classic"};
     for (unsigned n = 0; n < sizeof(reserved) / sizeof(*reserved); n++) {
@@ -132,13 +132,16 @@ static int switch_run(struct cfw_theme_switch *c,
         goto done;
     cfw_theme_transaction_swap(&transaction);
     switch_copy(&c->active.selection, selection, sizeof(*selection));
-    switch_copy(&c->active.style, &transaction.style, sizeof(transaction.style));
     c->active.custom = transaction.custom;
     switch_copy(c->assets, transaction.target_assets, sizeof(c->assets));
-    if (c->active.custom)
-        cfw_theme_style_set(&c->active.style);
-    else
+    if (c->active.custom) {
+        const unsigned char *prefix = transaction.incoming.data;
+        cfw_theme_style_set((const struct cfw_theme_style *)prefix,
+                            (const struct cfw_theme_options *)(prefix +
+                                                              sizeof(struct cfw_theme_style)));
+    } else {
         cfw_theme_style_reset();
+    }
     cfw_theme_appearance_set(selection->dark);
     cfw_theme_accent_set(selection->accent);
     c->result = CFW_THEME_OK;
@@ -170,4 +173,31 @@ int cfw_theme_switch_restore(struct cfw_theme_switch *c,
         if (c->assets[i])
             return 0;
     return switch_run(c, selection, pack, baseline, 0);
+}
+
+int cfw_theme_switch_set_accent(struct cfw_theme_switch *c, unsigned accent)
+{
+    if (c->busy)
+        return 0;
+    struct cfw_theme_selection selection;
+    switch_copy(&selection, &c->active.selection, sizeof(selection));
+    selection.accent = accent;
+    if (!cfw_theme_selection_valid(&selection)) {
+        c->result = CFW_THEME_INVALID;
+        return 0;
+    }
+    if (!cfw_theme_input_begin()) {
+        c->result = CFW_THEME_BUSY;
+        return 0;
+    }
+    c->busy = 1;
+    c->result = CFW_THEME_STORE_FAILED;
+    if (store_selection(c, &selection)) {
+        c->active.selection.accent = accent;
+        cfw_theme_accent_set(accent);
+        c->result = CFW_THEME_OK;
+    }
+    c->busy = 0;
+    cfw_theme_input_finish();
+    return c->result == CFW_THEME_OK;
 }

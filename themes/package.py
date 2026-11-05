@@ -12,47 +12,19 @@ import zlib
 from pathlib import Path, PurePosixPath
 
 from patching.bitmap import read_png
-from patching.theme_format import RECORD, catalog_hash
+from patching.theme_format import HEADER, MAGIC, RECORD, catalog_hash
 from themes.compiler import encode_pixels, fit_palette
+from themes import style
+from themes.style import COLOR_DEFAULTS, COLOR_ROLES, COLORS, STYLE_BYTES
 
 ROOT = Path(__file__).resolve().parents[1]
 
 METADATA = struct.Struct("<4s32sI32s48s")
 METADATA_MAGIC = b"RTM4"
-PACK = struct.Struct("<4s32sIIII")
-PACK_MAGIC = b"RTH4"
 SCHEMA = 1
 
-ROLES = (
-    "background",
-    "text",
-    "muted",
-    "accent_fill",
-    "accent_text",
-    "on_accent",
-    "selection",
-    "track",
-    "inactive",
-    "grid",
-    "zero",
-    "border",
-    "cover_border",
-    "eq_accent",
-    "eq_selection",
-    "eq_on_accent",
-)
-COLORS = len(ROLES) * 4
 APPEARANCES = {"light": (0, 1), "dark": (1, 2)}
-DEFAULTS = {
-    "light": "ffffff 202020 555555 236cc5 3185d0 ffffff 236cc5 eeeeee "
-    "8f959a e7e7e7 b5b5b5 d6d6d6 7e8183 1479d5 edf5fc ffffff",
-    "dark": "181818 e8e8e8 a8a8a8 00a1ff 00a1ff ffffff 00a1ff 2c2c2c "
-    "7d8c98 303030 646464 3c3c3c 383838 00a1ff 1a2e3f 101010",
-}
-DEFAULTS = {
-    key: dict(zip(ROLES, (f"#{value}" for value in values.split())))
-    for key, values in DEFAULTS.items()
-}
+RENDERING = {"selection": ("native", "flat"), "preview_icons": ("native", "accent")}
 
 # Capabilities recognised by name so authors get a precise answer instead of
 # a generic "unknown field". Each one is extended only after native proof.
@@ -65,7 +37,7 @@ UNSUPPORTED = {
     "strings": "string overrides",
     "wallpapers": "wallpapers",
 }
-SUPPORTED = ("colors", "bitmaps")
+SUPPORTED = ("colors", "bitmaps", "accents", "rendering")
 THEME_FIELDS = {"schema", "id", "name", "author", "version", "appearances"}
 APPEARANCE_FIELDS = set(SUPPORTED)
 BITMAP_FIELDS = {"id", "name", "file", "type"}
@@ -150,7 +122,7 @@ def catalog_assets(catalog):
 
 def max_body(catalog):
     """Largest valid body: colors plus one record for every catalog bitmap."""
-    return COLORS + sum(
+    return STYLE_BYTES + sum(
         RECORD.size + align(asset["bytes"] - asset["data_offset"])
         for asset in catalog_assets(catalog)
     )
@@ -244,23 +216,64 @@ def load_manifest(path):
 def resolve_colors(appearance, colors, where):
     if not isinstance(colors, dict):
         fail(where, "expected an object of role -> #RRGGBB")
-    result = dict(DEFAULTS[appearance])
+    result = dict(COLOR_DEFAULTS[appearance])
     for role, value in colors.items():
-        if role not in ROLES:
-            fail(f"{where}.{role}", f"unknown color role; expected one of {ROLES}")
-        if not isinstance(value, str) or not COLOR.fullmatch(value):
-            fail(f"{where}.{role}", "expected #RRGGBB")
-        result[role] = value.lower()
+        if role not in COLOR_ROLES:
+            fail(f"{where}.{role}", f"unknown color role; expected one of {COLOR_ROLES}")
+        result[role] = color(value, f"{where}.{role}")
     return result
 
 
-def encode_colors(colors):
-    return b"".join(bytes.fromhex(colors[role][1:]) + b"\xff" for role in ROLES)
+def color(value, where):
+    if not isinstance(value, str) or not COLOR.fullmatch(value):
+        fail(where, "expected #RRGGBB")
+    return value.lower()
+
+
+def resolve_style(appearance, entry, where):
+    """Encode the style prefix; returns its bytes and the report fields."""
+    colors = entry.get("colors", {})
+    icon = None
+    if isinstance(colors, dict) and "icon_tint" in colors:
+        colors = dict(colors)
+        icon = color(colors.pop("icon_tint"), f"{where}.colors.icon_tint")
+    colors = resolve_colors(appearance, colors, f"{where}.colors")
+
+    overrides = entry.get("accents", {})
+    check_fields(overrides, set(style.ACCENT_NAMES), f"{where}.accents")
+    palettes = {}
+    for name in style.ACCENT_NAMES:
+        palette = style.accent_defaults(name, appearance, colors["background"])
+        override = overrides.get(name, {})
+        check_fields(override, set(style.ACCENT_ROLES), f"{where}.accents.{name}")
+        for role, value in override.items():
+            palette[role] = color(value, f"{where}.accents.{name}.{role}")
+        palettes[name] = palette
+
+    rendering = entry.get("rendering", {})
+    check_fields(rendering, set(RENDERING), f"{where}.rendering")
+    for key, choices in RENDERING.items():
+        if rendering.get(key, choices[0]) not in choices:
+            fail(f"{where}.rendering.{key}", f"expected {' or '.join(choices)}")
+    flags = (style.FLAT_SELECTION if rendering.get("selection") == "flat" else 0) | (
+        style.TINT_PREVIEWS if rendering.get("preview_icons") == "accent" else 0
+    )
+
+    prefix = style.encode_colors(colors) + style.encode_options(
+        flags, icon or colors["accent_text"], palettes
+    )
+    return prefix, {
+        "colors": colors,
+        "accents": palettes,
+        "rendering": rendering,
+        "fallback_accents": [name for name in style.ACCENT_NAMES if name not in overrides],
+        "contrast": style.contrast_report(colors, palettes),
+    }
 
 
 def compile_appearance(catalog, resolve, root, appearance, entry):
     where = f"appearances.{appearance}"
-    colors = resolve_colors(appearance, entry.get("colors", {}), f"{where}.colors")
+    prefix, style_report = resolve_style(appearance, entry, where)
     bitmaps = entry.get("bitmaps", [])
     if not isinstance(bitmaps, list):
         fail(f"{where}.bitmaps", "expected a list")
@@ -276,7 +289,7 @@ def compile_appearance(catalog, resolve, root, appearance, entry):
         if index in selected:
             fail(at, f"duplicate replacement for {resolve.assets[index]['name']}")
         selected[index] = (at, source_file(root, item["file"], f"{at}.file"), item)
-    body = bytearray(encode_colors(colors))
+    body = bytearray(prefix)
     report = []
     for index, (at, path, item) in sorted(selected.items()):
         info = resolve.assets[index]
@@ -306,15 +319,15 @@ def compile_appearance(catalog, resolve, root, appearance, entry):
     if len(body) > max_body(catalog):
         fail(where, "body exceeds the catalog maximum")
     code = APPEARANCES[appearance][0]
-    header = PACK.pack(
-        PACK_MAGIC,
+    header = HEADER.pack(
+        MAGIC,
         catalog_hash(catalog),
         code,
         len(body),
         len(selected),
         zlib.crc32(body),
     )
-    return header + body, {"colors": colors, "bitmaps": report}
+    return header + body, {**style_report, "bitmaps": report}
 
 
 def encode_metadata(catalog, identifier, name, mask):
@@ -362,31 +375,35 @@ def inspect_metadata(data, catalog=None):
 
 
 def inspect_appearance(data, catalog=None, where="pack"):
-    if len(data) < PACK.size + COLORS:
+    if len(data) < HEADER.size + STYLE_BYTES:
         fail(where, f"truncated: {len(data)} bytes")
-    magic, fingerprint, code, size, count, crc = PACK.unpack_from(data)
-    if magic != PACK_MAGIC:
+    magic, fingerprint, code, size, count, crc = HEADER.unpack_from(data)
+    if magic != MAGIC:
         fail(where, f"bad magic {magic!r}")
     if catalog is not None and fingerprint != catalog_hash(catalog):
         fail(where, "catalog hash mismatch")
     if code not in (0, 1):
         fail(where, f"invalid appearance {code}")
-    if size != len(data) - PACK.size:
-        fail(where, f"body size {size} does not match {len(data) - PACK.size}")
+    if size != len(data) - HEADER.size:
+        fail(where, f"body size {size} does not match {len(data) - HEADER.size}")
     if catalog is not None and size > max_body(catalog):
         fail(where, "body exceeds the catalog maximum")
-    body = data[PACK.size :]
+    body = data[HEADER.size :]
     if zlib.crc32(body) != crc:
         fail(where, "CRC32 mismatch")
     colors = {}
-    for i, role in enumerate(ROLES):
+    for i, role in enumerate(COLOR_ROLES):
         red, green, blue, alpha = body[i * 4 : i * 4 + 4]
         if alpha != 255:
             fail(where, f"color {role} is not opaque")
         colors[role] = f"#{red:02x}{green:02x}{blue:02x}"
     assets = catalog_assets(catalog) if catalog is not None else None
     records = []
-    at = COLORS
+    try:
+        options = style.decode_options(body[COLORS:STYLE_BYTES])
+    except ValueError as error:
+        fail(where, str(error))
+    at = STYLE_BYTES
     previous = -1
     for _ in range(count):
         if at + RECORD.size > len(body):
@@ -428,6 +445,7 @@ def inspect_appearance(data, catalog=None, where="pack"):
         "appearance": "dark" if code else "light",
         "colors": colors,
         "records": records,
+        **options,
     }
 
 
@@ -477,7 +495,7 @@ def compile_package(catalog, manifest_path):
     report = {
         "format": {
             "metadata": METADATA_MAGIC.decode(),
-            "appearance": PACK_MAGIC.decode(),
+            "appearance": MAGIC.decode(),
             "source_schema": SCHEMA,
         },
         "id": manifest["id"],
@@ -485,14 +503,20 @@ def compile_package(catalog, manifest_path):
         "source": {k: manifest[k] for k in ("author", "version") if k in manifest},
         "catalog_hash": catalog_hash(catalog).hex(),
         "capabilities": {
-            "supported": ["colors: 16 opaque roles", "bitmaps: same-size BMap"],
+            "supported": [
+                "colors: 16 opaque roles",
+                "bitmaps: same-size BMap",
+                "named accent palettes",
+                "flat selection",
+                "preview icon tint",
+            ],
             "unsupported": sorted(UNSUPPORTED),
         },
         "appearances": appearances,
         "memory_estimate": {
             "note": "Estimated from file sizes, not measured on device RAM.",
             "metadata_bytes": METADATA.size,
-            "color_table_bytes_per_appearance": COLORS,
+            "color_table_bytes_per_appearance": STYLE_BYTES,
             "largest_appearance_bytes": max(
                 len(files[f"{key}.bin"]) for key in appearances
             ),

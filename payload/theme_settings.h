@@ -11,4 +11,5 @@ void cfw_theme_settings_toggle(void *controller);
 const char *cfw_theme_settings_error(void);
 
 uint32_t cfw_theme_settings_selected(void);
+uint32_t cfw_theme_settings_accent_selected(void);
 void cfw_theme_settings_register(void);

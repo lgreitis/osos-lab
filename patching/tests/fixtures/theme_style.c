@@ -53,22 +53,15 @@ static void check_classic(void)
            cfw_theme_color(CFW_THEME_BACKGROUND, 1));
 }
 
-static struct cfw_theme_style classic_copy(int dark)
-{
-    struct cfw_theme_style style;
-    memcpy(style.colors, expected_classic[dark], sizeof(style.colors));
-    return style;
-}
-
 int main(void)
 {
     /* Defaults. */
     assert(!cfw_theme_style_custom() &&
            cfw_theme_accent_get() == CFW_THEME_ACCENT_DEFAULT);
     check_classic();
-    assert(CFW_THEME_ACCENT_COUNT == 7);
+    assert(CFW_THEME_ACCENT_COUNT == 10);
     const char *labels[] = {"Theme Default", "Blue",   "Purple", "Pink",
-                            "Red",           "Orange", "Green"};
+                            "Red",           "Orange", "Green", "Teal", "Yellow", "Graphite"};
     for (unsigned i = 0; i < CFW_THEME_ACCENT_COUNT; i++)
         assert(!strcmp(cfw_theme_accent_label(i), labels[i]));
     assert(!cfw_theme_accent_label(CFW_THEME_ACCENT_COUNT));
@@ -99,20 +92,15 @@ int main(void)
             }
             assert(cfw_theme_color(CFW_THEME_SELECTION, dark) ==
                    cfw_theme_color(CFW_THEME_ACCENT_FILL, dark));
-            /* A custom copy of Classic yields the same tint at runtime. */
-            unsigned char table[4];
-            memcpy(table, cfw_theme_color(CFW_THEME_EQ_SELECTION, dark), 4);
-            struct cfw_theme_style copy = classic_copy(dark);
-            cfw_theme_style_set(&copy);
-            assert(!memcmp(cfw_theme_color(CFW_THEME_EQ_SELECTION, !dark), table, 4));
-            cfw_theme_style_reset();
         }
     }
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_GREEN));
     check_color(cfw_theme_color(CFW_THEME_ACCENT_FILL, 0), 30, 128, 58);
     check_color(cfw_theme_color(CFW_THEME_ACCENT_FILL, 1), 32, 134, 62);
     check_color(cfw_theme_color(CFW_THEME_ACCENT_TEXT, 1), 48, 209, 88);
 
-    /* Custom styles are copied, ignore the appearance and keep Theme Default verbatim. */
+    /* Custom styles are copied with their palettes and ignore the appearance.
+     * Theme Default keeps the author's colors; an accent replaces only palette roles. */
     assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
     struct cfw_theme_style style;
     for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++) {
@@ -121,63 +109,80 @@ int main(void)
         style.colors[role][2] = 220 - role;
         style.colors[role][3] = 200 + role;
     }
-    cfw_theme_style_set(&style);
+    struct cfw_theme_options options = {0};
+    options.flags = CFW_THEME_FLAT_SELECTION | CFW_THEME_TINT_PREVIEWS;
+    for (unsigned a = 0; a < CFW_THEME_ACCENT_COUNT - 1; a++)
+        for (unsigned slot = 0; slot < CFW_PALETTE_COUNT; slot++) {
+            options.accents[a][slot][0] = a;
+            options.accents[a][slot][1] = slot;
+            options.accents[a][slot][3] = 255;
+        }
+    options.icon[0] = 42;
+    options.icon[3] = 255;
+    cfw_theme_style_set(&style, &options);
     struct cfw_theme_style original = style;
     memset(&style, 0, sizeof(style));
+    memset(&options, 0, sizeof(options));
     assert(cfw_theme_style_custom());
+    assert(cfw_theme_render_flags() == 3);
+    assert(cfw_theme_icon_color(0)[0] == 42);
     for (int dark = 0; dark < 2; dark++)
         for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++)
             assert(!memcmp(cfw_theme_color(role, dark), original.colors[role], 4));
-
-    /* A light custom background selects light accents and tints its own selection. */
-    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_GREEN));
-    for (int dark = 0; dark < 2; dark++) {
-        check_color(cfw_theme_color(CFW_THEME_ACCENT_FILL, dark), 30, 128, 58);
-        check_color(cfw_theme_color(CFW_THEME_EQ_SELECTION, dark), 233, 231, 207);
-        check_color(cfw_theme_color(CFW_THEME_ON_ACCENT, dark), 255, 255, 255);
-        check_color(cfw_theme_color(CFW_THEME_EQ_ON_ACCENT, dark), 255, 255, 255);
+    static const struct {
+        enum cfw_theme_role role;
+        enum cfw_theme_palette_role slot;
+    } overrides[] = {
+        {CFW_THEME_ACCENT_FILL, CFW_PALETTE_FILL},
+        {CFW_THEME_ACCENT_TEXT, CFW_PALETTE_TEXT},
+        {CFW_THEME_SELECTION, CFW_PALETTE_SELECTION},
+        {CFW_THEME_ON_ACCENT, CFW_PALETTE_ON_ACCENT},
+        {CFW_THEME_EQ_ACCENT, CFW_PALETTE_EQ},
+        {CFW_THEME_EQ_SELECTION, CFW_PALETTE_EQ_SELECTION},
+        {CFW_THEME_EQ_ON_ACCENT, CFW_PALETTE_EQ_ON_ACCENT},
+    };
+    for (unsigned accent = CFW_THEME_ACCENT_BLUE; accent < CFW_THEME_ACCENT_COUNT;
+         accent++) {
+        assert(cfw_theme_accent_set(accent));
+        unsigned overridden = 0;
+        for (unsigned i = 0; i < sizeof(overrides) / sizeof(*overrides); i++)
+            for (int dark = 0; dark < 2; dark++) {
+                check_color(cfw_theme_color(overrides[i].role, dark), accent - 1,
+                            overrides[i].slot, 0);
+                overridden |= 1u << overrides[i].role;
+            }
+        for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++)
+            if (!(overridden & (1u << role)))
+                assert(!memcmp(cfw_theme_color(role, 1), original.colors[role], 4));
+        check_color(cfw_theme_icon_color(0), accent - 1, CFW_PALETTE_ICON, 0);
     }
-
-    /* A dark custom background selects dark accents; accent changes retint. */
-    original.colors[CFW_THEME_BACKGROUND][0] = 10;
-    original.colors[CFW_THEME_BACKGROUND][1] = 20;
-    original.colors[CFW_THEME_BACKGROUND][2] = 40;
-    cfw_theme_style_set(&original);
-    check_color(cfw_theme_color(CFW_THEME_ACCENT_TEXT, 0), 48, 209, 88);
-    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_PURPLE));
-    check_color(cfw_theme_color(CFW_THEME_ACCENT_FILL, 0), 150, 78, 188);
-    check_color(cfw_theme_color(CFW_THEME_EQ_ACCENT, 0), 218, 143, 255);
-    check_color(cfw_theme_color(CFW_THEME_EQ_SELECTION, 0), 45, 41, 76);
-
-    /* Every preset supplies foregrounds even if the theme uses opposite colors.
-     * Theme Default restores the author's original values in both appearances. */
-    for (int dark = 0; dark < 2; dark++) {
-        struct cfw_theme_style contrast = classic_copy(dark);
-        memset(contrast.colors[CFW_THEME_ON_ACCENT], 0, 3);
-        memset(contrast.colors[CFW_THEME_EQ_ON_ACCENT], dark ? 255 : 0, 3);
-        cfw_theme_style_set(&contrast);
-        for (unsigned preset = CFW_THEME_ACCENT_BLUE; preset < CFW_THEME_ACCENT_COUNT;
-             preset++) {
-            assert(cfw_theme_accent_set(preset));
-            check_color(cfw_theme_color(CFW_THEME_ON_ACCENT, !dark), 255, 255, 255);
-            unsigned char foreground = dark ? 16 : 255;
-            check_color(cfw_theme_color(CFW_THEME_EQ_ON_ACCENT, !dark), foreground,
-                        foreground, foreground);
-        }
-        assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
-        assert(!memcmp(cfw_theme_color(CFW_THEME_ON_ACCENT, !dark),
-                       contrast.colors[CFW_THEME_ON_ACCENT], 4));
-        assert(!memcmp(cfw_theme_color(CFW_THEME_EQ_ON_ACCENT, !dark),
-                       contrast.colors[CFW_THEME_EQ_ON_ACCENT], 4));
-    }
-    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_PURPLE));
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_TEAL));
+    unsigned char bar[3][4];
+    assert(cfw_theme_selection_bar_colors(bar));
+    for (unsigned stop = 0; stop < 3; stop++)
+        assert(!memcmp(bar[stop], cfw_theme_color(CFW_THEME_SELECTION, 0), 4));
 
     /* Reset restores Classic and retains the separately chosen accent. */
     cfw_theme_style_reset();
-    assert(!cfw_theme_style_custom() &&
-           cfw_theme_accent_get() == CFW_THEME_ACCENT_PURPLE);
-    check_color(cfw_theme_color(CFW_THEME_EQ_SELECTION, 1), 57, 44, 63);
-    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+    assert(!cfw_theme_style_custom() && !cfw_theme_render_flags() &&
+           cfw_theme_accent_get() == CFW_THEME_ACCENT_TEAL);
+    check_color(cfw_theme_color(CFW_THEME_EQ_SELECTION, 1), 31, 55, 56);
+    cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
     check_classic();
+    assert(!cfw_theme_selection_bar_colors(bar));
+    cfw_theme_accent_set(CFW_THEME_ACCENT_BLUE);
+    assert(!cfw_theme_selection_bar_colors(bar));
+    for (int dark = 0; dark < 2; dark++) {
+        cfw_theme_appearance_set(dark);
+        cfw_theme_accent_set(CFW_THEME_ACCENT_PINK);
+        assert(cfw_theme_selection_bar_colors(bar));
+        const unsigned char *fill = cfw_theme_color(CFW_THEME_SELECTION, dark);
+        assert(!memcmp(bar[1], fill, 4));
+        for (unsigned i = 0; i < 3; i++)
+            assert(bar[0][i] >= fill[i] && bar[2][i] >= bar[0][i]);
+        assert(bar[0][3] == 255 && bar[2][3] == 255);
+    }
+    cfw_theme_style_reset();
+    cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
     return 0;
 }

@@ -8,6 +8,7 @@ from collections import Counter
 
 from patching.bitmap import read_png
 from patching.theme_format import HEADER, MAGIC, RECORD, catalog_hash
+from themes.style import classic_style
 
 
 def describe(resource_id, offset, data, name=""):
@@ -172,7 +173,7 @@ def compile_theme(catalog, manifest):
         ):
             raise ValueError(f"Invalid or duplicate bitmap: {entry['id']}")
         selected[resource_id] = entry
-    body = bytearray()
+    body = bytearray(classic_style("dark"))
     count = 0
     for resource_id, entry in sorted(selected.items()):
         index = by_id[resource_id]
@@ -195,6 +196,6 @@ def compile_theme(catalog, manifest):
     if not count:
         raise ValueError("Theme manifest is empty")
     return (
-        HEADER.pack(MAGIC, catalog_hash(catalog), count, len(body), zlib.crc32(body))
+        HEADER.pack(MAGIC, catalog_hash(catalog), 1, len(body), count, zlib.crc32(body))
         + body
     )

@@ -3,13 +3,14 @@
 #include "assets.h"
 #include "osos.h"
 
-enum { RTH3_MAGIC = 0x33485452u, RTH4_MAGIC = 0x34485452u, RTM4_MAGIC = 0x344d5452u };
+enum { RTH4_MAGIC = 0x34485452u, RTM4_MAGIC = 0x344d5452u };
 
 struct pack_header {
     uint32_t magic;
     unsigned char catalog[32];
     uint32_t appearance, size, count, crc;
 };
+_Static_assert(sizeof(struct pack_header) == 52, "RTH4 header layout changed");
 
 struct record {
     uint32_t asset, offset, size;
@@ -251,7 +252,33 @@ void cfw_theme_pack_release(struct cfw_theme_pack *pack)
     bytes_zero(pack, sizeof(*pack));
 }
 
-int cfw_theme_pack_read(const struct osos_path *path, int dark, int legacy,
+/* RTH4: 52-byte header, then the style prefix and bitmap records. */
+static int header_valid(const struct pack_header *h, int dark)
+{
+    return h->magic == RTH4_MAGIC && fingerprint(h->catalog) &&
+           h->appearance == (uint32_t)!!dark && h->count <= cfw_bitmap_asset_count &&
+           cfw_bitmap_asset_count <= CFW_THEME_MAX_ASSETS &&
+           h->size >= CFW_THEME_STYLE_BYTES &&
+           h->size - CFW_THEME_STYLE_BYTES <= cfw_theme_max_bytes;
+}
+
+static int style_valid(const unsigned char *data)
+{
+    for (unsigned i = 0; i < CFW_THEME_COLOR_COUNT; i++)
+        if (data[i * 4 + 3] != 255)
+            return 0;
+    const struct cfw_theme_options *o = (const void *)(data + sizeof(struct cfw_theme_style));
+    if ((o->flags & ~(CFW_THEME_FLAT_SELECTION | CFW_THEME_TINT_PREVIEWS)) ||
+        o->icon[3] != 255)
+        return 0;
+    for (unsigned a = 0; a < CFW_THEME_ACCENT_COUNT - 1; a++)
+        for (unsigned slot = 0; slot < CFW_PALETTE_COUNT; slot++)
+            if (o->accents[a][slot][3] != 255)
+                return 0;
+    return 1;
+}
+
+int cfw_theme_pack_read(const struct osos_path *path, int dark, int classic,
                         struct cfw_theme_pack *out)
 {
     bytes_zero(out, sizeof(*out));
@@ -259,37 +286,18 @@ int cfw_theme_pack_read(const struct osos_path *path, int dark, int legacy,
     if (osos_file_open(path, 1, &file))
         return 0;
     struct pack_header h;
-    int valid = exact(file, &h, 48);
-    if (valid && legacy) {
-        h.crc = h.count;
-        h.count = h.appearance;
-        h.appearance = !!dark;
-    } else if (valid) {
-        valid = exact(file, &h.crc, 4);
-    }
-    /* RTH4 header is 52 bytes: magic/hash and four words. */
-    valid =
-        valid && h.magic == (legacy ? RTH3_MAGIC : RTH4_MAGIC) &&
-        fingerprint(h.catalog) && h.appearance == (uint32_t)!!dark &&
-        h.count <= cfw_bitmap_asset_count &&
-        cfw_bitmap_asset_count <= CFW_THEME_MAX_ASSETS &&
-        h.size <= cfw_theme_max_bytes + (legacy ? 0 : sizeof(struct cfw_theme_style)) &&
-        h.size >= (legacy ? sizeof(struct record) : sizeof(struct cfw_theme_style));
+    int valid = exact(file, &h, sizeof(h)) && header_valid(&h, dark);
     if (valid) {
         out->data = osos_import_alloc(h.size);
         out->count = h.count;
         out->size = h.size;
-        out->records_offset = legacy ? 0 : sizeof(struct cfw_theme_style);
+        out->records_offset = CFW_THEME_STYLE_BYTES;
+        out->custom = !classic;
         valid = out->data && exact(file, out->data, out->size) && eof(file);
     }
     osos_file_close(file);
-    if (valid) {
-        valid = ~crc_update(UINT32_MAX, out->data, out->size) == h.crc &&
-                records_valid(out);
-        if (!legacy)
-            for (unsigned i = 0; valid && i < CFW_THEME_COLOR_COUNT; i++)
-                valid = out->data[i * 4 + 3] == 255;
-    }
+    valid = valid && ~crc_update(UINT32_MAX, out->data, out->size) == h.crc &&
+            records_valid(out) && style_valid(out->data);
     if (!valid)
         cfw_theme_pack_release(out);
     return valid;
@@ -324,19 +332,20 @@ static int restore_missing(const struct osos_path *path, struct cfw_theme_pack *
     if (osos_file_open(path, 1, &file))
         return 0;
 
-    struct {
-        uint32_t magic;
-        unsigned char hash[32];
-        uint32_t count, size, crc;
-    } h;
-
-    int valid = exact(file, &h, sizeof(h)) && h.magic == RTH3_MAGIC &&
-                fingerprint(h.hash) && h.count <= cfw_bitmap_asset_count &&
-                h.size <= cfw_theme_max_bytes &&
-                (!complete || (h.count == cfw_bitmap_asset_count && h.count &&
-                               h.count <= CFW_THEME_MAX_ASSETS));
+    struct pack_header h;
+    int valid = exact(file, &h, sizeof(h)) && header_valid(&h, 0) &&
+                (!complete || (h.count == cfw_bitmap_asset_count && h.count));
     uint32_t consumed = 0, crc = UINT32_MAX, previous = 0, stage_at = 0;
     unsigned char scratch[256];
+    /* The baseline's style prefix is checksummed but not used. */
+    while (valid && consumed < CFW_THEME_STYLE_BYTES) {
+        uint32_t n = CFW_THEME_STYLE_BYTES - consumed;
+        if (n > sizeof(scratch))
+            n = sizeof(scratch);
+        valid = exact(file, scratch, n);
+        crc = crc_update(crc, scratch, n);
+        consumed += n;
+    }
     for (uint32_t i = 0; valid && i < h.count; i++) {
         struct record r;
         struct layout b;
@@ -426,10 +435,7 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
     if (cfw_bitmap_asset_count > CFW_THEME_MAX_ASSETS)
         return 0;
     out->dark = !!dark;
-    if (target && target->records_offset == sizeof(out->style)) {
-        bytes_copy(&out->style, target->data, sizeof(out->style));
-        out->custom = 1;
-    }
+    out->custom = target && target->custom;
     uint32_t total, missing = 0;
     if (!cfw_theme_transaction_bytes(target, previous, &total))
         return 0;
