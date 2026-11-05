@@ -78,6 +78,8 @@ class PayloadTests(unittest.TestCase):
                 "menu_resources",
                 "bitmap_assets",
                 "theme_package",
+                "theme_switch",
+                "theme_input",
                 "theme_discovery",
                 "theme_style",
                 "dark_mode",

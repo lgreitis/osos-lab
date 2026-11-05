@@ -222,3 +222,4 @@
 
 /* Resource-controller layout caches precede the stored layout ID (2.0.5). */
 #define OSOS_LAYOUT_CACHE_TO_ID 0x30
+#define OSOS_UI_PROCESS_MESSAGE 0x081215d8

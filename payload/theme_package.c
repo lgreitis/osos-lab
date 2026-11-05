@@ -386,6 +386,29 @@ static int restore_missing(const struct osos_path *path, struct cfw_theme_pack *
     return valid;
 }
 
+int cfw_theme_transaction_bytes(const struct cfw_theme_pack *target,
+                                const uint32_t *previous, uint32_t *bytes)
+{
+    *bytes = 0;
+    if (cfw_bitmap_asset_count > CFW_THEME_MAX_ASSETS)
+        return 0;
+    for (uint32_t i = 0; i < cfw_bitmap_asset_count; i++) {
+        if (!find_record(target, i) && !bit(previous, i))
+            continue;
+        struct layout b;
+        if (!bitmap_layout(i, &b))
+            return 0;
+        uint32_t size = cfw_bitmap_assets[i].size - b.start;
+        if (size > UINT32_MAX - 3u - sizeof(struct record))
+            return 0;
+        uint32_t length = sizeof(struct record) + ((size + 3u) & ~3u);
+        if (*bytes > cfw_theme_max_bytes || length > cfw_theme_max_bytes - *bytes)
+            return 0;
+        *bytes += length;
+    }
+    return 1;
+}
+
 int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
                                   const uint32_t *previous,
                                   const struct osos_path *baseline,
@@ -399,21 +422,15 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
         bytes_copy(&out->style, target->data, sizeof(out->style));
         out->custom = 1;
     }
-    uint32_t total = 0, missing = 0;
+    uint32_t total, missing = 0;
+    if (!cfw_theme_transaction_bytes(target, previous, &total))
+        return 0;
     for (uint32_t i = 0; i < cfw_bitmap_asset_count; i++) {
         const struct record *r = find_record(target, i);
         if (r)
             out->target_assets[i / 32] |= 1u << (i % 32);
         if (!r && !bit(previous, i))
             continue;
-        struct layout b;
-        if (!bitmap_layout(i, &b))
-            return 0;
-        uint32_t size = cfw_bitmap_assets[i].size - b.start;
-        uint32_t bytes = sizeof(struct record) + ((size + 3u) & ~3u);
-        if (bytes > cfw_theme_max_bytes - total)
-            return 0;
-        total += bytes;
         out->patch.count++;
         missing += !r;
     }

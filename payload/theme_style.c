@@ -41,6 +41,7 @@ static struct cfw_theme_style selected_style;
 static unsigned char eq_selection_tint[4];
 static int has_custom_style, custom_background_dark;
 static unsigned selected_accent;
+static int selected_appearance = -1;
 
 int cfw_theme_color_dark(const unsigned char *color)
 {
@@ -107,6 +108,7 @@ void cfw_theme_style_set(const struct cfw_theme_style *style)
 void cfw_theme_style_reset(void)
 {
     has_custom_style = 0;
+    selected_appearance = -1;
 }
 
 int cfw_theme_style_custom(void)
@@ -131,4 +133,14 @@ unsigned cfw_theme_accent_get(void)
 const char *cfw_theme_accent_label(unsigned value)
 {
     return value < CFW_THEME_ACCENT_COUNT ? accent_labels[value] : 0;
+}
+
+void cfw_theme_appearance_set(int dark)
+{
+    selected_appearance = !!dark;
+}
+
+int cfw_theme_appearance_get(int fallback)
+{
+    return selected_appearance < 0 ? fallback : selected_appearance;
 }

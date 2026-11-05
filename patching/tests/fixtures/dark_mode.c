@@ -209,6 +209,7 @@ static void graphics_fill(void *context, const int32_t *rect);
 #define osos_gles_clear_color clear_color
 #define osos_rgb565_blend blend
 #include "../../../payload/theme_style.c"
+#include "../../../payload/theme_input.c"
 #include "../../../payload/dark_mode.c"
 
 static void graphics_fill(void *context, const int32_t *rect)
@@ -437,6 +438,7 @@ static void check_settings_lifecycle(void)
 static void check_reset_all_settings(void)
 {
     now_playing_available = 1;
+    cfw_theme_input_drained();
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
     assert(cfw_dark_mode_enabled());
     resetting = 1;
@@ -729,6 +731,7 @@ int main(void)
         {{0x23, 0x6c, 0xc5, 91}, {0x00, 0xa1, 0xff, 91}},
     };
     for (int cycle = 0; cycle < 3; cycle++) {
+        cfw_theme_input_drained();
         if (cycle)
             assert(cfw_settings_action(&controller, "CFW_DarkMode_Toggle", 0));
         int dark = cycle == 1;
@@ -761,7 +764,13 @@ int main(void)
     assert(store_sets == 2 && redraws == 2 && notifications == 2 && !legacy_reads);
     assert(icon_notifications == 4);
     assets_ready = 0;
+    cfw_theme_input_drained();
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
+    int accepted_sets = store_sets, accepted_active = assets_active;
+    for (unsigned repeat = 0; repeat < 8; repeat++)
+        assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
+    assert(store_sets == accepted_sets && assets_active == accepted_active);
+
     assert(!cfw_dark_mode_enabled() && store_sets == 2 && redraws == 2);
     stored_record = DARK_MODE_ON_RECORD;
     cfw_dark_mode_load();
@@ -796,19 +805,37 @@ int main(void)
     migrating = 0;
 
     now_playing_available = 0;
+    cfw_theme_input_drained();
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
     assert(cfw_dark_mode_enabled() && redraws == 3 && notifications == 3);
     assert(icon_notifications == 4 && stored_record == DARK_MODE_ON_RECORD);
+    int repeated_sets = store_sets;
+    for (unsigned repeat = 0; repeat < 8; repeat++)
+        assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
+    assert(cfw_dark_mode_enabled() && store_sets == repeated_sets);
     int previous_sets = store_sets;
     assets_ready = 0;
+    cfw_theme_input_drained();
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
     assert(cfw_dark_mode_enabled() && stored_record == DARK_MODE_ON_RECORD);
     assert(store_sets == previous_sets && redraws == 3 && notifications == 3);
     assets_ready = 1;
+    cfw_theme_input_drained();
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
     assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
     assert(redraws == 4 && notifications == 4 && !asset_cancellations);
     assert(!preview_invalidations);
+    /* Classic dark from the switcher drives native fills without the legacy flag. */
+    assert(!assets_active);
+    cfw_theme_style_reset();
+    cfw_theme_appearance_set(1);
+    assert(cfw_dark_mode_enabled());
+    cfw_dark_mode_clear_color(0x10000, 0x10000, 0x10000, 0x4321);
+    assert(clear_rgb[0] == 24 * 0x10000 / 255);
+    cfw_theme_appearance_set(0);
+    cfw_dark_mode_clear_color(0x10000, 0x10000, 0x10000, 0x4321);
+    assert(clear_rgb[0] == 0x10000);
+    cfw_theme_style_reset();
     check_clicker();
     check_settings_lifecycle();
     check_reset_all_settings();

@@ -31,6 +31,9 @@ int cfw_theme_metadata_read(const struct osos_path *path,
                             struct cfw_theme_metadata *out);
 int cfw_theme_pack_read(const struct osos_path *path, int dark, int legacy,
                         struct cfw_theme_pack *out);
+/* Exact staging size for a validated target and the active replacement set. */
+int cfw_theme_transaction_bytes(const struct cfw_theme_pack *target,
+                                const uint32_t *previous, uint32_t *bytes);
 void cfw_theme_pack_release(struct cfw_theme_pack *pack);
 /* target must be a validated pack returned by cfw_theme_pack_read, or NULL for
  * original stock artwork. previous points to CFW_THEME_BITMAP_WORDS entries

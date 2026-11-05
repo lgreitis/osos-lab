@@ -10,6 +10,7 @@
 #include "patch.h"
 #include "resources.h"
 #include "theme_style.h"
+#include "theme_input.h"
 
 enum {
     DARK_MODE_OFF_RECORD = 0x304b5244, /* DRK0 */
@@ -28,7 +29,7 @@ enum {
 
 int cfw_dark_mode_enabled(void)
 {
-    return cfw_assets_enabled();
+    return cfw_theme_appearance_get(cfw_assets_enabled());
 }
 
 /* Legacy import: reads the pre-store CFWDark file. */
@@ -108,7 +109,10 @@ int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument
     if (argument == OSOS_ACTION_SUPPORT_QUERY)
         return 1;
 
+    if (!cfw_theme_input_begin())
+        return 1;
     apply(osos_settings_model(controller), !cfw_dark_mode_enabled());
+    cfw_theme_input_finish();
     return 1;
 }
 
