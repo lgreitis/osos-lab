@@ -10,9 +10,11 @@
 #include "theme_preferences.h"
 #include "cfw.h"
 
-/* Metadata stays stable while a list is open; packages are revalidated on Select. */
+/* Metadata stays stable while the picker is open; packages are revalidated on
+ * Select. The list is allocated when the picker opens and released when the
+ * Settings main menu is destroyed. */
 #define THEME_CHOICES 64
-static struct cfw_theme_choice choices[THEME_CHOICES];
+static struct cfw_theme_choice *choices;
 static uint32_t count;
 static int initialized, overflow, classic_available;
 static const char *error, *dark_error, *accent_error;
@@ -80,8 +82,30 @@ void cfw_theme_settings_refresh(void)
     cfw_theme_settings_load();
     if (!classic_available)
         return;
+    int any;
+    cfw_theme_discovery_scan(0, 0, &any);
+    osos_menu_item_set_visible(CFW_Theme_Item, any);
+}
+
+static void open_list(void)
+{
+    if (!choices)
+        choices = osos_import_alloc(THEME_CHOICES * sizeof(*choices));
+    if (!choices) {
+        count = overflow = 0;
+        error = "Not enough memory";
+        return;
+    }
     count = cfw_theme_discovery_scan(choices, THEME_CHOICES, &overflow);
-    osos_menu_item_set_visible(CFW_Theme_Item, count != 0);
+    error = 0;
+}
+
+void cfw_theme_settings_close(void)
+{
+    if (choices)
+        osos_import_free(choices);
+    choices = 0;
+    count = overflow = 0;
 }
 
 const char *cfw_theme_settings_error(void)
@@ -202,7 +226,7 @@ int cfw_theme_settings_action(void *controller, const char *action, uint32_t arg
     if (!classic_available)
         return 1;
     if (open) {
-        cfw_theme_settings_refresh();
+        open_list();
         /* Retain the active theme when the sorted list reaches its limit. */
         if (overflow && switcher.active.custom && !cfw_theme_settings_selected()) {
             struct osos_path pack;
@@ -217,7 +241,7 @@ int cfw_theme_settings_action(void *controller, const char *action, uint32_t arg
                     choices[count - 1].name[i] = metadata.name[i];
             }
         }
-        error = dark_error = 0;
+        dark_error = 0;
     } else {
         uint32_t index = osos_selection_index(osos_ui_selection());
         if (index <= count)

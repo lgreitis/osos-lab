@@ -28,9 +28,14 @@ retains only IDs and display names. Selection revalidates package metadata and
 artwork, returning to the parent Theme row. Failures keep the active theme and
 show an error in its preview; opening the list clears the error for retry.
 
-Settings activation refreshes discovery. Theme is hidden when no custom package
-has valid metadata. Dark Mode changes the active theme's appearance and is hidden
-for single-appearance packages. Selecting such a package uses its sole appearance.
+Opening Settings hides Theme unless a custom package has valid metadata; the
+scan stops at the first one. Only the Settings main screen checks, through its
+`CFWSettingsMain` controller. The picker list is allocated when Theme opens and
+freed with the Settings main controller, because the picker's view still renders
+its rows during the pop transition. If allocation fails, the picker offers
+Classic and an error row. Dark Mode changes the active theme's appearance and is
+hidden for single-appearance packages. Selecting such a package uses its sole
+appearance.
 
 ## Boot and installation
 

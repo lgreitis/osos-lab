@@ -175,6 +175,8 @@ uint32_t cfw_theme_discovery_scan(struct cfw_theme_choice *entries, uint32_t cap
             for (unsigned i = 0; i < sizeof(choice.name); i++)
                 choice.name[i] = candidate.name[i];
             count = insert(entries, capacity, count, &choice, &overflowed);
+            if (!capacity)
+                break;
         }
     }
     directory_destroy(&iterator);

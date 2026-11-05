@@ -3,4 +3,5 @@
   <list id="CFW_Theme" title="Theme" controller="CFWTheme"/>
   <settings-entry menu="CFW_Theme" after="SettingsMenu_ListItem_Brightness"
                   open="CFW_Theme_Open" preview="image"/>
+  <screen-controller screen="SettingsMenus_Main_Screen" controller="CFWSettingsMain"/>
 </ui>
