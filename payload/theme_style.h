@@ -17,9 +17,6 @@ enum cfw_theme_role {
     CFW_THEME_ZERO,
     CFW_THEME_BORDER,
     CFW_THEME_COVER_BORDER,
-    CFW_THEME_EQ_ACCENT,
-    CFW_THEME_EQ_SELECTION,
-    CFW_THEME_EQ_ON_ACCENT,
     CFW_THEME_COLOR_COUNT
 };
 
@@ -54,6 +51,12 @@ unsigned cfw_theme_accent_get(void);
 const char *cfw_theme_accent_label(unsigned accent);
 /* Whether a color reads as a dark surface, by weighted RGB brightness. */
 int cfw_theme_color_dark(const unsigned char *color);
+/* Weighted RGB brightness scaled by 256; cfw_theme_color_dark compares it to 128 * 256. */
+int cfw_theme_brightness(const unsigned char *color);
+/* Moves each RGB channel of from toward to by weight/255 (0-255), rounding to nearest;
+ * out is opaque. */
+void cfw_theme_mix(unsigned char out[4], const unsigned char *from,
+                   const unsigned char *to, unsigned weight);
 
 /* The switcher supplies appearance; reset uses the caller-provided fallback. */
 void cfw_theme_appearance_set(int dark);
@@ -62,9 +65,7 @@ int cfw_theme_appearance_get(int fallback);
 /* RTH4 palette slot order is independent of the RTH4 base role order. */
 enum cfw_theme_palette_role {
     CFW_PALETTE_FILL, CFW_PALETTE_TEXT, CFW_PALETTE_SELECTION,
-    CFW_PALETTE_ON_ACCENT, CFW_PALETTE_ICON, CFW_PALETTE_EQ,
-    CFW_PALETTE_EQ_SELECTION, CFW_PALETTE_EQ_ON_ACCENT,
-    CFW_PALETTE_COUNT
+    CFW_PALETTE_ON_ACCENT, CFW_PALETTE_ICON, CFW_PALETTE_COUNT
 };
 enum { CFW_THEME_FLAT_SELECTION = 1, CFW_THEME_TINT_PREVIEWS = 2 };
 /* RTH4 options that follow the base colors: render flags, the Theme Default icon

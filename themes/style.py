@@ -7,7 +7,6 @@ import struct
 COLOR_ROLES = (
     "background", "text", "muted", "accent_fill", "accent_text", "on_accent",
     "selection", "track", "inactive", "grid", "zero", "border", "cover_border",
-    "eq_accent", "eq_selection", "eq_on_accent",
 )
 COLORS = len(COLOR_ROLES) * 4
 # Classic light and dark, matching payload/theme_style.c.
@@ -15,9 +14,9 @@ COLOR_DEFAULTS = {
     key: dict(zip(COLOR_ROLES, (f"#{value}" for value in values.split())))
     for key, values in {
         "light": "ffffff 202020 555555 236cc5 3185d0 ffffff 236cc5 eeeeee "
-        "8f959a e7e7e7 b5b5b5 d6d6d6 7e8183 1479d5 edf5fc ffffff",
+        "8f959a e7e7e7 b5b5b5 d6d6d6 7e8183",
         "dark": "181818 e8e8e8 a8a8a8 00a1ff 00a1ff ffffff 00a1ff 2c2c2c "
-        "7d8c98 303030 646464 3c3c3c 383838 00a1ff 1a2e3f 101010",
+        "7d8c98 303030 646464 3c3c3c 383838",
     }.items()
 }
 
@@ -28,45 +27,34 @@ ACCENT_NAMES = (
 # Palette slot order (enum cfw_theme_palette_role).
 ACCENT_ROLES = (
     "accent_fill", "accent_text", "selection", "on_accent", "icon_tint",
-    "eq_accent", "eq_selection", "eq_on_accent",
 )
 FLAT_SELECTION = 1
 TINT_PREVIEWS = 2
 OPTIONS_BYTES = 8 + len(ACCENT_NAMES) * len(ACCENT_ROLES) * 4
 STYLE_BYTES = COLORS + OPTIONS_BYTES
-# Light fill/text/EQ and dark fill/text/EQ; Blue retains Classic's values.
+# Light fill/text and dark fill/text; Blue retains Classic's values.
 ACCENT_PRESETS = (
-    ("236cc5", "3185d0", "1479d5", "00a1ff", "00a1ff", "00a1ff"),
-    ("8944ab", "8944ab", "8944ab", "964ebc", "da8fff", "da8fff"),
-    ("c41e56", "c41e56", "c41e56", "ce2660", "ff6491", "ff6491"),
-    ("d02028", "d02028", "d02028", "d42830", "ff6961", "ff6961"),
-    ("b84800", "b84800", "b84800", "be4c00", "ff9f0a", "ff9f0a"),
-    ("1e803a", "1e803a", "1e803a", "20863e", "30d158", "30d158"),
-    ("007378", "007378", "007378", "00787d", "40d2d7", "40d2d7"),
-    ("826500", "826500", "826500", "846700", "ffd60a", "ffd60a"),
-    ("5c6066", "5c6066", "5c6066", "64686e", "bec2c8", "bec2c8"),
+    ("236cc5", "3185d0", "00a1ff", "00a1ff"),
+    ("8944ab", "8944ab", "964ebc", "da8fff"),
+    ("c41e56", "c41e56", "ce2660", "ff6491"),
+    ("d02028", "d02028", "d42830", "ff6961"),
+    ("b84800", "b84800", "be4c00", "ff9f0a"),
+    ("1e803a", "1e803a", "20863e", "30d158"),
+    ("007378", "007378", "00787d", "40d2d7"),
+    ("826500", "826500", "846700", "ffd60a"),
+    ("5c6066", "5c6066", "64686e", "bec2c8"),
 )
-# EQ selections tint the EQ accent over the background by these /255 weights.
-EQ_SELECTION_WEIGHT = {"light": 20, "dark": 43}
 
 
 def rgb(color):
     return bytes.fromhex(color.removeprefix("#"))
 
 
-def accent_defaults(name, appearance, background):
-    """Built-in palette for an accent over the given background."""
-    dark = appearance == "dark"
+def accent_defaults(name, appearance):
+    """Built-in palette for an accent."""
     preset = ACCENT_PRESETS[ACCENT_NAMES.index(name)]
-    fill, text, eq = ("#" + value for value in (preset[3:] if dark else preset[:3]))
-    weight = EQ_SELECTION_WEIGHT[appearance]
-    tint = []
-    for base, color in zip(rgb(background), rgb(eq)):
-        delta = (color - base) * weight
-        tint.append(base + ((delta + 127) // 255 if delta >= 0 else -((127 - delta) // 255)))
-    values = (fill, text, fill, "#ffffff", text, eq, "#" + bytes(tint).hex(),
-              "#101010" if dark else "#ffffff")
-    return dict(zip(ACCENT_ROLES, values))
+    fill, text = ("#" + value for value in (preset[2:] if appearance == "dark" else preset[:2]))
+    return dict(zip(ACCENT_ROLES, (fill, text, fill, "#ffffff", text)))
 
 
 def contrast(first, second):
@@ -81,7 +69,7 @@ def contrast(first, second):
 
 CONTRAST_PAIRS = (
     ("text", "background"), ("muted", "background"), ("accent_text", "background"),
-    ("on_accent", "selection"), ("eq_on_accent", "eq_accent"),
+    ("on_accent", "selection"), ("on_accent", "accent_fill"),
 )
 
 
@@ -126,6 +114,5 @@ def decode_options(data):
 def classic_style(appearance):
     """Style prefix for Classic packs; firmware uses its built-in Classic style."""
     colors = COLOR_DEFAULTS[appearance]
-    palettes = {name: accent_defaults(name, appearance, colors["background"])
-                for name in ACCENT_NAMES}
+    palettes = {name: accent_defaults(name, appearance) for name in ACCENT_NAMES}
     return encode_colors(colors) + encode_options(0, colors["accent_text"], palettes)

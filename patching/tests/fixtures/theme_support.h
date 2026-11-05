@@ -131,7 +131,7 @@ static void write_record(unsigned char *out, unsigned asset, int recolor)
 
 static void opaque_style(unsigned char *body)
 {
-    for (unsigned i = 0; i < 16; i++)
+    for (unsigned i = 0; i < CFW_THEME_COLOR_COUNT; i++)
         body[i * 4 + 3] = 255;
     for (unsigned i = sizeof(struct cfw_theme_style) + 7; i < CFW_THEME_STYLE_BYTES; i += 4)
         body[i] = 255;

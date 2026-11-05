@@ -243,7 +243,7 @@ def resolve_style(appearance, entry, where):
     check_fields(overrides, set(style.ACCENT_NAMES), f"{where}.accents")
     palettes = {}
     for name in style.ACCENT_NAMES:
-        palette = style.accent_defaults(name, appearance, colors["background"])
+        palette = style.accent_defaults(name, appearance)
         override = overrides.get(name, {})
         check_fields(override, set(style.ACCENT_ROLES), f"{where}.accents.{name}")
         for role, value in override.items():

@@ -457,11 +457,11 @@ int main(void)
                     int top = type ? 141 : 170;
                     int bottom = type ? 167 : 215;
                     assert(!memcmp(pixels[top][left],
-                                   cfw_theme_color(CFW_THEME_EQ_ACCENT, 0), 3));
+                                   cfw_theme_color(CFW_THEME_ACCENT_FILL, 0), 3));
                     assert(!memcmp(pixels[top][right],
-                                   cfw_theme_color(CFW_THEME_EQ_ACCENT, 0), 3));
+                                   cfw_theme_color(CFW_THEME_ACCENT_FILL, 0), 3));
                     assert(!memcmp(pixels[bottom][left + 3],
-                                   cfw_theme_color(CFW_THEME_EQ_ACCENT, 0), 3));
+                                   cfw_theme_color(CFW_THEME_ACCENT_FILL, 0), 3));
                 }
                 dark = 1;
                 canvas_draw(NULL, NULL, NULL);
@@ -477,6 +477,18 @@ int main(void)
             }
         }
     }
+    /* Dark accent labels use the brighter text role; edited fields use the fill. */
+    cfw_theme_accent_set(CFW_THEME_ACCENT_PURPLE);
+    dark = 1;
+    editor.parameter = PARAM_TYPE;
+    editor.mode = MODE_PARAMETER;
+    canvas_draw(NULL, NULL, NULL);
+    assert(!memcmp(pixels[141][0], cfw_theme_color(CFW_THEME_ACCENT_TEXT, 1), 3));
+    editor.mode = MODE_EDIT;
+    canvas_draw(NULL, NULL, NULL);
+    assert(!memcmp(pixels[141][0], cfw_theme_color(CFW_THEME_ACCENT_FILL, 1), 3));
+    cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
+    dark = 0;
     canvas_reset();
     assert(editor.band == 0 && editor.parameter == 0 && editor.mode == MODE_BAND);
     values[CFW_EQ_BAND1_GAIN] = 32;
@@ -525,7 +537,7 @@ int main(void)
     assert(response_extent == 120);
     assert(response_curve[78] == 2); /* About 159 Hz, +0.2 dB after quantization. */
     assert(response_y(response_curve[78]) == 107);
-    assert(!memcmp(pixels[107][44 + 78], cfw_theme_color(CFW_THEME_EQ_ACCENT, 1), 3));
+    assert(!memcmp(pixels[107][44 + 78], cfw_theme_color(CFW_THEME_ACCENT_TEXT, 1), 3));
     for (int i = 0; i <= response_extent; i++)
         assert(response_y(i) + response_y(-i) == 216);
     assert(rectangles > 0);

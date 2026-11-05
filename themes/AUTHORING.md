@@ -20,7 +20,7 @@ appearance packs the manifest no longer declares.
 
 RTM4/RTH4 covers:
 
-- **Colors**: the 16 color roles below, for a light and/or dark appearance.
+- **Colors**: the 13 color roles below, for a light and/or dark appearance.
   All colors are opaque; `#RRGGBB` only.
 - **Accents**: per-appearance values for the named accent colors chosen on the
   device, and the selection bar style.
@@ -82,8 +82,8 @@ the device.
   default. `icon_tint` is also accepted here; it defaults to `accent_text`.
 - `accents`: optional object keyed by accent name (`blue`, `purple`, `pink`,
   `red`, `orange`, `green`, `teal`, `yellow`, `graphite`). Each value is any
-  subset of `accent_fill`, `accent_text`, `selection`, `on_accent`,
-  `icon_tint`, `eq_accent`, `eq_selection` and `eq_on_accent`. When the user
+  subset of `accent_fill`, `accent_text`, `selection`, `on_accent` and
+  `icon_tint`. When the user
   picks that accent, these replace the matching roles. Omitted names and roles
   use built-in values for the appearance; `report.json` lists the names that
   fell back and the contrast of each resolved text/background pair.
@@ -110,9 +110,9 @@ the device.
 | background | `#ffffff` | `#181818` | Native surfaces and EQ background |
 | text | `#202020` | `#e8e8e8` | Native text shades and EQ text |
 | muted | `#555555` | `#a8a8a8` | EQ secondary text |
-| accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text |
-| accent_text | `#3185d0` | `#00a1ff` | Native accent text |
-| on_accent | `#ffffff` | `#ffffff` | Reserved foreground; no native drawing consumer |
+| accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text; EQ field being edited |
+| accent_text | `#3185d0` | `#00a1ff` | Native accent text; EQ response curve and selected band |
+| on_accent | `#ffffff` | `#ffffff` | EQ text on the field being edited |
 | selection | `#236cc5` | `#00a1ff` | List selection bar |
 | track | `#eeeeee` | `#2c2c2c` | EQ control tracks |
 | inactive | `#8f959a` | `#7d8c98` | EQ inactive controls |
@@ -120,9 +120,12 @@ the device.
 | zero | `#b5b5b5` | `#646464` | EQ zero-gain line |
 | border | `#d6d6d6` | `#3c3c3c` | EQ control borders |
 | cover_border | `#7e8183` | `#383838` | Cover Flow border |
-| eq_accent | `#1479d5` | `#00a1ff` | EQ active controls and response curve |
-| eq_selection | `#edf5fc` | `#1a2e3f` | EQ selection background |
-| eq_on_accent | `#ffffff` | `#101010` | EQ text on active controls |
+
+The EQ selection background is derived when drawing: `background` mixed toward
+`accent_text` by 20/255 on light backgrounds and 43/255 on dark ones. The
+selected band label and the selected field border use whichever of
+`accent_fill` and `accent_text` differs more in brightness from that tint.
+Keep `on_accent` readable on `accent_fill`; `report.json` lists that pair.
 
 Native hooks map stock RGB values rather than individual views. These roles do
 not control every label or icon. Accent presets override accent
@@ -150,15 +153,15 @@ bitmap catalog.
   (NUL-terminated and zero-padded).
 - Appearance pack header (`<4s32sIIII`, 52 bytes): `RTH4`, hash, appearance
   (`0` light, `1` dark), body size, record count, CRC32 of the body.
-- Body: a 360-byte style prefix followed by bitmap records. The prefix holds
-  16 RGBA colors in role order (64 bytes), then a little-endian flags word
+- Body: a 240-byte style prefix followed by bitmap records. The prefix holds
+  13 RGBA colors in role order (52 bytes), then a little-endian flags word
   (`1` flat selection, `2` accent preview icons), the RGBA icon tint, and
-  9 accents × 8 roles of RGBA in the name and role order listed above. Every
+  9 accents × 5 roles of RGBA in the name and role order listed above. Every
   alpha byte is 255.
 - Records: `record count` entries of `<III asset_index, offset, size>`, then
   `size` bytes of native bitmap data, zero-padded to a 4-byte boundary.
   Records are sorted by unique, ascending asset index. A pack may have no
-  records. The body can be at most `360 + Σ(12 + align4(bytes − data_offset))`
+  records. The body can be at most `240 + Σ(12 + align4(bytes − data_offset))`
   over every catalog bitmap.
 
 `themes.package` provides `inspect_metadata`, `inspect_appearance`, and
@@ -181,7 +184,7 @@ python3 -m themes.stock --input /path/to/original/osos.bin \
 ```
 
 The extractor verifies the firmware SHA-256 and every bitmap CRC before writing.
-The 599-record baseline is 3,218,532 bytes for the current catalog. The
+The 599-record baseline is 3,218,412 bytes for the current catalog. The
 transaction reader streams it with a 256-byte scratch buffer, retaining only
 records required to restore artwork changed by the previous theme. Boot validates this file before enabling theming.
 Install it at `themes/classic/default.bin`.
