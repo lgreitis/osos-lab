@@ -3,8 +3,9 @@
 #include <stdint.h>
 #include "theme_style.h"
 
-/* Fixed bounds are metadata only; no resident copy of theme artwork. */
-#define CFW_THEME_MAX_ASSETS 1024u
+/* Upper bound on catalog assets; the generated catalog asserts it. Metadata only:
+ * no resident copy of theme artwork. */
+#define CFW_THEME_MAX_ASSETS 640u
 #define CFW_THEME_BITMAP_WORDS (CFW_THEME_MAX_ASSETS / 32)
 struct osos_path;
 #define CFW_THEME_STYLE_BYTES (sizeof(struct cfw_theme_style) + sizeof(struct cfw_theme_options))
@@ -30,8 +31,18 @@ struct cfw_theme_transaction {
     int custom, dark, applied;
 };
 
+/* Shared primitives for the RTH4/RTP1 codecs. The CRC runs on an inverted seed:
+ * start from UINT32_MAX and invert the result. */
+uint32_t cfw_theme_crc32(uint32_t crc, const void *data, uint32_t size);
+uint32_t cfw_theme_u32(const unsigned char *p);
+/* Volume 0 path from a NUL-terminated name shorter than the path buffer. */
+void cfw_theme_path(struct osos_path *out, const char *text);
+
 /* Validate the complete original-artwork baseline without retaining its body. */
 int cfw_theme_baseline_valid(const struct osos_path *path);
+/* Stream an appearance pack and check its header, style opacity, record layout and
+ * checksum without allocating. Palette indices are checked when a pack is read. */
+int cfw_theme_pack_valid(const struct osos_path *path, int dark);
 
 int cfw_theme_metadata_read(const struct osos_path *path,
                             struct cfw_theme_metadata *out);

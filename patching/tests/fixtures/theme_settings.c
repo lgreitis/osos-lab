@@ -88,9 +88,6 @@ cfw_theme_preferences_store(const struct cfw_theme_preferences *s)
     return CFW_THEME_STORE_DURABLE;
 }
 
-const struct osos_path cfw_theme_classic_baseline = {0, "themes/classic/default.bin"};
-const struct osos_path cfw_theme_classic_dark = {0, "themes/classic/dark.bin"};
-
 static int discovery_overflow, no_custom;
 static unsigned probes;
 
@@ -341,8 +338,7 @@ int main(void)
     for (unsigned missing = 1; missing <= 3; missing++) {
         initialized = 0;
         missing_files = (missing & 1 ? 2u : 0) | (missing & 2 ? 8u : 0);
-        boot_recover = 1; /* Must not reach preference recovery or migration. */
-        boot.migrate = 1;
+        boot_recover = 1; /* Must not reach preference recovery. */
         cfw_theme_settings_load();
         choose(0);
         cfw_theme_settings_toggle(NULL);

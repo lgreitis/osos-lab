@@ -181,6 +181,7 @@ class Resources:
             for entry in templates
         }
         self.added = {}
+        self.packed = {}
         self.names = {}
         self.event_aliases = {}
         self.event_extensions = {}
@@ -210,6 +211,13 @@ class Resources:
         if key in self.added:
             raise ValueError(f"Duplicate CFW resource {key}")
         self.added[key] = Resource(data)
+
+    def add_packed(self, resource_id, data, packed):
+        """Register a BMap served from a zero-run encoding instead of the bank."""
+        key = ("BMap", resource_id)
+        if key in self.added or key in self.packed:
+            raise ValueError(f"Duplicate CFW resource {key}")
+        self.packed[key] = (bytes(packed), len(data))
 
     def replace(self, kind, resource_id, data):
         key = (kind, resource_id)

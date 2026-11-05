@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "theme_discovery.h"
+#include "cfw.h"
 #include "osos.h"
+#include "theme_id.h"
 
 #ifndef CFW_THEME_DISCOVERY_HOST
 /* Synchronous iterator behind AsyncFileIO; same entries as game-sdk/runtime/native.h. */
@@ -57,17 +59,10 @@ static inline void path_string_destroy(struct cfw_path_string *path)
 
 #define THEMES_ROOT "themes"
 
-/* Same rule as theme.bin ids: [a-z0-9][a-z0-9_-]{0,30}. */
+/* Custom package ids: the shared rule, excluding the empty Classic id. */
 static int safe_id(const char *id)
 {
-    unsigned i = 0;
-    for (; i < sizeof(((struct cfw_theme_metadata *)0)->id) && id[i]; i++) {
-        char c = id[i];
-        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
-              (i && (c == '_' || c == '-'))))
-            return 0;
-    }
-    return i && i < sizeof(((struct cfw_theme_metadata *)0)->id);
+    return id[0] && cfw_theme_id_valid(id);
 }
 
 static int compare(const char *a, const char *b)
@@ -80,26 +75,16 @@ static int compare(const char *a, const char *b)
 }
 
 /* FAT short directory names are returned uppercase by the native iterator. */
-static int directory_id(const char *name, char *id)
+static int directory_id(const char *name, char id[CFW_THEME_ID_BYTES])
 {
-    unsigned i = 0;
-    for (; i < sizeof(((struct cfw_theme_metadata *)0)->id); i++) {
+    cfw_zero(id, CFW_THEME_ID_BYTES);
+    for (unsigned i = 0; i < CFW_THEME_ID_BYTES; i++) {
         char c = name[i];
         id[i] = c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c;
         if (!c)
             return safe_id(id);
     }
     return 0;
-}
-
-/* Explicit byte loop: the freestanding ARM payload has no memcpy. */
-static void copy_entry(struct cfw_theme_choice *destination,
-                       const struct cfw_theme_choice *source)
-{
-    unsigned char *p = (unsigned char *)destination;
-    const unsigned char *q = (const unsigned char *)source;
-    for (uint32_t i = 0; i < sizeof(*destination); i++)
-        p[i] = q[i];
 }
 
 static int append(struct osos_path *out, unsigned *at, const char *text)
@@ -138,8 +123,8 @@ static uint32_t insert(struct cfw_theme_choice *entries, uint32_t capacity,
         count--;
     }
     for (uint32_t i = count; i > at; i--)
-        copy_entry(&entries[i], &entries[i - 1]);
-    copy_entry(&entries[at], candidate);
+        cfw_copy(&entries[i], &entries[i - 1], sizeof(*entries));
+    cfw_copy(&entries[at], candidate, sizeof(*entries));
     return count + 1;
 }
 
@@ -159,21 +144,18 @@ uint32_t cfw_theme_discovery_scan(struct cfw_theme_choice *entries, uint32_t cap
         struct osos_path path;
         struct cfw_theme_metadata candidate;
         char id[sizeof(candidate.id)];
-        /* Built-in and legacy folders are not custom packages. */
-        int valid =
-            text && is_directory && directory_id(text, id) && compare(id, "default") &&
-            compare(id, "dark") && compare(id, "classic") &&
-            cfw_theme_discovery_path(id, "theme.bin", &path) &&
-            cfw_theme_metadata_read(&path, &candidate) && !compare(id, candidate.id);
+        /* Reserved folders fail the id rule and are not custom packages. */
+        int valid = text && is_directory && directory_id(text, id) &&
+                    cfw_theme_discovery_path(id, "theme.bin", &path) &&
+                    cfw_theme_metadata_read(&path, &candidate) &&
+                    !compare(id, candidate.id);
         path_string_destroy(&name);
         if (!more)
             break;
         if (valid) {
             struct cfw_theme_choice choice;
-            for (unsigned i = 0; i < sizeof(choice.id); i++)
-                choice.id[i] = candidate.id[i];
-            for (unsigned i = 0; i < sizeof(choice.name); i++)
-                choice.name[i] = candidate.name[i];
+            cfw_copy(choice.id, candidate.id, sizeof(choice.id));
+            cfw_copy(choice.name, candidate.name, sizeof(choice.name));
             count = insert(entries, capacity, count, &choice, &overflowed);
             if (!capacity)
                 break;
@@ -189,8 +171,7 @@ int cfw_theme_discovery_select(const char *id, uint32_t prefer_dark, int allow_f
                                struct cfw_theme_metadata *metadata,
                                struct osos_path *pack, uint32_t *dark)
 {
-    if (!id || !metadata || !pack || !dark || prefer_dark > 1 || !safe_id(id) ||
-        !compare(id, "default") || !compare(id, "dark") || !compare(id, "classic"))
+    if (!id || !metadata || !pack || !dark || prefer_dark > 1 || !safe_id(id))
         return 0;
     struct osos_path path;
     struct cfw_theme_metadata candidate;
@@ -206,13 +187,8 @@ int cfw_theme_discovery_select(const char *id, uint32_t prefer_dark, int allow_f
     if (!(candidate.appearance_mask & (1u << selected)) ||
         !cfw_theme_discovery_path(id, selected ? "dark.bin" : "light.bin", &path))
         return 0;
-    for (unsigned i = 0; i < sizeof(candidate); i++)
-        ((unsigned char *)metadata)[i] = ((const unsigned char *)&candidate)[i];
-    pack->volume = path.volume;
-    unsigned i = 0;
-    do {
-        pack->text[i] = path.text[i];
-    } while (path.text[i++]);
+    cfw_copy(metadata, &candidate, sizeof(candidate));
+    cfw_theme_path(pack, path.text);
     *dark = selected;
     return 1;
 }

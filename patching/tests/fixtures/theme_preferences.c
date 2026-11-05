@@ -11,25 +11,13 @@ static int open_error, read_error, write_error, sync_error, size_error;
 static uint32_t write_limit = CFW_THEME_PREFERENCE_BYTES;
 static unsigned storage_opens, storage_closes, syncs, fail_sync_at;
 static int corrupt_readback;
-static uint32_t legacy_record;
-static unsigned legacy_reads, metadata_reads;
+static unsigned metadata_reads;
 static uint32_t metadata_mask = 3;
-static int legacy_error, metadata_error;
-static int reading_legacy;
+static int metadata_error;
 
 static int preference_open(const struct osos_path *path, uint32_t mode, void **out)
 {
-    reading_legacy = !strcmp(path->text, "iPod_Control\\Device\\CFWDark");
-    if (reading_legacy) {
-        assert(mode == 1);
-        legacy_reads++;
-        if (legacy_error)
-            return legacy_error;
-        storage_opens++;
-        *out = disk;
-        return 0;
-    }
-    assert(!strcmp(path->text, "iPod_Control\\Device\\CFWTheme"));
+    assert(!path->volume && !strcmp(path->text, "iPod_Control\\Device\\CFWTheme"));
     assert(mode == 1 || mode == 2);
     if (open_error)
         return open_error;
@@ -42,12 +30,6 @@ static int preference_open(const struct osos_path *path, uint32_t mode, void **o
 static int preference_read(void *handle, void *out, uint32_t size, uint32_t *count)
 {
     assert(handle == disk);
-    if (reading_legacy) {
-        assert(size == sizeof(legacy_record));
-        memcpy(out, &legacy_record, size);
-        *count = size;
-        return 0;
-    }
     if (read_error)
         return read_error;
     if (size > disk_size - cursor)
@@ -130,16 +112,6 @@ int cfw_theme_discovery_select(const char *id, uint32_t dark, int fallback,
     return 1;
 }
 
-static int preference_delete(const struct osos_path *path)
-{
-    (void)path;
-    assert(0);
-    return 0;
-}
-
-#define osos_file_delete preference_delete
-#include "../../../payload/preferences.c"
-#undef osos_file_delete
 #include "../../../payload/theme_boot.c"
 #undef osos_file_open
 #undef osos_file_read
@@ -191,8 +163,7 @@ static void codec(void)
     assert(cfw_theme_preferences_encode(&state, bytes));
     assert(cfw_theme_preferences_decode(bytes, CFW_THEME_PREFERENCE_BYTES, &saved));
     struct cfw_theme_selection desired;
-    assert(
-        cfw_theme_boot_selection(CFW_THEME_PREF_VALID, &saved, 0x314b5244, &desired));
+    assert(cfw_theme_boot_selection(CFW_THEME_PREF_VALID, &saved, &desired));
     assert(!desired.id[0] && !desired.dark);
 }
 
@@ -220,7 +191,7 @@ static void storage(void)
         assert(cfw_theme_preferences_store(&state) == CFW_THEME_STORE_UNKNOWN);
         enum cfw_theme_preferences_status status = cfw_theme_preferences_load(&saved);
         struct cfw_theme_selection desired;
-        int recover = cfw_theme_boot_selection(status, &saved, 0, &desired);
+        int recover = cfw_theme_boot_selection(status, &saved, &desired);
         /* A write that changed no bytes can preserve the prior confirmed theme. */
         assert(recover ? !desired.id[0] && !desired.dark
                        : !strcmp(desired.id, "modern") && desired.dark);
@@ -255,22 +226,15 @@ static void storage(void)
     assert(storage_opens == before && storage_opens == storage_closes);
 }
 
-static enum cfw_theme_store_result persist(void *context,
-                                           const struct cfw_theme_preferences *state)
-{
-    (void)context;
-    return cfw_theme_preferences_store(state);
-}
-
 static void switch_storage_ordering(void)
 {
-    const struct cfw_theme_switch_ops ops = {persist};
+    const struct cfw_theme_switch_ops ops = {cfw_theme_preferences_store};
     struct cfw_theme_switch switcher;
     struct cfw_theme_preferences saved;
     const struct cfw_theme_selection modern = {"modern", 1, 0}, classic = {"", 0, 0};
     const struct osos_path pack = {0, "0"}, baseline = {0, "1"};
     disk_size = sizeof(disk);
-    assert(cfw_theme_switch_init(&switcher, &ops, NULL));
+    assert(cfw_theme_switch_init(&switcher, &ops));
     assert(cfw_theme_switch_store_classic(&switcher));
     assert(disk_size == CFW_THEME_PREFERENCE_BYTES);
     assert(cfw_theme_switch_apply(&switcher, &modern, &pack, &baseline));
@@ -294,26 +258,26 @@ static void boot_resolution(void)
     struct cfw_theme_boot_request request;
     struct cfw_theme_preferences state = {1, 0, {"modern", 1, 0}};
     unsigned sync_count = syncs;
+    /* An absent record is a first boot: Classic light, no recovery write. */
     open_error = -43;
-    legacy_record = 0x314b5244;
     assert(!cfw_theme_boot_resolve(&request));
-    assert(legacy_reads == 1 && !metadata_reads);
-    assert(!request.selection.id[0] && request.selection.dark);
-    assert(request.appearance_mask == 3);
-    assert(!strcmp(request.pack.text, "themes/classic/dark.bin"));
-    legacy_error = -1;
-    assert(!cfw_theme_boot_resolve(&request));
-    assert(!request.selection.dark && !request.pack.text[0]);
-    legacy_error = 0;
-    unsigned reads = legacy_reads;
+    assert(!metadata_reads && !request.selection.id[0] && !request.selection.dark);
+    assert(!request.pack.text[0] && request.appearance_mask == 3);
     open_error = -1;
     assert(cfw_theme_boot_resolve(&request));
-    assert(legacy_reads == reads && !request.selection.dark);
+    assert(!request.selection.dark && !request.pack.text[0]);
     open_error = 0;
+    /* A saved Classic dark selection resolves to the built-in dark pack. */
+    struct cfw_theme_preferences classic_dark = {1, 0, {"", 1, 0}};
     disk_size = CFW_THEME_PREFERENCE_BYTES;
+    assert(cfw_theme_preferences_encode(&classic_dark, disk));
+    assert(!cfw_theme_boot_resolve(&request));
+    assert(!metadata_reads && !request.selection.id[0] && request.selection.dark);
+    assert(!request.pack.volume &&
+           !strcmp(request.pack.text, "themes/classic/dark.bin"));
     assert(cfw_theme_preferences_encode(&state, disk));
     assert(!cfw_theme_boot_resolve(&request));
-    assert(legacy_reads == reads && metadata_reads == 1);
+    assert(metadata_reads == 1);
     assert(request.selection.dark && !strcmp(request.selection.id, "modern"));
     assert(!strcmp(request.pack.text, "themes/modern/dark.bin"));
     metadata_mask = 1;
@@ -329,10 +293,10 @@ static void boot_resolution(void)
     state.pending = 1;
     assert(cfw_theme_preferences_encode(&state, disk));
     assert(cfw_theme_boot_resolve(&request));
-    assert(metadata_reads == count && legacy_reads == reads);
+    assert(metadata_reads == count);
     disk[0] ^= 1;
     assert(cfw_theme_boot_resolve(&request));
-    assert(metadata_reads == count && legacy_reads == reads);
+    assert(metadata_reads == count);
     assert(!request.pack.text[0] && !request.selection.id[0]);
     assert(syncs == sync_count && storage_opens == storage_closes);
 }

@@ -12,10 +12,8 @@ static int reenter;
 static const struct cfw_theme_selection modern = {.id = "modern", .dark = 1};
 static const struct cfw_theme_selection stock = {0};
 
-static enum cfw_theme_store_result store(void *context,
-                                         const struct cfw_theme_preferences *state)
+static enum cfw_theme_store_result store(const struct cfw_theme_preferences *state)
 {
-    (void)context;
     stores++;
     assert(!state->pending);
     if (reenter)
@@ -38,7 +36,7 @@ static void reset(void)
     alloc_attempts = fail_alloc_at = peak_bytes = 0;
     make_baseline();
     make_target(0);
-    assert(cfw_theme_switch_init(&switcher, &ops, NULL));
+    assert(cfw_theme_switch_init(&switcher, &ops));
 }
 
 static int apply(const struct cfw_theme_selection *selection)
@@ -59,13 +57,10 @@ static void boot_recovery(void)
 {
     struct cfw_theme_selection desired;
     struct cfw_theme_preferences saved = {.version = 1, .selection = modern};
-    assert(
-        !cfw_theme_boot_selection(CFW_THEME_PREF_ABSENT, NULL, 0x314b5244, &desired));
-    assert(!desired.id[0] && desired.dark);
-    assert(
-        !cfw_theme_boot_selection(CFW_THEME_PREF_ABSENT, NULL, 0xffffffff, &desired) &&
-        !desired.dark);
-    assert(!cfw_theme_boot_selection(CFW_THEME_PREF_VALID, &saved, 0, &desired));
+    /* First boot without a record is Classic light and needs no recovery write. */
+    assert(!cfw_theme_boot_selection(CFW_THEME_PREF_ABSENT, NULL, &desired));
+    assert(!memcmp(&desired, &stock, sizeof(stock)));
+    assert(!cfw_theme_boot_selection(CFW_THEME_PREF_VALID, &saved, &desired));
     assert(!strcmp(desired.id, "modern"));
     for (unsigned malformed = 0; malformed < 5; malformed++) {
         struct cfw_theme_preferences bad = saved;
@@ -79,12 +74,10 @@ static void boot_recovery(void)
             bad.selection.id[0] = '.';
         if (malformed == 4)
             bad.selection.accent = CFW_THEME_ACCENT_COUNT;
-        assert(
-            cfw_theme_boot_selection(CFW_THEME_PREF_VALID, &bad, 0x314b5244, &desired));
+        assert(cfw_theme_boot_selection(CFW_THEME_PREF_VALID, &bad, &desired));
         assert(!memcmp(&desired, &stock, sizeof(stock)));
     }
-    assert(
-        cfw_theme_boot_selection(CFW_THEME_PREF_INVALID, &saved, 0x314b5244, &desired));
+    assert(cfw_theme_boot_selection(CFW_THEME_PREF_INVALID, &saved, &desired));
 }
 
 static void failures(void)

@@ -13,6 +13,13 @@ struct osos_path {
 };
 
 #include "../../../payload/theme_package.h"
+#include "../../../payload/theme_id.c"
+
+void cfw_theme_path(struct osos_path *out, const char *text)
+{
+    out->volume = 0;
+    strcpy(out->text, text);
+}
 
 /* Fake native iterator: each returned name is a heap string, as on device. */
 struct entry {
