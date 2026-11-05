@@ -6,6 +6,7 @@
 #include "custom_eq.h"
 #include "eq_coefficients.h"
 #include "dark_mode.h"
+#include "theme_style.h"
 
 enum {
     CANVAS_TYPE = 0x63667763, /* cfwc */
@@ -172,29 +173,11 @@ enum {
     COLOR_COUNT,
 };
 
-static const unsigned char canvas_palettes[2][COLOR_COUNT][4] = {
-    {{255, 255, 255, 255},
-     {20, 121, 213, 255},
-     {237, 245, 252, 255},
-     {238, 238, 238, 255},
-     {143, 149, 154, 255},
-     {231, 231, 231, 255},
-     {181, 181, 181, 255},
-     {214, 214, 214, 255},
-     {32, 32, 32, 255},
-     {85, 85, 85, 255},
-     {255, 255, 255, 255}},
-    {{24, 24, 24, 255},
-     {0, 161, 255, 255},
-     {26, 46, 63, 255},
-     {44, 44, 44, 255},
-     {125, 140, 152, 255},
-     {48, 48, 48, 255},
-     {100, 100, 100, 255},
-     {60, 60, 60, 255},
-     {232, 232, 232, 255},
-     {168, 168, 168, 255},
-     {16, 16, 16, 255}},
+/* Role references keep the custom canvas in the same theme as native views. */
+static const enum cfw_theme_role canvas_roles[COLOR_COUNT] = {
+    CFW_THEME_BACKGROUND, CFW_THEME_EQ_ACCENT, CFW_THEME_EQ_SELECTION, CFW_THEME_TRACK,
+    CFW_THEME_INACTIVE,   CFW_THEME_GRID,      CFW_THEME_ZERO,         CFW_THEME_BORDER,
+    CFW_THEME_TEXT,       CFW_THEME_MUTED,     CFW_THEME_EQ_ON_ACCENT,
 };
 
 static uint32_t canvas_fonts[2][2];
@@ -482,7 +465,13 @@ static PATCH_ARM void canvas_draw(void *view, void *draw_argument, const int32_t
     ((void *(*)(void *))OSOS_GRAPHICS_CONSTRUCT)(context);
     ((view_context_fn)OSOS_VIEW_BIND_GRAPHICS)(view, context);
     ((rect_fn)OSOS_VIEW_LOCAL_RECT)(view, bounds);
-    const unsigned char(*colors)[4] = canvas_palettes[!!cfw_dark_mode_enabled()];
+    unsigned char colors[COLOR_COUNT][4];
+    for (unsigned i = 0; i < COLOR_COUNT; i++) {
+        const unsigned char *color =
+            cfw_theme_color(canvas_roles[i], cfw_dark_mode_enabled());
+        for (unsigned j = 0; j < 4; j++)
+            colors[i][j] = color[j];
+    }
     canvas_rect(context, bounds, 0, 0, bounds[3] - bounds[1], bounds[2] - bounds[0],
                 colors[COLOR_BACKGROUND]);
     if (bounds[2] - bounds[0] < CANVAS_HEIGHT || bounds[3] - bounds[1] < CANVAS_WIDTH)

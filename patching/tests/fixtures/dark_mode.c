@@ -164,12 +164,13 @@ static void text_color(void *target, const unsigned char *color)
     memcpy(drawn, color, 4);
 }
 
-static int clear_rgb, clear_alpha;
+static int clear_rgb[3], clear_alpha;
 
 static void clear_color(int red, int green, int blue, int alpha)
 {
-    assert(red == green && green == blue);
-    clear_rgb = red;
+    clear_rgb[0] = red;
+    clear_rgb[1] = green;
+    clear_rgb[2] = blue;
     clear_alpha = alpha;
 }
 
@@ -207,6 +208,7 @@ static void graphics_fill(void *context, const int32_t *rect);
 #define osos_graphics_set_color text_color
 #define osos_gles_clear_color clear_color
 #define osos_rgb565_blend blend
+#include "../../../payload/theme_style.c"
 #include "../../../payload/dark_mode.c"
 
 static void graphics_fill(void *context, const int32_t *rect)
@@ -490,9 +492,203 @@ static void check_clicker(void)
     }
 }
 
+static void check_fill(const unsigned char *native, unsigned char red,
+                       unsigned char green, unsigned char blue)
+{
+    cfw_dark_mode_fill(&surface, &model, native, 7, &controller);
+    const unsigned char expected[] = {red, green, blue, native[3]};
+    assert(!memcmp(drawn, expected, 4));
+}
+
+static void check_text(const void *view, const unsigned char *native, unsigned char red,
+                       unsigned char green, unsigned char blue)
+{
+    cfw_dark_mode_text_color(&surface, native, view);
+    const unsigned char expected[] = {red, green, blue, native[3]};
+    assert(!memcmp(drawn, expected, 4));
+}
+
+static void check_background(int red, int green, int blue, uint32_t rgb565)
+{
+    cfw_dark_mode_clear_color(0x10000, 0x10000, 0x10000, 0x4321);
+    assert(clear_rgb[0] == red && clear_rgb[1] == green && clear_rgb[2] == blue);
+    assert(clear_alpha == 0x4321);
+    cfw_dark_mode_reflection_blend(0xabcd, 0xffff, 0x8000);
+    assert(blend_background == rgb565);
+}
+
+static const unsigned char white[] = {255, 255, 255, 173},
+                           light_gray[] = {0xee, 0xee, 0xee, 9},
+                           pale_gray[] = {0xb0, 0xb0, 0xb0, 10},
+                           below_gray[] = {0xaf, 0xaf, 0xaf, 11},
+                           cover_border[] = {0x7e, 0x81, 0x83, 127},
+                           accent_fill[] = {0x23, 0x6c, 0xc5, 91},
+                           accent_text[] = {0x31, 0x85, 0xd0, 77},
+                           black[] = {0, 0, 0, 123}, dim_text[] = {0x80, 0x80, 0x80, 5},
+                           light_text[] = {0x81, 0x81, 0x81, 6};
+
+/* Classic with Theme Default or Blue is exact in both appearances. */
+static void check_classic_theme(void)
+{
+    for (unsigned accent = CFW_THEME_ACCENT_DEFAULT; accent <= CFW_THEME_ACCENT_BLUE;
+         accent++) {
+        assert(cfw_theme_accent_set(accent));
+        for (int dark = 0; dark < 2; dark++) {
+            assets_active = dark;
+            for (unsigned c = 0; c < 256; c++) {
+                const unsigned char native_gray[] = {c, c, c, 33};
+                unsigned char fill_shade = dark && c >= 0xb0 ? 0x18 + (255 - c) / 4 : c;
+                unsigned char text_shade = dark && c <= 0x80 ? 0xe8 - c / 2 : c;
+                check_fill(native_gray, fill_shade, fill_shade, fill_shade);
+                check_text(ordinary_view, native_gray, text_shade, text_shade,
+                           text_shade);
+            }
+            unsigned char cover = dark ? 0x38 : 0;
+            if (dark)
+                check_fill(cover_border, cover, cover, cover);
+            else
+                check_fill(cover_border, 0x7e, 0x81, 0x83);
+            if (dark) {
+                check_fill(accent_fill, 0, 161, 255);
+                check_text(ordinary_view, accent_fill, 0, 161, 255);
+                check_text(ordinary_view, accent_text, 0, 161, 255);
+                check_background(0x18 * 0x10000 / 255, 0x18 * 0x10000 / 255,
+                                 0x18 * 0x10000 / 255, 0x18c3);
+            } else {
+                check_fill(accent_fill, 0x23, 0x6c, 0xc5);
+                check_text(ordinary_view, accent_fill, 0x23, 0x6c, 0xc5);
+                check_text(ordinary_view, accent_text, 0x31, 0x85, 0xd0);
+                check_background(0x10000, 0x10000, 0x10000, 0xffff);
+            }
+        }
+    }
+}
+
+static void check_accent_presets(void)
+{
+    /* Purple recolors accents but leaves Classic light surfaces and backgrounds alone. */
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_PURPLE));
+    assets_active = 0;
+    check_fill(white, 255, 255, 255);
+    check_fill(light_gray, 0xee, 0xee, 0xee);
+    check_fill(cover_border, 0x7e, 0x81, 0x83);
+    check_text(ordinary_view, black, 0, 0, 0);
+    check_text(ordinary_view, dim_text, 0x80, 0x80, 0x80);
+    check_fill(accent_fill, 137, 68, 171);
+    check_text(ordinary_view, accent_fill, 137, 68, 171);
+    check_text(ordinary_view, accent_text, 137, 68, 171);
+    check_background(0x10000, 0x10000, 0x10000, 0xffff);
+    assets_active = 1;
+    check_fill(white, 0x18, 0x18, 0x18);
+    check_fill(accent_fill, 150, 78, 188);
+    check_text(ordinary_view, accent_fill, 150, 78, 188);
+    check_text(ordinary_view, accent_text, 218, 143, 255);
+    check_background(0x18 * 0x10000 / 255, 0x18 * 0x10000 / 255, 0x18 * 0x10000 / 255,
+                     0x18c3);
+
+    /* Native-color views keep their colors under every accent. */
+    uint32_t view[0xa4 / 4] = {0};
+    view[0x4c / 4] = 0x0dad0ddc; /* Search_Input_Text */
+    check_text(view, accent_text, 0x31, 0x85, 0xd0);
+    check_text(view, black, 0, 0, 0);
+
+    const unsigned char light[][3] = {
+        {196, 30, 86}, {208, 32, 40}, {184, 72, 0}, {30, 128, 58}};
+    const unsigned char dark[][3] = {
+        {255, 100, 145}, {255, 105, 97}, {255, 159, 10}, {48, 209, 88}};
+    for (unsigned i = 0; i < 4; i++) {
+        assert(cfw_theme_accent_set(CFW_THEME_ACCENT_PINK + i));
+        assets_active = 0;
+        check_text(ordinary_view, accent_text, light[i][0], light[i][1], light[i][2]);
+        assets_active = 1;
+        check_text(ordinary_view, accent_text, dark[i][0], dark[i][1], dark[i][2]);
+    }
+    assert(!cfw_theme_accent_set(CFW_THEME_ACCENT_COUNT));
+    assert(cfw_theme_accent_get() == CFW_THEME_ACCENT_GREEN);
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+}
+
+static void check_custom_theme(void)
+{
+    struct cfw_theme_style style = {{{0}}};
+    const unsigned char sepia[][3] = {
+        [CFW_THEME_BACKGROUND] = {250, 240, 220},
+        [CFW_THEME_TEXT] = {60, 40, 20},
+        [CFW_THEME_ACCENT_FILL] = {160, 80, 30},
+        [CFW_THEME_ACCENT_TEXT] = {140, 70, 20},
+        [CFW_THEME_COVER_BORDER] = {120, 100, 80},
+    };
+    for (unsigned role = 0; role < sizeof(sepia) / sizeof(sepia[0]); role++) {
+        memcpy(style.colors[role], sepia[role], 3);
+        style.colors[role][3] = 255;
+    }
+    cfw_theme_style_set(&style);
+    /* Custom styles theme light mode too, independent of the dark-mode switch. */
+    for (int dark = 0; dark < 2; dark++) {
+        assets_active = dark;
+        check_fill(white, 250, 240, 220);
+        check_fill(light_gray, 250 - 17, 240 - 17, 220 - 17);
+        check_fill(pale_gray, 250 - 79, 240 - 79, 220 - 79);
+        check_fill(below_gray, 0xaf, 0xaf, 0xaf);
+        check_fill(cover_border, 120, 100, 80);
+        check_fill(accent_fill, 160, 80, 30);
+        check_text(ordinary_view, black, 60 - 32, 40 - 32, 0);
+        check_text(ordinary_view, dim_text, 60 + 96, 40 + 96, 20 + 96);
+        check_text(ordinary_view, light_text, 0x81, 0x81, 0x81);
+        check_text(ordinary_view, accent_fill, 160, 80, 30);
+        check_text(ordinary_view, accent_text, 140, 70, 20);
+        check_background(250 * 0x10000 / 255, 240 * 0x10000 / 255, 220 * 0x10000 / 255,
+                         (31u << 11) | (60u << 5) | 27u);
+        /* Retained-light views stay unmapped. */
+        uint32_t view[0xa4 / 4] = {0};
+        view[0x4c / 4] = 0x0dad0607; /* Settings_DateTime_NumericDay */
+        check_text(view, black, 0, 0, 0);
+    }
+
+    /* A dark custom theme inverts native shades and clamps role channels. */
+    const unsigned char night[][3] = {
+        [CFW_THEME_BACKGROUND] = {250, 10, 40},
+        [CFW_THEME_TEXT] = {255, 250, 100},
+    };
+    for (unsigned role = 0; role < 2; role++)
+        memcpy(style.colors[role], night[role], 3);
+    cfw_theme_style_set(&style);
+    memset(&style, 0, sizeof(style)); /* The setter copied it. */
+    assets_active = 0;
+    check_fill(white, 250, 10, 40);
+    check_fill(pale_gray, 255, 10 + 19, 40 + 19);
+    check_text(ordinary_view, black, 255, 250, 100);
+    check_text(ordinary_view, dim_text, 255 - 64, 250 - 64, 100 - 64);
+    check_background(250 * 0x10000 / 255, 10 * 0x10000 / 255, 40 * 0x10000 / 255,
+                     (31u << 11) | (2u << 5) | 5u);
+
+    /* Accent presets on a custom theme pick the variant from its background. */
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_ORANGE));
+    check_fill(accent_fill, 190, 76, 0);
+    check_text(ordinary_view, accent_text, 255, 159, 10);
+    check_fill(white, 250, 10, 40);
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+    check_fill(accent_fill, 160, 80, 30);
+
+    cfw_theme_style_reset();
+    assets_active = 0;
+}
+
+static void check_theme(void)
+{
+    int was_active = assets_active;
+    check_classic_theme();
+    check_accent_presets();
+    check_custom_theme();
+    check_classic_theme();
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+    assets_active = was_active;
+}
+
 int main(void)
 {
     check_cached_colors();
+    check_theme();
     uintptr_t value = 0;
     const uint32_t icons[] = {CFW_EQ_Icon, CFW_Info_Icon};
     for (unsigned i = 0; i < sizeof(icons) / sizeof(icons[0]); i++) {
@@ -554,7 +750,8 @@ int main(void)
                 !memcmp(drawn, dark ? texts[i].dark : texts[i].light, sizeof(drawn)));
         }
         cfw_dark_mode_clear_color(0x10000, 0x10000, 0x10000, 0x4321);
-        assert(clear_rgb == (dark ? 0x18 * 0x10000 / 255 : 0x10000));
+        for (unsigned i = 0; i < 3; i++)
+            assert(clear_rgb[i] == (dark ? 0x18 * 0x10000 / 255 : 0x10000));
         assert(clear_alpha == 0x4321);
         assert(cfw_dark_mode_reflection_blend(0xabcd, 0xffff, 0x8000) == 0x1234);
         assert(blend_background == (dark ? 0x18c3u : 0xffffu));

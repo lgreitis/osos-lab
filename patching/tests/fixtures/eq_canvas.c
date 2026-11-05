@@ -204,7 +204,7 @@ static void *osos_resource_get(void *bank, uint32_t type, uint32_t id, uint32_t 
 static uintptr_t osos_ui_string(uint32_t id)
 {
     assert(id == 1);
-    return (uintptr_t) "Helvetica";
+    return (uintptr_t)"Helvetica";
 }
 
 static void osos_font_construct(uint32_t *font, const char *family, uint32_t size,
@@ -356,6 +356,7 @@ static void osos_ui_register_controllers(void *registry, const char *name,
 }
 
 #include "../../../payload/eq_coefficients.c"
+#include "../../../payload/theme_style.c"
 #include "../../../payload/eq_canvas.c"
 
 static int button(uint32_t kind, uint32_t code)
@@ -455,12 +456,12 @@ int main(void)
                     int right = type ? 319 : editor.parameter * 320 / 3 - 1;
                     int top = type ? 141 : 170;
                     int bottom = type ? 167 : 215;
-                    assert(!memcmp(pixels[top][left], canvas_palettes[0][COLOR_ACCENT],
-                                   3));
-                    assert(!memcmp(pixels[top][right], canvas_palettes[0][COLOR_ACCENT],
-                                   3));
+                    assert(!memcmp(pixels[top][left],
+                                   cfw_theme_color(CFW_THEME_EQ_ACCENT, 0), 3));
+                    assert(!memcmp(pixels[top][right],
+                                   cfw_theme_color(CFW_THEME_EQ_ACCENT, 0), 3));
                     assert(!memcmp(pixels[bottom][left + 3],
-                                   canvas_palettes[0][COLOR_ACCENT], 3));
+                                   cfw_theme_color(CFW_THEME_EQ_ACCENT, 0), 3));
                 }
                 dark = 1;
                 canvas_draw(NULL, NULL, NULL);
@@ -524,7 +525,7 @@ int main(void)
     assert(response_extent == 120);
     assert(response_curve[78] == 2); /* About 159 Hz, +0.2 dB after quantization. */
     assert(response_y(response_curve[78]) == 107);
-    assert(!memcmp(pixels[107][44 + 78], canvas_palettes[1][COLOR_ACCENT], 3));
+    assert(!memcmp(pixels[107][44 + 78], cfw_theme_color(CFW_THEME_EQ_ACCENT, 1), 3));
     for (int i = 0; i <= response_extent; i++)
         assert(response_y(i) + response_y(-i) == 216);
     assert(rectangles > 0);
