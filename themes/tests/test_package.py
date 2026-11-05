@@ -94,20 +94,20 @@ class PackageTests(unittest.TestCase):
         )
         light = bytes.fromhex(
             "ffffffff202020ff555555ff236cc5ff3185d0ffffffffff236cc5ffeeeeeeff"
-            "8f959affe7e7e7ffb5b5b5ffd6d6d6ff7e8183ff1479d5ffedf5fcffffffffff"
+            "8f959affe7e7e7ffb5b5b5ffd6d6d6ff7e8183ff"
         )
         dark = bytes.fromhex(
             "181818ffe8e8e8ffa8a8a8ff00a1ffff00a1ffffffffffff00a1ffff2c2c2cff"
-            "7d8c98ff303030ff646464ff3c3c3cff383838ff00a1ffff1a2e3fff101010ff"
+            "7d8c98ff303030ff646464ff3c3c3cff383838ff"
         )
         self.assertEqual(files["light.bin"][HEADER.size : HEADER.size + COLORS], light)
         self.assertEqual(files["dark.bin"][HEADER.size : HEADER.size + COLORS], dark)
-        self.assertEqual(len(COLOR_ROLES), 16)
+        self.assertEqual(len(COLOR_ROLES), 13)
         self.assertEqual(COLOR_ROLES[0], "background")
-        self.assertEqual(COLOR_ROLES[-1], "eq_on_accent")
+        self.assertEqual(COLOR_ROLES[-1], "cover_border")
 
     def test_headers_and_metadata_wire_layout(self):
-        self.assertEqual((METADATA.size, HEADER.size, COLORS), (120, 52, 64))
+        self.assertEqual((METADATA.size, HEADER.size, COLORS), (120, 52, 52))
         files = self.compile(manifest(dark={"colors": {"accent_fill": "#ABCDEF"}}))
         self.assertEqual(sorted(files), ["dark.bin", "report.json", "theme.bin"])
         magic, fingerprint, mask, raw_id, raw_name = METADATA.unpack(files["theme.bin"])

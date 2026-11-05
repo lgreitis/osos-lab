@@ -160,8 +160,8 @@ static PATCH_ARM int canvas_event(void *controller, void *event)
 
 enum {
     COLOR_BACKGROUND,
-    COLOR_ACCENT,
-    COLOR_SELECTION,
+    COLOR_CURVE,
+    COLOR_FILL,
     COLOR_TRACK,
     COLOR_INACTIVE,
     COLOR_GRID,
@@ -169,16 +169,42 @@ enum {
     COLOR_BORDER,
     COLOR_TEXT,
     COLOR_MUTED,
-    COLOR_ON_ACCENT,
+    COLOR_ON_FILL,
+    COLOR_ROLES,
+    /* Derived from the roles above when drawing. */
+    COLOR_SELECTION = COLOR_ROLES,
+    COLOR_LABEL,
     COLOR_COUNT,
 };
 
 /* Role references keep the custom canvas in the same theme as native views. */
-static const enum cfw_theme_role canvas_roles[COLOR_COUNT] = {
-    CFW_THEME_BACKGROUND, CFW_THEME_EQ_ACCENT, CFW_THEME_EQ_SELECTION, CFW_THEME_TRACK,
-    CFW_THEME_INACTIVE,   CFW_THEME_GRID,      CFW_THEME_ZERO,         CFW_THEME_BORDER,
-    CFW_THEME_TEXT,       CFW_THEME_MUTED,     CFW_THEME_EQ_ON_ACCENT,
+static const enum cfw_theme_role canvas_roles[COLOR_ROLES] = {
+    CFW_THEME_BACKGROUND, CFW_THEME_ACCENT_TEXT, CFW_THEME_ACCENT_FILL, CFW_THEME_TRACK,
+    CFW_THEME_INACTIVE,   CFW_THEME_GRID,        CFW_THEME_ZERO,        CFW_THEME_BORDER,
+    CFW_THEME_TEXT,       CFW_THEME_MUTED,       CFW_THEME_ON_ACCENT,
 };
+
+static int canvas_distance(const unsigned char *a, const unsigned char *b)
+{
+    int delta = cfw_theme_brightness(a) - cfw_theme_brightness(b);
+    return delta < 0 ? -delta : delta;
+}
+
+/* The selection tints the background toward the accent. Accent text on the tint uses
+ * whichever accent role differs more in brightness, usually the fill on light themes
+ * and the text on dark ones. */
+static void canvas_derive_colors(unsigned char colors[COLOR_COUNT][4])
+{
+    cfw_theme_mix(colors[COLOR_SELECTION], colors[COLOR_BACKGROUND], colors[COLOR_CURVE],
+                  cfw_theme_color_dark(colors[COLOR_BACKGROUND]) ? 43 : 20);
+    const unsigned char *label =
+        colors[canvas_distance(colors[COLOR_FILL], colors[COLOR_SELECTION]) >
+                       canvas_distance(colors[COLOR_CURVE], colors[COLOR_SELECTION])
+                   ? COLOR_FILL
+                   : COLOR_CURVE];
+    for (unsigned i = 0; i < 4; i++)
+        colors[COLOR_LABEL][i] = label[i];
+}
 
 static uint32_t canvas_fonts[2][2];
 
@@ -331,7 +357,7 @@ static void canvas_response(void *context, const int32_t *bounds,
         int top = y < previous ? y : previous;
         int bottom = y > previous ? y : previous;
         canvas_rect(context, bounds, 44 + i, top, 1, bottom - top + 1,
-                    colors[COLOR_ACCENT]);
+                    colors[COLOR_CURVE]);
         previous = y;
     }
 }
@@ -387,7 +413,7 @@ static void canvas_bands(void *context, const int32_t *bounds,
         int selected = band == editor.band;
         int off = canvas_index(band, PARAM_TYPE) == CFW_EQ_OFF;
         const unsigned char *color = colors[off        ? COLOR_BORDER
-                                            : selected ? COLOR_ACCENT
+                                            : selected ? COLOR_CURVE
                                                        : COLOR_INACTIVE];
         canvas_rect(context, bounds, x - 8, BAND_TOP, 16, BAND_BOTTOM - BAND_TOP,
                     colors[COLOR_TRACK]);
@@ -399,7 +425,7 @@ static void canvas_bands(void *context, const int32_t *bounds,
         canvas_rect(context, bounds, x - 12, y - 3, 24, 6, color);
         canvas_text(context, bounds, x - 25, TYPE_TOP - 25, 50, 22,
                     off ? "Off" : canvas_frequency(band, frequency), 0,
-                    colors[selected ? COLOR_ACCENT : COLOR_MUTED],
+                    colors[selected ? COLOR_LABEL : COLOR_MUTED],
                     colors[selected ? COLOR_SELECTION : COLOR_BACKGROUND]);
     }
 }
@@ -423,21 +449,21 @@ static void canvas_parameters(void *context, const int32_t *bounds,
         int height = type ? TYPE_HEIGHT : PARAM_HEIGHT;
         int active = editor.mode != MODE_BAND && parameter == editor.parameter;
         int editing = active && editor.mode == MODE_EDIT;
-        const unsigned char *background = colors[editing  ? COLOR_ACCENT
+        const unsigned char *background = colors[editing  ? COLOR_FILL
                                                  : active ? COLOR_SELECTION
                                                           : COLOR_BACKGROUND];
         if (active) {
             canvas_rect(context, bounds, left, top, width, height,
-                        colors[COLOR_ACCENT]);
+                        colors[editing ? COLOR_FILL : COLOR_LABEL]);
             if (!editing)
                 canvas_rect(context, bounds, left + 2, top + 2, width - 4, height - 4,
                             background);
         }
         const char *title = cfw_eq_fields[canvas_fields[parameter]].title;
         const unsigned char *label_color =
-            colors[editing ? COLOR_ON_ACCENT : COLOR_MUTED];
+            colors[editing ? COLOR_ON_FILL : COLOR_MUTED];
         const unsigned char *value_color =
-            colors[editing ? COLOR_ON_ACCENT : COLOR_TEXT];
+            colors[editing ? COLOR_ON_FILL : COLOR_TEXT];
         if (type) {
             canvas_text_aligned(context, bounds, 12, TYPE_TOP, 80, TYPE_HEIGHT, title,
                                 0, ALIGN_LEFT, label_color, background);
@@ -466,12 +492,13 @@ static PATCH_ARM void canvas_draw(void *view, void *draw_argument, const int32_t
     ((view_context_fn)OSOS_VIEW_BIND_GRAPHICS)(view, context);
     ((rect_fn)OSOS_VIEW_LOCAL_RECT)(view, bounds);
     unsigned char colors[COLOR_COUNT][4];
-    for (unsigned i = 0; i < COLOR_COUNT; i++) {
+    for (unsigned i = 0; i < COLOR_ROLES; i++) {
         const unsigned char *color =
             cfw_theme_color(canvas_roles[i], cfw_dark_mode_enabled());
         for (unsigned j = 0; j < 4; j++)
             colors[i][j] = color[j];
     }
+    canvas_derive_colors(colors);
     canvas_rect(context, bounds, 0, 0, bounds[3] - bounds[1], bounds[2] - bounds[0],
                 colors[COLOR_BACKGROUND]);
     if (bounds[2] - bounds[0] < CANVAS_HEIGHT || bounds[3] - bounds[1] < CANVAS_WIDTH)

@@ -10,17 +10,16 @@ static const unsigned char expected_classic[2][CFW_THEME_COLOR_COUNT][4] = {
     {RGB(255, 255, 255), RGB(32, 32, 32), RGB(85, 85, 85), RGB(35, 108, 197),
      RGB(49, 133, 208), RGB(255, 255, 255), RGB(35, 108, 197), RGB(238, 238, 238),
      RGB(143, 149, 154), RGB(231, 231, 231), RGB(181, 181, 181), RGB(214, 214, 214),
-     RGB(126, 129, 131), RGB(20, 121, 213), RGB(237, 245, 252), RGB(255, 255, 255)},
+     RGB(126, 129, 131)},
     {RGB(24, 24, 24), RGB(232, 232, 232), RGB(168, 168, 168), RGB(0, 161, 255),
      RGB(0, 161, 255), RGB(255, 255, 255), RGB(0, 161, 255), RGB(44, 44, 44),
      RGB(125, 140, 152), RGB(48, 48, 48), RGB(100, 100, 100), RGB(60, 60, 60),
-     RGB(56, 56, 56), RGB(0, 161, 255), RGB(26, 46, 63), RGB(16, 16, 16)},
+     RGB(56, 56, 56)},
 };
 #undef RGB
 
 static const enum cfw_theme_role accent_roles[] = {
-    CFW_THEME_ACCENT_FILL, CFW_THEME_ACCENT_TEXT,  CFW_THEME_SELECTION,
-    CFW_THEME_EQ_ACCENT,   CFW_THEME_EQ_SELECTION,
+    CFW_THEME_ACCENT_FILL, CFW_THEME_ACCENT_TEXT, CFW_THEME_SELECTION,
 };
 
 static int accent_role(enum cfw_theme_role role)
@@ -73,14 +72,13 @@ int main(void)
     assert(!cfw_theme_accent_set(UINT_MAX));
     assert(cfw_theme_accent_get() == CFW_THEME_ACCENT_RED);
 
-    /* Blue is Classic exactly, including the distinct light text and EQ accents. */
+    /* Blue is Classic exactly, including the distinct light text. */
     assert(cfw_theme_accent_set(CFW_THEME_ACCENT_BLUE));
     check_classic();
     check_color(cfw_theme_color(CFW_THEME_ACCENT_FILL, 0), 35, 108, 197);
     check_color(cfw_theme_color(CFW_THEME_ACCENT_TEXT, 0), 49, 133, 208);
-    check_color(cfw_theme_color(CFW_THEME_EQ_ACCENT, 0), 20, 121, 213);
 
-    /* Presets override accent roles only. Classic EQ selections are tinted backgrounds. */
+    /* Presets override accent roles only. */
     for (unsigned accent = CFW_THEME_ACCENT_PURPLE; accent < CFW_THEME_ACCENT_COUNT;
          accent++) {
         assert(cfw_theme_accent_set(accent) && cfw_theme_accent_get() == accent);
@@ -137,9 +135,6 @@ int main(void)
         {CFW_THEME_ACCENT_TEXT, CFW_PALETTE_TEXT},
         {CFW_THEME_SELECTION, CFW_PALETTE_SELECTION},
         {CFW_THEME_ON_ACCENT, CFW_PALETTE_ON_ACCENT},
-        {CFW_THEME_EQ_ACCENT, CFW_PALETTE_EQ},
-        {CFW_THEME_EQ_SELECTION, CFW_PALETTE_EQ_SELECTION},
-        {CFW_THEME_EQ_ON_ACCENT, CFW_PALETTE_EQ_ON_ACCENT},
     };
     for (unsigned accent = CFW_THEME_ACCENT_BLUE; accent < CFW_THEME_ACCENT_COUNT;
          accent++) {
@@ -166,7 +161,18 @@ int main(void)
     cfw_theme_style_reset();
     assert(!cfw_theme_style_custom() && !cfw_theme_render_flags() &&
            cfw_theme_accent_get() == CFW_THEME_ACCENT_TEAL);
-    check_color(cfw_theme_color(CFW_THEME_EQ_SELECTION, 1), 31, 55, 56);
+    /* Mixing rounds to nearest in both directions and is always opaque. */
+    unsigned char mixed[4];
+    cfw_theme_mix(mixed, cfw_theme_color(CFW_THEME_BACKGROUND, 1),
+                  cfw_theme_color(CFW_THEME_ACCENT_TEXT, 1), 43);
+    check_color(mixed, 31, 55, 56);
+    cfw_theme_mix(mixed, cfw_theme_color(CFW_THEME_BACKGROUND, 0),
+                  expected_classic[0][CFW_THEME_ACCENT_TEXT], 20);
+    check_color(mixed, 239, 245, 251);
+    cfw_theme_mix(mixed, expected_classic[0][CFW_THEME_ACCENT_TEXT],
+                  expected_classic[0][CFW_THEME_ACCENT_TEXT], 255);
+    check_color(mixed, 49, 133, 208);
+    assert(cfw_theme_brightness(expected_classic[0][CFW_THEME_BACKGROUND]) == 256 * 255);
     cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
     check_classic();
     assert(!cfw_theme_selection_bar_colors(bar));

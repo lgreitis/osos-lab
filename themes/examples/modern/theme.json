@@ -18,10 +18,7 @@
         "grid": "#e5e5ea",
         "zero": "#aeaeb2",
         "border": "#d2d2d7",
-        "cover_border": "#86868b",
-        "eq_accent": "#0071e3",
-        "eq_selection": "#e8f1fc",
-        "eq_on_accent": "#ffffff"
+        "cover_border": "#86868b"
       }
     },
     "dark": {
@@ -38,10 +35,7 @@
         "grid": "#2c2c2e",
         "zero": "#636366",
         "border": "#38383a",
-        "cover_border": "#48484a",
-        "eq_accent": "#0a84ff",
-        "eq_selection": "#0f2a47",
-        "eq_on_accent": "#000000"
+        "cover_border": "#48484a"
       }
     }
   }
