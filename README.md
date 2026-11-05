@@ -127,6 +127,10 @@ annotation directory. Logs are in `.build/ghidra-*.log`; all tools expose `--hel
 - [wInd3x](https://github.com/freemyipod/wInd3x) by Serge “q3k” Bazanski:
   the BootROM exploit, DFU protocol, and payload assembler code ported from Go
   to Rust in `reprise-device`, including `payload.rs` and `dfu.rs`.
+- [Cupertino Icons](https://github.com/flutter/packages/tree/main/third_party/packages/cupertino_icons)
+  (Framework7 Icons) by Vladimir Kharlampidi, MIT License: the Dark Mode, Theme,
+  Accent Color, Custom EQ and CFW Info preview glyphs in `payload/assets/`. See
+  `payload/assets/LICENSE.cupertino-icons`.
 
 ## Support
 

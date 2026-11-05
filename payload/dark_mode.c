@@ -2,7 +2,6 @@
 
 #include "dark_mode.h"
 #include "theme_settings.h"
-#include "theme_settings_ui.h"
 #include "dark_mode_ui.h"
 #include "osos.h"
 #include "cfw.h"
@@ -18,8 +17,7 @@ int cfw_dark_mode_enabled(void)
 
 int cfw_dark_mode_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
-    if (type == OSOS_RESOURCE_BMAP &&
-        (property == CFW_DarkMode_PreviewImage || property == CFW_Theme_PreviewImage)) {
+    if (type == OSOS_RESOURCE_BMAP && property == CFW_DarkMode_PreviewImage) {
         *out = cfw_dark_mode_enabled()
                    ? (uintptr_t)cfw_resource_bitmap(CFW_DarkMode_Moon)
                    : osos_ui_bitmap(IMG_SUN);
