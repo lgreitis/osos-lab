@@ -65,7 +65,7 @@ def main():
     parser.add_argument(
         "--out",
         type=Path,
-        help="Output file (default: build/themes/dark/theme.bin)",
+        help="Output file (default: build/themes/classic/dark.bin)",
     )
     args = parser.parse_args()
     try:
@@ -78,7 +78,7 @@ def main():
             print(f"Wrote {len(catalog['bitmaps'])} bitmap budgets: {args.metadata}")
         else:
             catalog = json.loads(args.metadata.read_text())
-            out = args.out or ROOT / "build/themes/dark/theme.bin"
+            out = args.out or ROOT / "build/themes/classic/dark.bin"
             pinned = json.loads((ROOT / "firmware/ui.json").read_text())["input"]
             if catalog["schema"] != 1 or catalog["input"] != pinned:
                 raise ValueError("Expected metadata for the pinned original OSOS image")

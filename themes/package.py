@@ -134,8 +134,8 @@ def text(value, where, limit=TEXT_LIMIT):
 def theme_id(value, where="id"):
     if not isinstance(value, str) or not THEME_ID.fullmatch(value):
         fail(where, "expected [a-z0-9][a-z0-9_-]{0,30}")
-    if value in ("default", "dark"):
-        fail(where, "reserved legacy theme folder name")
+    if value in ("default", "dark", "classic"):
+        fail(where, "reserved theme folder name")
     return value
 
 

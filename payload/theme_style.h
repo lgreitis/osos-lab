@@ -43,7 +43,7 @@ struct cfw_theme_style {
 const unsigned char *cfw_theme_color(enum cfw_theme_role role, int dark);
 /* Copies the style; the caller's storage need not outlive the call. */
 void cfw_theme_style_set(const struct cfw_theme_style *style);
-/* Restores Classic and legacy appearance ownership; retains the accent. */
+/* Restores Classic colors and the default appearance; retains the accent. */
 void cfw_theme_style_reset(void);
 int cfw_theme_style_custom(void);
 /* Returns 0 without changes for an unknown accent. */
@@ -54,7 +54,6 @@ const char *cfw_theme_accent_label(unsigned accent);
 /* Whether a color reads as a dark surface, by weighted RGB brightness. */
 int cfw_theme_color_dark(const unsigned char *color);
 
-/* The synchronous switcher supplies appearance independently of legacy artwork.
- * Reset restores use of the caller-provided legacy appearance. */
+/* The switcher supplies appearance; reset uses the caller-provided fallback. */
 void cfw_theme_appearance_set(int dark);
 int cfw_theme_appearance_get(int fallback);

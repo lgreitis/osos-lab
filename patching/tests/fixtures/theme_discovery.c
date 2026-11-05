@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include <assert.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -108,7 +109,7 @@ int cfw_theme_metadata_read(const struct osos_path *path,
 
 #include "../../../payload/theme_discovery.c"
 
-static uint32_t scan(const struct entry *list, struct cfw_theme_metadata *out,
+static uint32_t scan(const struct entry *list, struct cfw_theme_choice *out,
                      uint32_t capacity, int *overflow)
 {
     listing = list;
@@ -151,7 +152,7 @@ static void select_theme(void)
     }
     appearance_mask = 1;
     const char *invalid[] = {NULL,   "",        "../modern", "default",
-                             "dark", "badmeta", "mismatch"};
+                             "dark", "classic", "badmeta",   "mismatch"};
     for (unsigned i = 0; i < sizeof(invalid) / sizeof(*invalid); i++) {
         previous = metadata;
         previous_path = path;
@@ -199,22 +200,28 @@ int main(void)
                                     &path));
 
     static const struct entry mixed[] = {
-        {"zeta", 1},      {"file", 0},
-        {".", 1},         {"..", 1},
-        {"Upper", 1},     {"default", 1},
-        {"dark", 1},      {"badmeta", 1},
-        {"mismatch", 1},  {"alpha", 1},
-        {"has space", 1}, {"-dash", 1},
-        {"m-id_2", 1},    {"abcdefghijklmnopqrstuvwxyz0123456", 1},
+        {"zeta", 1},     {"file", 0},     {".", 1},
+        {"..", 1},       {"badUpper", 1}, {"default", 1},
+        {"dark", 1},     {"badmeta", 1},  {"classic", 1},
+        {"mismatch", 1}, {"alpha", 1},    {"has space", 1},
+        {"-dash", 1},    {"m-id_2", 1},   {"abcdefghijklmnopqrstuvwxyz0123456", 1},
         {NULL, 0},
     };
-    struct cfw_theme_metadata out[8];
+    struct cfw_theme_choice out[8];
     int overflow = -1;
     assert(scan(mixed, out, 8, &overflow) == 3 && !overflow);
     assert(!strcmp(out[0].id, "alpha") && !strcmp(out[1].id, "m-id_2") &&
            !strcmp(out[2].id, "zeta") && !strcmp(out[1].name, "m-id_2"));
     /* Only safe, non-reserved directories reach theme.bin. */
-    assert(metadata_reads == 5);
+    assert(metadata_reads == 6);
+
+    static const struct entry fat_names[] = {
+        {"DEFAULT", 1},   {"DARK", 1}, {"MODERN", 1}, {"Night", 1}, {"MODERN", 1},
+        {"../MODERN", 1}, {"A/B", 1},  {"A\\B", 1},   {NULL, 0},
+    };
+    assert(scan(fat_names, out, 8, &overflow) == 2 && !overflow);
+    assert(!strcmp(out[0].id, "modern") && !strcmp(out[1].id, "night"));
+    assert(metadata_reads == 3);
 
     /* Overflow keeps the smallest ids regardless of enumeration order. */
     static const struct entry forward[] = {
@@ -233,7 +240,7 @@ int main(void)
         assert(scan(orders[o], out, 3, &overflow) == 3 && overflow);
         assert(!strcmp(out[0].id, "a") && !strcmp(out[1].id, "b") &&
                !strcmp(out[2].id, "c"));
-        assert(out[3].magic == 0xa5a5a5a5); /* nothing written past capacity */
+        assert((unsigned char)out[3].id[0] == 0xa5); /* nothing written past capacity */
     }
     overflow = -1;
     assert(scan(forward, out, 5, &overflow) == 5 && !overflow);
@@ -249,6 +256,19 @@ int main(void)
 
     static const struct entry duplicate[] = {{"a", 1}, {"a", 1}, {NULL, 0}};
     assert(scan(duplicate, out, 2, &overflow) == 1 && !overflow);
+
+    /* Filter a larger directory while keeping the smallest valid IDs. */
+    struct entry many[42];
+    char names[41][16];
+    for (unsigned i = 0; i < 41; i++) {
+        snprintf(names[i], sizeof(names[i]), i % 2 ? "bad%02u" : "theme%02u", i);
+        many[i] = (struct entry){names[i], 1};
+    }
+    many[41] = (struct entry){NULL, 0};
+    assert(scan(many, out, 8, &overflow) == 8 && overflow);
+    assert(metadata_reads == 41);
+    assert(!strcmp(out[0].id, "theme00") && !strcmp(out[7].id, "theme14"));
+    scan(duplicate, out, 2, &overflow);
 
     static const struct entry empty[] = {{NULL, 0}};
     overflow = -1;

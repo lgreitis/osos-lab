@@ -47,7 +47,7 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Song Info from song and Now Playing context menus.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
-- Dark Mode, with an On/Off toggle in Settings.
+- Themes with custom colors and artwork, plus a Dark Mode toggle in Settings.
 
 Open **Settings → Custom EQ → Graphic EQ** to edit all five bands. Use the wheel
 to select a band, then Center to select and edit its Type, Gain, Frequency or Q.
@@ -94,9 +94,9 @@ python3.11 tools/release.py --cross-prefix /path/to/bin/arm-elf-eabi- --jobs 8
 This builds `build/releases/classic/repriseos.zip` without Apple firmware inputs.
 Bundles contain compiled patches, assembly recipes, the NOR installer, and the
 USB helper. Assembly combines them with the 2.0.5 IPSW-derived inputs and the
-device's NOR identity. Schema 2 bundles require installer **0.2.0 or newer**;
-installer 0.1.x does not support this format. Local ZIPs use compatibility
-and hash checks; downloaded releases use signed manifests. Never copy a
+device's NOR identity. Current theme-enabled bundles require installer
+**0.2.9 or newer**. The installer generates stock restoration artwork from the
+verified Apple input. Local ZIPs use compatibility and hash checks; downloaded releases use signed manifests. Never copy a
 personalized companion between devices. Resources currently come from the
 installed Apple resource partition; dedicated resources are deferred.
 

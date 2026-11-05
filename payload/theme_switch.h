@@ -58,8 +58,7 @@ struct cfw_theme_switch {
 };
 
 int cfw_theme_selection_valid(const struct cfw_theme_selection *selection);
-/* Initialize only with stock artwork. Do not share artwork ownership with the
- * legacy assets writer. */
+/* Initialize only with stock artwork. The switcher owns all artwork replacements. */
 int cfw_theme_switch_init(struct cfw_theme_switch *c,
                           const struct cfw_theme_switch_ops *ops, void *context);
 /* Only absent preferences permit CFWDark migration. Invalid or incomplete records
@@ -78,3 +77,9 @@ int cfw_theme_switch_apply(struct cfw_theme_switch *c,
                            const struct cfw_theme_selection *selection,
                            const struct osos_path *pack,
                            const struct osos_path *baseline);
+
+/* Restore an already saved selection from stock at boot, without rewriting it. */
+int cfw_theme_switch_restore(struct cfw_theme_switch *c,
+                             const struct cfw_theme_selection *selection,
+                             const struct osos_path *pack,
+                             const struct osos_path *baseline);

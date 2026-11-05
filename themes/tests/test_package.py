@@ -191,11 +191,11 @@ class PackageTests(unittest.TestCase):
     def test_rejects_invalid_metadata(self):
         for identifier in ("", "Test", "-a", "a" * 32, "a b", "a\n", "é"):
             self.rejects(dict(manifest(), id=identifier), "^id:")
-        for identifier in ("default", "dark"):
-            self.rejects(dict(manifest(), id=identifier), "reserved legacy")
-        for identifier in ("default", "dark"):
+        for identifier in ("default", "dark", "classic"):
+            self.rejects(dict(manifest(), id=identifier), "reserved")
+        for identifier in ("default", "dark", "classic"):
             data = package.encode_metadata(self.catalog, identifier, "Reserved", 1)
-            with self.assertRaisesRegex(ValueError, "reserved legacy"):
+            with self.assertRaisesRegex(ValueError, "reserved"):
                 inspect_metadata(data, self.catalog)
         self.compile(dict(manifest(), id="a" * 31))
         self.rejects(dict(manifest(), name="x" * 48), "exceeds 47")

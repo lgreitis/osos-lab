@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 import bundle
+from version import valid_version
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -44,7 +45,17 @@ def nor_descriptor(build_dir, image):
     }
 
 
+def require_theme_installer(minimum):
+    if not valid_version(minimum):
+        raise ValueError("Minimum installer version must be SemVer")
+    core, _, prerelease = minimum.partition("+")[0].partition("-")
+    version = tuple(map(int, core.split(".")))
+    if version < (0, 2, 9) or (version == (0, 2, 9) and prerelease):
+        raise ValueError("Theme support requires installer 0.2.9 or newer")
+
+
 def export(build_dir, helper, version, minimum, out):
+    require_theme_installer(minimum)
     nor = bundle.read(build_dir / "install-rockbox-cfw.dfu", 0x20000)
     nor_spec = nor_descriptor(build_dir, nor)
     spec = bundle.helper_spec(helper, version, minimum)
@@ -82,7 +93,7 @@ def main():
     parser.add_argument("--build", type=Path, default=ROOT / "build")
     parser.add_argument("--helper", type=Path, required=True)
     parser.add_argument("--version", required=True)
-    parser.add_argument("--minimum-installer-version", default="0.2.8")
+    parser.add_argument("--minimum-installer-version", default="0.2.9")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     export(

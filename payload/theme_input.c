@@ -3,6 +3,11 @@
 
 static int loading, latched;
 
+int cfw_theme_input_available(void)
+{
+    return !latched;
+}
+
 int cfw_theme_input_begin(void)
 {
     if (latched)

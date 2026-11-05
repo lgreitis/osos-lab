@@ -110,7 +110,7 @@ int cfw_theme_discovery_path(const char *id, const char *file, struct osos_path 
 {
     assert(!strcmp(id, "dark") && !strcmp(file, "theme.bin"));
     out->volume = 0;
-    strcpy(out->text, "themes/dark/theme.bin");
+    strcpy(out->text, "themes/classic/dark.bin");
     return 1;
 }
 
@@ -290,7 +290,7 @@ static void boot_resolution(void)
     assert(legacy_reads == 1 && !metadata_reads);
     assert(!request.selection.id[0] && request.selection.dark);
     assert(request.appearance_mask == 3);
-    assert(!strcmp(request.pack.text, "themes/dark/theme.bin"));
+    assert(!strcmp(request.pack.text, "themes/classic/dark.bin"));
     legacy_error = -1;
     assert(!cfw_theme_boot_resolve(&request));
     assert(!request.selection.dark && !request.pack.text[0]);

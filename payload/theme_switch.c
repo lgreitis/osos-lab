@@ -21,7 +21,7 @@ int cfw_theme_selection_valid(const struct cfw_theme_selection *s)
 {
     if (!s || s->dark > 1 || s->accent != CFW_THEME_ACCENT_DEFAULT)
         return 0;
-    static const char *const reserved[] = {"default", "dark"};
+    static const char *const reserved[] = {"default", "dark", "classic"};
     for (unsigned n = 0; n < sizeof(reserved) / sizeof(*reserved); n++) {
         unsigned at = 0;
         while (reserved[n][at] && s->id[at] == reserved[n][at])
@@ -99,10 +99,10 @@ int cfw_theme_switch_store_classic(struct cfw_theme_switch *c)
     return ok;
 }
 
-int cfw_theme_switch_apply(struct cfw_theme_switch *c,
-                           const struct cfw_theme_selection *selection,
-                           const struct osos_path *path,
-                           const struct osos_path *baseline)
+static int switch_run(struct cfw_theme_switch *c,
+                      const struct cfw_theme_selection *selection,
+                      const struct osos_path *path, const struct osos_path *baseline,
+                      int persist)
 {
     if (c->busy)
         return 0;
@@ -128,7 +128,7 @@ int cfw_theme_switch_apply(struct cfw_theme_switch *c,
         goto done;
     cfw_theme_pack_release(&pack);
     c->result = CFW_THEME_STORE_FAILED;
-    if (!store_selection(c, selection))
+    if (persist && !store_selection(c, selection))
         goto done;
     cfw_theme_transaction_swap(&transaction);
     switch_copy(&c->active.selection, selection, sizeof(*selection));
@@ -148,4 +148,26 @@ done:
     c->busy = 0;
     cfw_theme_input_finish();
     return c->result == CFW_THEME_OK;
+}
+
+int cfw_theme_switch_apply(struct cfw_theme_switch *c,
+                           const struct cfw_theme_selection *selection,
+                           const struct osos_path *pack,
+                           const struct osos_path *baseline)
+{
+    return switch_run(c, selection, pack, baseline, 1);
+}
+
+int cfw_theme_switch_restore(struct cfw_theme_switch *c,
+                             const struct cfw_theme_selection *selection,
+                             const struct osos_path *pack,
+                             const struct osos_path *baseline)
+{
+    /* Restoration is only for startup, before any theme has replaced stock. */
+    if (c->active.custom || c->active.selection.id[0] || c->active.selection.dark)
+        return 0;
+    for (unsigned i = 0; i < CFW_THEME_BITMAP_WORDS; i++)
+        if (c->assets[i])
+            return 0;
+    return switch_run(c, selection, pack, baseline, 0);
 }

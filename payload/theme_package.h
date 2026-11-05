@@ -21,29 +21,32 @@ struct cfw_theme_pack {
 };
 
 struct cfw_theme_transaction {
-    struct cfw_theme_pack patch;
+    struct cfw_theme_pack incoming, patch;
     struct cfw_theme_style style;
     uint32_t target_assets[CFW_THEME_BITMAP_WORDS];
     int custom, dark, applied;
 };
 
+/* Validate the complete original-artwork baseline without retaining its body. */
+int cfw_theme_baseline_valid(const struct osos_path *path);
+
 int cfw_theme_metadata_read(const struct osos_path *path,
                             struct cfw_theme_metadata *out);
 int cfw_theme_pack_read(const struct osos_path *path, int dark, int legacy,
                         struct cfw_theme_pack *out);
-/* Exact staging size for a validated target and the active replacement set. */
+/* Additional staging bytes for previous replacements absent from target. */
 int cfw_theme_transaction_bytes(const struct cfw_theme_pack *target,
                                 const uint32_t *previous, uint32_t *bytes);
 void cfw_theme_pack_release(struct cfw_theme_pack *pack);
 /* target must be a validated pack returned by cfw_theme_pack_read, or NULL for
  * original stock artwork. previous points to CFW_THEME_BITMAP_WORDS entries
  * describing the active theme's replacements; it must not be NULL.
- * The caller owns target and may release it after prepare returns. out must not
- * own an existing transaction. No resident bitmap changes occur during prepare.
+ * Success transfers target storage to out and clears target; failure retains it.
+ * out must not own an existing transaction. No resident bitmap changes occur during prepare.
  * baseline supplies original artwork for previous replacements absent in target.
  * style/custom/dark describe the target; they are not applied by this API.
  * The caller must serialize rendering, apply/restore style and appearance, and
- * coordinate persistence. Do not combine this with the legacy assets writer. */
+ * coordinate persistence. Use a single artwork owner. */
 int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
                                   const uint32_t *previous,
                                   const struct osos_path *baseline,

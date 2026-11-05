@@ -79,9 +79,22 @@ static int compare(const char *a, const char *b)
     return (unsigned char)*a - (unsigned char)*b;
 }
 
+/* FAT short directory names are returned uppercase by the native iterator. */
+static int directory_id(const char *name, char *id)
+{
+    unsigned i = 0;
+    for (; i < sizeof(((struct cfw_theme_metadata *)0)->id); i++) {
+        char c = name[i];
+        id[i] = c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c;
+        if (!c)
+            return safe_id(id);
+    }
+    return 0;
+}
+
 /* Explicit byte loop: the freestanding ARM payload has no memcpy. */
-static void copy_entry(struct cfw_theme_metadata *destination,
-                       const struct cfw_theme_metadata *source)
+static void copy_entry(struct cfw_theme_choice *destination,
+                       const struct cfw_theme_choice *source)
 {
     unsigned char *p = (unsigned char *)destination;
     const unsigned char *q = (const unsigned char *)source;
@@ -109,8 +122,8 @@ int cfw_theme_discovery_path(const char *id, const char *file, struct osos_path 
 }
 
 /* Sorted insert into a bounded array; the largest id falls off when full. */
-static uint32_t insert(struct cfw_theme_metadata *entries, uint32_t capacity,
-                       uint32_t count, const struct cfw_theme_metadata *candidate,
+static uint32_t insert(struct cfw_theme_choice *entries, uint32_t capacity,
+                       uint32_t count, const struct cfw_theme_choice *candidate,
                        int *overflow)
 {
     uint32_t at = 0;
@@ -130,7 +143,7 @@ static uint32_t insert(struct cfw_theme_metadata *entries, uint32_t capacity,
     return count + 1;
 }
 
-uint32_t cfw_theme_discovery_scan(struct cfw_theme_metadata *entries, uint32_t capacity,
+uint32_t cfw_theme_discovery_scan(struct cfw_theme_choice *entries, uint32_t capacity,
                                   int *overflow)
 {
     int overflowed = 0;
@@ -145,16 +158,24 @@ uint32_t cfw_theme_discovery_scan(struct cfw_theme_metadata *entries, uint32_t c
         const char *text = more ? path_string_text(&name) : 0;
         struct osos_path path;
         struct cfw_theme_metadata candidate;
-        /* Legacy RTH3 folders are not packaged themes. */
+        char id[sizeof(candidate.id)];
+        /* Built-in and legacy folders are not custom packages. */
         int valid =
-            text && is_directory && compare(text, "default") && compare(text, "dark") &&
-            cfw_theme_discovery_path(text, "theme.bin", &path) &&
-            cfw_theme_metadata_read(&path, &candidate) && !compare(text, candidate.id);
+            text && is_directory && directory_id(text, id) && compare(id, "default") &&
+            compare(id, "dark") && compare(id, "classic") &&
+            cfw_theme_discovery_path(id, "theme.bin", &path) &&
+            cfw_theme_metadata_read(&path, &candidate) && !compare(id, candidate.id);
         path_string_destroy(&name);
         if (!more)
             break;
-        if (valid)
-            count = insert(entries, capacity, count, &candidate, &overflowed);
+        if (valid) {
+            struct cfw_theme_choice choice;
+            for (unsigned i = 0; i < sizeof(choice.id); i++)
+                choice.id[i] = candidate.id[i];
+            for (unsigned i = 0; i < sizeof(choice.name); i++)
+                choice.name[i] = candidate.name[i];
+            count = insert(entries, capacity, count, &choice, &overflowed);
+        }
     }
     directory_destroy(&iterator);
     if (overflow)
@@ -167,7 +188,7 @@ int cfw_theme_discovery_select(const char *id, uint32_t prefer_dark, int allow_f
                                struct osos_path *pack, uint32_t *dark)
 {
     if (!id || !metadata || !pack || !dark || prefer_dark > 1 || !safe_id(id) ||
-        !compare(id, "default") || !compare(id, "dark"))
+        !compare(id, "default") || !compare(id, "dark") || !compare(id, "classic"))
         return 0;
     struct osos_path path;
     struct cfw_theme_metadata candidate;
@@ -183,7 +204,8 @@ int cfw_theme_discovery_select(const char *id, uint32_t prefer_dark, int allow_f
     if (!(candidate.appearance_mask & (1u << selected)) ||
         !cfw_theme_discovery_path(id, selected ? "dark.bin" : "light.bin", &path))
         return 0;
-    copy_entry(metadata, &candidate);
+    for (unsigned i = 0; i < sizeof(candidate); i++)
+        ((unsigned char *)metadata)[i] = ((const unsigned char *)&candidate)[i];
     pack->volume = path.volume;
     unsigned i = 0;
     do {
