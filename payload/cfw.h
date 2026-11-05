@@ -15,4 +15,20 @@ static inline int cfw_string_equal(const char *candidate, const char *expected)
     return *candidate == *expected;
 }
 
+/* Byte loops: the freestanding ARM payload has no memcpy or memset. */
+static inline void cfw_copy(void *destination, const void *source, unsigned size)
+{
+    unsigned char *p = destination;
+    const unsigned char *q = source;
+    while (size--)
+        *p++ = *q++;
+}
+
+static inline void cfw_zero(void *destination, unsigned size)
+{
+    unsigned char *p = destination;
+    while (size--)
+        *p++ = 0;
+}
+
 #endif

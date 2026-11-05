@@ -37,8 +37,7 @@ enum cfw_theme_result {
  * A failed write leaves live artwork unchanged, even if disk state is uncertain.
  * Callers serialize UI actions; store must not reenter this switcher. */
 struct cfw_theme_switch_ops {
-    enum cfw_theme_store_result (*store)(void *context,
-                                         const struct cfw_theme_preferences *state);
+    enum cfw_theme_store_result (*store)(const struct cfw_theme_preferences *state);
 };
 
 struct cfw_theme_active {
@@ -48,7 +47,6 @@ struct cfw_theme_active {
 
 struct cfw_theme_switch {
     const struct cfw_theme_switch_ops *ops;
-    void *context;
     int busy;
     enum cfw_theme_result result;
     struct cfw_theme_active active;
@@ -58,12 +56,12 @@ struct cfw_theme_switch {
 int cfw_theme_selection_valid(const struct cfw_theme_selection *selection);
 /* Initialize only with stock artwork. The switcher owns all artwork replacements. */
 int cfw_theme_switch_init(struct cfw_theme_switch *c,
-                          const struct cfw_theme_switch_ops *ops, void *context);
-/* Only absent preferences permit CFWDark migration. Invalid or incomplete records
- * recover to Classic light. The result is a candidate, not active artwork. */
+                          const struct cfw_theme_switch_ops *ops);
+/* Absent preferences select Classic light without recovery. Invalid or incomplete
+ * records recover to Classic light. The result is a candidate, not active artwork. */
 int cfw_theme_boot_selection(enum cfw_theme_preferences_status status,
                              const struct cfw_theme_preferences *saved,
-                             uint32_t legacy_dark, struct cfw_theme_selection *desired);
+                             struct cfw_theme_selection *desired);
 /* Persist Classic light only when stock artwork is active. */
 int cfw_theme_switch_store_classic(struct cfw_theme_switch *c);
 /* Validate and stage, save selection, apply artwork/style, release staging.

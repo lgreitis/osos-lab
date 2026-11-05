@@ -131,3 +131,41 @@ def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=
         len(content),
     )
     return header + content
+
+
+def pack_zero_runs(data):
+    """Encode data as (zero count, literal count, literals) groups.
+
+    Grayscale preview masks are mostly zero. A group header costs two bytes, so
+    runs of fewer than three zeros stay inside the literals."""
+    out = bytearray()
+    i, n = 0, len(data)
+    while i < n:
+        zeros = 0
+        while i < n and zeros < 255 and data[i] == 0:
+            zeros += 1
+            i += 1
+        start = i
+        while i < n and i - start < 255:
+            if data[i] == 0:
+                run = 0
+                while i + run < n and data[i + run] == 0:
+                    run += 1
+                if run >= 3 or i + run == n:
+                    break
+            i += 1
+        out += bytes((zeros, i - start)) + data[start:i]
+    return bytes(out)
+
+
+def unpack_zero_runs(packed, size):
+    out = bytearray()
+    at = 0
+    while len(out) < size:
+        zeros, literals = packed[at], packed[at + 1]
+        at += 2
+        out += bytes(zeros) + packed[at : at + literals]
+        at += literals
+    if at != len(packed) or len(out) != size:
+        raise ValueError("Packed bitmap does not match its size")
+    return bytes(out)

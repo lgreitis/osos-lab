@@ -55,6 +55,49 @@ static void baseline_validation(void)
     make_baseline();
 }
 
+/* The boot probe streams a pack without allocating and rejects the same faults
+ * as a full read, except palette indices, which the read checks pixel by pixel. */
+static void pack_probe(void)
+{
+    make_target(0);
+    unsigned attempts = alloc_attempts;
+    assert(cfw_theme_pack_valid(&incoming, 1));
+    assert(!cfw_theme_pack_valid(&incoming, 0));
+    assert(alloc_attempts == attempts && !allocations && opens == closes);
+    for (unsigned fault = 0; fault < 7; fault++) {
+        make_target(0);
+        switch (fault) {
+        case 0:
+            missing_files = 1;
+            break;
+        case 1:
+            files[0].size--;
+            break;
+        case 2:
+            files[0].size++;
+            break;
+        case 3:
+            files[0].data[60] ^= 1;
+            break;
+        case 4: /* Transparent style color with a matching checksum. */
+            files[0].data[52 + 3] = 0;
+            fix_crc();
+            break;
+        case 5:
+            ((struct record *)(files[0].data + 52 + CFW_THEME_STYLE_BYTES))->asset = 2;
+            fix_crc();
+            break;
+        case 6:
+            short_reads = 1;
+            break;
+        }
+        assert(!cfw_theme_pack_valid(&incoming, 1));
+        missing_files = short_reads = 0;
+        assert(alloc_attempts == attempts && opens == closes);
+    }
+    make_target(0);
+}
+
 int main(void)
 {
     _Static_assert(sizeof(struct pack_header) == 52, "RTH4 header");
@@ -67,6 +110,7 @@ int main(void)
     assert(!metadata_name((const unsigned char *)"A\xe2", 2));
     memcpy(original, pixels, sizeof(pixels));
     baseline_validation();
+    pack_probe();
     make_baseline();
     struct cfw_theme_pack pack;
     struct cfw_theme_transaction tx;

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "resources.h"
+#include "cfw.h"
 #include "osos.h"
 #include "patch.h"
 #include "ui.h"
@@ -21,6 +22,39 @@ PATCH_ARM void cfw_ui_append_resource_block(void *list, void *data, uint32_t siz
     }
 }
 
+/* The buffer is allocated on the first preview and kept; the native allocator
+ * returns word-aligned storage, as BMap readers require. */
+static unsigned char *unpacked;
+static uint32_t unpacked_id;
+
+static const void *unpack(const struct cfw_packed_bitmap *bitmap)
+{
+    if (!unpacked) {
+        unpacked = osos_import_alloc(cfw_packed_bitmap_bytes);
+        if (!unpacked)
+            return 0;
+        unpacked_id = 0;
+    }
+    if (unpacked_id != bitmap->id) {
+        const unsigned char *in = bitmap->packed;
+        unsigned char *out = unpacked;
+        uint32_t left = bitmap->size;
+        while (left) {
+            uint32_t zeros = in[0], literals = in[1];
+            in += 2;
+            if (zeros + literals > left)
+                break;
+            cfw_zero(out, zeros);
+            cfw_copy(out + zeros, in, literals);
+            out += zeros + literals;
+            in += literals;
+            left -= zeros + literals;
+        }
+        unpacked_id = bitmap->id;
+    }
+    return unpacked;
+}
+
 const void *cfw_resource_bitmap(uint32_t id)
 {
     for (uint32_t i = 0; i < cfw_resource_count; i++) {
@@ -28,6 +62,9 @@ const void *cfw_resource_bitmap(uint32_t id)
         if (resource->type == OSOS_RESOURCE_BMAP && resource->id == id)
             return resource->data;
     }
+    for (uint32_t i = 0; i < cfw_packed_bitmap_count; i++)
+        if (cfw_packed_bitmaps[i].id == id)
+            return unpack(&cfw_packed_bitmaps[i]);
     return 0;
 }
 

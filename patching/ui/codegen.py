@@ -171,6 +171,26 @@ def emit_resources(resources):
     return lines
 
 
+def emit_packed_bitmaps(resources):
+    lines, entries, largest = [], [], 0
+    for i, ((_, resource_id), (packed, size)) in enumerate(resources.packed.items()):
+        lines.append(array(f"packed_bitmap_{i}", packed, ctype="unsigned char"))
+        entries.append(
+            f"    {{{resource_id:#x}, sizeof(packed_bitmap_{i}), {size}, packed_bitmap_{i}}},"
+        )
+        largest = max(largest, size)
+    if not entries:
+        entries.append("    {0, 0, 0, 0},")
+    return [
+        *lines,
+        "const struct cfw_packed_bitmap cfw_packed_bitmaps[] = {",
+        *entries,
+        "};",
+        f"const uint32_t cfw_packed_bitmap_count = {len(resources.packed)};",
+        f"const uint32_t cfw_packed_bitmap_bytes = {largest};",
+    ]
+
+
 def emit_menu_items(resources):
     lines, entries = [], []
     for i, (table, after, kind, data) in enumerate(resources.menu_items):

@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "theme_package.h"
 #include "assets.h"
+#include "cfw.h"
 #include "osos.h"
+#include "theme_id.h"
 
 enum { RTH4_MAGIC = 0x34485452u, RTM4_MAGIC = 0x344d5452u };
 
@@ -21,26 +23,32 @@ struct layout {
     uint32_t start, pixels, colors, stride, width, height, depth;
 };
 
-/* Explicit byte loops: the freestanding ARM payload has no libc. */
-static void bytes_zero(void *destination, uint32_t size)
+/* Resident bitmap addresses follow from the catalog sizes; walk them in order. */
+struct cursor {
+    uint32_t index;
+    unsigned char *data;
+};
+
+static void cursor_init(struct cursor *c)
 {
-    unsigned char *p = destination;
-    while (size--)
-        *p++ = 0;
+    c->index = 0;
+    c->data = cfw_bitmap_assets_base;
 }
 
-static void bytes_copy(void *destination, const void *source, uint32_t size)
+static unsigned char *asset_data(struct cursor *c, uint32_t index)
 {
-    unsigned char *p = destination;
-    const unsigned char *q = source;
-    while (size--)
-        *p++ = *q++;
+    if (index < c->index)
+        cursor_init(c);
+    for (; c->index < index; c->index++)
+        c->data += (cfw_bitmap_assets[c->index].size + 3u) & ~3u;
+    return c->data;
 }
 
-static uint32_t crc_update(uint32_t crc, const unsigned char *data, uint32_t size)
+uint32_t cfw_theme_crc32(uint32_t crc, const void *data, uint32_t size)
 {
+    const unsigned char *p = data;
     while (size--) {
-        crc ^= *data++;
+        crc ^= *p++;
         for (unsigned i = 0; i < 8; i++)
             crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
     }
@@ -52,9 +60,18 @@ static uint32_t u16(const unsigned char *p)
     return p[0] | (uint32_t)p[1] << 8;
 }
 
-static uint32_t u32(const unsigned char *p)
+uint32_t cfw_theme_u32(const unsigned char *p)
 {
     return u16(p) | u16(p + 2) << 16;
+}
+
+void cfw_theme_path(struct osos_path *out, const char *text)
+{
+    out->volume = 0;
+    unsigned i = 0;
+    do {
+        out->text[i] = text[i];
+    } while (text[i++]);
 }
 
 static int fingerprint(const unsigned char *hash)
@@ -80,16 +97,16 @@ static int eof(void *handle)
     return (result == 0 || result == -39) && !count;
 }
 
-static int bitmap_layout(uint32_t index, struct layout *b)
+static int bitmap_layout(struct cursor *c, uint32_t index, struct layout *b)
 {
     if (index >= cfw_bitmap_asset_count || index >= CFW_THEME_MAX_ASSETS)
         return 0;
-    const struct cfw_bitmap_asset *asset = &cfw_bitmap_assets[index];
-    const unsigned char *p = asset->data;
-    if (asset->size < 28)
+    uint32_t size = cfw_bitmap_assets[index].size;
+    const unsigned char *p = asset_data(c, index);
+    if (size < 28)
         return 0;
-    b->start = u32(p + 24) == asset->size - 28 ? 28 : 32;
-    if (asset->size < b->start || u32(p + b->start - 4) != asset->size - b->start)
+    b->start = cfw_theme_u32(p + 24) == size - 28 ? 28 : 32;
+    if (size < b->start || cfw_theme_u32(p + b->start - 4) != size - b->start)
         return 0;
     uint32_t format = u16(p);
     b->depth = format == 4                         ? 4
@@ -98,24 +115,24 @@ static int bitmap_layout(uint32_t index, struct layout *b)
                : format == 0x1888                  ? 32
                                                    : 0;
     b->stride = u16(p + 4);
-    b->height = u32(p + 16);
-    b->width = u32(p + 20);
+    b->height = cfw_theme_u32(p + 16);
+    b->width = cfw_theme_u32(p + 20);
     b->colors = 0;
     if (!b->depth || u16(p + 6) != b->depth || !b->width || !b->height || !b->stride ||
         b->width > b->stride * 8 / b->depth)
         return 0;
     if (format == 0x64 || format == 0x65) {
-        if (asset->size - b->start < 4)
+        if (size - b->start < 4)
             return 0;
-        b->colors = u32(p + b->start);
+        b->colors = cfw_theme_u32(p + b->start);
         b->start += 4;
         if (!b->colors || b->colors > (1u << b->depth) ||
-            b->colors > (asset->size - b->start) / 4)
+            b->colors > (size - b->start) / 4)
             return 0;
     }
     b->pixels = b->start + b->colors * 4;
-    return b->height <= (asset->size - b->pixels) / b->stride &&
-           b->pixels + b->height * b->stride == asset->size;
+    return b->height <= (size - b->pixels) / b->stride &&
+           b->pixels + b->height * b->stride == size;
 }
 
 static uint32_t record_bytes(const struct record *r)
@@ -123,17 +140,26 @@ static uint32_t record_bytes(const struct record *r)
     return sizeof(*r) + ((r->size + 3u) & ~3u);
 }
 
+/* Records are sorted by asset and replace exactly the pixel bytes of a bitmap. */
+static int record_valid(struct cursor *c, const struct record *r, uint32_t i,
+                        uint32_t previous, struct layout *b)
+{
+    return (!i || r->asset > previous) && bitmap_layout(c, r->asset, b) &&
+           r->offset == b->start &&
+           r->size == cfw_bitmap_assets[r->asset].size - b->start;
+}
+
 static int records_valid(const struct cfw_theme_pack *pack)
 {
     uint32_t at = pack->records_offset, previous = 0;
+    struct cursor c;
+    cursor_init(&c);
     for (uint32_t i = 0; i < pack->count; i++) {
         if (at > pack->size || pack->size - at < sizeof(struct record))
             return 0;
         const struct record *r = (const void *)(pack->data + at);
         struct layout b;
-        if ((i && r->asset <= previous) || !bitmap_layout(r->asset, &b) ||
-            r->offset != b.start ||
-            r->size != cfw_bitmap_assets[r->asset].size - b.start ||
+        if (!record_valid(&c, r, i, previous, &b) ||
             r->size > pack->size - at - sizeof(*r))
             return 0;
         uint32_t length = record_bytes(r);
@@ -201,19 +227,6 @@ static int metadata_name(const unsigned char *text, unsigned size)
     return 1;
 }
 
-static int reserved_id(const char *id)
-{
-    static const char *const reserved[] = {"default", "dark", "classic"};
-    for (unsigned i = 0; i < sizeof(reserved) / sizeof(*reserved); i++) {
-        unsigned j = 0;
-        while (id[j] && id[j] == reserved[i][j])
-            j++;
-        if (!id[j] && !reserved[i][j])
-            return 1;
-    }
-    return 0;
-}
-
 int cfw_theme_metadata_read(const struct osos_path *path,
                             struct cfw_theme_metadata *out)
 {
@@ -224,24 +237,11 @@ int cfw_theme_metadata_read(const struct osos_path *path,
     int valid = exact(file, &candidate, sizeof(candidate)) && eof(file);
     osos_file_close(file);
     if (!valid || candidate.magic != RTM4_MAGIC || !fingerprint(candidate.catalog) ||
-        !candidate.appearance_mask || (candidate.appearance_mask & ~3u))
-        return 0;
-    unsigned i = 0;
-    for (; i < sizeof(candidate.id) && candidate.id[i]; i++) {
-        unsigned char c = candidate.id[i];
-        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
-              (i && (c == '_' || c == '-'))))
-            return 0;
-    }
-    if (!i || i == sizeof(candidate.id) || !candidate.name[0])
-        return 0;
-    for (; i < sizeof(candidate.id); i++)
-        if (candidate.id[i])
-            return 0;
-    if (reserved_id(candidate.id) ||
+        !candidate.appearance_mask || (candidate.appearance_mask & ~3u) ||
+        !candidate.id[0] || !cfw_theme_id_field_valid(candidate.id) ||
         !metadata_name((const unsigned char *)candidate.name, sizeof(candidate.name)))
         return 0;
-    bytes_copy(out, &candidate, sizeof(candidate));
+    cfw_copy(out, &candidate, sizeof(candidate));
     return 1;
 }
 
@@ -249,7 +249,7 @@ void cfw_theme_pack_release(struct cfw_theme_pack *pack)
 {
     if (pack->data)
         osos_import_free(pack->data);
-    bytes_zero(pack, sizeof(*pack));
+    cfw_zero(pack, sizeof(*pack));
 }
 
 /* RTH4: 52-byte header, then the style prefix and bitmap records. */
@@ -281,7 +281,7 @@ static int style_valid(const unsigned char *data)
 int cfw_theme_pack_read(const struct osos_path *path, int dark, int classic,
                         struct cfw_theme_pack *out)
 {
-    bytes_zero(out, sizeof(*out));
+    cfw_zero(out, sizeof(*out));
     void *file;
     if (osos_file_open(path, 1, &file))
         return 0;
@@ -296,7 +296,7 @@ int cfw_theme_pack_read(const struct osos_path *path, int dark, int classic,
         valid = out->data && exact(file, out->data, out->size) && eof(file);
     }
     osos_file_close(file);
-    valid = valid && ~crc_update(UINT32_MAX, out->data, out->size) == h.crc &&
+    valid = valid && ~cfw_theme_crc32(UINT32_MAX, out->data, out->size) == h.crc &&
             records_valid(out) && style_valid(out->data);
     if (!valid)
         cfw_theme_pack_release(out);
@@ -321,31 +321,35 @@ static struct record *next_record(const struct cfw_theme_pack *pack, uint32_t *a
     return r;
 }
 
-/* Stream the restore file. Only old-only records enter the transaction buffer;
- * the entire baseline is never held in RAM. CRC covers skipped bytes as well. */
-static int restore_missing(const struct osos_path *path, struct cfw_theme_pack *stage,
-                           const uint32_t *incoming, uint32_t needed, int complete)
+_Static_assert(CFW_THEME_STYLE_BYTES <= 256, "Style prefix exceeds the stream scratch");
+
+/* Stream a pack through a 256-byte scratch buffer; the file is never held in RAM.
+ * Baseline mode (complete or stage) requires every record to match the original
+ * artwork checksum; with a stage, records for assets that the incoming pack omits
+ * are copied into the stage's prepared records. Otherwise this probes an
+ * appearance pack, whose style must be opaque. The CRC covers skipped bytes. */
+static int stream_pack(const struct osos_path *path, int dark, int complete,
+                       struct cfw_theme_pack *stage, const uint32_t *incoming,
+                       uint32_t needed)
 {
-    if (!needed && !complete)
+    if (stage && !needed)
         return 1;
+    int baseline = complete || stage;
     void *file;
     if (osos_file_open(path, 1, &file))
         return 0;
 
     struct pack_header h;
-    int valid = exact(file, &h, sizeof(h)) && header_valid(&h, 0) &&
-                (!complete || (h.count == cfw_bitmap_asset_count && h.count));
-    uint32_t consumed = 0, crc = UINT32_MAX, previous = 0, stage_at = 0;
     unsigned char scratch[256];
-    /* The baseline's style prefix is checksummed but not used. */
-    while (valid && consumed < CFW_THEME_STYLE_BYTES) {
-        uint32_t n = CFW_THEME_STYLE_BYTES - consumed;
-        if (n > sizeof(scratch))
-            n = sizeof(scratch);
-        valid = exact(file, scratch, n);
-        crc = crc_update(crc, scratch, n);
-        consumed += n;
-    }
+    int valid = exact(file, &h, sizeof(h)) && header_valid(&h, dark) &&
+                (!complete || (h.count == cfw_bitmap_asset_count && h.count)) &&
+                exact(file, scratch, CFW_THEME_STYLE_BYTES) &&
+                (baseline || style_valid(scratch));
+    uint32_t crc =
+        valid ? cfw_theme_crc32(UINT32_MAX, scratch, CFW_THEME_STYLE_BYTES) : 0;
+    uint32_t consumed = CFW_THEME_STYLE_BYTES, previous = 0, stage_at = 0;
+    struct cursor c;
+    cursor_init(&c);
     for (uint32_t i = 0; valid && i < h.count; i++) {
         struct record r;
         struct layout b;
@@ -353,11 +357,8 @@ static int restore_missing(const struct osos_path *path, struct cfw_theme_pack *
         if (!valid)
             break;
         consumed += sizeof(r);
-        crc = crc_update(crc, (const void *)&r, sizeof(r));
-        valid = (!i || r.asset > previous) && bitmap_layout(r.asset, &b) &&
-                r.offset == b.start &&
-                r.size == cfw_bitmap_assets[r.asset].size - b.start &&
-                r.size <= h.size - consumed &&
+        crc = cfw_theme_crc32(crc, &r, sizeof(r));
+        valid = record_valid(&c, &r, i, previous, &b) && r.size <= h.size - consumed &&
                 ((r.size + 3u) & ~3u) <= h.size - consumed;
         if (!valid)
             break;
@@ -366,7 +367,7 @@ static int restore_missing(const struct osos_path *path, struct cfw_theme_pack *
                                          ? 0
                                          : next_record(stage, &stage_at, r.asset);
         uint32_t original_crc =
-            crc_update(UINT32_MAX, cfw_bitmap_assets[r.asset].data, r.offset);
+            cfw_theme_crc32(UINT32_MAX, asset_data(&c, r.asset), r.offset);
         for (uint32_t at = 0; valid && at < r.size;) {
             uint32_t n = r.size - at;
             if (n > sizeof(scratch))
@@ -375,16 +376,16 @@ static int restore_missing(const struct osos_path *path, struct cfw_theme_pack *
             valid = exact(file, buffer, n);
             if (!valid)
                 break;
-            crc = crc_update(crc, buffer, n);
-            original_crc = crc_update(original_crc, buffer, n);
+            crc = cfw_theme_crc32(crc, buffer, n);
+            original_crc = cfw_theme_crc32(original_crc, buffer, n);
             at += n;
         }
-        valid = valid && ~original_crc == cfw_bitmap_assets[r.asset].crc;
+        valid = valid && (!baseline || ~original_crc == cfw_bitmap_assets[r.asset].crc);
         uint32_t padding = (0u - r.size) & 3u;
         if (valid && padding) {
             valid = exact(file, scratch, padding);
             if (valid)
-                crc = crc_update(crc, scratch, padding);
+                crc = cfw_theme_crc32(crc, scratch, padding);
             for (uint32_t j = 0; valid && j < padding; j++)
                 valid = !scratch[j];
         }
@@ -399,7 +400,12 @@ static int restore_missing(const struct osos_path *path, struct cfw_theme_pack *
 
 int cfw_theme_baseline_valid(const struct osos_path *path)
 {
-    return restore_missing(path, 0, 0, 0, 1);
+    return stream_pack(path, 0, 1, 0, 0, 0);
+}
+
+int cfw_theme_pack_valid(const struct osos_path *path, int dark)
+{
+    return stream_pack(path, dark, 0, 0, 0, 0);
 }
 
 int cfw_theme_transaction_bytes(const struct cfw_theme_pack *target,
@@ -409,11 +415,13 @@ int cfw_theme_transaction_bytes(const struct cfw_theme_pack *target,
     if (cfw_bitmap_asset_count > CFW_THEME_MAX_ASSETS)
         return 0;
     uint32_t at = target ? target->records_offset : 0;
+    struct cursor c;
+    cursor_init(&c);
     for (uint32_t i = 0; i < cfw_bitmap_asset_count; i++) {
         if (next_record(target, &at, i) || !bit(previous, i))
             continue;
         struct layout b;
-        if (!bitmap_layout(i, &b))
+        if (!bitmap_layout(&c, i, &b))
             return 0;
         uint32_t size = cfw_bitmap_assets[i].size - b.start;
         if (size > UINT32_MAX - 3u - sizeof(struct record))
@@ -431,7 +439,7 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
                                   const struct osos_path *baseline,
                                   struct cfw_theme_transaction *out)
 {
-    bytes_zero(out, sizeof(*out));
+    cfw_zero(out, sizeof(*out));
     if (cfw_bitmap_asset_count > CFW_THEME_MAX_ASSETS)
         return 0;
     out->dark = !!dark;
@@ -456,12 +464,14 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
     out->patch.count = missing;
     uint32_t at = 0;
     target_at = target ? target->records_offset : 0;
+    struct cursor c;
+    cursor_init(&c);
     for (uint32_t i = 0; i < cfw_bitmap_asset_count; i++) {
         const struct record *source = next_record(target, &target_at, i);
         if (source || !bit(previous, i))
             continue;
         struct layout b;
-        if (!bitmap_layout(i, &b)) {
+        if (!bitmap_layout(&c, i, &b)) {
             cfw_theme_transaction_release(out);
             return 0;
         }
@@ -469,18 +479,16 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
         r->asset = i;
         r->offset = b.start;
         r->size = cfw_bitmap_assets[i].size - b.start;
-        uint32_t padded = (r->size + 3u) & ~3u;
-        for (uint32_t j = 0; j < padded; j++)
-            r->data[j] = 0;
+        cfw_zero(r->data, (r->size + 3u) & ~3u);
         at += record_bytes(r);
     }
-    if (!restore_missing(baseline, &out->patch, out->target_assets, missing, 0)) {
+    if (!stream_pack(baseline, 0, 0, &out->patch, out->target_assets, missing)) {
         cfw_theme_transaction_release(out);
         return 0;
     }
     if (target) {
-        bytes_copy(&out->incoming, target, sizeof(*target));
-        bytes_zero(target, sizeof(*target));
+        cfw_copy(&out->incoming, target, sizeof(*target));
+        cfw_zero(target, sizeof(*target));
     }
     return 1;
 }
@@ -488,9 +496,11 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
 static void pack_swap(struct cfw_theme_pack *pack)
 {
     uint32_t at = pack->records_offset;
+    struct cursor c;
+    cursor_init(&c);
     for (uint32_t i = 0; i < pack->count; i++) {
         struct record *r = (void *)(pack->data + at);
-        unsigned char *target = cfw_bitmap_assets[r->asset].data + r->offset;
+        unsigned char *target = asset_data(&c, r->asset) + r->offset;
         for (uint32_t j = 0; j < r->size; j++) {
             unsigned char old = target[j];
             target[j] = r->data[j];
@@ -511,5 +521,5 @@ void cfw_theme_transaction_release(struct cfw_theme_transaction *transaction)
 {
     cfw_theme_pack_release(&transaction->incoming);
     cfw_theme_pack_release(&transaction->patch);
-    bytes_zero(transaction, sizeof(*transaction));
+    cfw_zero(transaction, sizeof(*transaction));
 }

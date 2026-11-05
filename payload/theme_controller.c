@@ -48,9 +48,16 @@ activate_selecting(void *controller, uint32_t entering, uint32_t index)
     return result;
 }
 
+/* The Theme and Accent pickers share one vtable; the Accent controller is
+ * remembered at creation so activation can highlight the right row. */
+static void *accent_controller;
+
 static PATCH_ARM uint32_t theme_activate(void *controller, uint32_t entering)
 {
-    return activate_selecting(controller, entering, cfw_theme_settings_selected());
+    return activate_selecting(controller, entering,
+                              controller == accent_controller
+                                  ? cfw_theme_settings_accent_selected()
+                                  : cfw_theme_settings_selected());
 }
 
 /* Retain the native Settings controller and resource-screen lifecycle. */
@@ -67,8 +74,12 @@ static PATCH_ARM void *theme_create(const char *name, uint32_t screen, uint32_t 
 {
     typedef void *(*create_fn)(const char *, uint32_t, uint32_t, uint32_t);
     void *controller = ((create_fn)0x0821e4b0)(name, screen, layout, transition);
-    if (controller)
+    if (controller) {
         *(const uintptr_t **)controller = theme_vtable + 3;
+        /* A reused address no longer belongs to a deleted Accent controller. */
+        if (controller == accent_controller)
+            accent_controller = 0;
+    }
     return controller;
 }
 
@@ -101,25 +112,12 @@ static PATCH_ARM void *main_create(const char *name, uint32_t screen, uint32_t l
     return controller;
 }
 
-static PATCH_ARM uint32_t accent_activate(void *controller, uint32_t entering)
-{
-    return activate_selecting(controller, entering, cfw_theme_settings_accent_selected());
-}
-
-static const uintptr_t accent_vtable[(12 + 0x128) / 4] = {
-    [(12 + 0xec) / 4] = (uintptr_t)accent_activate,
-    [(12 + 0x114) / 4] = (uintptr_t)cfw_settings_action,
-};
-PATCH_COPY(accent_vtable, 0, 0x089a3ae0 - 12, 12 + 0xec);
-PATCH_COPY(accent_vtable, 12 + 0xf0, 0x089a3ae0 + 0xf0, 0x114 - 0xf0);
-PATCH_COPY(accent_vtable, 12 + 0x118, 0x089a3ae0 + 0x118, 0x128 - 0x118);
-
 static PATCH_ARM void *accent_create(const char *name, uint32_t screen, uint32_t layout,
                                      uint32_t transition)
 {
     void *controller = theme_create(name, screen, layout, transition);
     if (controller)
-        *(const uintptr_t **)controller = accent_vtable + 3;
+        accent_controller = controller;
     return controller;
 }
 

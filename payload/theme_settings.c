@@ -25,53 +25,52 @@ static const unsigned char accent_order[CFW_THEME_ACCENT_COUNT] = {
     CFW_THEME_ACCENT_RED, CFW_THEME_ACCENT_PINK, CFW_THEME_ACCENT_PURPLE,
     CFW_THEME_ACCENT_GRAPHITE,
 };
-static char active_name[48] = "Classic";
+static char active_name[48];
 static struct cfw_theme_switch switcher;
+/* Shared by every switch; the pack path lives on the caller's stack. */
+static struct osos_path baseline_path;
 
-static enum cfw_theme_store_result store(void *context,
-                                         const struct cfw_theme_preferences *state)
+static const struct cfw_theme_switch_ops ops = {cfw_theme_preferences_store};
+
+static void set_active_name(const char *name)
 {
-    (void)context;
-    return cfw_theme_preferences_store(state);
+    unsigned i = 0;
+    for (; i + 1 < sizeof(active_name) && name[i]; i++)
+        active_name[i] = name[i];
+    active_name[i] = 0;
 }
-static const struct cfw_theme_switch_ops ops = {store};
 
 void cfw_theme_settings_load(void)
 {
     if (initialized)
         return;
     initialized = 1;
-    cfw_theme_switch_init(&switcher, &ops, 0);
+    cfw_theme_switch_init(&switcher, &ops);
     cfw_theme_appearance_set(0);
-    struct cfw_theme_pack dark_pack;
-    classic_available = cfw_theme_baseline_valid(&cfw_theme_classic_baseline) &&
-                        cfw_theme_pack_read(&cfw_theme_classic_dark, 1, 1, &dark_pack);
-    if (classic_available)
-        cfw_theme_pack_release(&dark_pack);
-    else {
+    set_active_name("Classic");
+    cfw_theme_path(&baseline_path, CFW_THEME_CLASSIC_BASELINE);
+    /* The request's pack path doubles as scratch until the preferences resolve. */
+    struct cfw_theme_boot_request request;
+    cfw_theme_path(&request.pack, CFW_THEME_CLASSIC_DARK);
+    classic_available = cfw_theme_baseline_valid(&baseline_path) &&
+                        cfw_theme_pack_valid(&request.pack, 1);
+    if (!classic_available) {
         osos_menu_item_set_visible(CFW_Theme_Item, 0);
         osos_menu_item_set_visible(CFW_Accent_Item, 0);
         osos_menu_item_set_visible(CFW_DarkMode_Item, 0);
         return;
     }
-    struct cfw_theme_boot_request request;
     int recover = cfw_theme_boot_resolve(&request);
     if (recover) {
         cfw_theme_switch_store_classic(&switcher);
     } else if (request.pack.text[0] || request.selection.accent) {
         const struct osos_path *boot_path = request.pack.text[0] ? &request.pack : 0;
-        int ok =
-            request.migrate
-                ? cfw_theme_switch_apply(&switcher, &request.selection, boot_path,
-                                         &cfw_theme_classic_baseline)
-                : cfw_theme_switch_restore(&switcher, &request.selection, boot_path,
-                                           &cfw_theme_classic_baseline);
-        if (ok && request.selection.id[0]) {
-            for (unsigned i = 0; i < sizeof(active_name); i++)
-                active_name[i] = request.name[i];
-        } else if (!ok && switcher.result == CFW_THEME_LOAD_FAILED) {
+        int ok = cfw_theme_switch_restore(&switcher, &request.selection, boot_path,
+                                          &baseline_path);
+        if (ok && request.selection.id[0])
+            set_active_name(request.name);
+        else if (!ok && switcher.result == CFW_THEME_LOAD_FAILED)
             cfw_theme_switch_store_classic(&switcher);
-        }
     }
     osos_menu_item_set_visible(CFW_DarkMode_Item,
                                !switcher.active.custom || request.appearance_mask == 3);
@@ -145,8 +144,7 @@ static void apply(void *controller, const char *id, uint32_t dark, unsigned acce
     if (!classic_available || !cfw_theme_input_available())
         return;
     struct cfw_theme_selection selection;
-    for (unsigned i = 0; i < sizeof(selection); i++)
-        ((unsigned char *)&selection)[i] = 0;
+    cfw_zero(&selection, sizeof(selection));
     selection.dark = dark;
     selection.accent = accent;
     struct osos_path pack;
@@ -162,14 +160,13 @@ static void apply(void *controller, const char *id, uint32_t dark, unsigned acce
             notify(controller, 0);
             return;
         }
-        for (unsigned i = 0; i < sizeof(selection.id); i++)
-            selection.id[i] = metadata.id[i];
+        cfw_copy(selection.id, metadata.id, sizeof(selection.id));
         path = &pack;
     } else if (dark) {
-        path = &cfw_theme_classic_dark;
+        cfw_theme_path(&pack, CFW_THEME_CLASSIC_DARK);
+        path = &pack;
     }
-    int changed = cfw_theme_switch_apply(&switcher, &selection, path,
-                                         &cfw_theme_classic_baseline);
+    int changed = cfw_theme_switch_apply(&switcher, &selection, path, &baseline_path);
     if (switcher.result == CFW_THEME_BUSY)
         return;
     error = switch_error();
@@ -177,11 +174,7 @@ static void apply(void *controller, const char *id, uint32_t dark, unsigned acce
     if (changed) {
         osos_menu_item_set_visible(CFW_DarkMode_Item,
                                    !selection.id[0] || metadata.appearance_mask == 3);
-        const char *name = id[0] ? metadata.name : "Classic";
-        unsigned i = 0;
-        do {
-            active_name[i] = name[i];
-        } while (name[i++]);
+        set_active_name(id[0] ? metadata.name : "Classic");
     }
     notify(controller, changed);
 }
@@ -235,10 +228,8 @@ int cfw_theme_settings_action(void *controller, const char *action, uint32_t arg
             if (cfw_theme_discovery_select(switcher.active.selection.id,
                                            switcher.active.selection.dark, 1, &metadata,
                                            &pack, &dark)) {
-                for (unsigned i = 0; i < sizeof(metadata.id); i++)
-                    choices[count - 1].id[i] = metadata.id[i];
-                for (unsigned i = 0; i < sizeof(metadata.name); i++)
-                    choices[count - 1].name[i] = metadata.name[i];
+                cfw_copy(choices[count - 1].id, metadata.id, sizeof(metadata.id));
+                cfw_copy(choices[count - 1].name, metadata.name, sizeof(metadata.name));
             }
         }
         dark_error = 0;

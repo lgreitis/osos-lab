@@ -20,7 +20,11 @@ the native nonblocking dispatch reports an empty queue. Other messages retain
 native dispatch behavior. This prevents queued presses from reversing a switch
 without a fixed delay or renderer locks.
 
-Theme opens a native half-screen Settings list with an image/text preview.
+Theme opens a native half-screen Settings list with an image/text preview. The
+CFW preview graphics are stored as zero-run encoded grayscale masks and unpacked
+on demand into one shared buffer allocated on first use, so each additional preview
+costs only its packed size.
+
 Classic comes first, followed by up to 64 packages ordered by ID. If the list is
 full, the active package replaces the last entry. The active row is highlighted
 on opening; there are no checkmarks. Discovery normalizes FAT name case and
@@ -40,9 +44,11 @@ appearance.
 ## Boot and installation
 
 Install `themes/classic/default.bin` (complete stock baseline) and
-`themes/classic/dark.bin` (Classic dark artwork). Both must validate at boot.
-Otherwise the firmware stays in Classic light, hides both settings, and leaves
-preferences unchanged. Restore the files and restart to enable theming.
+`themes/classic/dark.bin` (Classic dark artwork). Both are streamed and validated at
+boot without loading them into memory; palette indices are checked when a pack is
+read for switching. Otherwise the firmware stays in Classic light, hides both
+settings, and leaves preferences unchanged. Restore the files and restart to enable
+theming.
 The `classic` directory is reserved and excluded from custom discovery.
 
 Installer 0.2.9 or newer generates the complete baseline from verified Apple
@@ -51,9 +57,9 @@ installer version; older bundles retain their previous installation layout.
 The firmware does not read the old `themes/default` and `themes/dark` paths.
 
 Boot restores valid saved selections through the same switcher without rewriting
-them. Invalid records or unavailable packages recover to Classic light. Only an
-absent `CFWTheme` record permits migration from `CFWDark`; new selections never
-write the legacy record.
+them. Invalid records or unavailable packages recover to Classic light. An absent
+`CFWTheme` record selects Classic light without writing anything; the pre-theme
+`CFWDark` record is ignored.
 
 ## Preference storage
 
@@ -64,7 +70,7 @@ selection fields without modifying its output on failure. Pending records
 select Classic light at boot.
 
 Only native open error -43 means absent. Other errors, malformed records, and
-trailing data cannot trigger migration. Writes check transfer length, explicitly
+trailing data are invalid and recover to Classic light. Writes check transfer length, explicitly
 sync, set the length to 56 bytes, sync again, close, and verify by readback.
 The native write wrapper discards its internal sync result, so the explicit
 sync is required. Storage errors return UNKNOWN and may leave uncertain disk

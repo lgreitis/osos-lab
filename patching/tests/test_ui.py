@@ -10,6 +10,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from patching.bitmap import unpack_zero_runs
 from patching.ui import generate, parser
 from patching.ui.codegen import emit_header, emit_visibility
 from patching.ui.compiler import DocumentCompiler, compile_document
@@ -317,14 +318,18 @@ class UiTests(unittest.TestCase):
                 (0x8900 if kind == "BMap" else 0x80, 1),
             )
             resource_id = word(binding, 4)
-            content = resources.added[kind, resource_id].data
             if kind == "BMap":
                 self.assertEqual(resource_id, resources.names["CFW_Info_Icon"])
+                self.assertNotIn((kind, resource_id), resources.added)
+                packed, size = resources.packed[kind, resource_id]
+                content = unpack_zero_runs(packed, size)
                 self.assertEqual(
                     struct.unpack_from("<HHHHiiiii", content),
                     (8, 0, 80, 8, 0, 0, 121, 78, 9680),
                 )
+                self.assertLess(len(packed), size // 4)
             else:
+                content = resources.added[kind, resource_id].data
                 self.assertEqual(content, b"RepriseOS\0")
         appended = b"".join(
             resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
@@ -596,7 +601,9 @@ class UiTests(unittest.TestCase):
         resources.original = {("SCST", 10): b"TSilverSettingsMenuListCntlr"}
         compile_document(resources, document)
         self.assertEqual(resources.added["SCST", 10].data, b"CFWSettingsMain")
-        self.assertEqual(resources.original["SCST", 10], b"TSilverSettingsMenuListCntlr")
+        self.assertEqual(
+            resources.original["SCST", 10], b"TSilverSettingsMenuListCntlr"
+        )
         for declaration in (
             '<screen-controller screen="Settings" controller="CFW Main"/>',
             '<screen-controller screen="Settings"/>',

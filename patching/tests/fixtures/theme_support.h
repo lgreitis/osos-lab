@@ -7,15 +7,18 @@
 #define CFW_OSOS_H
 #include "../../../payload/assets.h"
 #include "../../../payload/theme_package.h"
+#include "../../../payload/theme_id.c"
 
-static unsigned char pixels[2][42] = {
+/* Two 42-byte resident bitmaps, packed with the firmware's 4-byte alignment. */
+static unsigned char pixels[2][44] = {
     {100, 0, 0, 0,  2, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0,   0, 1, 0, 0,   0, 2,
      0,   0, 0, 14, 0, 0, 0, 2, 0, 0, 0, 3, 2, 1, 255, 6, 5, 4, 255, 0, 1},
     {100, 0, 0, 0,  2, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0,   0, 1, 0, 0,   0, 2,
      0,   0, 0, 14, 0, 0, 0, 2, 0, 0, 0, 3, 2, 1, 255, 6, 5, 4, 255, 0, 1}};
-static unsigned char original[2][42];
-const struct cfw_bitmap_asset cfw_bitmap_assets[] = {{pixels[0], 42, 0x25789516},
-                                                     {pixels[1], 42, 0x25789516}};
+static unsigned char original[2][44];
+const struct cfw_bitmap_asset cfw_bitmap_assets[] = {{42, 0x25789516},
+                                                     {42, 0x25789516}};
+unsigned char *const cfw_bitmap_assets_base = pixels[0];
 const uint32_t cfw_bitmap_asset_count = 2, cfw_theme_max_bytes = 48;
 const unsigned char cfw_theme_catalog_hash[32] = {1, 2, 3};
 
@@ -151,7 +154,7 @@ static void make_pack(struct file *f, uint32_t appearance, unsigned count, int r
     opaque_style(body);
     for (unsigned i = 0; i < count; i++)
         write_record(body + CFW_THEME_STYLE_BYTES + 24 * i, i, recolor);
-    h->crc = ~crc_update(UINT32_MAX, body, h->size);
+    h->crc = ~cfw_theme_crc32(UINT32_MAX, body, h->size);
     f->size = sizeof(*h) + h->size;
 }
 
@@ -163,7 +166,7 @@ static void make_target(unsigned asset)
     h->size = CFW_THEME_STYLE_BYTES + 24;
     h->count = 1;
     write_record(body + CFW_THEME_STYLE_BYTES, asset, 1);
-    h->crc = ~crc_update(UINT32_MAX, body, h->size);
+    h->crc = ~cfw_theme_crc32(UINT32_MAX, body, h->size);
     files[0].size = sizeof(*h) + h->size;
 }
 
@@ -175,5 +178,5 @@ static void make_baseline(void)
 static void fix_crc(void)
 {
     struct pack_header *h = (void *)files[0].data;
-    h->crc = ~crc_update(UINT32_MAX, files[0].data + sizeof(*h), h->size);
+    h->crc = ~cfw_theme_crc32(UINT32_MAX, files[0].data + sizeof(*h), h->size);
 }

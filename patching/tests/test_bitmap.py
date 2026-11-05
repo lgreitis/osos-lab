@@ -7,7 +7,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from patching.bitmap import encode_bmap, read_png
+from patching.bitmap import encode_bmap, pack_zero_runs, read_png, unpack_zero_runs
 
 
 def chunk(kind, data):
@@ -129,3 +129,28 @@ class BitmapTests(unittest.TestCase):
         )
         self.assertEqual(struct.unpack_from("<HHHH", texture), (0x565, 0, 4, 16))
         self.assertEqual(texture[28:], struct.pack("<2H", 0xF800, 0))
+
+    def test_zero_runs_round_trip_and_keep_short_gaps_literal(self):
+        cases = [
+            b"",
+            b"\0" * 1000,
+            bytes(range(1, 256)) * 3,
+            b"\0\0\0\0" + b"\5\0\6\0\0\7" + b"\0" * 3 + b"\1" + b"\0" * 300,
+            bytes(32) + b"\x7f" * 600 + bytes(5),
+        ]
+        for data in cases:
+            with self.subTest(size=len(data)):
+                packed = pack_zero_runs(data)
+                self.assertEqual(unpack_zero_runs(packed, len(data)), data)
+                for i in range(0, len(packed)):
+                    zeros, literals = packed[i], packed[i + 1]
+                    self.assertLessEqual(zeros, 255)
+                    i += 2 + literals
+                    if i >= len(packed):
+                        break
+        # Isolated zeros inside artwork do not start a new group.
+        self.assertEqual(pack_zero_runs(b"\1\0\2\0\0\3"), b"\0\6\1\0\2\0\0\3")
+        self.assertEqual(pack_zero_runs(b"\1\0\0\0\2"), b"\0\1\1\3\1\2")
+        self.assertLess(len(pack_zero_runs(bytes(9708))), 100)
+        with self.assertRaises(ValueError):
+            unpack_zero_runs(b"\0\1\1\0\0", 1)

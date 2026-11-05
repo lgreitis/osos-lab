@@ -26,7 +26,13 @@ struct list {
     unsigned count;
 };
 
-static unsigned allocations;
+static unsigned allocations, imports;
+
+static void *osos_import_alloc(uint32_t size)
+{
+    imports++;
+    return malloc(size);
+}
 
 static void append_block(void *object, void *data, uint32_t size, uint32_t metadata)
 {
@@ -109,6 +115,19 @@ const struct cfw_resource cfw_resources[] = {
     {OSOS_RESOURCE_BMAP, 26, sizeof(icon), icon},
 };
 const uint32_t cfw_resource_count = 2;
+/* 28-byte header followed by 16 pixels: three leading zeros, a short gap kept
+ * literal, and a trailing run. */
+static const unsigned char preview[44] = {
+    [0] = 8,  [2] = 4,  [6] = 8,  [16] = 4, [20] = 4, [24] = 16, [31] = 9,
+    [32] = 0, [33] = 8, [34] = 0, [35] = 0, [36] = 7, [37] = 0,
+};
+static const unsigned char preview_packed[] = {
+    0, 3, 8, 0, 4, 3, 1, 8, 9, 1, 4, 3, 1, 4, 3, 1, 16, 6, 6, 9, 0, 8, 0, 0, 7, 7, 0};
+const struct cfw_packed_bitmap cfw_packed_bitmaps[] = {
+    {27, sizeof(preview_packed), sizeof(preview), preview_packed},
+    {28, 2, 4, (const unsigned char[]){4, 0}},
+};
+const uint32_t cfw_packed_bitmap_count = 2, cfw_packed_bitmap_bytes = sizeof(preview);
 const struct cfw_resource_name cfw_resource_names[] = {{"AlbumArtists", ALBUM_ARTISTS}};
 const uint32_t cfw_resource_name_count = 1;
 static unsigned installed;
@@ -144,7 +163,18 @@ int main(void)
     assert(!allocations);
     cfw_install_resources(&bank);
     assert(installed == 1 && name_id == ALBUM_ARTISTS);
-    assert(cfw_resource_bitmap(26) == icon && !cfw_resource_bitmap(99));
+    assert(cfw_resource_bitmap(26) == icon && !cfw_resource_bitmap(99) && !imports);
+    /* Packed previews unpack into one lazily allocated buffer, cached by id. */
+    const unsigned char *shown = cfw_resource_bitmap(27);
+    assert(shown && imports == 1 && !memcmp(shown, preview, sizeof(preview)));
+    assert(cfw_resource_bitmap(27) == shown && imports == 1);
+    assert(cfw_resource_bitmap(28) == shown && imports == 1);
+    assert(!memcmp(shown, "\0\0\0\0", 4) && shown[31] == 9);
+    assert(cfw_resource_bitmap(27) == shown &&
+           !memcmp(shown, preview, sizeof(preview)));
+    assert(cfw_resource_bitmap(26) == icon);
+    free(unpacked);
+    unpacked = NULL;
     registry[ARTISTS]->visible = 1;
     registry[ALBUM_ARTISTS]->visible = 1;
     registry[ITUNES_U]->visible = 0;
