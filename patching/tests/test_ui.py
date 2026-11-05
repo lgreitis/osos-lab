@@ -339,6 +339,8 @@ class UiTests(unittest.TestCase):
         )
         self.assertIn(b"CFW_Info_Screen", appended)
         self.assertIn(b"navigator.PushScreen", appended)
+        # Full-screen pages keep the foreground push; see the Theme test below.
+        self.assertIn(b"foregroundpush", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
 
     def test_theme_and_accent_previews_use_static_icons_with_live_captions(self):
@@ -404,6 +406,15 @@ class UiTests(unittest.TestCase):
             events.index(b"navigator.SwitchLayout"),
         )
         self.assertIn("CFW_Theme_Choices", compiled.string_ids)
+        # Half-screen Settings rows push like native EQ: no transition name, so
+        # only the list pane animates and the preview pane stays put.
+        appended = b"".join(
+            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
+        )
+        self.assertIn(b"navigator.PushScreen", appended)
+        self.assertIn(b"CFW_Theme_Screen", appended)
+        self.assertIn(b"CFW_Theme_Layout", appended)
+        self.assertNotIn(b"foregroundpush", appended)
         self.assertEqual(len(resources.menu_items), 1)
         self.assertEqual(
             word(resources.menu_items[0][3], 0x30),

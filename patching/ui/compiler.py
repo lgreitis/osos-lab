@@ -216,14 +216,13 @@ class DocumentCompiler:
         )
         return table
 
-    def push(self, item, name, handler=""):
-        return menu_event(
-            item,
-            "chosen",
-            handler,
-            "navigator.PushScreen",
-            [name + "_Screen", name + "_Layout", "foregroundpush"],
-        )
+    def push(self, item, name, handler="", transition="foregroundpush"):
+        """Push a page. Omitting the transition matches native half-screen
+        Settings rows such as EQ, which animate only the list pane."""
+        arguments = [name + "_Screen", name + "_Layout"]
+        if transition:
+            arguments.append(transition)
+        return menu_event(item, "chosen", handler, "navigator.PushScreen", arguments)
 
     def selector(self, item):
         resources = self.resources
@@ -501,6 +500,10 @@ class DocumentCompiler:
         document = self.document
         if document.root.kind == "toggle":
             chosen = menu_event(item_id, "chosen", document.root.name + "_Toggle")
+        elif document.root.kind == "list":
+            chosen = self.push(
+                item_id, document.root.name, document.open_action, transition=None
+            )
         else:
             chosen = self.push(item_id, document.root.name, document.open_action)
         events = [
