@@ -3,6 +3,7 @@
 #include "theme_classic.h"
 #include "theme_input.h"
 #include "theme_settings_ui.h"
+#include "accent_settings_ui.h"
 #include "dark_mode_ui.h"
 #include "theme_boot.h"
 #include "theme_discovery.h"
@@ -14,7 +15,14 @@
 static struct cfw_theme_choice choices[THEME_CHOICES];
 static uint32_t count;
 static int initialized, overflow, classic_available;
-static const char *error, *dark_error;
+static const char *error, *dark_error, *accent_error;
+/* Display order of the Accent Color list; stored values keep enum order. */
+static const unsigned char accent_order[CFW_THEME_ACCENT_COUNT] = {
+    CFW_THEME_ACCENT_DEFAULT, CFW_THEME_ACCENT_BLUE, CFW_THEME_ACCENT_TEAL,
+    CFW_THEME_ACCENT_GREEN, CFW_THEME_ACCENT_YELLOW, CFW_THEME_ACCENT_ORANGE,
+    CFW_THEME_ACCENT_RED, CFW_THEME_ACCENT_PINK, CFW_THEME_ACCENT_PURPLE,
+    CFW_THEME_ACCENT_GRAPHITE,
+};
 static char active_name[48] = "Classic";
 static struct cfw_theme_switch switcher;
 
@@ -40,6 +48,7 @@ void cfw_theme_settings_load(void)
         cfw_theme_pack_release(&dark_pack);
     else {
         osos_menu_item_set_visible(CFW_Theme_Item, 0);
+        osos_menu_item_set_visible(CFW_Accent_Item, 0);
         osos_menu_item_set_visible(CFW_DarkMode_Item, 0);
         return;
     }
@@ -47,12 +56,13 @@ void cfw_theme_settings_load(void)
     int recover = cfw_theme_boot_resolve(&request);
     if (recover) {
         cfw_theme_switch_store_classic(&switcher);
-    } else if (request.pack.text[0]) {
+    } else if (request.pack.text[0] || request.selection.accent) {
+        const struct osos_path *boot_path = request.pack.text[0] ? &request.pack : 0;
         int ok =
             request.migrate
-                ? cfw_theme_switch_apply(&switcher, &request.selection, &request.pack,
+                ? cfw_theme_switch_apply(&switcher, &request.selection, boot_path,
                                          &cfw_theme_classic_baseline)
-                : cfw_theme_switch_restore(&switcher, &request.selection, &request.pack,
+                : cfw_theme_switch_restore(&switcher, &request.selection, boot_path,
                                            &cfw_theme_classic_baseline);
         if (ok && request.selection.id[0]) {
             for (unsigned i = 0; i < sizeof(active_name); i++)
@@ -82,9 +92,11 @@ const char *cfw_theme_settings_error(void)
 static void notify(void *controller, int changed)
 {
     void *model = osos_settings_model(controller);
-    const uint32_t properties[] = {CFW_Theme_Choices,         CFW_Theme_PreviewText,
-                                   CFW_Theme_PreviewImage,    CFW_DarkMode_Value,
-                                   CFW_DarkMode_PreviewImage, CFW_DarkMode_PreviewText};
+    const uint32_t properties[] = {CFW_Accent_Choices,        CFW_Accent_PreviewText,
+                                   CFW_Accent_PreviewImage,   CFW_Theme_Choices,
+                                   CFW_Theme_PreviewText,     CFW_Theme_PreviewImage,
+                                   CFW_DarkMode_Value,        CFW_DarkMode_PreviewImage,
+                                   CFW_DarkMode_PreviewText};
     for (unsigned i = 0; i < sizeof(properties) / sizeof(*properties); i++)
         osos_model_notify(model, OSOS_NOTIFY_ALL, properties[i]);
     if (changed) {
@@ -97,7 +109,14 @@ static void notify(void *controller, int changed)
     osos_ui_invalidate();
 }
 
-static void apply(void *controller, const char *id, uint32_t dark, int fallback)
+static const char *switch_error(void)
+{
+    return switcher.result == CFW_THEME_OK             ? 0
+           : switcher.result == CFW_THEME_STORE_FAILED ? "Could not save theme"
+                                                       : "Could not load theme";
+}
+
+static void apply(void *controller, const char *id, uint32_t dark, unsigned accent, int fallback)
 {
     if (!classic_available || !cfw_theme_input_available())
         return;
@@ -105,6 +124,7 @@ static void apply(void *controller, const char *id, uint32_t dark, int fallback)
     for (unsigned i = 0; i < sizeof(selection); i++)
         ((unsigned char *)&selection)[i] = 0;
     selection.dark = dark;
+    selection.accent = accent;
     struct osos_path pack;
     struct cfw_theme_metadata metadata;
     const struct osos_path *path = 0;
@@ -128,9 +148,7 @@ static void apply(void *controller, const char *id, uint32_t dark, int fallback)
                                          &cfw_theme_classic_baseline);
     if (switcher.result == CFW_THEME_BUSY)
         return;
-    error = changed                                     ? 0
-            : switcher.result == CFW_THEME_STORE_FAILED ? "Could not save theme"
-                                                        : "Could not load theme";
+    error = switch_error();
     dark_error = fallback ? 0 : error;
     if (changed) {
         osos_menu_item_set_visible(CFW_DarkMode_Item,
@@ -147,11 +165,34 @@ static void apply(void *controller, const char *id, uint32_t dark, int fallback)
 void cfw_theme_settings_toggle(void *controller)
 {
     cfw_theme_settings_load();
-    apply(controller, switcher.active.selection.id, !switcher.active.selection.dark, 0);
+    apply(controller, switcher.active.selection.id, !switcher.active.selection.dark,
+          switcher.active.selection.accent, 0);
 }
 
 int cfw_theme_settings_action(void *controller, const char *action, uint32_t argument)
 {
+    int accent_open = cfw_string_equal(action, "CFW_Accent_Open");
+    int accent_select = cfw_string_equal(action, "CFW_Accent_Select");
+    if (accent_open || accent_select) {
+        if (argument == OSOS_ACTION_SUPPORT_QUERY)
+            return 1;
+        cfw_theme_settings_load();
+        if (!classic_available)
+            return 1;
+        if (accent_open) {
+            accent_error = 0;
+            return 1;
+        }
+        unsigned row = osos_selection_index(osos_ui_selection());
+        if (row >= CFW_THEME_ACCENT_COUNT || !cfw_theme_input_available())
+            return 1;
+        int changed = cfw_theme_switch_set_accent(&switcher, accent_order[row]);
+        if (switcher.result != CFW_THEME_BUSY) {
+            accent_error = switch_error();
+            notify(controller, changed);
+        }
+        return 1;
+    }
     int open = cfw_string_equal(action, "CFW_Theme_Open");
     if (!open && !cfw_string_equal(action, "CFW_Theme_Select"))
         return 0;
@@ -181,13 +222,22 @@ int cfw_theme_settings_action(void *controller, const char *action, uint32_t arg
         uint32_t index = osos_selection_index(osos_ui_selection());
         if (index <= count)
             apply(controller, index ? choices[index - 1].id : "",
-                  switcher.active.selection.dark, 1);
+                  switcher.active.selection.dark, switcher.active.selection.accent, 1);
     }
     return 1;
 }
 
 int cfw_theme_settings_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
+    if (property == CFW_Accent_Choices && type == OSOS_PROPERTY_COUNT) {
+        *out = CFW_THEME_ACCENT_COUNT;
+        return 1;
+    }
+    if (property == CFW_Accent_PreviewText && type == OSOS_PROPERTY_STRING) {
+        *out = (uintptr_t)(accent_error ? accent_error :
+                          cfw_theme_accent_label(switcher.active.selection.accent));
+        return 1;
+    }
     if (property == CFW_Theme_Choices && type == OSOS_PROPERTY_COUNT) {
         *out = count + 1 + (error != 0 || overflow);
         return 1;
@@ -202,6 +252,17 @@ int cfw_theme_settings_property(uint32_t type, uint32_t property, uintptr_t *out
 int cfw_theme_settings_indexed_property(uint32_t type, uint32_t property,
                                         uint32_t index, uintptr_t *out)
 {
+    if (property == CFW_Accent_Choices) {
+        if (index >= CFW_THEME_ACCENT_COUNT)
+            return 0;
+        if (type == OSOS_PROPERTY_STRING)
+            *out = (uintptr_t)cfw_theme_accent_label(accent_order[index]);
+        else if (type == OSOS_RESOURCE_BMAP)
+            *out = 0;
+        else
+            return 0;
+        return 1;
+    }
     if (property != CFW_Theme_Choices)
         return index == 0 ? cfw_theme_settings_property(type, property, out) : 0;
     if (index > count) {
@@ -230,5 +291,13 @@ uint32_t cfw_theme_settings_selected(void)
     for (unsigned i = 0; i < count; i++)
         if (cfw_string_equal(choices[i].id, switcher.active.selection.id))
             return i + 1;
+    return 0;
+}
+
+uint32_t cfw_theme_settings_accent_selected(void)
+{
+    for (unsigned i = 0; i < CFW_THEME_ACCENT_COUNT; i++)
+        if (accent_order[i] == switcher.active.selection.accent)
+            return i;
     return 0;
 }

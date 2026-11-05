@@ -7,6 +7,7 @@
 #define CFW_THEME_MAX_ASSETS 1024u
 #define CFW_THEME_BITMAP_WORDS (CFW_THEME_MAX_ASSETS / 32)
 struct osos_path;
+#define CFW_THEME_STYLE_BYTES (sizeof(struct cfw_theme_style) + sizeof(struct cfw_theme_options))
 
 struct cfw_theme_metadata {
     uint32_t magic;
@@ -18,11 +19,13 @@ struct cfw_theme_metadata {
 struct cfw_theme_pack {
     unsigned char *data;
     uint32_t size, count, records_offset;
+    /* Custom packs supply the style; Classic packs keep the built-in style. */
+    uint32_t custom;
 };
 
+/* A custom incoming pack keeps its style prefix at the start of incoming.data. */
 struct cfw_theme_transaction {
     struct cfw_theme_pack incoming, patch;
-    struct cfw_theme_style style;
     uint32_t target_assets[CFW_THEME_BITMAP_WORDS];
     int custom, dark, applied;
 };
@@ -32,7 +35,7 @@ int cfw_theme_baseline_valid(const struct osos_path *path);
 
 int cfw_theme_metadata_read(const struct osos_path *path,
                             struct cfw_theme_metadata *out);
-int cfw_theme_pack_read(const struct osos_path *path, int dark, int legacy,
+int cfw_theme_pack_read(const struct osos_path *path, int dark, int classic,
                         struct cfw_theme_pack *out);
 /* Additional staging bytes for previous replacements absent from target. */
 int cfw_theme_transaction_bytes(const struct cfw_theme_pack *target,

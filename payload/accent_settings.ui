@@ -1,0 +1,6 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <list id="CFW_Accent" title="Accent Color" controller="CFWAccent"/>
+  <settings-entry menu="CFW_Accent" after="SettingsMenu_ListItem_Brightness"
+                  open="CFW_Accent_Open" preview="image"/>
+</ui>

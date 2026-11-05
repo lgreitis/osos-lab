@@ -207,3 +207,11 @@
 #define OSOS_BROWSER_ORDER_FLAG_OFFSET 0x00000e3c
 
 #define OSOS_UI_PROCESS_MESSAGE 0x081215d8
+
+/* List selection bar in View_DrawBackgroundAndBorder (0x08263530). */
+#define OSOS_SELECTION_STYLE_BRANCH 0x08263704   /* beq to the RAM-color gradient */
+#define OSOS_SELECTION_STYLE_BRANCH_WORD 0x0a000138
+#define OSOS_SELECTION_RAM_GRADIENT 0x08263bec
+#define OSOS_SELECTION_HIGHLIGHT_LITERAL 0x08263e10 /* -> 0x089d4eec */
+#define OSOS_SELECTION_GRADIENT_LITERAL 0x08263e14  /* -> 0x089d4ee8, end at +4 */
+#define OSOS_SELECTION_CACHE_BOUNDS 0x08a823bc      /* shared bar bitmap +0x98 */

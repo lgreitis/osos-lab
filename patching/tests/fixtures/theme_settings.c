@@ -17,6 +17,7 @@
 #define OSOS_MENU_CHECKED_BITMAP 100
 static unsigned row, notices, invalidations, stores, scans, boot_resolves;
 #include "theme_settings_ui.h"
+#include "accent_settings_ui.h"
 #include "dark_mode_ui.h"
 static int dark_visible, theme_visible;
 
@@ -24,7 +25,7 @@ static int osos_menu_item_set_visible(uint32_t item, uint32_t visible)
 {
     if (item == CFW_DarkMode_Item)
         dark_visible = visible;
-    else {
+    else if (item != CFW_Accent_Item) {
         assert(item == CFW_Theme_Item);
         theme_visible = visible;
     }
@@ -152,7 +153,7 @@ int main(void)
 {
     memcpy(original, pixels, sizeof(pixels));
     make_baseline();
-    files[3] = files[1]; /* Valid RTH3 dark pack, independent of custom artwork. */
+    make_pack(&files[3], 1, 2, 0); /* Classic dark, independent of custom artwork. */
     make_target(0);
     fix_crc();
     (void)incoming;
@@ -165,6 +166,29 @@ int main(void)
     cfw_theme_settings_load();
     cfw_theme_settings_load();
     assert(!stores && !switcher.active.custom && classic_available);
+    assert(cfw_theme_settings_action(NULL, "CFW_Accent_Open", OSOS_ACTION_SUPPORT_QUERY));
+    row = 2; /* Teal in display order, stable stored identifier 7. */
+    int accent_opens = opens;
+    unsigned accent_allocs = alloc_attempts;
+    assert(cfw_theme_settings_action(NULL, "CFW_Accent_Select", 0));
+    assert(saved.selection.accent == CFW_THEME_ACCENT_TEAL);
+    assert(cfw_theme_accent_get() == CFW_THEME_ACCENT_TEAL);
+    assert(opens == accent_opens && alloc_attempts == accent_allocs);
+    assert(cfw_theme_settings_accent_selected() == 2);
+    cfw_theme_input_drained();
+    fail_store = 1;
+    row = 4;
+    assert(cfw_theme_settings_action(NULL, "CFW_Accent_Select", 0));
+    assert(cfw_theme_accent_get() == CFW_THEME_ACCENT_TEAL);
+    assert(!strcmp(accent_error, "Could not save theme") &&
+           switcher.active.selection.accent == CFW_THEME_ACCENT_TEAL);
+    cfw_theme_input_drained();
+    fail_store = 0;
+    row = 0;
+    assert(cfw_theme_settings_action(NULL, "CFW_Accent_Select", 0));
+    assert(!accent_error && cfw_theme_accent_get() == CFW_THEME_ACCENT_DEFAULT);
+    cfw_theme_input_drained();
+    stores = 0;
     no_custom = 1;
     cfw_theme_settings_refresh();
     assert(!theme_visible && dark_visible && !count);

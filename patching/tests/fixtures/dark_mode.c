@@ -451,7 +451,14 @@ static void check_custom_theme(void)
         memcpy(style.colors[role], sepia[role], 3);
         style.colors[role][3] = 255;
     }
-    cfw_theme_style_set(&style);
+    struct cfw_theme_options options = {0};
+    const unsigned char orange[][3] = {
+        [CFW_PALETTE_FILL] = {190, 76, 0},
+        [CFW_PALETTE_TEXT] = {255, 159, 10},
+    };
+    for (unsigned slot = 0; slot < sizeof(orange) / sizeof(orange[0]); slot++)
+        memcpy(options.accents[CFW_THEME_ACCENT_ORANGE - 1][slot], orange[slot], 3);
+    cfw_theme_style_set(&style, &options);
     /* Custom styles theme light mode too, independent of the dark-mode switch. */
     for (int dark = 0; dark < 2; dark++) {
         cfw_theme_appearance_set(dark);
@@ -481,7 +488,7 @@ static void check_custom_theme(void)
     };
     for (unsigned role = 0; role < 2; role++)
         memcpy(style.colors[role], night[role], 3);
-    cfw_theme_style_set(&style);
+    cfw_theme_style_set(&style, &options);
     memset(&style, 0, sizeof(style)); /* The setter copied it. */
     cfw_theme_appearance_set(0);
     check_fill(white, 250, 10, 40);
@@ -491,7 +498,7 @@ static void check_custom_theme(void)
     check_background(250 * 0x10000 / 255, 10 * 0x10000 / 255, 40 * 0x10000 / 255,
                      (31u << 11) | (2u << 5) | 5u);
 
-    /* Accent presets on a custom theme pick the variant from its background. */
+    /* Accents on a custom theme use its authored palette. */
     assert(cfw_theme_accent_set(CFW_THEME_ACCENT_ORANGE));
     check_fill(accent_fill, 190, 76, 0);
     check_text(ordinary_view, accent_text, 255, 159, 10);

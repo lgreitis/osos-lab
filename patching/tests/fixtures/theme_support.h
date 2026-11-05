@@ -25,7 +25,7 @@ struct osos_path {
 };
 
 static struct file {
-    unsigned char data[256];
+    unsigned char data[1024];
     unsigned size, cursor;
 } files[4];
 
@@ -129,36 +129,47 @@ static void write_record(unsigned char *out, unsigned asset, int recolor)
     r->data[10] = r->data[11] = 0;
 }
 
-static void make_target(unsigned asset)
+static void opaque_style(unsigned char *body)
 {
-    memset(&files[0], 0, sizeof(files[0]));
-    struct pack_header *h = (void *)files[0].data;
-    h->magic = 0x34485452;
-    memcpy(h->catalog, cfw_theme_catalog_hash, 32);
-    h->appearance = 1;
-    h->size = 88;
-    h->count = 1;
-    unsigned char *body = files[0].data + sizeof(*h);
     for (unsigned i = 0; i < 16; i++)
         body[i * 4 + 3] = 255;
-    write_record(body + 64, asset, 1);
+    for (unsigned i = sizeof(struct cfw_theme_style) + 7; i < CFW_THEME_STYLE_BYTES; i += 4)
+        body[i] = 255;
+}
+
+/* RTH4 pack with one record per asset from 0; recolor marks replaced artwork. */
+static void make_pack(struct file *f, uint32_t appearance, unsigned count, int recolor)
+{
+    memset(f, 0, sizeof(*f));
+    struct pack_header *h = (void *)f->data;
+    h->magic = 0x34485452;
+    memcpy(h->catalog, cfw_theme_catalog_hash, 32);
+    h->appearance = appearance;
+    h->size = CFW_THEME_STYLE_BYTES + 24 * count;
+    h->count = count;
+    unsigned char *body = f->data + sizeof(*h);
+    opaque_style(body);
+    for (unsigned i = 0; i < count; i++)
+        write_record(body + CFW_THEME_STYLE_BYTES + 24 * i, i, recolor);
+    h->crc = ~crc_update(UINT32_MAX, body, h->size);
+    f->size = sizeof(*h) + h->size;
+}
+
+static void make_target(unsigned asset)
+{
+    make_pack(&files[0], 1, 0, 0);
+    struct pack_header *h = (void *)files[0].data;
+    unsigned char *body = files[0].data + sizeof(*h);
+    h->size = CFW_THEME_STYLE_BYTES + 24;
+    h->count = 1;
+    write_record(body + CFW_THEME_STYLE_BYTES, asset, 1);
     h->crc = ~crc_update(UINT32_MAX, body, h->size);
     files[0].size = sizeof(*h) + h->size;
 }
 
 static void make_baseline(void)
 {
-    struct file *f = &files[1];
-    memset(f, 0, sizeof(*f));
-    uint32_t *h = (void *)f->data;
-    h[0] = 0x33485452;
-    memcpy(f->data + 4, cfw_theme_catalog_hash, 32);
-    h[9] = 2;
-    h[10] = 48;
-    write_record(f->data + 48, 0, 0);
-    write_record(f->data + 72, 1, 0);
-    h[11] = ~crc_update(UINT32_MAX, f->data + 48, 48);
-    f->size = 96;
+    make_pack(&files[1], 0, 2, 0);
 }
 
 static void fix_crc(void)

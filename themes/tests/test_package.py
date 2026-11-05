@@ -12,15 +12,12 @@ import zlib
 from pathlib import Path
 
 from patching.tests.test_bitmap import png
-from patching.theme_format import RECORD, catalog_hash, digest
+from patching.theme_format import HEADER, RECORD, catalog_hash, digest
 from themes import package
 from themes.compiler import describe
+from themes.style import COLOR_DEFAULTS, COLOR_ROLES, COLORS, OPTIONS_BYTES, STYLE_BYTES
 from themes.package import (
-    COLORS,
-    DEFAULTS,
     METADATA,
-    PACK,
-    ROLES,
     compile_package,
     inspect_appearance,
     inspect_metadata,
@@ -103,14 +100,14 @@ class PackageTests(unittest.TestCase):
             "181818ffe8e8e8ffa8a8a8ff00a1ffff00a1ffffffffffff00a1ffff2c2c2cff"
             "7d8c98ff303030ff646464ff3c3c3cff383838ff00a1ffff1a2e3fff101010ff"
         )
-        self.assertEqual(files["light.bin"][PACK.size :], light)
-        self.assertEqual(files["dark.bin"][PACK.size :], dark)
-        self.assertEqual(len(ROLES), 16)
-        self.assertEqual(ROLES[0], "background")
-        self.assertEqual(ROLES[-1], "eq_on_accent")
+        self.assertEqual(files["light.bin"][HEADER.size : HEADER.size + COLORS], light)
+        self.assertEqual(files["dark.bin"][HEADER.size : HEADER.size + COLORS], dark)
+        self.assertEqual(len(COLOR_ROLES), 16)
+        self.assertEqual(COLOR_ROLES[0], "background")
+        self.assertEqual(COLOR_ROLES[-1], "eq_on_accent")
 
     def test_headers_and_metadata_wire_layout(self):
-        self.assertEqual((METADATA.size, PACK.size, COLORS), (120, 52, 64))
+        self.assertEqual((METADATA.size, HEADER.size, COLORS), (120, 52, 64))
         files = self.compile(manifest(dark={"colors": {"accent_fill": "#ABCDEF"}}))
         self.assertEqual(sorted(files), ["dark.bin", "report.json", "theme.bin"])
         magic, fingerprint, mask, raw_id, raw_name = METADATA.unpack(files["theme.bin"])
@@ -121,11 +118,11 @@ class PackageTests(unittest.TestCase):
             (raw_id.rstrip(b"\0"), raw_name.rstrip(b"\0")), (b"test", b"Test")
         )
         pack = files["dark.bin"]
-        magic, fingerprint, code, size, count, crc = PACK.unpack_from(pack)
-        self.assertEqual((magic, code, size, count), (b"RTH4", 1, 64, 0))
-        self.assertEqual(crc, zlib.crc32(pack[PACK.size :]))
+        magic, fingerprint, code, size, count, crc = HEADER.unpack_from(pack)
+        self.assertEqual((magic, code, size, count), (b"RTH4", 1, STYLE_BYTES, 0))
+        self.assertEqual(crc, zlib.crc32(pack[HEADER.size :]))
         self.assertEqual(
-            pack[PACK.size + 12 : PACK.size + 16], bytes.fromhex("abcdefff")
+            pack[HEADER.size + 12 : HEADER.size + 16], bytes.fromhex("abcdefff")
         )
         info = inspect_metadata(files["theme.bin"], self.catalog)
         self.assertEqual(info["appearances"], ["dark"])
@@ -142,7 +139,7 @@ class PackageTests(unittest.TestCase):
             )
         )
         pack = files["light.bin"]
-        self.assertEqual(PACK.unpack_from(pack)[4], 2)
+        self.assertEqual(HEADER.unpack_from(pack)[4], 2)
         info = inspect_appearance(pack, self.catalog)
         assets = self.catalog["bitmaps"]
         self.assertEqual([r["index"] for r in info["records"]], [0, 1])
@@ -150,10 +147,10 @@ class PackageTests(unittest.TestCase):
             asset = assets[record["index"]]
             self.assertEqual(record["offset"], asset["data_offset"])
             self.assertEqual(record["bytes"], asset["bytes"] - asset["data_offset"])
-        body = pack[PACK.size :]
-        self.assertEqual(RECORD.unpack_from(body, COLORS), (0, 32, 12))
+        body = pack[HEADER.size :]
+        self.assertEqual(RECORD.unpack_from(body, STYLE_BYTES), (0, 32, 12))
         self.assertEqual(
-            body[COLORS + 12 : COLORS + 24],
+            body[STYLE_BYTES + 12 : STYLE_BYTES + 24],
             bytes([30, 20, 10, 50, 60, 50, 40, 70, 0, 1, 0, 1]),
         )
         self.assertEqual(len(body) % 4, 0)
@@ -187,6 +184,33 @@ class PackageTests(unittest.TestCase):
         for schema in (True, 1.0, "1", None):
             self.rejects(dict(manifest(), schema=schema), "unsupported schema")
         self.rejects(dict(manifest(), appearances={}), "declare light, dark or both")
+
+    def test_extended_palettes_and_rendering(self):
+        source = manifest(dark={
+            "colors": {"icon_tint": "#ff4477"},
+            "accents": {"teal": {"selection": "#006666", "on_accent": "#ffffff"}},
+            "rendering": {"selection": "flat", "preview_icons": "accent"},
+        })
+        files = self.compile(source)
+        self.assertEqual(files["theme.bin"][:4], b"RTM4")
+        self.assertEqual(files["dark.bin"][:4], b"RTH4")
+        decoded = inspect_appearance(files["dark.bin"], self.catalog)
+        self.assertEqual(decoded["flags"], 3)
+        self.assertEqual(decoded["icon_tint"], "#ff4477")
+        self.assertEqual(decoded["accents"]["teal"]["selection"], "#006666")
+        self.assertEqual(len(decoded["accents"]), 9)
+        self.assertEqual(len(files["dark.bin"]), HEADER.size + COLORS + OPTIONS_BYTES)
+        report = json.loads(files["report.json"])["appearances"]["dark"]
+        self.assertNotIn("teal", report["fallback_accents"])
+        self.assertIn("yellow", report["fallback_accents"])
+        self.assertTrue(report["contrast"])
+        self.rejects(manifest(dark={"accents": {"cyan": {}}}), "unknown field")
+        self.rejects(manifest(dark={"rendering": {"selection": "rounded"}}), "native or flat")
+        data = bytearray(files["dark.bin"])
+        data[HEADER.size + COLORS] = 128
+        struct.pack_into("<I", data, 48, zlib.crc32(data[HEADER.size:]))
+        with self.assertRaisesRegex(ValueError, "rendering flags"):
+            inspect_appearance(data, self.catalog)
 
     def test_rejects_invalid_metadata(self):
         for identifier in ("", "Test", "-a", "a" * 32, "a b", "a\n", "é"):
@@ -285,7 +309,7 @@ class PackageTests(unittest.TestCase):
 
         def reseal(body, count=1):
             return (
-                PACK.pack(
+                HEADER.pack(
                     b"RTH4",
                     catalog_hash(self.catalog),
                     0,
@@ -296,34 +320,34 @@ class PackageTests(unittest.TestCase):
                 + body
             )
 
-        body = pack[PACK.size :]
+        body = pack[HEADER.size :]
         cases = {
             "truncated": pack[:-4],
-            "header only": pack[: PACK.size],
-            "bad magic": b"RTH3" + pack[4:],
+            "header only": pack[: HEADER.size],
+            "bad magic": b"\0\0\0\0" + pack[4:],
             "catalog hash": pack[:4] + bytes(32) + pack[36:],
             "appearance": pack[:36] + struct.pack("<I", 2) + pack[40:],
             "CRC32": pack[:-1] + bytes([pack[-1] ^ 1]),
             "not opaque": reseal(body[:3] + b"\0" + body[4:]),
             "palette index": reseal(body[:-1] + b"\xff"),
-            "truncated record header": reseal(body[: COLORS + 4]),
+            "truncated record header": reseal(body[: STYLE_BYTES + 4]),
             "trailing bytes": reseal(body + bytes(4)),
             "truncated record payload": reseal(body, count=2),
             "outside the catalog": reseal(
-                body[:COLORS] + RECORD.pack(9, 32, 12) + body[COLORS + 12 :]
+                body[:STYLE_BYTES] + RECORD.pack(9, 32, 12) + body[STYLE_BYTES + 12 :]
             ),
             "native bitmap": reseal(
-                body[:COLORS] + RECORD.pack(0, 28, 12) + body[COLORS + 12 :]
+                body[:STYLE_BYTES] + RECORD.pack(0, 28, 12) + body[STYLE_BYTES + 12 :]
             ),
         }
         for name, data in cases.items():
             with self.subTest(name):
                 with self.assertRaises(ValueError):
                     inspect_appearance(data, self.catalog)
-        twice = body[COLORS:]
+        twice = body[STYLE_BYTES:]
         with self.assertRaisesRegex(ValueError, "sorted by unique"):
             inspect_appearance(reseal(body + twice, count=2), self.catalog)
-        padded = reseal(body[:COLORS] + RECORD.pack(0, 32, 10) + body[COLORS + 12 :])
+        padded = reseal(body[:STYLE_BYTES] + RECORD.pack(0, 32, 10) + body[STYLE_BYTES + 12 :])
         with self.assertRaisesRegex(ValueError, "padding must be zero"):
             inspect_appearance(padded)
 
@@ -355,7 +379,7 @@ class PackageTests(unittest.TestCase):
             validate_package({"light.bin": pack}, self.catalog)
 
     def test_body_limit_is_derived_from_catalog(self):
-        expected = 64 + (12 + 12) + (12 + 12) + (12 + 4)
+        expected = STYLE_BYTES + (12 + 12) + (12 + 12) + (12 + 4)
         self.assertEqual(max_body(self.catalog), expected)
         files = self.compile(
             manifest(
@@ -367,11 +391,11 @@ class PackageTests(unittest.TestCase):
                 }
             )
         )
-        self.assertLessEqual(PACK.unpack_from(files["light.bin"])[3], expected)
+        self.assertLessEqual(HEADER.unpack_from(files["light.bin"])[3], expected)
         small = dict(self.catalog, bitmaps=self.catalog["bitmaps"][:1])
-        oversized = PACK.pack(
-            b"RTH4", catalog_hash(small), 0, 64 + 24 + 4, 0, 0
-        ) + bytes(92)
+        oversized = HEADER.pack(
+            b"RTH4", catalog_hash(small), 0, STYLE_BYTES + 24 + 4, 0, 0
+        ) + bytes(STYLE_BYTES + 28)
         with self.assertRaisesRegex(ValueError, "catalog maximum"):
             inspect_appearance(oversized, small)
 
@@ -406,7 +430,7 @@ class PackageTests(unittest.TestCase):
         files = compile_package(firmware, ROOT / "themes/examples/modern/theme.json")
         result = validate_package(files, firmware)
         self.assertEqual(result["metadata"]["appearances"], ["light", "dark"])
-        self.assertNotEqual(result["packs"]["light.bin"]["colors"], DEFAULTS["light"])
+        self.assertNotEqual(result["packs"]["light.bin"]["colors"], COLOR_DEFAULTS["light"])
 
 
 if __name__ == "__main__":

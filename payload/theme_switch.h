@@ -2,8 +2,7 @@
 #pragma once
 #include "theme_package.h"
 
-/* Logical preference state, not a disk format. Empty id means Classic.
- * Only CFW_THEME_ACCENT_DEFAULT is accepted. */
+/* Logical preference state, not a disk format. Empty id means Classic. */
 struct cfw_theme_selection {
     char id[32];
     uint32_t dark, accent;
@@ -44,7 +43,6 @@ struct cfw_theme_switch_ops {
 
 struct cfw_theme_active {
     struct cfw_theme_selection selection;
-    struct cfw_theme_style style;
     int custom;
 };
 
@@ -72,7 +70,7 @@ int cfw_theme_switch_store_classic(struct cfw_theme_switch *c);
  * Returns success synchronously. Caller refreshes cached icons and invalidates
  * the UI on success, just as for Dark Mode.
  * Run on the UI task; queued repeat actions are suppressed by theme_input.
- * Classic light has no pack; Classic dark uses RTH3. */
+ * Classic light has no pack; Classic dark is an RTH4 pack read as Classic. */
 int cfw_theme_switch_apply(struct cfw_theme_switch *c,
                            const struct cfw_theme_selection *selection,
                            const struct osos_path *pack,
@@ -83,3 +81,7 @@ int cfw_theme_switch_restore(struct cfw_theme_switch *c,
                              const struct cfw_theme_selection *selection,
                              const struct osos_path *pack,
                              const struct osos_path *baseline);
+
+/* Save and apply another accent for the active theme and appearance. Every accent
+ * palette is already in memory, so no pack is read and artwork is unchanged. */
+int cfw_theme_switch_set_accent(struct cfw_theme_switch *c, unsigned accent);

@@ -78,7 +78,7 @@ static void boot_recovery(void)
         if (malformed == 3)
             bad.selection.id[0] = '.';
         if (malformed == 4)
-            bad.selection.accent = CFW_THEME_ACCENT_RED;
+            bad.selection.accent = CFW_THEME_ACCENT_COUNT;
         assert(
             cfw_theme_boot_selection(CFW_THEME_PREF_VALID, &bad, 0x314b5244, &desired));
         assert(!memcmp(&desired, &stock, sizeof(stock)));
@@ -141,8 +141,8 @@ static void switching(void)
     make_target(0);
     struct pack_header *header = (void *)files[0].data;
     header->count = 0;
-    header->size = 64;
-    files[0].size = 116;
+    header->size = CFW_THEME_STYLE_BYTES;
+    files[0].size = 52 + CFW_THEME_STYLE_BYTES;
     fix_crc();
     assert(apply(&modern)); /* color-only target restores all prior replacements */
     assert(!memcmp(pixels, original, sizeof(pixels)) && cfw_theme_style_custom());
@@ -159,13 +159,7 @@ static void switching(void)
 static void classic_dark(void)
 {
     reset();
-    memmove(files[0].data + 48, files[0].data + 116, 24);
-    uint32_t *header = (void *)files[0].data;
-    header[0] = RTH3_MAGIC;
-    header[9] = 1;
-    header[10] = 24;
-    header[11] = ~crc_update(UINT32_MAX, files[0].data + 48, 24);
-    files[0].size = 72;
+    make_pack(&files[0], 1, 1, 1);
     struct cfw_theme_selection dark = {.dark = 1};
     assert(apply(&dark));
     assert(!cfw_theme_style_custom() && cfw_theme_appearance_get(0) == 1);
@@ -189,7 +183,7 @@ static void validation(void)
     strcpy(bad.id, "dark");
     assert(!apply(&bad));
     bad = modern;
-    bad.accent = CFW_THEME_ACCENT_BLUE;
+    bad.accent = CFW_THEME_ACCENT_COUNT;
     assert(!apply(&bad));
     assert(!cfw_theme_switch_apply(&switcher, NULL, NULL, &baseline));
     assert(!cfw_theme_switch_apply(&switcher, &modern, NULL, &baseline));
