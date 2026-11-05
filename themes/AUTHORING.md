@@ -20,7 +20,7 @@ appearance packs the manifest no longer declares.
 
 RTM4/RTH4 covers:
 
-- **Colors**: the 13 color roles below, for a light and/or dark appearance.
+- **Colors**: the 7 color roles below, for a light and/or dark appearance.
   All colors are opaque; `#RRGGBB` only.
 - **Accents**: per-appearance values for the named accent colors chosen on the
   device, and the selection bar style.
@@ -109,23 +109,30 @@ the device.
 | --- | --- | --- | --- |
 | background | `#ffffff` | `#181818` | Native surfaces and EQ background |
 | text | `#202020` | `#e8e8e8` | Native text shades and EQ text |
-| muted | `#555555` | `#a8a8a8` | EQ secondary text |
 | accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text; EQ field being edited |
 | accent_text | `#3185d0` | `#00a1ff` | Native accent text; EQ response curve and selected band |
 | on_accent | `#ffffff` | `#ffffff` | EQ text on the field being edited |
 | selection | `#236cc5` | `#00a1ff` | List selection bar |
-| track | `#eeeeee` | `#2c2c2c` | EQ control tracks |
-| inactive | `#8f959a` | `#7d8c98` | EQ inactive controls |
-| grid | `#e7e7e7` | `#303030` | EQ graph grid |
-| zero | `#b5b5b5` | `#646464` | EQ zero-gain line |
-| border | `#d6d6d6` | `#3c3c3c` | EQ control borders |
 | cover_border | `#7e8183` | `#383838` | Cover Flow border |
 
-The EQ selection background is derived when drawing: `background` mixed toward
-`accent_text` by 20/255 on light backgrounds and 43/255 on dark ones. The
-selected band label and the selected field border use whichever of
-`accent_fill` and `accent_text` differs more in brightness from that tint.
-Keep `on_accent` readable on `accent_fill`; `report.json` lists that pair.
+The Graphic EQ has no roles of its own. Its grays are mixed from `background`
+toward `text` when the screen is drawn, so they follow whatever colors you pick:
+
+| EQ element | Mix toward `text` |
+| --- | --- |
+| Control tracks | 22/255 |
+| Graph grid | 28/255 |
+| Control borders | 46/255 |
+| Zero-gain line | 89/255 |
+| Inactive controls | 130/255 |
+| Secondary text | 185/255 |
+
+The selected band gets a light tint: `background` mixed toward `accent_text`
+by 20/255, or 43/255 when the background is dark. Labels drawn on that tint use
+`accent_fill` or `accent_text`, whichever stands out more against it. The field
+being edited is filled with `accent_fill` and its text uses `on_accent`, so keep
+`on_accent` readable on both `accent_fill` and `selection`. `report.json`
+reports the contrast of both pairs.
 
 Native hooks map stock RGB values rather than individual views. These roles do
 not control every label or icon. Accent presets override accent
@@ -153,15 +160,15 @@ bitmap catalog.
   (NUL-terminated and zero-padded).
 - Appearance pack header (`<4s32sIIII`, 52 bytes): `RTH4`, hash, appearance
   (`0` light, `1` dark), body size, record count, CRC32 of the body.
-- Body: a 240-byte style prefix followed by bitmap records. The prefix holds
-  13 RGBA colors in role order (52 bytes), then a little-endian flags word
+- Body: a 216-byte style prefix followed by bitmap records. The prefix holds
+  7 RGBA colors in role order (28 bytes), then a little-endian flags word
   (`1` flat selection, `2` accent preview icons), the RGBA icon tint, and
   9 accents × 5 roles of RGBA in the name and role order listed above. Every
   alpha byte is 255.
 - Records: `record count` entries of `<III asset_index, offset, size>`, then
   `size` bytes of native bitmap data, zero-padded to a 4-byte boundary.
   Records are sorted by unique, ascending asset index. A pack may have no
-  records. The body can be at most `240 + Σ(12 + align4(bytes − data_offset))`
+  records. The body can be at most `216 + Σ(12 + align4(bytes − data_offset))`
   over every catalog bitmap.
 
 `themes.package` provides `inspect_metadata`, `inspect_appearance`, and
