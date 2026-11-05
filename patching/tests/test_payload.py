@@ -80,6 +80,7 @@ class PayloadTests(unittest.TestCase):
                 "theme_package",
                 "theme_switch",
                 "theme_input",
+                "theme_preferences",
                 "theme_discovery",
                 "theme_style",
                 "dark_mode",

@@ -552,6 +552,20 @@ static inline int osos_file_write(void *handle, const void *data, uint32_t bytes
     return ((fn)OSOS_FILE_WRITE)(handle, data, bytes, 1, written);
 }
 
+/* Set the buffered file and backend length. Call with clean buffered writes. */
+static inline int osos_file_set_size(void *handle, uint32_t bytes)
+{
+    typedef int (*fn)(void *, uint32_t);
+    return ((fn)OSOS_FILE_SET_SIZE)(handle, bytes);
+}
+
+/* Native buffered-file sync returns the combined buffer/backend error. */
+static inline int osos_file_sync(void *handle)
+{
+    typedef int (*fn)(void *);
+    return ((fn)OSOS_FILE_SYNC)(handle);
+}
+
 static inline void osos_file_close(void *handle)
 {
     typedef int (*fn)(void *);
