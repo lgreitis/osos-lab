@@ -1,9 +1,5 @@
 # Theme authoring
 
-The compiler and firmware parsing primitives are implemented. The device theme
-picker and safe switching coordinator are not connected yet; copying a compiled
-folder does not activate it. The existing Dark Mode toggle still uses RTH3 packs.
-
 Themes are written as a source folder and compiled on a desktop. The intended
 installation location for each compiled folder is `/themes/<id>/`. The compiler
 is host-only; it needs the firmware bitmap catalog (`firmware/bitmaps.json`),
@@ -20,7 +16,7 @@ are then replaced individually; a filesystem error can leave a partially updated
 folder. Rerun the compiler after resolving the error. Successful runs remove
 appearance packs the manifest no longer declares.
 
-## Current limitations
+## Supported capabilities
 
 RTM4/RTH4 covers:
 
@@ -31,18 +27,17 @@ RTM4/RTH4 covers:
   native dimensions, native pixel format, and the existing palette size
   (indexed art is reduced to fit).
 
-Not supported yet: fonts, layouts, metrics, animations, sounds, strings,
+Unsupported: fonts, layouts, metrics, animations, sounds, strings,
 wallpapers, new assets, bitmaps of a different size, translucent colors, and
 any appearance other than `light`/`dark`. Named unsupported capabilities are
 rejected with an `unsupported capability` error; other unrecognized fields are
 rejected as `unknown field`. Invalid dimensions, colors and appearances also
 fail validation. Stored color roles and their current consumers are listed below.
 
-The format is internal and may change before release. New resource types require
+The format is internal. New resource types require
 verified native hooks and a new binary format version; existing magic values and
 role order must not be reinterpreted. Source manifests remain the authoring
-interface and must be recompiled for the target firmware catalog. Custom fonts,
-new-size icons, per-screen accents and layout changes are future work. The modern
+interface and must be recompiled for the target firmware catalog. The modern
 example demonstrates color data only.
 
 `report.json` lists the capabilities this format supports and gives memory
@@ -117,7 +112,7 @@ the device.
 | eq_on_accent | `#ffffff` | `#101010` | EQ text on active controls |
 
 Native hooks map stock RGB values rather than individual views. These roles do
-not yet control every label, icon or selection. Accent presets override accent
+not control every label, icon or selection. Accent presets override accent
 fills and their foregrounds; Theme Default preserves the package colors.
 
 ## Compiled folder
@@ -150,7 +145,7 @@ runs these checks on its own output before writing.
 The RTH3 single-file dark theme (`themes/build.py`, `themes/compiler.py`) is
 unchanged.
 
-## Stock rollback data
+## Stock restoration data
 
 Generate the complete original-artwork baseline from the pinned, user-provided
 firmware during installation:
@@ -167,4 +162,7 @@ records required to restore artwork changed by the previous theme. Ordinary
 navigation does not read this file. Keep the baseline outside `/themes/<id>/`
 to avoid collisions with theme folders. Do not replace the legacy
 `themes/default/theme.bin` with it: the existing dark-mode toggle expects its
-original matching subset. Installer integration remains pending.
+original matching subset.
+
+See [Theme switching](../docs/theme-switch.md) for runtime
+ownership, synchronous application, and preference handling.

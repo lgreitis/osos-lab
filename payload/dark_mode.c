@@ -9,6 +9,7 @@
 #include "patch.h"
 #include "resources.h"
 #include "theme_style.h"
+#include "theme_input.h"
 
 enum {
     DARK_MODE_OFF_RECORD = 0x304b5244, /* DRK0 */
@@ -29,7 +30,7 @@ static const struct osos_path settings_path = {0, "iPod_Control\\Device\\CFWDark
 
 int cfw_dark_mode_enabled(void)
 {
-    return cfw_assets_enabled();
+    return cfw_theme_appearance_get(cfw_assets_enabled());
 }
 
 void cfw_dark_mode_load(void)
@@ -76,9 +77,13 @@ int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument
     if (argument == OSOS_ACTION_SUPPORT_QUERY)
         return 1;
 
-    int next = !cfw_dark_mode_enabled();
-    if (!cfw_assets_prepare())
+    if (!cfw_theme_input_begin())
         return 1;
+    int next = !cfw_dark_mode_enabled();
+    if (!cfw_assets_prepare()) {
+        cfw_theme_input_finish();
+        return 1;
+    }
     if (save(next)) {
         cfw_assets_set_enabled(next);
         void *settings = osos_settings_model(controller);
@@ -95,6 +100,7 @@ int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument
     } else {
         cfw_assets_cancel();
     }
+    cfw_theme_input_finish();
     return 1;
 }
 

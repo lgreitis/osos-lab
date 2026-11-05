@@ -94,3 +94,5 @@
 /* iAP accessory authentication: device-signature verifier entries. */
 #define OSOS_IAP_AUTH_VERIFY_A 0x0812dca8
 #define OSOS_IAP_AUTH_VERIFY_B 0x081592fc
+
+#define OSOS_UI_DRAIN_MESSAGE_CALL 0x08288b98

@@ -164,3 +164,7 @@ PATCH_CALL(OSOS_MEDIA_LIST_OTG_ADD_CALL, OSOS_OTG_ADD_BROWSER, cfw_queue_selecti
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_A, 0xe92d43f0, 0xe24dd06c, cfw_iap_auth_verify);
 /* stmdb sp!,{r2,r3,r4,lr}; cmp r1,#0 */
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_B, 0xe92d401c, 0xe3510000, cfw_iap_auth_verify);
+
+/* Release repeat-press suppression only after the UI message queue drains. */
+PATCH_CALL(OSOS_UI_DRAIN_MESSAGE_CALL, OSOS_UI_PROCESS_MESSAGE,
+           cfw_theme_input_dispatch);
