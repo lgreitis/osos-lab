@@ -1,58 +1,66 @@
 # Theme switching
 
-The [theme switcher](../payload/theme_switch.h) switches synchronously,
-using the same ordering as Dark Mode: validate and prepare the artwork, save the
-selection, apply artwork and colors, then release temporary storage. The caller
-refreshes cached icons and invalidates the UI after success.
+Settings and boot use one [switcher](../payload/theme_switch.h), initialized with
+stock artwork and called on the UI task. Switching is synchronous: validate and
+prepare artwork, save the selection, apply artwork and colors, then release the
+buffers. The caller refreshes cached playback icons and invalidates the UI.
+Preparation and storage failures leave the active theme unchanged.
 
-Preparation restores previous replacements omitted by the next theme from the
-stock baseline. All allocation and validation happen before saving or changing
-live artwork. Failed preparation or storage leaves the active theme unchanged.
-A storage error can leave uncertain disk contents; startup validates the saved
-record. Temporary staging is released before returning to the caller.
+The transaction owns the incoming pack and a separate buffer for previous
+replacements omitted by the next theme. It streams those restorations from
+`themes/classic/default.bin` with a 256-byte scratch buffer. Incoming artwork is
+not copied into a second staging buffer; neither pack remains resident after
+switching. See [stock restoration data](../themes/AUTHORING.md#stock-restoration-data).
 
-One UI-task owner maintains the switcher and replacement set. Initialize with
-stock artwork and do not combine it with the legacy assets writer. This follows
-the existing UI-action mutation model; it does not establish hardware display
-completion or add renderer locks.
-
-## Repeated input
+## Input and Settings
 
 Theme selection and Dark Mode share a UI-task latch. The first action latches
-before loading. Completion or failure ends loading but leaves the latch set.
-The native UI loop drains queued messages normally; additional theme actions
-are ignored until its nonblocking message dispatch reports an empty queue.
-Other actions and notifications retain native dispatch behavior. This prevents
-queued presses from reversing the selection when synchronous loading returns,
-without a fixed delay or LCD completion signal.
+before loading; success or failure ends loading but leaves the latch set until
+the native nonblocking dispatch reports an empty queue. Other messages retain
+native dispatch behavior. This prevents queued presses from reversing a switch
+without a fixed delay or renderer locks.
 
-## Boot and storage
+Theme opens a native half-screen Settings list with an image/text preview.
+Classic comes first, followed by up to 64 packages ordered by ID. If the list is
+full, the active package replaces the last entry. The active row is highlighted
+on opening; there are no checkmarks. Discovery normalizes FAT name case and
+retains only IDs and display names. Selection revalidates package metadata and
+artwork, returning to the parent Theme row. Failures keep the active theme and
+show an error in its preview; opening the list clears the error for retry.
 
-Only an absent CFWTheme record permits CFWDark migration. Invalid records and
-incomplete preference records select Classic light. A valid saved selection is a
-candidate to load, not proof that its artwork is active.
+Settings activation refreshes discovery. Theme is hidden when no custom package
+has valid metadata. Dark Mode changes the active theme's appearance and is hidden
+for single-appearance packages. Selecting such a package uses its sole appearance.
 
-Run `python3 -m unittest patching.tests.test_payload` for sanitizer coverage of
-switching, repeated presses, storage and allocation failures, boot selection,
-sparse restoration, and repeated custom/Classic switches.
+## Boot and installation
+
+Install `themes/classic/default.bin` (complete stock baseline) and
+`themes/classic/dark.bin` (Classic dark artwork). Both must validate at boot.
+Otherwise the firmware stays in Classic light, hides both settings, and leaves
+preferences unchanged. Restore the files and restart to enable theming.
+The `classic` directory is reserved and excluded from custom discovery.
+
+Installer 0.2.9 or newer generates the complete baseline from verified Apple
+firmware and uploads both files before the firmware. New bundles require that
+installer version; older bundles retain their previous installation layout.
+The firmware does not read the old `themes/default` and `themes/dark` paths.
+
+Boot restores valid saved selections through the same switcher without rewriting
+them. Invalid records or unavailable packages recover to Classic light. Only an
+absent `CFWTheme` record permits migration from `CFWDark`; new selections never
+write the legacy record.
 
 ## Preference storage
 
-`theme_preferences.c` stores preferences at `iPod_Control/Device/CFWTheme`.
-The 56-byte RTP1 record uses little-endian fields: magic, version, pending flag,
-32-byte padded theme ID, appearance, accent, then CRC32 of the first 52 bytes.
-Decode validates length, checksum, version, flags, and the switcher's selection
-rules. It leaves the output unchanged on failure. A pending record is
-syntactically valid; `cfw_theme_boot_selection` decides recovery.
+`iPod_Control/Device/CFWTheme` contains a 56-byte RTP1 record: little-endian magic,
+version, pending flag, 32-byte padded theme ID, appearance, accent, and CRC32 of
+the first 52 bytes. Decode validates length, checksum, version, flags, and
+selection fields without modifying its output on failure. Pending records
+select Classic light at boot.
 
-Only native open error -43 means absent. Other open/read errors and malformed or
-trailing data are invalid, so they cannot trigger legacy migration. Writes check
-transfer length, sync buffered data, set the file length to 56 bytes, sync again,
-close, and verify the entire record by readback.
-Any storage failure returns UNKNOWN; invalid input returns UNCHANGED without
-opening the file. Setting the exact length lets recovery replace oversized or
-unsupported records without leaving trailing data.
-
-`osos_file_sync` returns the native buffer/backend sync result. The write wrapper
-discards its internal sync result, so preference storage calls sync explicitly.
-The storage success criterion is a successful write, sync, and matching readback.
+Only native open error -43 means absent. Other errors, malformed records, and
+trailing data cannot trigger migration. Writes check transfer length, explicitly
+sync, set the length to 56 bytes, sync again, close, and verify by readback.
+The native write wrapper discards its internal sync result, so the explicit
+sync is required. Storage errors return UNKNOWN and may leave uncertain disk
+contents; invalid input returns UNCHANGED without opening the file.

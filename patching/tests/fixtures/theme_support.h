@@ -27,7 +27,9 @@ struct osos_path {
 static struct file {
     unsigned char data[256];
     unsigned size, cursor;
-} files[3];
+} files[4];
+
+static unsigned missing_files;
 
 static int fail_alloc, allocations, reads_fail, short_reads, opens, closes;
 
@@ -70,8 +72,13 @@ static void osos_import_free(void *data)
 static int osos_file_open(const struct osos_path *p, uint32_t mode, void **out)
 {
     assert(mode == 1);
-    unsigned n = p->text[0] - '0';
-    assert(n < 3);
+    unsigned n = !strcmp(p->text, "themes/classic/dark.bin")      ? 3
+                 : !strcmp(p->text, "themes/classic/default.bin") ? 1
+                 : !strncmp(p->text, "themes/", 7)                ? 0
+                                                                  : p->text[0] - '0';
+    assert(n < 4);
+    if (missing_files & (1u << n))
+        return -43;
     files[n].cursor = 0;
     *out = &files[n];
     opens++;
@@ -84,6 +91,10 @@ static int osos_file_read(void *handle, void *out, uint32_t size, uint32_t *read
     if (reads_fail) {
         *read = 0;
         return -1;
+    }
+    if (f->cursor == f->size) {
+        *read = 0;
+        return -39;
     }
     if (size > f->size - f->cursor)
         size = f->size - f->cursor;

@@ -11,6 +11,51 @@ static void rejection(void)
     assert(opens == closes);
 }
 
+static void baseline_validation(void)
+{
+    make_baseline();
+    unsigned attempts = alloc_attempts;
+    assert(cfw_theme_baseline_valid(&baseline));
+    assert(alloc_attempts == attempts && !allocations);
+    for (unsigned fault = 0; fault < 8; fault++) {
+        make_baseline();
+        uint32_t *header = (void *)files[1].data;
+        switch (fault) {
+        case 0:
+            missing_files = 2;
+            break;
+        case 1:
+            files[1].size--;
+            break;
+        case 2:
+            files[1].data[4] ^= 1;
+            break;
+        case 3:
+            files[1].data[60] ^= 1;
+            break;
+        case 4: /* Well-formed but incomplete baseline. */
+            header[9] = 1;
+            header[10] = 24;
+            header[11] = ~crc_update(UINT32_MAX, files[1].data + 48, 24);
+            files[1].size = 72;
+            break;
+        case 5:
+            files[1].size++;
+            break;
+        case 6:
+            short_reads = 1;
+            break;
+        case 7:
+            reads_fail = 1;
+            break;
+        }
+        assert(!cfw_theme_baseline_valid(&baseline));
+        missing_files = short_reads = reads_fail = 0;
+        assert(!allocations && opens == closes);
+    }
+    make_baseline();
+}
+
 int main(void)
 {
     _Static_assert(sizeof(struct pack_header) == 52, "RTH4 header");
@@ -22,14 +67,18 @@ int main(void)
     assert(!metadata_name((const unsigned char *)"A\0B", 4));
     assert(!metadata_name((const unsigned char *)"A\xe2", 2));
     memcpy(original, pixels, sizeof(pixels));
+    baseline_validation();
     make_baseline();
     struct cfw_theme_pack pack;
     struct cfw_theme_transaction tx;
     for (unsigned cycle = 0; cycle < 100; cycle++) {
         unsigned asset = cycle % 2;
         make_target(asset);
+        peak_bytes = 0;
         assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
+        unsigned expected_peak = pack.size + (cycle ? 24 : 0);
         assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
+        assert(!pack.data && peak_bytes == expected_peak);
         cfw_theme_pack_release(&pack);
         unsigned char before[sizeof(pixels)];
         memcpy(before, pixels, sizeof(pixels));
@@ -114,9 +163,12 @@ int main(void)
     reads_fail = 0;
     make_target(0);
     assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
+    active_bits[0] = 2; /* A disjoint previous replacement needs restoration. */
     fail_alloc = 1;
     assert(!cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
     fail_alloc = 0;
+    active_bits[0] = 0;
+    assert(pack.data); /* Failure does not consume the incoming allocation. */
     cfw_theme_pack_release(&pack);
     assert(!allocations);
     /* No-op/custom color-only packages require no bitmap allocation. */
@@ -142,8 +194,8 @@ int main(void)
     memcpy(files[2].data, &m, sizeof(m));
     files[2].size = sizeof(m);
     assert(cfw_theme_metadata_read(&metadata, &m));
-    const char *reserved[] = {"default", "dark"};
-    for (unsigned i = 0; i < 2; i++) {
+    const char *reserved[] = {"default", "dark", "classic"};
+    for (unsigned i = 0; i < sizeof(reserved) / sizeof(*reserved); i++) {
         struct cfw_theme_metadata *stored = (void *)files[2].data;
         memset(stored->id, 0, sizeof(stored->id));
         strcpy(stored->id, reserved[i]);

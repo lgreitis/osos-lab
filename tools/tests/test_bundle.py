@@ -14,9 +14,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 import bundle  # noqa: E402
+import export_bundle  # noqa: E402
 
 
 class ExportTests(unittest.TestCase):
+    def test_theme_release_requires_upgraded_installer(self):
+        for version in ("0.2.8", "0.2.9-rc.1", "invalid"):
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                export_bundle.require_theme_installer(version)
+        for version in ("0.2.9", "0.2.9+build.1", "0.3.0"):
+            export_bundle.require_theme_installer(version)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

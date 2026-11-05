@@ -3,12 +3,16 @@
 #include <stdint.h>
 #include "theme_package.h"
 
+struct cfw_theme_choice {
+    char id[32], name[48];
+};
+
 /* Builds "themes/<id>/<file>" on volume 0. Fails for unsafe ids or long names. */
 int cfw_theme_discovery_path(const char *id, const char *file, struct osos_path *out);
 /* Scans /themes into a caller-owned array, sorted by id. Keeps no state.
  * When more valid themes exist than capacity, the smallest ids are kept and
  * *overflow is set (overflow may be NULL). Returns the number stored. */
-uint32_t cfw_theme_discovery_scan(struct cfw_theme_metadata *entries, uint32_t capacity,
+uint32_t cfw_theme_discovery_scan(struct cfw_theme_choice *entries, uint32_t capacity,
                                   int *overflow);
 
 /* Revalidate a custom theme and choose an appearance. prefer_dark is 0 or 1.

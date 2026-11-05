@@ -91,6 +91,8 @@ static void failures(void)
 {
     for (unsigned failure = 0; failure < 6; failure++) {
         reset();
+        if (failure == 1)
+            switcher.assets[0] = 2; /* Force a stock-restoration allocation. */
         fail_alloc_at = failure == 0 ? 1 : failure == 1 ? 2 : 0;
         reads_fail = failure == 2;
         short_reads = failure == 3;
@@ -182,6 +184,8 @@ static void validation(void)
     memset(bad.id, 'a', sizeof(bad.id));
     assert(!apply(&bad));
     bad = modern;
+    strcpy(bad.id, "classic");
+    assert(!cfw_theme_selection_valid(&bad));
     strcpy(bad.id, "dark");
     assert(!apply(&bad));
     bad = modern;

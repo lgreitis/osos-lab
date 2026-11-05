@@ -46,6 +46,10 @@
     "Settings_Brightness_Bar": 229444704,
     "Settings_Brightness_Value_Text": 229444705,
     "NowPlaying_StatusBar_Template": 229442060,
-    "NowPlaying_StatusBar_Text_View": 229442062
+    "NowPlaying_StatusBar_Text_View": 229442062,
+    "Settings_Backlight_Screen": 229444762,
+    "Settings_Backlight_Layout": 229444770,
+    "SettingsInfo_Template_Backlight_Layout": 229444664,
+    "Settings_List_View": 229441971
   }
 }

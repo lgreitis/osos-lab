@@ -7,6 +7,8 @@ struct cfw_theme_boot_request {
     struct cfw_theme_selection selection;
     struct osos_path pack;
     uint32_t appearance_mask;
+    int migrate;
+    char name[48];
 };
 
 /* Resolve preferences without activating artwork or writing storage. Returns 1

@@ -56,6 +56,7 @@ class PayloadTests(unittest.TestCase):
                 [
                     root / "payload/dark_mode.ui",
                     root / "payload/song_info.ui",
+                    root / "payload/theme_settings.ui",
                     root / "payload/custom_eq.ui",
                     root / "payload/cfw_info.ui",
                     root / "payload/album_artists.ui",
@@ -76,9 +77,9 @@ class PayloadTests(unittest.TestCase):
                 "eq_audio",
                 "eq_canvas",
                 "menu_resources",
-                "bitmap_assets",
                 "theme_package",
                 "theme_switch",
+                "theme_settings",
                 "theme_input",
                 "theme_preferences",
                 "theme_discovery",

@@ -336,6 +336,57 @@ class UiTests(unittest.TestCase):
         self.assertIn(b"navigator.PushScreen", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
 
+    def test_theme_list_uses_native_rows_and_explicit_controller(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.read(root / "payload/theme_settings.ui")
+        compiled = compile_document(resources, document)
+        screen = resources.names["CFW_Theme_Screen"]
+        self.assertEqual(resources.added["SCST", screen].data, b"CFWTheme")
+        events = resources.added["CEVT", screen].data
+        self.assertIn(b"CFW_Theme_Select", events)
+        self.assertIn(b"navigator.PopTopScreen", events)
+        self.assertIn(b"navigator.SwitchLayout", events)
+        self.assertIn(b"CFW_Theme_Preview", events)
+        self.assertLess(
+            events.index(b"navigator.PopTopScreen"),
+            events.index(b"navigator.SwitchLayout"),
+        )
+        self.assertIn("CFW_Theme_Choices", compiled.string_ids)
+        self.assertEqual(len(resources.menu_items), 1)
+        self.assertEqual(
+            word(resources.menu_items[0][3], 0x30),
+            compiled.string_ids["CFW_Theme_Item"],
+        )
+        self.assertFalse(compiled.fields)
+        tables = [data for (kind, _), data in resources.added.items() if kind == "ITEM"]
+        self.assertEqual(len(tables), 1)
+        rows = blocks(tables[0])
+        self.assertEqual(len(rows), 1)
+        layout = resources.names["CFW_Theme_Layout"]
+        instances = [
+            instance
+            for _, group in blocks(resources.added["SLyt", layout])
+            for _, instance in blocks(resources.current("SSin", word(group, 0)))
+        ]
+        # Native Settings uses a 160-pixel list and status bar beside its preview.
+        native_layouts = {
+            word(instance, 4): word(instance, 8) for instance in instances
+        }
+        self.assertEqual(native_layouts[0x0DAD01B2], 0x0DAD01B7)
+        self.assertEqual(native_layouts[0x0DAD01A1], 0x0DAD01A8)
+        self.assertIn(0x0DAD0C2E, native_layouts)  # Settings image/text preview
+        list_instance = next(i for i in instances if word(i, 4) == 0x0DAD01B2)
+        self.assertNotIn(("VCvs", word(list_instance, 0)), resources.added)
+        binding = dict(blocks(resources.current("VSlt", screen)))[0x3F1]
+        self.assertEqual(word(binding, 0), 0x0DAD01B3)
+        bound_rows = blocks(resources.current("ITEM", word(binding, 4)))
+        self.assertEqual(word(bound_rows[0][1], 0x30), word(rows[0][1], 0x30))
+        prototype = blocks(resources.stock("ITEM", "Settings_EQ_Items"))[0][1]
+        self.assertEqual(rows[0][1][0x60:0x64].origins, prototype[0x60:0x64].origins)
+
     def test_settings_toggle_preserves_stock_rows_and_has_no_navigation(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())

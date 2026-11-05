@@ -155,27 +155,56 @@ class DocumentCompiler:
         row[1][0x94:0x95] = b"\x01"
         return item, row
 
-    def page(self, name, title, rows, events):
+    def page(self, name, title, rows, events, split=False):
         resources = self.resources
         screen = resources.allocate(name + "_Screen")
         layout = resources.allocate(name + "_Layout")
         table = resources.allocate()
         resources.add("ITEM", table, pack_blocks(rows))
+        source_layout = (
+            "Settings_Backlight_Layout" if split else "Notes_List_Screen_Alt_Default"
+        )
+        substitutions = {}
+        if split:
+            _, preview_view = self.settings_preview_view(resources.source(title))
+            substitutions[
+                resources.native("SettingsInfo_Template_Backlight_Layout")
+            ] = preview_view
+            binding = Resource(resources.stock("VSlt", "Settings_Backlight_Screen"))
+            for kind, data in blocks(binding):
+                if kind == 0x3F1:
+                    if word(data, 0) != resources.native("Settings_List_View"):
+                        raise ValueError("Unexpected native Settings list view")
+                    put(data, 4, table)
+                    resources.add("VSlt", screen, pack_blocks([(kind, data)]))
+                    break
+            else:
+                raise ValueError("Native Settings picker is missing its list binding")
         resources.clone_layout(
-            resources.native("Notes_List_Screen_Alt_Default"),
+            resources.native(source_layout),
             layout,
             resources.source(title),
-            item_table=table,
+            substitutions=substitutions,
+            item_table=None if split else table,
         )
         resources.add(
             "SCST",
             screen,
-            resources.stock("SCST", "SettingsMenus_Main_Screen"),
+            self.document.root.controller.encode("ascii")
+            if split
+            else resources.stock("SCST", "SettingsMenus_Main_Screen"),
         )
         resources.set_events(
             "CEVT", screen, struct.pack("<I", len(events)) + b"".join(events)
         )
-        layouts = blocks(resources.stock("SLst", "Notes_List_Screen_Alt"))
+        source_screen = (
+            "Settings_Backlight_Screen" if split else "Notes_List_Screen_Alt"
+        )
+        layouts = [
+            (kind, data)
+            for kind, data in blocks(resources.stock("SLst", source_screen))
+            if not split or word(data, 0) == resources.native(source_layout)
+        ]
         put(layouts[0][1], 0, layout)
         resources.add("SLst", screen, pack_blocks(layouts))
         resources.set_events(
@@ -222,6 +251,35 @@ class DocumentCompiler:
             screen=resources.names[item.name + "_Screen"],
         )
         return parent_row, self.push(parent_item, item.name)
+
+    def list_page(self, item):
+        """A Settings-owned dynamic choice list."""
+        resources = self.resources
+        choices = resources.allocate(item.name + "_Choices")
+        self.string_ids[item.name + "_Choices"] = choices
+        kind, prototype = blocks(resources.stock("ITEM", "Settings_EQ_Items"))[0]
+        row = Resource(prototype)
+        row_id = resources.allocate()
+        put(row, 0x30, row_id)
+        put(row, 0x68, resources.property_source(0x8900, choices))
+        row[0x94:0x95] = b"\x01"
+        self.page(
+            item.name,
+            item.title,
+            [(kind, row)],
+            [
+                menu_event(
+                    row_id,
+                    "chosen",
+                    item.name + "_Select",
+                    "navigator.PopTopScreen",
+                    following=[("navigator.SwitchLayout", [item.name + "_Preview"])]
+                    if self.document.after
+                    else (),
+                )
+            ],
+            split=True,
+        )
 
     def range_page(self, item, property_id):
         resources = self.resources
@@ -328,6 +386,7 @@ class DocumentCompiler:
             item_id, item = self.toggle_row(title)
         else:
             item_id, item = self.row(title)
+        self.string_ids[self.document.root.name + "_Item"] = item_id
         self.insert_settings_row(item)
         self.add_settings_preview(title)
         self.bind_settings_events(item_id)
@@ -361,12 +420,12 @@ class DocumentCompiler:
             item,
         )
 
-    def add_settings_preview(self, title):
+    def settings_preview_view(self, title):
+        if hasattr(self, "preview_view"):
+            return self.preview_view
         document, resources = self.document, self.resources
         style = "Brightness" if document.preview == "image" else "Legal"
         template = resources.native(f"SettingsInfo_Template_{style}_Layout")
-        layout = resources.native(f"SettingsMenus_{style}_Layout")
-        preview = resources.allocate(document.root.name + "_Preview")
         preview_view = resources.allocate()
         data = Resource(resources.original["VLyt", template])
         put(data, 0x24, title)
@@ -374,6 +433,15 @@ class DocumentCompiler:
             data = self.image_preview(data)
         resources.add("VLyt", preview_view, data)
         resources.alias_events("TEVT", preview_view, template)
+        self.preview_view = template, preview_view
+        return self.preview_view
+
+    def add_settings_preview(self, title):
+        document, resources = self.document, self.resources
+        style = "Brightness" if document.preview == "image" else "Legal"
+        layout = resources.native(f"SettingsMenus_{style}_Layout")
+        preview = resources.allocate(document.root.name + "_Preview")
+        template, preview_view = self.settings_preview_view(title)
         resources.clone_layout(
             layout,
             preview,
@@ -464,6 +532,8 @@ def compile_document(resources, document, text=""):
             for suffix in ("_Screen", "_Layout"):
                 name = document.root.name + suffix
                 compiled.string_ids[name] = resources.names[name]
+        if document.root.kind == "list":
+            builder.list_page(document.root)
         if document.root.kind == "text":
             builder.text_page(text)
         if document.root.kind == "canvas":

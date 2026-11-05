@@ -141,25 +141,29 @@ def serialized_string(value):
     return struct.pack("<I", len(data)) + data
 
 
-def event(name, action=None, *, handler="", arguments=()):
+def event(name, action=None, *, handler="", arguments=(), following=()):
+    actions = ([(action, arguments)] if action is not None else []) + list(following)
     return (
         serialized_string(name)
         + b"1"
         + serialized_string(handler)
-        + struct.pack("<I", int(action is not None))
-        + (
-            serialized_string(action)
-            + struct.pack("<I", len(arguments))
-            + b"".join(serialized_string(argument) for argument in arguments)
-            if action is not None
-            else b""
+        + struct.pack("<I", len(actions))
+        + b"".join(
+            serialized_string(command)
+            + struct.pack("<I", len(values))
+            + b"".join(serialized_string(value) for value in values)
+            for command, values in actions
         )
     )
 
 
-def menu_event(item, name, handler, action=None, arguments=()):
+def menu_event(item, name, handler, action=None, arguments=(), *, following=()):
     return event(
-        f"list.pid.{item}.{name}", action, handler=handler, arguments=arguments
+        f"list.pid.{item}.{name}",
+        action,
+        handler=handler,
+        arguments=arguments,
+        following=following,
     )
 
 

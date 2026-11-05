@@ -1,6 +1,6 @@
 # Theme authoring
 
-Themes are written as a source folder and compiled on a desktop. The intended
+Themes are written as a source folder and compiled on a desktop. The
 installation location for each compiled folder is `/themes/<id>/`. The compiler
 is host-only; it needs the firmware bitmap catalog (`firmware/bitmaps.json`),
 not the firmware image.
@@ -67,8 +67,8 @@ the device.
 ```
 
 - `schema`: integer `1`.
-- `id`: `[a-z0-9][a-z0-9_-]{0,30}`. `default` and `dark` are reserved
-  for the existing RTH3 installation.
+- `id`: `[a-z0-9][a-z0-9_-]{0,30}`. `classic`, `default`, and `dark` are reserved.
+  `classic` contains the built-in assets; the other names remain reserved for compatibility.
 - `name`: at most 47 UTF-8 bytes, no control characters.
 - `author` and `version`: optional, at most 64 bytes each. They are copied
   into `report.json` only and are never written to the runtime files.
@@ -142,8 +142,7 @@ bitmap catalog, the same value RTH3 uses.
 `validate_package` to check compiled files against a catalog. The compiler
 runs these checks on its own output before writing.
 
-The RTH3 single-file dark theme (`themes/build.py`, `themes/compiler.py`) is
-unchanged.
+Classic dark artwork uses RTH3 (`themes/build.py`, `themes/compiler.py`).
 
 ## Stock restoration data
 
@@ -152,17 +151,19 @@ firmware during installation:
 
 ```sh
 python3 -m themes.stock --input /path/to/original/osos.bin \
-  --out build/theme-stock.bin
+  --out build/themes/classic/default.bin
 ```
 
 The extractor verifies the firmware SHA-256 and every bitmap CRC before writing.
 The 599-record baseline is 3,218,168 bytes for the current catalog. The
 transaction reader streams it with a 256-byte scratch buffer, retaining only
-records required to restore artwork changed by the previous theme. Ordinary
-navigation does not read this file. Keep the baseline outside `/themes/<id>/`
-to avoid collisions with theme folders. Do not replace the legacy
-`themes/default/theme.bin` with it: the existing dark-mode toggle expects its
-original matching subset.
+records required to restore artwork changed by the previous theme. Boot validates this file before enabling theming.
+Install it at `themes/classic/default.bin`.
+The `classic` folder is reserved and does not appear in directory discovery. Its
+complete baseline can restore artwork changed by any custom theme. Install the
+Classic dark pack at `themes/classic/dark.bin`. Both files are required to enable
+theming at boot. Installer 0.2.9 or newer generates and installs these files from verified Apple
+firmware; the extracted stock artwork is not distributed with releases.
 
 See [Theme switching](../docs/theme-switch.md) for runtime
 ownership, synchronous application, and preference handling.
