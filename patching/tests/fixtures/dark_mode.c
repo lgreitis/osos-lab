@@ -6,6 +6,10 @@
 static void fill(void *, const void *, const unsigned char *, uint32_t, void *);
 #undef OSOS_SURFACE_FILL_RECT
 #define OSOS_SURFACE_FILL_RECT ((uintptr_t)fill)
+/* Stands in for the native system palette's white entry. */
+static const unsigned char palette_white[4] = {255, 255, 255, 255};
+#undef OSOS_PALETTE_WHITE
+#define OSOS_PALETTE_WHITE ((uintptr_t)palette_white)
 /* Native layout assertions assume 32-bit pointers; this fixture runs on the host. */
 #define _Static_assert(...)
 #include "../../../payload/osos.h"
@@ -459,6 +463,8 @@ static void check_classic_theme(void)
                 check_text(ordinary_view, native_gray, text_shade, text_shade,
                            text_shade);
             }
+            check_text(ordinary_view, palette_white, 255, 255, 255);
+            check_text(ordinary_view, white, 255, 255, 255);
             unsigned char cover = dark ? 0x38 : 0;
             if (dark)
                 check_fill(cover_border, cover, cover, cover);
@@ -490,6 +496,7 @@ static void check_accent_presets(void)
     check_fill(cover_border, 0x7e, 0x81, 0x83);
     check_text(ordinary_view, black, 0, 0, 0);
     check_text(ordinary_view, dim_text, 0x80, 0x80, 0x80);
+    check_text(ordinary_view, palette_white, 255, 255, 255);
     check_fill(accent_fill, 137, 68, 171);
     check_text(ordinary_view, accent_fill, 137, 68, 171);
     check_text(ordinary_view, accent_text, 137, 68, 171);
@@ -532,6 +539,7 @@ static void check_custom_theme(void)
         [CFW_THEME_TEXT] = {60, 40, 20},
         [CFW_THEME_ACCENT_FILL] = {160, 80, 30},
         [CFW_THEME_ACCENT_TEXT] = {140, 70, 20},
+        [CFW_THEME_ON_ACCENT] = {20, 10, 0},
         [CFW_THEME_COVER_BORDER] = {120, 100, 80},
     };
     for (unsigned role = 0; role < sizeof(sepia) / sizeof(sepia[0]); role++) {
@@ -560,12 +568,16 @@ static void check_custom_theme(void)
         check_text(ordinary_view, light_text, 0x81, 0x81, 0x81);
         check_text(ordinary_view, accent_fill, 160, 80, 30);
         check_text(ordinary_view, accent_text, 140, 70, 20);
+        /* Selected-row text follows on_accent by pointer; equal values do not. */
+        check_text(ordinary_view, palette_white, 20, 10, 0);
+        check_text(ordinary_view, white, 255, 255, 255);
         check_background(250 * 0x10000 / 255, 240 * 0x10000 / 255, 220 * 0x10000 / 255,
                          (31u << 11) | (60u << 5) | 27u);
         /* Retained-light views stay unmapped. */
         uint32_t view[0xa4 / 4] = {0};
         view[0x4c / 4] = 0x0dad0607; /* Settings_DateTime_NumericDay */
         check_text(view, black, 0, 0, 0);
+        check_text(view, palette_white, 255, 255, 255);
     }
 
     /* A dark custom theme inverts native shades and clamps role channels. */

@@ -146,7 +146,9 @@ PATCH_ARM void cfw_theme_text_color(void *context, const unsigned char *color,
     unsigned char mapped[4];
     if (themed() && !native_text_color(view)) {
         const unsigned char *text = role(CFW_THEME_TEXT);
-        if (rgb(color) == ACCENT_FILL_LIGHT)
+        if (color == (const unsigned char *)OSOS_PALETTE_WHITE)
+            color = recolor(color, role(CFW_THEME_ON_ACCENT), mapped);
+        else if (rgb(color) == ACCENT_FILL_LIGHT)
             color = recolor(color, role(CFW_THEME_ACCENT_FILL), mapped);
         else if (rgb(color) == ACCENT_TEXT_LIGHT)
             color = recolor(color, role(CFW_THEME_ACCENT_TEXT), mapped);

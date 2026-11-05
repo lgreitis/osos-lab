@@ -117,6 +117,9 @@
 #define OSOS_LIST_SHUFFLE_INDEX_OFFSET 0x000003b4
 #define OSOS_SONG_MODEL_GET_ITEM_SLOT 0x0000022c
 #define OSOS_EQ_PRESETS 0x089d4b58
+/* System palette entry 0 (white), filled by the initializer at 0x082a7d18. Highlighted
+ * text views pass this pointer as their color. */
+#define OSOS_PALETTE_WHITE 0x089d4f18
 #define OSOS_EQ_PRESET_IDS 0x083e4110
 
 #define OSOS_NATIVE_STRING_INIT 0x0826de38

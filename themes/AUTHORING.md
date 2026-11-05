@@ -111,7 +111,7 @@ the device.
 | text | `#202020` | `#e8e8e8` | Native text shades and EQ text |
 | accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text; EQ field being edited |
 | accent_text | `#3185d0` | `#00a1ff` | Native accent text; EQ response curve and selected band |
-| on_accent | `#ffffff` | `#ffffff` | EQ text on the field being edited |
+| on_accent | `#ffffff` | `#ffffff` | Selected-row text; EQ text on the field being edited |
 | selection | `#236cc5` | `#00a1ff` | List selection bar |
 | cover_border | `#7e8183` | `#383838` | Cover Flow border |
 
