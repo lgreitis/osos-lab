@@ -341,12 +341,56 @@ class UiTests(unittest.TestCase):
         self.assertIn(b"navigator.PushScreen", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
 
+    def test_theme_and_accent_previews_use_static_icons_with_live_captions(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        for menu, source_file in (
+            ("CFW_Theme", "theme_settings.ui"),
+            ("CFW_Accent", "accent_settings.ui"),
+        ):
+            resources = Resources(metadata["resources"], bindings)
+            with tempfile.TemporaryDirectory() as directory:
+                generate(
+                    resources, [root / "payload" / source_file], Path(directory), "test"
+                )
+            self.assertIn(menu + "_Icon", resources.names)
+            self.assertIn(menu + "_PreviewText", resources.names)
+            self.assertNotIn(menu + "_PreviewImage", resources.names)
+            layout = resources.added["SLyt", resources.names[menu + "_Preview"]]
+            screen = resources.added["SSin", word(blocks(layout)[0][1], 0)]
+            preview_id = next(
+                word(data, 8)
+                for _, data in blocks(screen)
+                if word(data, 4) == 0x0DAD0C2E
+            )
+            views = dict(blocks(resources.added["VLyt", preview_id]))
+            for view, name in (
+                ("Settings_Icon_View", menu + "_Icon"),
+                ("Settings_InfoDetail_View", menu + "_PreviewText"),
+            ):
+                options = dict(blocks(views[bindings[view]]))
+                source = resources.added["SORC", word(options[0x534F5243], 0)]
+                binding = blocks(source)[0][1]
+                self.assertEqual(
+                    (word(binding, 0), word(binding, 4), word(binding, 8)),
+                    (0x8900, resources.names[name], 1),
+                )
+            packed, size = resources.packed["BMap", resources.names[menu + "_Icon"]]
+            content = unpack_zero_runs(packed, size)
+            self.assertEqual(
+                struct.unpack_from("<HHHHiiiii", content),
+                (8, 0, 80, 8, 0, 0, 121, 78, 9680),
+            )
+            self.assertLess(len(packed), size // 3)
+
     def test_theme_list_uses_native_rows_and_explicit_controller(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
         bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
         resources = Resources(metadata["resources"], bindings)
         document = parser.read(root / "payload/theme_settings.ui")
+        resources.allocate("CFW_Theme_Icon")
         compiled = compile_document(resources, document)
         screen = resources.names["CFW_Theme_Screen"]
         self.assertEqual(resources.added["SCST", screen].data, b"CFWTheme")
