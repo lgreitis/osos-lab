@@ -7,7 +7,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from patching.bitmap import encode_bmap, pack_zero_runs, read_png, unpack_zero_runs
+from patching.bitmap import encode_bmap, read_png
 
 
 def chunk(kind, data):
@@ -130,27 +130,15 @@ class BitmapTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<HHHH", texture), (0x565, 0, 4, 16))
         self.assertEqual(texture[28:], struct.pack("<2H", 0xF800, 0))
 
-    def test_zero_runs_round_trip_and_keep_short_gaps_literal(self):
-        cases = [
-            b"",
-            b"\0" * 1000,
-            bytes(range(1, 256)) * 3,
-            b"\0\0\0\0" + b"\5\0\6\0\0\7" + b"\0" * 3 + b"\1" + b"\0" * 300,
-            bytes(32) + b"\x7f" * 600 + bytes(5),
-        ]
-        for data in cases:
-            with self.subTest(size=len(data)):
-                packed = pack_zero_runs(data)
-                self.assertEqual(unpack_zero_runs(packed, len(data)), data)
-                for i in range(0, len(packed)):
-                    zeros, literals = packed[i], packed[i + 1]
-                    self.assertLessEqual(zeros, 255)
-                    i += 2 + literals
-                    if i >= len(packed):
-                        break
-        # Isolated zeros inside artwork do not start a new group.
-        self.assertEqual(pack_zero_runs(b"\1\0\2\0\0\3"), b"\0\6\1\0\2\0\0\3")
-        self.assertEqual(pack_zero_runs(b"\1\0\0\0\2"), b"\0\1\1\3\1\2")
-        self.assertLess(len(pack_zero_runs(bytes(9708))), 100)
-        with self.assertRaises(ValueError):
-            unpack_zero_runs(b"\0\1\1\0\0", 1)
+    def test_gray4_mask_packs_two_pixels_per_byte_with_padded_rows(self):
+        levels = (0, 17, 255, 34, 68)
+        rgba = bytes(c for v in levels * 2 for c in (v, v, v, 255))
+        bitmap = encode_bmap(5, 2, rgba, gray4=True)
+        self.assertEqual(
+            struct.unpack_from("<HHHHiiiii", bitmap), (4, 0, 4, 4, 0, 0, 2, 5, 8)
+        )
+        # Left pixel in the high nibble; gray steps of 17 map to 0..15.
+        self.assertEqual(bitmap[28:], bytes((0x01, 0xF2, 0x40, 0)) * 2)
+        self.assertEqual(encode_bmap(1, 1, bytes((9, 9, 9, 255)), gray4=True)[28], 0x10)
+        with self.assertRaisesRegex(ValueError, "opaque grayscale"):
+            encode_bmap(1, 1, bytes((1, 2, 3, 255)), gray4=True)

@@ -13,8 +13,17 @@ from pathlib import Path, PurePosixPath
 
 from patching.bitmap import read_png
 from patching.theme_format import HEADER, MAGIC, RECORD, catalog_hash
-from themes.compiler import encode_pixels, fit_palette
 from themes import style
+from themes.compiler import (
+    ARGB_FORMATS,
+    MASK_FORMATS,
+    PALETTE_FORMATS,
+    coverage,
+    encode_pixels,
+    fit_palette,
+    mask_pixels,
+    tinted_pixels,
+)
 from themes.style import COLOR_DEFAULTS, COLOR_ROLES, COLORS, STYLE_BYTES
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +33,7 @@ METADATA_MAGIC = b"RTM4"
 SCHEMA = 1
 
 APPEARANCES = {"light": (0, 1), "dark": (1, 2)}
-RENDERING = {"selection": ("native", "flat"), "preview_icons": ("native", "accent")}
+RENDERING = {"selection": ("native", "flat")}
 
 # Capabilities recognised by name so authors get a precise answer instead of
 # a generic "unknown field". Each one is extended only after native proof.
@@ -40,7 +49,7 @@ UNSUPPORTED = {
 SUPPORTED = ("colors", "bitmaps", "accents", "rendering")
 THEME_FIELDS = {"schema", "id", "name", "author", "version", "appearances"}
 APPEARANCE_FIELDS = set(SUPPORTED)
-BITMAP_FIELDS = {"id", "name", "file", "type"}
+BITMAP_FIELDS = {"id", "name", "file", "type", "tint"}
 
 THEME_ID = re.compile(r"[a-z0-9][a-z0-9_-]{0,30}")
 COLOR = re.compile(r"#[0-9A-Fa-f]{6}")
@@ -219,7 +228,9 @@ def resolve_colors(appearance, colors, where):
     result = dict(COLOR_DEFAULTS[appearance])
     for role, value in colors.items():
         if role not in COLOR_ROLES:
-            fail(f"{where}.{role}", f"unknown color role; expected one of {COLOR_ROLES}")
+            fail(
+                f"{where}.{role}", f"unknown color role; expected one of {COLOR_ROLES}"
+            )
         result[role] = color(value, f"{where}.{role}")
     return result
 
@@ -231,7 +242,7 @@ def color(value, where):
 
 
 def resolve_style(appearance, entry, where):
-    """Encode the style prefix; returns its bytes and the report fields."""
+    """Resolve colors, accents and rendering; returns the prefix fields and report."""
     colors = entry.get("colors", {})
     icon = None
     if isinstance(colors, dict) and "icon_tint" in colors:
@@ -255,47 +266,87 @@ def resolve_style(appearance, entry, where):
     for key, choices in RENDERING.items():
         if rendering.get(key, choices[0]) not in choices:
             fail(f"{where}.rendering.{key}", f"expected {' or '.join(choices)}")
-    flags = (style.FLAT_SELECTION if rendering.get("selection") == "flat" else 0) | (
-        style.TINT_PREVIEWS if rendering.get("preview_icons") == "accent" else 0
-    )
+    flags = style.FLAT_SELECTION if rendering.get("selection") == "flat" else 0
 
-    prefix = style.encode_colors(colors) + style.encode_options(
-        flags, icon or colors["accent_text"], palettes
-    )
-    return prefix, {
+    return (flags, icon or colors["accent_text"], palettes), {
         "colors": colors,
         "accents": palettes,
         "rendering": rendering,
-        "fallback_accents": [name for name in style.ACCENT_NAMES if name not in overrides],
+        "fallback_accents": [
+            name for name in style.ACCENT_NAMES if name not in overrides
+        ],
         "contrast": style.contrast_report(colors, palettes),
     }
 
 
+def tint_kind(info, item, at):
+    """How a bitmap entry is drawn: (None, None), or ("mask" | "palette" | "argb",
+    role) for art tinted at draw time, by palette rewrite or by pixel rewrite."""
+    tint = item.get("tint")
+    if tint is not None and tint not in style.TINT_ROLES:
+        fail(f"{at}.tint", f"expected one of {', '.join(style.TINT_ROLES)}")
+    fmt = info["format"]
+    if tint is None:
+        if "file" not in item:
+            fail(f"{at}.file", "required")
+        return None, None
+    if fmt in MASK_FORMATS:
+        return "mask", tint
+    if fmt in PALETTE_FORMATS:
+        if "file" not in item:
+            fail(f"{at}.file", "required: paletted bitmaps are tinted from theme art")
+        return "palette", tint
+    if fmt in ARGB_FORMATS:
+        if "file" not in item:
+            fail(f"{at}.file", "required: ARGB bitmaps are tinted from theme art")
+        return "argb", tint
+    fail(
+        f"{at}.tint", f"{info['name']} cannot be tinted: it has no palette or coverage"
+    )
+
+
 def compile_appearance(catalog, resolve, root, appearance, entry):
     where = f"appearances.{appearance}"
-    prefix, style_report = resolve_style(appearance, entry, where)
+    (flags, icon, palettes), style_report = resolve_style(appearance, entry, where)
     bitmaps = entry.get("bitmaps", [])
     if not isinstance(bitmaps, list):
         fail(f"{where}.bitmaps", "expected a list")
     selected = {}
+    tinted = {}
+    seen = set()
     for position, item in enumerate(bitmaps):
         at = f"{where}.bitmaps[{position}]"
         check_fields(item, BITMAP_FIELDS, at)
         if item.get("type", "BMap") != "BMap":
             fail(f"{at}.type", "only BMap replacements are supported")
-        if "file" not in item:
-            fail(f"{at}.file", "required")
         index = resolve(item, at)
-        if index in selected:
+        if index in seen:
             fail(at, f"duplicate replacement for {resolve.assets[index]['name']}")
-        selected[index] = (at, source_file(root, item["file"], f"{at}.file"), item)
-    body = bytearray(prefix)
+        seen.add(index)
+        kind, role = tint_kind(resolve.assets[index], item, at)
+        if kind:
+            tinted[index] = role
+        if "file" in item:
+            selected[index] = (
+                at,
+                source_file(root, item["file"], f"{at}.file"),
+                item,
+                kind,
+            )
+    body = bytearray(
+        style.encode_colors(style_report["colors"])
+        + style.encode_options(flags, icon, palettes, tinted)
+    )
     report = []
-    for index, (at, path, item) in sorted(selected.items()):
+    for index, (at, path, item, kind) in sorted(selected.items()):
         info = resolve.assets[index]
         try:
             width, height, rgba = read_png(path)
             capacity = info["palette_colors"]
+            if kind == "mask":
+                rgba = mask_pixels(coverage(rgba), info["format"])
+            elif kind in ("palette", "argb"):
+                rgba = tinted_pixels(coverage(rgba), icon)
             fitted = fit_palette(rgba, capacity) if capacity else rgba
             payload = encode_pixels(info, width, height, fitted)
         except (KeyError, ValueError, zlib.error, struct.error) as error:
@@ -305,15 +356,25 @@ def compile_appearance(catalog, resolve, root, appearance, entry):
         body.extend(RECORD.pack(index, info["data_offset"], len(payload)))
         body.extend(payload)
         body.extend(bytes(-len(body) % 4))
+        method = f"reduced to {capacity} colors" if fitted != rgba else "native pixels"
+        if kind:
+            method = f"tinted {kind} ({tinted[index]}), {method}"
         report.append(
             {
                 "id": f"{info['id']:#010x}",
                 "name": info["name"],
                 "file": item["file"],
                 "bytes": len(payload),
-                "method": f"reduced to {capacity} colors"
-                if fitted != rgba
-                else "native pixels",
+                "method": method,
+            }
+        )
+    for index in sorted(set(tinted) - set(selected)):
+        info = resolve.assets[index]
+        report.append(
+            {
+                "id": f"{info['id']:#010x}",
+                "name": info["name"],
+                "method": f"tinted stock mask ({tinted[index]})",
             }
         )
     if len(body) > max_body(catalog):
@@ -440,6 +501,15 @@ def inspect_appearance(data, catalog=None, where="pack"):
         at = align(end)
     if at != len(body):
         fail(where, "trailing bytes after the last record")
+    replaced = {record["index"] for record in records}
+    for index in options["tinted"] if assets is not None else ():
+        if index >= len(assets):
+            fail(where, f"tinted asset index {index} is outside the catalog")
+        fmt = assets[index]["format"]
+        if fmt in PALETTE_FORMATS + ARGB_FORMATS and index not in replaced:
+            fail(where, f"tinted asset {index} has no record to rewrite")
+        if fmt not in MASK_FORMATS + PALETTE_FORMATS + ARGB_FORMATS:
+            fail(where, f"tinted asset {index} has no palette or coverage")
     return {
         "catalog_hash": fingerprint.hex(),
         "appearance": "dark" if code else "light",
@@ -504,8 +574,9 @@ def compile_package(catalog, manifest_path):
         "catalog_hash": catalog_hash(catalog).hex(),
         "capabilities": {
             "supported": [
-                "colors: 16 opaque roles",
+                f"colors: {len(COLOR_ROLES)} opaque roles",
                 "bitmaps: same-size BMap",
+                "bitmaps: live tint by role",
                 "named accent palettes",
                 "flat selection",
                 "preview icon tint",
@@ -521,7 +592,7 @@ def compile_package(catalog, manifest_path):
                 len(files[f"{key}.bin"]) for key in appearances
             ),
             "bitmap_payload_bytes": {
-                key: sum(item["bytes"] for item in detail["bitmaps"])
+                key: sum(item.get("bytes", 0) for item in detail["bitmaps"])
                 for key, detail in appearances.items()
             },
         },

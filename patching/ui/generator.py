@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Read UI sources and write generated C resources and headers."""
 
-from ..bitmap import encode_bmap, pack_zero_runs, read_png
+from ..bitmap import encode_bmap, read_png
+from ..catalog import CATALOG_FORMAT
 from .codegen import (
     emit_bindings,
+    emit_catalog_bitmaps,
     emit_events,
     emit_header,
     emit_menu_items,
     emit_models,
-    emit_packed_bitmaps,
     emit_resources,
     emit_visibility,
 )
@@ -43,13 +44,12 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
             text = page_text(source, document.root, revision, version)
         bitmap_ids = {}
         for name, (filename, bitmap_format) in document.bitmaps.items():
-            gray8 = bitmap_format == "gray8"
-            bitmap = encode_bmap(*read_png(source.parent / filename), gray8=gray8)
-            bitmap_ids[name] = resource_id = resources.allocate(name)
-            # Grayscale previews are mostly empty; the payload unpacks them on demand.
-            if gray8:
-                resources.add_packed(resource_id, bitmap, pack_zero_runs(bitmap))
+            if bitmap_format == CATALOG_FORMAT:
+                bitmap = encode_bmap(*read_png(source.parent / filename), gray4=True)
+                bitmap_ids[name] = resources.add_catalog(name, bitmap)
             else:
+                bitmap = encode_bmap(*read_png(source.parent / filename))
+                bitmap_ids[name] = resource_id = resources.allocate(name)
                 resources.add("BMap", resource_id, bitmap)
         compiled = compile_document(resources, document, text)
         compiled.string_ids.update(bitmap_ids)
@@ -58,8 +58,8 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
         (directory / (source.stem + "_ui.h")).write_text(
             emit_header(document, compiled.string_ids)
         )
+    lines.extend(emit_catalog_bitmaps(resources))
     lines.extend(emit_resources(resources))
-    lines.extend(emit_packed_bitmaps(resources))
     lines.extend(emit_menu_items(resources))
     lines.extend(emit_events(resources))
     lines.extend(emit_models(documents))

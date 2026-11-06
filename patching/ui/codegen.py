@@ -146,6 +146,26 @@ def emit_resource_data(name, data, *, mutable=False, aligned=False):
     return lines
 
 
+def emit_catalog_bitmaps(resources):
+    """The payload's catalog bitmap block: every gray4 UI bitmap back to back,
+    word-aligned, in catalog order. It is writable because theme packs replace
+    its pixels in place, like the firmware's resident bitmaps."""
+    data = bytearray()
+    for _, _, bitmap in resources.catalog:
+        data += bitmap + bytes(-len(bitmap) % 4)
+    if not data:
+        data = bytearray(4)
+    lines = ["unsigned char cfw_catalog_bitmaps[] __attribute__((aligned(4))) = {"]
+    for start in range(0, len(data), 16):
+        lines.append(
+            "    "
+            + ", ".join(f"0x{byte:02x}" for byte in data[start : start + 16])
+            + ","
+        )
+    lines += ["};", ""]
+    return lines
+
+
 def emit_resources(resources):
     lines = []
     entries = []
@@ -156,6 +176,14 @@ def emit_resources(resources):
         entries.append(
             f"    {{{resource_type:#x}, {resource_id:#x}, sizeof(resource_{i}), resource_{i}}},"
         )
+    bmap = int.from_bytes(b"BMap", "big")
+    offset = 0
+    for _, resource_id, bitmap in resources.catalog:
+        entries.append(
+            f"    {{{bmap:#x}, {resource_id:#x}, {len(bitmap)}, "
+            f"cfw_catalog_bitmaps + {offset}}},"
+        )
+        offset += (len(bitmap) + 3) & ~3
 
     lines += ["", "const struct cfw_resource cfw_resources[] = {", *entries, "};"]
     lines.append(f"const uint32_t cfw_resource_count = {len(entries)};")
@@ -169,26 +197,6 @@ def emit_resources(resources):
     ]
 
     return lines
-
-
-def emit_packed_bitmaps(resources):
-    lines, entries, largest = [], [], 0
-    for i, ((_, resource_id), (packed, size)) in enumerate(resources.packed.items()):
-        lines.append(array(f"packed_bitmap_{i}", packed, ctype="unsigned char"))
-        entries.append(
-            f"    {{{resource_id:#x}, sizeof(packed_bitmap_{i}), {size}, packed_bitmap_{i}}},"
-        )
-        largest = max(largest, size)
-    if not entries:
-        entries.append("    {0, 0, 0, 0},")
-    return [
-        *lines,
-        "const struct cfw_packed_bitmap cfw_packed_bitmaps[] = {",
-        *entries,
-        "};",
-        f"const uint32_t cfw_packed_bitmap_count = {len(resources.packed)};",
-        f"const uint32_t cfw_packed_bitmap_bytes = {largest};",
-    ]
 
 
 def emit_menu_items(resources):

@@ -3,6 +3,7 @@
 #include "cfw.h"
 #include "theme_id.h"
 #include "theme_input.h"
+#include "theme_tint.h"
 
 int cfw_theme_selection_valid(const struct cfw_theme_selection *s)
 {
@@ -104,14 +105,16 @@ static int switch_run(struct cfw_theme_switch *c,
     cfw_copy(c->assets, transaction.target_assets, sizeof(c->assets));
     if (c->active.custom) {
         const unsigned char *prefix = transaction.incoming.data;
-        cfw_theme_style_set((const struct cfw_theme_style *)prefix,
-                            (const struct cfw_theme_options *)(prefix +
-                                                              sizeof(struct cfw_theme_style)));
+        cfw_theme_style_set(
+            (const struct cfw_theme_style *)prefix,
+            (const struct cfw_theme_options *)(prefix +
+                                               sizeof(struct cfw_theme_style)));
     } else {
         cfw_theme_style_reset();
     }
     cfw_theme_appearance_set(selection->dark);
     cfw_theme_accent_set(selection->accent);
+    cfw_theme_tint_refresh();
     c->result = CFW_THEME_OK;
 done:
     cfw_theme_pack_release(&pack);
@@ -158,6 +161,7 @@ int cfw_theme_switch_set_accent(struct cfw_theme_switch *c, unsigned accent)
     if (store_selection(c, &selection)) {
         c->active.selection.accent = accent;
         cfw_theme_accent_set(accent);
+        cfw_theme_tint_refresh();
         c->result = CFW_THEME_OK;
     }
     c->busy = 0;

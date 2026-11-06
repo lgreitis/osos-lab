@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "theme_render.h"
 #include "theme_style.h"
+#include "theme_tint.h"
 #include "osos.h"
 #include "patch.h"
 
@@ -8,6 +9,7 @@ enum {
     /* Native colors are Classic light; these identify what each one draws. */
     BACKGROUND_LIGHT_MIN = 0xb0,
     TEXT_DARK_MAX = 0x80,
+    TEXT_WHITE_MIN = 0xf0,
     TEXT_LIGHT_REFERENCE =
         0x20, /* Classic light text role; native black maps below it. */
     COVER_FLOW_BORDER_LIGHT =
@@ -16,14 +18,37 @@ enum {
     ACCENT_TEXT_LIGHT = 0x3185d0,
 };
 
+/* Two native views draw labels on OptionBar well and thumb slices, each holding
+ * two RGBA label colors, both system white: the Search keyboard (loader
+ * 0x08203880, Black slices, key drawer 0x08203e8c) and the generic option bar
+ * such as the Clock's Add/Edit (loader 0x081dfe38 picks the slices by a style
+ * byte, draw loop 0x081e091c). */
+enum {
+    SEARCH_KEY_WELL_LETTER = 0x1cd,
+    SEARCH_KEY_LETTER = 0x1d1,
+    OPTION_BAR_STYLE = 0x121, /* 0 White, 1 Black, 2 Now Playing (own colors) */
+    OPTION_BAR_WELL_LETTER = 0x1cc,
+    OPTION_BAR_LETTER = 0x1d0,
+    OPTION_BAR_THEMED_STYLES = 2,
+};
+
+enum { WELL_WHITE, WELL_BLACK };
+
+/* The Search text box draws its typed text and caret over the
+ * System_Input_Field slices. Classic keeps the stock light field, so the text
+ * stays native there; a custom theme may paint the field light or dark, and the
+ * text then follows whatever contrasts with the field art. */
+enum { SEARCH_INPUT_TEXT = 0x0dad0ddc };
+
 static int native_text_color(const void *view)
 {
     switch (osos_view_id(view)) {
     case 0x0dad030e: /* Alarms_PickDate_Preivew_NumericDay */
     case 0x0dad0607: /* Settings_DateTime_NumericDay */
     case 0x0dad061e: /* Settings_DateTime_Preivew_NumericDay */
-    case 0x0dad0ddc: /* Search_Input_Text */
         return 1;
+    case SEARCH_INPUT_TEXT:
+        return !cfw_theme_style_custom();
     default:
         return 0;
     }
@@ -140,13 +165,19 @@ PATCH_ARM uint32_t cfw_theme_reflection_blend(uint32_t pixel, uint32_t backgroun
     return osos_rgb565_blend(pixel, background, weight);
 }
 
+/* Native white text sits on the stock blue-gray preview pane and on dark art. A
+ * custom light background would hide it, so it takes the text role there. */
 PATCH_ARM void cfw_theme_text_color(void *context, const unsigned char *color,
                                     const void *view)
 {
     unsigned char mapped[4];
     if (themed() && !native_text_color(view)) {
         const unsigned char *text = role(CFW_THEME_TEXT);
-        if (color == (const unsigned char *)OSOS_PALETTE_WHITE)
+        const unsigned char *field =
+            osos_view_id(view) == SEARCH_INPUT_TEXT ? cfw_theme_field_text_color() : 0;
+        if (field && gray(color) && color[0] <= TEXT_DARK_MAX)
+            color = recolor(color, field, mapped);
+        else if (color == (const unsigned char *)OSOS_PALETTE_WHITE)
             color = recolor(color, role(CFW_THEME_ON_ACCENT), mapped);
         else if (rgb(color) == ACCENT_FILL_LIGHT)
             color = recolor(color, role(CFW_THEME_ACCENT_FILL), mapped);
@@ -157,6 +188,58 @@ PATCH_ARM void cfw_theme_text_color(void *context, const unsigned char *color,
                           cfw_theme_color_dark(text) ? color[0] - TEXT_LIGHT_REFERENCE
                                                      : -(color[0] / 2),
                           mapped);
+        else if (gray(color) && color[0] >= TEXT_WHITE_MIN &&
+                 cfw_theme_style_custom() &&
+                 !cfw_theme_color_dark(role(CFW_THEME_BACKGROUND)))
+            color = recolor(color, text, mapped);
     }
     osos_graphics_set_color(context, color);
+}
+
+/* The highlighted label sits on the selection-tinted thumb, so it takes
+ * on_accent; the other labels follow whatever contrasts with the well art. */
+static const unsigned char *bar_label_color(const unsigned char *color,
+                                            const unsigned char *bytes, unsigned thumb,
+                                            unsigned well, unsigned style,
+                                            unsigned char *mapped)
+{
+    if (color == bytes + thumb) {
+        if (themed())
+            return recolor(color, role(CFW_THEME_ON_ACCENT), mapped);
+    } else if (color == bytes + well) {
+        const unsigned char *derived = cfw_theme_well_letter_color(style);
+        if (derived)
+            return recolor(color, derived, mapped);
+    }
+    return color;
+}
+
+PATCH_ARM void cfw_theme_search_key_color(void *context, const unsigned char *color,
+                                          const void *view)
+{
+    unsigned char mapped[4];
+    osos_graphics_set_color(context, bar_label_color(color, view, SEARCH_KEY_LETTER,
+                                                     SEARCH_KEY_WELL_LETTER, WELL_BLACK,
+                                                     mapped));
+}
+
+PATCH_ARM void cfw_theme_option_bar_color(void *context, const unsigned char *color,
+                                          const void *view)
+{
+    unsigned char mapped[4];
+    const unsigned char *bytes = view;
+    if (bytes[OPTION_BAR_STYLE] < OPTION_BAR_THEMED_STYLES)
+        color = bar_label_color(color, bytes, OPTION_BAR_LETTER, OPTION_BAR_WELL_LETTER,
+                                bytes[OPTION_BAR_STYLE], mapped);
+    osos_graphics_set_color(context, color);
+}
+
+/* Mask bitmaps (formats 4 and 8) take the view's foreground; tinted ones take
+ * the icon tint, or the on-accent role while highlighted. Other bitmap views
+ * never reach this call. */
+PATCH_ARM void cfw_theme_bitmap_color(void *context, const unsigned char *color,
+                                      const void *view)
+{
+    const unsigned char *tinted = cfw_theme_highlight_tint(view);
+    osos_graphics_set_color(context, tinted ? tinted : color);
 }

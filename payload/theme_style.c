@@ -27,7 +27,8 @@ static const unsigned char accents[CFW_THEME_ACCENT_COUNT - 1][2][ACCENT_SLOTS][
 };
 #undef RGB
 static const char *const accent_labels[CFW_THEME_ACCENT_COUNT] = {
-    "Theme Default", "Blue", "Purple", "Pink", "Red", "Orange", "Green", "Teal", "Yellow", "Graphite",
+    "Theme Default", "Blue",  "Purple", "Pink",   "Red",
+    "Orange",        "Green", "Teal",   "Yellow", "Graphite",
 };
 /* Palette slot + 1 for each role an accent overrides; 0 keeps the base role. */
 static const unsigned char palette_slot[CFW_THEME_COLOR_COUNT] = {
@@ -148,9 +149,30 @@ unsigned cfw_theme_render_flags(void)
 const unsigned char *cfw_theme_icon_color(int dark)
 {
     if (has_custom_style)
-        return selected_accent ? selected_options.accents[selected_accent - 1][CFW_PALETTE_ICON]
-                               : selected_options.icon;
+        return selected_accent
+                   ? selected_options.accents[selected_accent - 1][CFW_PALETTE_ICON]
+                   : selected_options.icon;
     return cfw_theme_color(CFW_THEME_ACCENT_TEXT, dark);
+}
+
+static unsigned tint_role(unsigned index)
+{
+    return has_custom_style && index < CFW_THEME_MAX_ASSETS
+               ? selected_options.tint[index]
+               : CFW_TINT_NONE;
+}
+
+int cfw_theme_tinted(unsigned index)
+{
+    return tint_role(index) != CFW_TINT_NONE;
+}
+
+const unsigned char *cfw_theme_tint_color(unsigned index, int dark)
+{
+    unsigned role = tint_role(index);
+    if (role < CFW_TINT_ROLE_BASE || role >= CFW_TINT_COUNT)
+        return cfw_theme_icon_color(dark);
+    return cfw_theme_color((enum cfw_theme_role)(role - CFW_TINT_ROLE_BASE), dark);
 }
 
 /* Native gradient stops are lightened toward white by these /255 weights. */

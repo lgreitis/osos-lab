@@ -81,5 +81,6 @@ int cfw_theme_switch_restore(struct cfw_theme_switch *c,
                              const struct osos_path *baseline);
 
 /* Save and apply another accent for the active theme and appearance. Every accent
- * palette is already in memory, so no pack is read and artwork is unchanged. */
+ * palette is already in memory, so no pack is read; only the palettes of tinted
+ * bitmaps are rewritten. */
 int cfw_theme_switch_set_accent(struct cfw_theme_switch *c, unsigned accent);

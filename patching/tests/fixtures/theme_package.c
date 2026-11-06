@@ -33,7 +33,7 @@ static void baseline_validation(void)
             files[1].data[60] ^= 1;
             break;
         case 4: /* Well-formed but incomplete baseline. */
-            make_pack(&files[1], 0, 1, 0);
+            make_pack(&files[1], 0, ASSETS - 1, 0);
             break;
         case 5:
             files[1].size++;
@@ -45,7 +45,7 @@ static void baseline_validation(void)
             reads_fail = 1;
             break;
         case 8: /* A dark pack cannot serve as the light baseline. */
-            make_pack(&files[1], 1, 2, 0);
+            make_pack(&files[1], 1, ASSETS, 0);
             break;
         }
         assert(!cfw_theme_baseline_valid(&baseline));
@@ -84,7 +84,8 @@ static void pack_probe(void)
             fix_crc();
             break;
         case 5:
-            ((struct record *)(files[0].data + 52 + CFW_THEME_STYLE_BYTES))->asset = 2;
+            ((struct record *)(files[0].data + 52 + CFW_THEME_STYLE_BYTES))->asset =
+                ASSETS;
             fix_crc();
             break;
         case 6:
@@ -95,6 +96,97 @@ static void pack_probe(void)
         missing_files = short_reads = 0;
         assert(alloc_attempts == attempts && opens == closes);
     }
+    make_target(0);
+}
+
+/* Tint roles: masks may be tinted without a record, paletted and ARGB assets only
+ * with one, nothing outside the catalog, and no unknown role. Both the reader and
+ * the probe agree. */
+static void tinting(void)
+{
+    struct cfw_theme_pack p;
+    make_target(0);
+    tint_target(MASK_ASSET, 1, 2, 3);
+    assert(cfw_theme_pack_valid(&incoming, 1));
+    assert(cfw_theme_pack_read(&incoming, 1, 0, &p));
+    const struct cfw_theme_options *o =
+        (const void *)(p.data + sizeof(struct cfw_theme_style));
+    assert(o->tint[MASK_ASSET] == CFW_TINT_ICON && o->icon[2] == 3);
+    cfw_theme_pack_release(&p);
+    make_target(0);
+    tint_target(0, 1, 2, 3); /* paletted, replaced by this pack */
+    assert(cfw_theme_pack_valid(&incoming, 1));
+    assert(cfw_theme_pack_read(&incoming, 1, 0, &p));
+    cfw_theme_pack_release(&p);
+    make_target(0);
+    tint_target(1, 1, 2, 3); /* paletted, not replaced */
+    assert(!cfw_theme_pack_valid(&incoming, 1));
+    rejection();
+    make_target(ARGB_ASSET);
+    tint_target_role(ARGB_ASSET, CFW_TINT_ROLE_BASE + CFW_THEME_SELECTION, 1, 2, 3);
+    assert(cfw_theme_pack_valid(&incoming, 1));
+    assert(cfw_theme_pack_read(&incoming, 1, 0, &p));
+    cfw_theme_pack_release(&p);
+    make_target(0);
+    tint_target_role(ARGB_ASSET, CFW_TINT_ROLE_BASE + CFW_THEME_SELECTION, 1, 2, 3);
+    assert(!cfw_theme_pack_valid(&incoming, 1));
+    rejection();
+    make_target(MASK_ASSET);
+    tint_target_role(MASK_ASSET, CFW_TINT_COUNT, 1, 2, 3); /* unknown role */
+    assert(!cfw_theme_pack_valid(&incoming, 1));
+    rejection();
+    make_target(0);
+    tint_target(ASSETS, 1, 2, 3);
+    assert(!cfw_theme_pack_valid(&incoming, 1));
+    rejection();
+    make_target(0);
+    tint_target(CFW_THEME_MAX_ASSETS - 1, 1, 2, 3);
+    rejection();
+    assert(!allocations && opens == closes);
+
+    uint32_t index = 99, colors = 0;
+    assert(cfw_theme_asset_from_pixels(pixels[1] + 28, &index) && index == 1);
+    assert(cfw_theme_asset_from_pixels(pixels[MASK_ASSET] + 28, &index) &&
+           index == MASK_ASSET);
+    assert(cfw_theme_asset_from_pixels(pixels[PAYLOAD_ASSET] + 28, &index) &&
+           index == PAYLOAD_ASSET);
+    assert(!cfw_theme_asset_from_pixels(pixels[PAYLOAD_ASSET] + 29, &index));
+    assert(!cfw_theme_asset_from_pixels(pixels[1] + 29, &index));
+    assert(!cfw_theme_asset_from_pixels(pixels[1] + 32, &index));
+    assert(!cfw_theme_asset_from_pixels(pixels[0], &index));
+    assert(!cfw_theme_asset_from_pixels(pixels[ASSETS - 1] + 44, &index));
+    assert(!cfw_theme_asset_from_pixels(NULL, &index));
+    assert(cfw_theme_asset_palette(0, &colors) == pixels[0] + 32 && colors == 2);
+    assert(!cfw_theme_asset_palette(MASK_ASSET, &colors));
+    assert(!cfw_theme_asset_palette(ASSETS, &colors));
+    assert(!cfw_theme_asset_palette(ARGB_ASSET, &colors));
+    uint32_t width = 0, height = 0, stride = 0;
+    assert(cfw_theme_asset_argb(ARGB_ASSET, &width, &height, &stride) ==
+           pixels[ARGB_ASSET] + 28);
+    assert(width == 2 && height == 1 && stride == 8);
+    assert(!cfw_theme_asset_argb(0, &width, &height, &stride));
+    assert(!cfw_theme_asset_argb(MASK_ASSET, &width, &height, &stride));
+    assert(!cfw_theme_asset_argb(ASSETS, &width, &height, &stride));
+    /* Center pixels round toward the origin: the 2x1 paletted asset's center is
+     * its first pixel, palette entry 0 (RGB 1,2,3 from BGRA 3,2,1); the 2x1 ARGB
+     * asset's center is its first, opaque pixel; masks and out-of-range indices
+     * have none. */
+    unsigned char center[4] = {0};
+    assert(cfw_theme_asset_center_pixel(0, center) && center[0] == 1 &&
+           center[1] == 2 && center[2] == 3 && center[3] == 255);
+    assert(cfw_theme_asset_center_pixel(ARGB_ASSET, center) && center[0] == 20 &&
+           center[1] == 30 && center[2] == 40 && center[3] == 255);
+    assert(!cfw_theme_asset_center_pixel(MASK_ASSET, center));
+    assert(!cfw_theme_asset_center_pixel(ASSETS, center));
+    pixels[0][32 + 3] = 0; /* a transparent palette entry */
+    assert(!cfw_theme_asset_center_pixel(0, center));
+    pixels[0][32 + 3] = 255;
+    pixels[0][40] = 2; /* a pixel index past the palette */
+    assert(!cfw_theme_asset_center_pixel(0, center));
+    pixels[0][40] = 0;
+    pixels[ARGB_ASSET][31] = 0;
+    assert(!cfw_theme_asset_center_pixel(ARGB_ASSET, center));
+    pixels[ARGB_ASSET][31] = 255;
     make_target(0);
 }
 
@@ -111,6 +203,7 @@ int main(void)
     memcpy(original, pixels, sizeof(pixels));
     baseline_validation();
     pack_probe();
+    tinting();
     make_baseline();
     struct cfw_theme_pack pack;
     struct cfw_theme_transaction tx;
@@ -128,6 +221,7 @@ int main(void)
         cfw_theme_transaction_swap(&tx);
         assert(pixels[asset][32] == 99);
         assert(!memcmp(pixels[1 - asset], original[1 - asset], 42));
+        assert(!memcmp(pixels[MASK_ASSET], original[MASK_ASSET], 42));
         cfw_theme_transaction_swap(&tx); /* explicit rollback */
         assert(!memcmp(pixels, before, sizeof(pixels)));
         cfw_theme_transaction_swap(&tx);
@@ -143,7 +237,8 @@ int main(void)
     /* Classic artwork uses RTH4 but keeps the built-in style. */
     make_pack(&files[0], 1, 1, 1);
     assert(cfw_theme_pack_read(&incoming, 1, 1, &pack));
-    assert(pack.records_offset == CFW_THEME_STYLE_BYTES && pack.count == 1 && !pack.custom);
+    assert(pack.records_offset == CFW_THEME_STYLE_BYTES && pack.count == 1 &&
+           !pack.custom);
     assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
     cfw_theme_pack_release(&pack);
     assert(!tx.custom && tx.dark && !tx.applied);
@@ -170,7 +265,7 @@ int main(void)
     files[0].size++;
     rejection();
     make_target(0);
-    ((struct record *)(files[0].data + 52 + CFW_THEME_STYLE_BYTES))->asset = 2;
+    ((struct record *)(files[0].data + 52 + CFW_THEME_STYLE_BYTES))->asset = ASSETS;
     fix_crc();
     rejection();
     make_target(0);

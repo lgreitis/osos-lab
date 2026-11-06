@@ -3,10 +3,6 @@
 #include <stdint.h>
 #include "theme_style.h"
 
-/* Upper bound on catalog assets; the generated catalog asserts it. Metadata only:
- * no resident copy of theme artwork. */
-#define CFW_THEME_MAX_ASSETS 640u
-#define CFW_THEME_BITMAP_WORDS (CFW_THEME_MAX_ASSETS / 32)
 struct osos_path;
 #define CFW_THEME_STYLE_BYTES (sizeof(struct cfw_theme_style) + sizeof(struct cfw_theme_options))
 
@@ -43,6 +39,17 @@ int cfw_theme_baseline_valid(const struct osos_path *path);
 /* Stream an appearance pack and check its header, style opacity, record layout and
  * checksum without allocating. Palette indices are checked when a pack is read. */
 int cfw_theme_pack_valid(const struct osos_path *path, int dark);
+
+/* Catalog index of the resident bitmap whose pixel data starts at pixels. */
+int cfw_theme_asset_from_pixels(const unsigned char *pixels, uint32_t *index);
+/* Resident BGRA palette of a paletted catalog bitmap, or NULL. */
+unsigned char *cfw_theme_asset_palette(uint32_t index, uint32_t *colors);
+/* Resident BGRA pixel rows of an ARGB catalog bitmap, or NULL. */
+unsigned char *cfw_theme_asset_argb(uint32_t index, uint32_t *width, uint32_t *height,
+                                    uint32_t *stride);
+/* Opaque RGBA of the center pixel of a paletted or ARGB catalog bitmap. Returns 0
+ * for masks, RGB565 bitmaps, invalid layouts or a fully transparent pixel. */
+int cfw_theme_asset_center_pixel(uint32_t index, unsigned char out[4]);
 
 int cfw_theme_metadata_read(const struct osos_path *path,
                             struct cfw_theme_metadata *out);

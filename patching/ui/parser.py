@@ -146,8 +146,8 @@ class Parser:
         elif node.tag == "bitmap":
             attributes(node, "id file", "format")
             bitmap_format = node.get("format", "auto")
-            if bitmap_format not in ("auto", "gray8"):
-                raise ValueError("Bitmap format must be auto or gray8")
+            if bitmap_format not in ("auto", "gray4"):
+                raise ValueError("Bitmap format must be auto or gray4")
             document.bitmaps[self.identifier(node)] = (
                 node.attrib["file"],
                 bitmap_format,

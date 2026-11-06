@@ -21,9 +21,9 @@ native dispatch behavior. This prevents queued presses from reversing a switch
 without a fixed delay or renderer locks.
 
 Theme opens a native half-screen Settings list with an image/text preview. The
-CFW preview graphics are stored as zero-run encoded grayscale masks and unpacked
-on demand into one shared buffer allocated on first use, so each additional preview
-costs only its packed size.
+CFW preview graphics are resident 4-bit masks in the payload's catalog bitmap
+block, listed after the firmware bitmaps in the catalog, so theme packs replace
+and tint them like stock previews.
 
 Classic comes first, followed by up to 64 packages ordered by ID. If the list is
 full, the active package replaces the last entry. The active row is highlighted
@@ -60,6 +60,48 @@ Boot restores valid saved selections through the same switcher without rewriting
 them. Invalid records or unavailable packages recover to Classic light. An absent
 `CFWTheme` record selects Classic light without writing anything; the pre-theme
 `CFWDark` record is ignored.
+
+## Tint roles
+
+Each catalog asset carries a tint role byte in the pack's style prefix: none, the
+icon tint, or one of the base color roles. Accent palettes override roles as
+they do everywhere else. Tinted mask bitmaps take their color when
+`BitmapView_Draw` sets the drawing color (`cfw_theme_bitmap_color`): the hook
+resolves the view's pixel data to a catalog asset (firmware or payload block)
+and consults the pack's tint roles. Tinted paletted and ARGB bitmaps are
+recolored in place:
+`cfw_theme_tint_refresh` rewrites the resident palette entries, or the RGB of
+every ARGB pixel with nonzero alpha, after a switch and after an accent change,
+so no pack is read again. Those assets are always replaced records, and the next
+switch restores them through the ordinary record path.
+
+A highlighted view draws tinted bitmaps in the `on_accent` role so icons stay
+visible on a selection bar that matches the icon tint. Masks take the role in
+place of the tint at the same color hook. Paletted and ARGB bitmaps are wrapped
+at the blit calls of `BitmapView_Draw` and the list row icon drawer
+(`cfw_theme_bitmap_blit_hook`): the asset's resident bytes are rewritten with
+`on_accent` for that blit and restored to the tint afterwards.
+
+Two native views label the OptionBar well and thumb slices from two colors
+they hold, both system white, through their own `GraphicsContext_SetColor`
+calls: the Search keyboard (`cfw_theme_search_key_color`, Black slices) and the
+generic option bar such as the Clock's Add/Edit (`cfw_theme_option_bar_color`,
+White or Black slices by its style byte; the Now Playing style keeps its own
+colors). The highlighted label takes `on_accent`, matching the thumb slices,
+which a theme may tint with the `selection` role. The other labels take
+`text` or `background`, whichever differs more in brightness from the center
+pixel of the resident well center slice for that style
+(`cfw_theme_well_letter_color`), so a theme may paint the well light or dark.
+Classic keeps the native colors.
+
+The Search text box (`Search_Input_Text`) draws its typed text and caret through
+the general text color hook. Under a custom style its dark text shades take
+`text` or `background` by the same contrast rule against the resident
+`System_Input_Field_Middle_Image` center pixel (`cfw_theme_field_text_color`),
+and the stock blue caret takes `accent_text`. Classic keeps the stock light field
+art, so the view stays on the native-color list there. Both rules read the center
+pixel through `cfw_theme_asset_center_pixel`, which handles paletted and ARGB
+assets.
 
 ## Preference storage
 

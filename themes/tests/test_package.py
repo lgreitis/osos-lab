@@ -12,10 +12,9 @@ import zlib
 from pathlib import Path
 
 from patching.tests.test_bitmap import png
-from patching.theme_format import HEADER, RECORD, catalog_hash, digest
+from patching.theme_format import HEADER, RECORD, TINT_BYTES, catalog_hash, digest
 from themes import package
 from themes.compiler import describe
-from themes.style import COLOR_DEFAULTS, COLOR_ROLES, COLORS, OPTIONS_BYTES, STYLE_BYTES
 from themes.package import (
     METADATA,
     compile_package,
@@ -24,6 +23,7 @@ from themes.package import (
     max_body,
     validate_package,
 )
+from themes.style import COLOR_DEFAULTS, COLOR_ROLES, COLORS, OPTIONS_BYTES, STYLE_BYTES
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -42,11 +42,26 @@ def argb(width=3):
     )
 
 
+def mask(fmt=8):
+    pixels = bytes(4) if fmt == 8 else bytes(2)
+    return (
+        struct.pack("<4H5I", fmt, 0, len(pixels), fmt, 0, 0, 1, 4, len(pixels)) + pixels
+    )
+
+
+def rgb565():
+    pixels = bytes(8)
+    return struct.pack("<4H5I", 0x565, 0, 8, 16, 0, 0, 1, 4, 8) + pixels
+
+
 def catalog(duplicate_name=False):
     bitmaps = [
         dict(describe(1, 0, indexed(), "Alpha"), id=0x10),
         dict(describe(2, 0, argb(), "Beta"), id=0x20),
         dict(describe(3, 0, argb(1), "Beta" if duplicate_name else "Gamma"), id=0x30),
+        dict(describe(4, 0, mask(), "Delta"), id=0x40),
+        dict(describe(5, 0, mask(4), "Epsilon"), id=0x50),
+        dict(describe(6, 0, rgb565(), "Zeta"), id=0x60),
     ]
     return {
         "schema": 1,
@@ -73,6 +88,16 @@ class PackageTests(unittest.TestCase):
         rgba = bytes([10, 20, 30, 50, 40, 50, 60, 70]) * 2
         (self.root / "alpha.png").write_bytes(png(4, 1, 6, b"\0" + rgba))
         (self.root / "beta.png").write_bytes(png(3, 1, 6, b"\0" + bytes(range(12))))
+        # Coverage art: alpha ramp over an arbitrary color, and an opaque gray ramp.
+        alpha = b"".join(bytes((200, 10, 10, a)) for a in (0, 85, 170, 255))
+        (self.root / "alpha-ramp.png").write_bytes(png(4, 1, 6, b"\0" + alpha))
+        gray = b"".join(bytes((v, v, v, 255)) for v in (0, 86, 170, 255))
+        (self.root / "gray-ramp.png").write_bytes(png(4, 1, 6, b"\0" + gray))
+        three = b"".join(bytes((200, 10, 10, a)) for a in (0, 128, 255))
+        (self.root / "alpha-ramp3.png").write_bytes(png(3, 1, 6, b"\0" + three))
+        (self.root / "color.png").write_bytes(
+            png(4, 1, 6, b"\0" + bytes([200, 10, 10, 255]) * 4)
+        )
 
     def tearDown(self):
         self.directory.cleanup()
@@ -95,9 +120,7 @@ class PackageTests(unittest.TestCase):
         light = bytes.fromhex(
             "ffffffff202020ff236cc5ff3185d0ffffffffff236cc5ff7e8183ff"
         )
-        dark = bytes.fromhex(
-            "181818ffe8e8e8ff00a1ffff00a1ffffffffffff00a1ffff383838ff"
-        )
+        dark = bytes.fromhex("181818ffe8e8e8ff00a1ffff00a1ffffffffffff00a1ffff383838ff")
         self.assertEqual(files["light.bin"][HEADER.size : HEADER.size + COLORS], light)
         self.assertEqual(files["dark.bin"][HEADER.size : HEADER.size + COLORS], dark)
         self.assertEqual(len(COLOR_ROLES), 7)
@@ -106,6 +129,7 @@ class PackageTests(unittest.TestCase):
 
     def test_headers_and_metadata_wire_layout(self):
         self.assertEqual((METADATA.size, HEADER.size, COLORS), (120, 52, 28))
+        self.assertEqual((OPTIONS_BYTES, STYLE_BYTES), (828, 856))
         files = self.compile(manifest(dark={"colors": {"accent_fill": "#ABCDEF"}}))
         self.assertEqual(sorted(files), ["dark.bin", "report.json", "theme.bin"])
         magic, fingerprint, mask, raw_id, raw_name = METADATA.unpack(files["theme.bin"])
@@ -184,16 +208,18 @@ class PackageTests(unittest.TestCase):
         self.rejects(dict(manifest(), appearances={}), "declare light, dark or both")
 
     def test_extended_palettes_and_rendering(self):
-        source = manifest(dark={
-            "colors": {"icon_tint": "#ff4477"},
-            "accents": {"teal": {"selection": "#006666", "on_accent": "#ffffff"}},
-            "rendering": {"selection": "flat", "preview_icons": "accent"},
-        })
+        source = manifest(
+            dark={
+                "colors": {"icon_tint": "#ff4477"},
+                "accents": {"teal": {"selection": "#006666", "on_accent": "#ffffff"}},
+                "rendering": {"selection": "flat"},
+            }
+        )
         files = self.compile(source)
         self.assertEqual(files["theme.bin"][:4], b"RTM4")
         self.assertEqual(files["dark.bin"][:4], b"RTH4")
         decoded = inspect_appearance(files["dark.bin"], self.catalog)
-        self.assertEqual(decoded["flags"], 3)
+        self.assertEqual(decoded["flags"], 1)
         self.assertEqual(decoded["icon_tint"], "#ff4477")
         self.assertEqual(decoded["accents"]["teal"]["selection"], "#006666")
         self.assertEqual(len(decoded["accents"]), 9)
@@ -203,12 +229,149 @@ class PackageTests(unittest.TestCase):
         self.assertIn("yellow", report["fallback_accents"])
         self.assertTrue(report["contrast"])
         self.rejects(manifest(dark={"accents": {"cyan": {}}}), "unknown field")
-        self.rejects(manifest(dark={"rendering": {"selection": "rounded"}}), "native or flat")
+        self.rejects(
+            manifest(dark={"rendering": {"selection": "rounded"}}), "native or flat"
+        )
+        self.rejects(
+            manifest(dark={"rendering": {"preview_icons": "accent"}}), "unknown field"
+        )
         data = bytearray(files["dark.bin"])
         data[HEADER.size + COLORS] = 128
-        struct.pack_into("<I", data, 48, zlib.crc32(data[HEADER.size:]))
+        struct.pack_into("<I", data, 48, zlib.crc32(data[HEADER.size :]))
         with self.assertRaisesRegex(ValueError, "rendering flags"):
             inspect_appearance(data, self.catalog)
+
+    def test_tinted_bitmaps(self):
+        files = self.compile(
+            manifest(
+                dark={
+                    "colors": {"icon_tint": "#112233"},
+                    "bitmaps": [
+                        {
+                            "name": "Alpha",
+                            "file": "alpha-ramp.png",
+                            "tint": "icon_tint",
+                        },
+                        {"name": "Delta", "file": "gray-ramp.png", "tint": "icon_tint"},
+                        {"name": "Epsilon", "file": "alpha-ramp.png", "tint": "text"},
+                        {
+                            "name": "Beta",
+                            "file": "alpha-ramp3.png",
+                            "tint": "selection",
+                        },
+                    ],
+                }
+            )
+        )
+        decoded = inspect_appearance(files["dark.bin"], self.catalog)
+        self.assertEqual(
+            decoded["tinted"],
+            {0: "icon_tint", 1: "selection", 3: "icon_tint", 4: "text"},
+        )
+        self.assertEqual([r["index"] for r in decoded["records"]], [0, 1, 3, 4])
+        body = files["dark.bin"][HEADER.size :]
+        at = STYLE_BYTES + RECORD.size
+        # Paletted: two entries (transparent reserved, tint + mean coverage 170).
+        self.assertEqual(body[at : at + 8], bytes([0, 0, 0, 0, 0x33, 0x22, 0x11, 170]))
+        at += 12 + RECORD.size
+        # ARGB: BGRA placeholder pixels whose alpha carries the coverage.
+        self.assertEqual(
+            body[at : at + 12],
+            bytes([0, 0, 0, 0, 0x33, 0x22, 0x11, 128, 0x33, 0x22, 0x11, 255]),
+        )
+        at += 12 + RECORD.size
+        self.assertEqual(
+            body[at : at + 4], bytes([0, 86, 170, 255])
+        )  # gray8 = coverage
+        at += 4 + RECORD.size
+        self.assertEqual(body[at : at + 2], bytes([0x05, 0xAF]))  # gray4 steps of 17
+        report = json.loads(files["report.json"])["appearances"]["dark"]["bitmaps"]
+        self.assertEqual(
+            [item["method"] for item in report],
+            [
+                "tinted palette (icon_tint), reduced to 2 colors",
+                "tinted argb (selection), native pixels",
+                "tinted mask (icon_tint), native pixels",
+                "tinted mask (text), native pixels",
+            ],
+        )
+        # Tint-only masks set the role without a record.
+        files = self.compile(
+            manifest(light={"bitmaps": [{"name": "Delta", "tint": "icon_tint"}]})
+        )
+        decoded = inspect_appearance(files["light.bin"], self.catalog)
+        self.assertEqual(
+            (decoded["tinted"], decoded["records"]), ({3: "icon_tint"}, [])
+        )
+        report = json.loads(files["report.json"])["appearances"]["light"]["bitmaps"]
+        self.assertEqual(report[0]["method"], "tinted stock mask (icon_tint)")
+
+        def bitmap(**entry):
+            return manifest(light={"bitmaps": [entry]})
+
+        tint = "icon_tint"
+        self.rejects(bitmap(name="Alpha", tint=tint), "paletted bitmaps are tinted")
+        self.rejects(bitmap(name="Beta", tint=tint), "ARGB bitmaps are tinted")
+        self.rejects(bitmap(name="Zeta", tint=tint), "cannot be tinted")
+        self.rejects(
+            bitmap(name="Zeta", file="alpha-ramp.png", tint=tint), "cannot be tinted"
+        )
+        self.rejects(bitmap(name="Delta", tint=True), "expected one of")
+        self.rejects(bitmap(name="Delta", tint=False), "expected one of")
+        self.rejects(bitmap(name="Delta", tint="well"), "expected one of")
+        self.rejects(bitmap(name="Delta", file="beta.png", tint=tint), "expected 4x1")
+        self.rejects(
+            bitmap(name="Delta", file="color.png", tint=tint),
+            "grayscale or carry alpha coverage",
+        )
+        self.rejects(
+            manifest(
+                light={
+                    "bitmaps": [
+                        {"name": "Delta", "tint": tint},
+                        {"name": "Delta", "tint": tint},
+                    ]
+                }
+            ),
+            "duplicate replacement",
+        )
+        self.rejects(
+            manifest(
+                light={
+                    "bitmaps": [
+                        {"name": "Delta", "tint": tint},
+                        {"name": "Delta", "file": "gray-ramp.png"},
+                    ]
+                }
+            ),
+            "duplicate replacement",
+        )
+
+    def test_inspector_checks_tint_bytes_against_records(self):
+        files = self.compile(
+            manifest(light={"bitmaps": [{"name": "Delta", "file": "gray-ramp.png"}]})
+        )
+        pack = files["light.bin"]
+        body = bytearray(pack[HEADER.size :])
+        tinted = COLORS + OPTIONS_BYTES - TINT_BYTES
+
+        def tint(index, message, role=1):
+            data = bytearray(body)
+            data[tinted + index] = role
+            sealed = bytearray(pack[: HEADER.size] + data)
+            struct.pack_into("<I", sealed, 48, zlib.crc32(data))
+            with self.assertRaisesRegex(ValueError, message):
+                inspect_appearance(sealed, self.catalog)
+            return sealed
+
+        tint(0, "no record to rewrite")
+        tint(1, "no record to rewrite")
+        tint(5, "no palette or coverage")
+        tint(6, "outside the catalog")
+        tint(3, "unknown RTH4 tint role 9", role=9)
+        legacy = pack[: HEADER.size] + body[:-TINT_BYTES]
+        with self.assertRaisesRegex(ValueError, "truncated|options length"):
+            inspect_appearance(legacy, self.catalog)
 
     def test_rejects_invalid_metadata(self):
         for identifier in ("", "Test", "-a", "a" * 32, "a b", "a\n", "é"):
@@ -247,7 +410,7 @@ class PackageTests(unittest.TestCase):
             return manifest(light={"bitmaps": [entry]})
 
         self.rejects(bitmap(file="alpha.png"), "expected id or name")
-        self.rejects(bitmap(name="Alpha"), r"file: required")
+        self.rejects(bitmap(name="Alpha"), r"file: required$")
         self.rejects(bitmap(name="Nope", file="alpha.png"), "not a catalog bitmap name")
         self.rejects(bitmap(id="0x99", file="alpha.png"), "not a catalog bitmap")
         self.rejects(bitmap(id="ten", file="alpha.png"), "expected a hex string")
@@ -345,7 +508,9 @@ class PackageTests(unittest.TestCase):
         twice = body[STYLE_BYTES:]
         with self.assertRaisesRegex(ValueError, "sorted by unique"):
             inspect_appearance(reseal(body + twice, count=2), self.catalog)
-        padded = reseal(body[:STYLE_BYTES] + RECORD.pack(0, 32, 10) + body[STYLE_BYTES + 12 :])
+        padded = reseal(
+            body[:STYLE_BYTES] + RECORD.pack(0, 32, 10) + body[STYLE_BYTES + 12 :]
+        )
         with self.assertRaisesRegex(ValueError, "padding must be zero"):
             inspect_appearance(padded)
 
@@ -377,7 +542,9 @@ class PackageTests(unittest.TestCase):
             validate_package({"light.bin": pack}, self.catalog)
 
     def test_body_limit_is_derived_from_catalog(self):
-        expected = STYLE_BYTES + (12 + 12) + (12 + 12) + (12 + 4)
+        expected = (
+            STYLE_BYTES + (12 + 12) + (12 + 12) + (12 + 4) + (12 + 4) * 2 + (12 + 8)
+        )
         self.assertEqual(max_body(self.catalog), expected)
         files = self.compile(
             manifest(
@@ -428,7 +595,9 @@ class PackageTests(unittest.TestCase):
         files = compile_package(firmware, ROOT / "themes/examples/modern/theme.json")
         result = validate_package(files, firmware)
         self.assertEqual(result["metadata"]["appearances"], ["light", "dark"])
-        self.assertNotEqual(result["packs"]["light.bin"]["colors"], COLOR_DEFAULTS["light"])
+        self.assertNotEqual(
+            result["packs"]["light.bin"]["colors"], COLOR_DEFAULTS["light"]
+        )
 
 
 if __name__ == "__main__":
