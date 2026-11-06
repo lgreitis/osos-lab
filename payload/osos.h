@@ -552,6 +552,16 @@ static inline int osos_file_write(void *handle, const void *data, uint32_t bytes
     return ((fn)OSOS_FILE_WRITE)(handle, data, bytes, 1, written);
 }
 
+/* Move the position of an open file: whence 0 from the start, 1 from the current
+ * position, 2 from the end. Reads look up cached pages by position, so they
+ * follow the move. Returns the native status: 0, or 5 for a position outside
+ * [0, size]. */
+static inline int osos_file_seek(void *handle, int64_t offset, uint32_t whence)
+{
+    typedef int (*fn)(void *, int64_t, uint32_t);
+    return ((fn)OSOS_FILE_SEEK)(handle, offset, whence);
+}
+
 /* Set the buffered file and backend length. Call with clean buffered writes. */
 static inline int osos_file_set_size(void *handle, uint32_t bytes)
 {

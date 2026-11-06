@@ -34,6 +34,7 @@ static void reset(void)
     outcome = CFW_THEME_STORE_DURABLE;
     stores = reenter = 0;
     fail_alloc = reads_fail = short_reads = 0;
+    fail_read_at = missing_files = 0;
     alloc_attempts = fail_alloc_at = peak_bytes = 0;
     make_baseline();
     make_target(0);
@@ -81,33 +82,83 @@ static void boot_recovery(void)
     assert(cfw_theme_boot_selection(CFW_THEME_PREF_INVALID, &saved, &desired));
 }
 
+static void check_classic_saved(void)
+{
+    check_stock();
+    assert(!cfw_theme_appearance_get(0) && !switcher.active.selection.accent);
+    assert(disk.version == 1 && !disk.selection.id[0] && !disk.selection.dark &&
+           !disk.selection.accent);
+}
+
 static void failures(void)
 {
+    /* Prefix and store failures leave the theme unchanged. */
     for (unsigned failure = 0; failure < 6; failure++) {
         reset();
+        if (failure == 0)
+            missing_files = 1;
         if (failure == 1)
-            switcher.assets[0] = 2; /* Force a stock-restoration allocation. */
-        fail_alloc_at = failure == 0 ? 1 : failure == 1 ? 2 : 0;
+            files[1].data[4] ^= 1; /* baseline fingerprint */
         reads_fail = failure == 2;
         short_reads = failure == 3;
-        if (failure == 4)
-            files[0].data[60] ^= 1;
+        if (failure == 4) {
+            files[0].data[52 + 3] = 0; /* transparent style color */
+            fix_crc();
+        }
         if (failure == 5)
             outcome = CFW_THEME_STORE_UNKNOWN;
         assert(!apply(&modern));
         assert(switcher.result ==
                (failure == 5 ? CFW_THEME_STORE_FAILED : CFW_THEME_LOAD_FAILED));
         assert(stores == (failure == 5));
+        missing_files = reads_fail = short_reads = 0;
         check_stock();
-        assert(!allocations && !live_bytes && !switcher.busy);
+        assert(!allocations && !live_bytes && !switcher.busy && opens == closes);
         assert(!apply(&modern)); /* queued repeat remains suppressed on failure */
     }
+    /* Damage found while writing recovers Classic light and saves it. */
+    for (unsigned failure = 0; failure < 3; failure++) {
+        reset();
+        assert(apply(&modern));
+        cfw_theme_input_drained();
+        make_target(1);
+        if (failure == 0)
+            files[0].data[52 + CFW_THEME_STYLE_BYTES + 12 + 4] ^= 1; /* checksum */
+        if (failure == 1) {
+            files[0].data[52 + CFW_THEME_STYLE_BYTES + 12 + 8] = 2; /* index */
+            fix_crc();
+        }
+        /* header, end, style, baseline header and end, record header, data */
+        if (failure == 2)
+            fail_read_at = reads + 7;
+        struct cfw_theme_selection accented = modern;
+        accented.accent = CFW_THEME_ACCENT_PINK;
+        assert(!apply(&accented));
+        fail_read_at = 0;
+        assert(switcher.result == CFW_THEME_RECOVERED && stores == 3);
+        check_classic_saved();
+        assert(!switcher.assets[0] && !allocations && opens == closes);
+        cfw_theme_input_drained();
+        make_target(0);
+        assert(apply(&modern)); /* theming keeps working */
+    }
+    /* A baseline that cannot restore leaves the damaged bitmaps marked. */
     reset();
     assert(apply(&modern));
     cfw_theme_input_drained();
-    files[1].size--;
+    files[1].data[52 + CFW_THEME_STYLE_BYTES + 12 + 4] ^= 1;
+    assert(!apply(&stock));
+    assert(switcher.result == CFW_THEME_RESTORE_FAILED && switcher.assets[0] == 1);
+    assert(!switcher.active.custom && !cfw_theme_style_custom());
+    assert(disk.version == 1 && !disk.selection.id[0] && opens == closes);
+    /* A stale baseline header fails before anything is saved or written. */
+    reset();
+    assert(apply(&modern));
+    cfw_theme_input_drained();
+    files[1].data[4] ^= 1;
     unsigned before = stores;
     assert(!apply(&stock) && stores == before);
+    assert(switcher.result == CFW_THEME_LOAD_FAILED);
     assert(pixels[0][32] == 99 && cfw_theme_style_custom());
     assert(!allocations);
 }
@@ -124,10 +175,12 @@ static void switching(void)
     cfw_theme_input_drained();
     assert(apply(&stock));
     check_stock();
+    peak_bytes = 0;
     for (unsigned i = 0; i < 100; i++) {
         cfw_theme_input_drained();
         make_target(i % 2);
         assert(apply(&modern));
+        assert(!peak_bytes); /* nothing is staged in heap */
         assert(pixels[i % 2][32] == 99 && pixels[1 - i % 2][32] != 99);
         assert(!allocations && opens == closes);
     }

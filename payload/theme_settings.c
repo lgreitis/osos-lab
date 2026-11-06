@@ -39,6 +39,16 @@ static void set_active_name(const char *name)
     active_name[i] = 0;
 }
 
+/* Without a usable baseline no theme can be restored, so the settings stay
+ * hidden for the session. */
+static void disable(void)
+{
+    classic_available = 0;
+    osos_menu_item_set_visible(CFW_Theme_Item, 0);
+    osos_menu_item_set_visible(CFW_Accent_Item, 0);
+    osos_menu_item_set_visible(CFW_DarkMode_Item, 0);
+}
+
 void cfw_theme_settings_load(void)
 {
     if (initialized)
@@ -56,9 +66,7 @@ void cfw_theme_settings_load(void)
     classic_available = cfw_theme_baseline_valid(&baseline_path) &&
                         cfw_theme_pack_valid(&request.pack, 1);
     if (!classic_available) {
-        osos_menu_item_set_visible(CFW_Theme_Item, 0);
-        osos_menu_item_set_visible(CFW_Accent_Item, 0);
-        osos_menu_item_set_visible(CFW_DarkMode_Item, 0);
+        disable();
         return;
     }
     int recover = cfw_theme_boot_resolve(&request);
@@ -72,6 +80,10 @@ void cfw_theme_settings_load(void)
             set_active_name(request.name);
         else if (!ok && switcher.result == CFW_THEME_LOAD_FAILED)
             cfw_theme_switch_store_classic(&switcher);
+        if (switcher.result == CFW_THEME_RESTORE_FAILED) {
+            disable();
+            return;
+        }
     }
     osos_menu_item_set_visible(CFW_DarkMode_Item,
                                !switcher.active.custom || request.appearance_mask == 3);
@@ -178,6 +190,14 @@ static void apply(void *controller, const char *id, uint32_t dark, unsigned acce
         osos_menu_item_set_visible(CFW_DarkMode_Item,
                                    !selection.id[0] || metadata.appearance_mask == 3);
         set_active_name(id[0] ? metadata.name : "Classic");
+    } else if (switcher.result == CFW_THEME_RECOVERED) {
+        osos_menu_item_set_visible(CFW_DarkMode_Item, 1);
+        set_active_name("Classic");
+        changed = 1;
+    } else if (switcher.result == CFW_THEME_RESTORE_FAILED) {
+        set_active_name("Classic");
+        disable();
+        changed = 1;
     }
     notify(controller, changed);
 }

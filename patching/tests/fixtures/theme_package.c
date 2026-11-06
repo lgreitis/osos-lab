@@ -1,50 +1,86 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "theme_support.h"
 
-static void rejection(void)
+static uint32_t style[CFW_THEME_STYLE_BYTES / 4];
+
+/* Opens the target pack and streams it into resident artwork; touched collects
+ * the assets the pack wrote. */
+static int apply_target(int dark, uint32_t *touched)
 {
-    struct cfw_theme_pack p;
-    unsigned char before[sizeof(pixels)];
-    memcpy(before, pixels, sizeof(pixels));
-    assert(!cfw_theme_pack_read(&incoming, 1, 0, &p));
-    assert(!p.data && !allocations && !memcmp(before, pixels, sizeof(pixels)));
-    assert(opens == closes);
+    struct cfw_theme_reader reader;
+    memset(touched, 0, CFW_THEME_BITMAP_WORDS * sizeof(*touched));
+    if (!cfw_theme_pack_open(&incoming, dark, &reader, (unsigned char *)style)) {
+        assert(!reader.file);
+        return 0;
+    }
+    int ok = cfw_theme_pack_apply(&reader, (unsigned char *)style, touched);
+    cfw_theme_reader_close(&reader);
+    cfw_catalog_reload();
+    return ok;
 }
 
-static void baseline_validation(void)
+static void restore_all(void)
+{
+    uint32_t all[CFW_THEME_BITMAP_WORDS] = {(1u << ASSETS) - 1};
+    make_baseline();
+    assert(cfw_theme_baseline_restore(&baseline, all));
+    cfw_catalog_reload();
+    assert(!memcmp(pixels, original, sizeof(pixels)));
+    assert(!allocations && cfw_catalog_sources[0].data == payload_packed);
+}
+
+static void crc(void)
+{
+    uint32_t bitwise = UINT32_MAX;
+    const unsigned char *text = (const unsigned char *)"123456789";
+    assert(~cfw_theme_crc32(UINT32_MAX, text, 9) == 0xcbf43926u);
+    for (unsigned i = 0; i < 9; i++) {
+        bitwise ^= text[i];
+        for (unsigned bit = 0; bit < 8; bit++)
+            bitwise = (bitwise >> 1) ^ (0xedb88320u & (0u - (bitwise & 1u)));
+    }
+    assert(cfw_theme_crc32(UINT32_MAX, text, 9) == bitwise);
+}
+
+/* Boot reads only the prefixes; damaged records are found when they are applied
+ * or restored. */
+static void prefix_checks(void)
 {
     make_baseline();
-    unsigned attempts = alloc_attempts;
+    unsigned attempts = alloc_attempts, before = read_bytes;
     assert(cfw_theme_baseline_valid(&baseline));
-    assert(alloc_attempts == attempts && !allocations);
+    assert(read_bytes - before == 52 && alloc_attempts == attempts);
+    files[1].data[60] ^= 1;
+    assert(cfw_theme_baseline_valid(&baseline));
     for (unsigned fault = 0; fault < 9; fault++) {
         make_baseline();
+        struct pack_header *h = (void *)files[1].data;
         switch (fault) {
         case 0:
             missing_files = 2;
             break;
         case 1:
-            files[1].size--;
+            files[1].data[4] ^= 1; /* catalog fingerprint */
             break;
-        case 2:
-            files[1].data[4] ^= 1;
-            break;
-        case 3:
-            files[1].data[60] ^= 1;
-            break;
-        case 4: /* Well-formed but incomplete baseline. */
+        case 2: /* Well-formed but incomplete baseline. */
             make_pack(&files[1], 0, ASSETS - 1, 0);
             break;
-        case 5:
-            files[1].size++;
+        case 3:
+            h->size--;
             break;
-        case 6:
-            short_reads = 1;
+        case 4:
+            files[1].size++; /* trailing data */
             break;
         case 7:
+            files[1].size--; /* truncated */
+            break;
+        case 8:
+            short_reads = 1;
+            break;
+        case 5:
             reads_fail = 1;
             break;
-        case 8: /* A dark pack cannot serve as the light baseline. */
+        case 6: /* A dark pack cannot serve as the light baseline. */
             make_pack(&files[1], 1, ASSETS, 0);
             break;
         }
@@ -53,45 +89,26 @@ static void baseline_validation(void)
         assert(!allocations && opens == closes);
     }
     make_baseline();
-}
 
-/* The boot probe streams a pack without allocating and rejects the same faults
- * as a full read, except palette indices, which the read checks pixel by pixel. */
-static void pack_probe(void)
-{
     make_target(0);
-    unsigned attempts = alloc_attempts;
+    before = read_bytes;
     assert(cfw_theme_pack_valid(&incoming, 1));
+    assert(read_bytes - before == 52 + CFW_THEME_STYLE_BYTES);
     assert(!cfw_theme_pack_valid(&incoming, 0));
-    assert(alloc_attempts == attempts && !allocations && opens == closes);
-    for (unsigned fault = 0; fault < 7; fault++) {
+    files[0].data[60 + CFW_THEME_STYLE_BYTES] ^= 1;
+    assert(cfw_theme_pack_valid(&incoming, 1));
+    for (unsigned fault = 0; fault < 4; fault++) {
         make_target(0);
-        switch (fault) {
-        case 0:
+        if (fault == 0)
             missing_files = 1;
-            break;
-        case 1:
-            files[0].size--;
-            break;
-        case 2:
-            files[0].size++;
-            break;
-        case 3:
-            files[0].data[60] ^= 1;
-            break;
-        case 4: /* Transparent style color with a matching checksum. */
-            files[0].data[52 + 3] = 0;
+        if (fault == 1) {
+            files[0].data[52 + 3] = 0; /* transparent style color */
             fix_crc();
-            break;
-        case 5:
-            ((struct record *)(files[0].data + 52 + CFW_THEME_STYLE_BYTES))->asset =
-                ASSETS;
-            fix_crc();
-            break;
-        case 6:
-            short_reads = 1;
-            break;
         }
+        if (fault == 2)
+            short_reads = 1;
+        if (fault == 3)
+            files[0].size--; /* truncated */
         assert(!cfw_theme_pack_valid(&incoming, 1));
         missing_files = short_reads = 0;
         assert(alloc_attempts == attempts && opens == closes);
@@ -99,49 +116,224 @@ static void pack_probe(void)
     make_target(0);
 }
 
+/* Records stream into resident artwork without a heap copy. */
+static void streaming(void)
+{
+    uint32_t touched[CFW_THEME_BITMAP_WORDS];
+    make_target(0);
+    peak_bytes = 0;
+    assert(apply_target(1, touched));
+    assert(touched[0] == 1 && pixels[0][32] == 99 && !peak_bytes);
+    assert(!memcmp(pixels[1], original[1], sizeof(pixels[1])));
+    /* The style prefix stays intact for the caller. */
+    assert(!memcmp(style, files[0].data + 52, CFW_THEME_STYLE_BYTES));
+    restore_all();
+    /* Classic artwork uses RTH4 too. */
+    make_pack(&files[0], 1, 1, 1);
+    assert(apply_target(1, touched) && touched[0] == 1 && pixels[0][32] == 99);
+    restore_all();
+    /* Color-only packs touch nothing. */
+    make_target(0);
+    struct pack_header *h = (void *)files[0].data;
+    h->count = 0;
+    h->size = CFW_THEME_STYLE_BYTES;
+    files[0].size = 52 + CFW_THEME_STYLE_BYTES;
+    fix_crc();
+    assert(apply_target(1, touched) && !touched[0]);
+    assert(!memcmp(pixels, original, sizeof(pixels)));
+
+    /* Damage found while streaming fails the apply. touched still names every
+     * asset that may have changed; a rejected record holds zeros. */
+    for (unsigned fault = 0; fault < 9; fault++) {
+        make_target(0);
+        unsigned char *record = files[0].data + 52 + CFW_THEME_STYLE_BYTES;
+        int before_write = 0;
+        switch (fault) {
+        case 0:
+            record[12 + 4] ^= 1; /* checksum */
+            break;
+        case 1: /* the size check fails before any record is read */
+            files[0].size--;
+            before_write = 1;
+            break;
+        case 2:
+            files[0].size++;
+            before_write = 1;
+            break;
+        case 3:
+            ((struct record *)record)->asset = ASSETS;
+            fix_crc();
+            before_write = 1;
+            break;
+        case 4:
+            record[12 + 8] = 2; /* palette index */
+            fix_crc();
+            break;
+        case 5:
+            record[23] = 1; /* padding */
+            fix_crc();
+            break;
+        case 6: /* fails the header read */
+            short_reads = 1;
+            before_write = 1;
+            break;
+        case 7:
+            tint_target(1, 1, 2, 3); /* paletted, not replaced */
+            break;
+        case 8: /* header, end of file, style, record header, record data */
+            fail_read_at = reads + 5;
+            break;
+        }
+        assert(!apply_target(1, touched));
+        short_reads = 0;
+        fail_read_at = 0;
+        assert(touched[0] == (before_write ? 0u : 1u));
+        if (fault == 4 || fault == 8)
+            for (unsigned i = 32; i < 42; i++)
+                assert(!pixels[0][i]);
+        assert(!allocations && opens == closes);
+        restore_all();
+    }
+    /* A rejected prefix opens nothing and touches nothing. */
+    make_target(0);
+    files[0].data[52 + 3] = 0;
+    fix_crc();
+    assert(!apply_target(1, touched) && !touched[0] && opens == closes);
+    assert(!memcmp(pixels, original, sizeof(pixels)));
+    make_target(0);
+}
+
+/* Restoration seeks to each bitmap it needs, checks it against the original
+ * checksum and never reads for catalog bitmaps. */
+static void restoration(void)
+{
+    uint32_t first[CFW_THEME_BITMAP_WORDS] = {1},
+             argb[CFW_THEME_BITMAP_WORDS] = {1u << ARGB_ASSET};
+    make_baseline();
+    pixels[0][32] = 99;
+    unsigned before = read_bytes;
+    assert(cfw_theme_baseline_restore(&baseline, first));
+    unsigned early = read_bytes - before;
+    assert(early == 52 + 12 + 10); /* the header, then only the record */
+    assert(!memcmp(pixels, original, sizeof(pixels)));
+    pixels[ARGB_ASSET][28] = 99;
+    before = read_bytes;
+    assert(cfw_theme_baseline_restore(&baseline, argb));
+    assert(read_bytes - before == 52 + 12 + 8);
+    assert(!memcmp(pixels, original, sizeof(pixels)));
+    uint32_t catalog[CFW_THEME_BITMAP_WORDS] = {1u << PAYLOAD_ASSET},
+             none[CFW_THEME_BITMAP_WORDS] = {0};
+    int opened = opens;
+    assert(cfw_theme_baseline_restore(&baseline, catalog));
+    assert(cfw_theme_baseline_restore(&baseline, none) && opens == opened);
+    /* Records that are not requested are skipped by seeking, unread. */
+    files[1].data[files[1].size - 1] ^= 1;
+    files[1].data[52 + CFW_THEME_STYLE_BYTES + 24 + 12] ^= 1;
+    before = read_bytes;
+    assert(cfw_theme_baseline_restore(&baseline, first));
+    assert(read_bytes - before == early);
+    assert(cfw_theme_baseline_restore(&baseline, argb));
+    /* A truncated baseline fails its size check. */
+    make_baseline();
+    files[1].size -= 4;
+    assert(!cfw_theme_baseline_restore(&baseline, first));
+    for (unsigned fault = 0; fault < 4; fault++) {
+        make_baseline();
+        unsigned char *record = files[1].data + 52 + CFW_THEME_STYLE_BYTES;
+        if (fault == 0)
+            record[12 + 4] ^= 1; /* original checksum */
+        if (fault == 1)
+            record[12 + 8] = 2; /* palette index */
+        if (fault == 2)
+            ((struct record *)record)->asset = 1;
+        if (fault == 3)
+            reads_fail = 1;
+        assert(!cfw_theme_baseline_restore(&baseline, first));
+        reads_fail = 0;
+        if (fault == 1)
+            for (unsigned i = 32; i < 42; i++)
+                assert(!pixels[0][i]);
+        assert(opens == closes);
+        memcpy(pixels, original, sizeof(pixels));
+    }
+    cfw_catalog_reload();
+    make_baseline();
+}
+
+/* A catalog bitmap replacement becomes a heap source; resident bytes and the
+ * reference row stay untouched. */
+static void catalog_records(void)
+{
+    uint32_t touched[CFW_THEME_BITMAP_WORDS];
+    make_target(PAYLOAD_ASSET);
+    /* A view already showing the slot sees the new art. */
+    const unsigned char *shown = payload_pixels();
+    assert(shown[0] == 0x12);
+    assert(apply_target(1, touched) && touched[0] == 1u << PAYLOAD_ASSET);
+    uint32_t index;
+    assert(allocations == 1 && cfw_catalog_sources[0].data != payload_packed);
+    assert(shown[0] == 99 && cfw_theme_asset_from_pixels(shown, &index) &&
+           index == PAYLOAD_ASSET);
+    assert(!memcmp(payload_pixels() + 1, pixels[PAYLOAD_ASSET] + 29, 7));
+    assert(!memcmp(pixels, original, sizeof(pixels)));
+    /* Replacing it again frees the previous copy before allocating. */
+    unsigned copy = live_bytes;
+    peak_bytes = live_bytes;
+    assert(apply_target(1, touched) && allocations == 1 && peak_bytes == copy);
+    /* Built-in art needs no copy. */
+    make_pack(&files[0], 1, ASSETS, 0);
+    assert(apply_target(1, touched) && !allocations);
+    assert(cfw_catalog_sources[0].data == payload_packed);
+    /* Restoration returns the built-in source. */
+    make_target(PAYLOAD_ASSET);
+    assert(apply_target(1, touched) && allocations == 1);
+    restore_all();
+    /* A failed heap copy fails the apply with nothing allocated. */
+    make_target(PAYLOAD_ASSET);
+    fail_alloc = 1;
+    assert(!apply_target(1, touched) && touched[0] == 1u << PAYLOAD_ASSET);
+    fail_alloc = 0;
+    assert(!allocations && cfw_catalog_sources[0].data == payload_packed);
+    restore_all();
+    assert(payload_pixels()[0] == 0x12);
+    make_target(0);
+}
+
 /* Tint roles: masks may be tinted without a record, paletted and ARGB assets only
- * with one, nothing outside the catalog, and no unknown role. Both the reader and
- * the probe agree. */
+ * with one, nothing outside the catalog, and no unknown role. */
 static void tinting(void)
 {
-    struct cfw_theme_pack p;
+    uint32_t touched[CFW_THEME_BITMAP_WORDS];
     make_target(0);
     tint_target(MASK_ASSET, 1, 2, 3);
-    assert(cfw_theme_pack_valid(&incoming, 1));
-    assert(cfw_theme_pack_read(&incoming, 1, 0, &p));
+    assert(apply_target(1, touched));
     const struct cfw_theme_options *o =
-        (const void *)(p.data + sizeof(struct cfw_theme_style));
+        (const void *)((unsigned char *)style + sizeof(struct cfw_theme_style));
     assert(o->tint[MASK_ASSET] == CFW_TINT_ICON && o->icon[2] == 3);
-    cfw_theme_pack_release(&p);
+    restore_all();
     make_target(0);
     tint_target(0, 1, 2, 3); /* paletted, replaced by this pack */
-    assert(cfw_theme_pack_valid(&incoming, 1));
-    assert(cfw_theme_pack_read(&incoming, 1, 0, &p));
-    cfw_theme_pack_release(&p);
-    make_target(0);
-    tint_target(1, 1, 2, 3); /* paletted, not replaced */
-    assert(!cfw_theme_pack_valid(&incoming, 1));
-    rejection();
+    assert(apply_target(1, touched));
+    restore_all();
     make_target(ARGB_ASSET);
     tint_target_role(ARGB_ASSET, CFW_TINT_ROLE_BASE + CFW_THEME_SELECTION, 1, 2, 3);
-    assert(cfw_theme_pack_valid(&incoming, 1));
-    assert(cfw_theme_pack_read(&incoming, 1, 0, &p));
-    cfw_theme_pack_release(&p);
+    assert(apply_target(1, touched));
+    restore_all();
     make_target(0);
     tint_target_role(ARGB_ASSET, CFW_TINT_ROLE_BASE + CFW_THEME_SELECTION, 1, 2, 3);
-    assert(!cfw_theme_pack_valid(&incoming, 1));
-    rejection();
+    assert(!apply_target(1, touched));
+    restore_all();
     make_target(MASK_ASSET);
     tint_target_role(MASK_ASSET, CFW_TINT_COUNT, 1, 2, 3); /* unknown role */
     assert(!cfw_theme_pack_valid(&incoming, 1));
-    rejection();
     make_target(0);
     tint_target(ASSETS, 1, 2, 3);
-    assert(!cfw_theme_pack_valid(&incoming, 1));
-    rejection();
+    assert(!apply_target(1, touched));
+    restore_all();
     make_target(0);
     tint_target(CFW_THEME_MAX_ASSETS - 1, 1, 2, 3);
-    rejection();
+    assert(!apply_target(1, touched));
+    restore_all();
     assert(!allocations && opens == closes);
 
     uint32_t index = 99, colors = 0;
@@ -232,80 +424,6 @@ static void catalog_codec(void)
     assert(!memcmp(payload_pixels(), pixels[PAYLOAD_ASSET] + 28, 8));
 }
 
-/* A catalog bitmap replacement becomes a heap source that the swap exchanges with
- * the live one; resident bytes and the reference row stay untouched. */
-static void catalog_swap(void)
-{
-    struct cfw_theme_pack pack;
-    struct cfw_theme_transaction tx;
-    make_baseline();
-    make_target(PAYLOAD_ASSET);
-    assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
-    assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
-    cfw_theme_pack_release(&pack);
-    assert(allocations == 2 && !tx.patch.data && tx.source_mask == 1);
-    /* A view already showing the slot sees the new art and keeps its tint. */
-    const unsigned char *shown = payload_pixels();
-    assert(shown[0] == 0x12);
-    cfw_theme_transaction_swap(&tx);
-    uint32_t index;
-    assert(shown[0] == 99 && cfw_theme_asset_from_pixels(shown, &index) &&
-           index == PAYLOAD_ASSET);
-    assert(cfw_catalog_sources[0].data != payload_packed);
-    assert(payload_pixels()[0] == 99 &&
-           !memcmp(payload_pixels() + 1, pixels[PAYLOAD_ASSET] + 29, 7));
-    cfw_theme_transaction_swap(&tx); /* rollback */
-    assert(payload_pixels()[0] == 0x12);
-    cfw_theme_transaction_swap(&tx);
-    memcpy(active_bits, tx.target_assets, sizeof(active_bits));
-    cfw_theme_transaction_release(&tx);
-    /* The live heap source belongs to the active theme now. */
-    assert(allocations == 1 && payload_pixels()[0] == 99);
-    assert(!memcmp(pixels, original, sizeof(pixels)));
-
-    /* Replacing it again frees the old heap source once the new one is live. */
-    make_target(PAYLOAD_ASSET);
-    assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
-    assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
-    cfw_theme_pack_release(&pack);
-    const unsigned char *previous = cfw_catalog_sources[0].data;
-    cfw_theme_transaction_swap(&tx);
-    assert(tx.sources[0].data == previous);
-    memcpy(active_bits, tx.target_assets, sizeof(active_bits));
-    cfw_theme_transaction_release(&tx);
-    assert(allocations == 1 && payload_pixels()[0] == 99);
-
-    /* Restoring stock returns the built-in source without reading its baseline
-     * record; an aborted transaction frees only what it allocated. */
-    assert(cfw_theme_transaction_prepare(NULL, 0, active_bits, &baseline, &tx));
-    assert(!tx.patch.data && tx.sources[0].data == payload_packed);
-    cfw_theme_transaction_release(&tx);
-    assert(allocations == 1);
-    assert(cfw_theme_transaction_prepare(NULL, 0, active_bits, &baseline, &tx));
-    cfw_theme_transaction_swap(&tx);
-    cfw_theme_transaction_release(&tx);
-    memset(active_bits, 0, sizeof(active_bits));
-    assert(!allocations && cfw_catalog_sources[0].data == payload_packed);
-    assert(payload_pixels()[0] == 0x12);
-
-    /* Built-in art in a pack needs no heap copy. */
-    make_pack(&files[0], 1, ASSETS, 0);
-    assert(cfw_theme_pack_read(&incoming, 1, 1, &pack));
-    assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
-    cfw_theme_pack_release(&pack);
-    assert(allocations == 1 && tx.sources[0].data == payload_packed);
-    cfw_theme_transaction_release(&tx);
-
-    /* A failed heap copy fails the prepare and leaves nothing allocated. */
-    make_target(PAYLOAD_ASSET);
-    assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
-    fail_alloc_at = alloc_attempts + 1;
-    assert(!cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
-    fail_alloc_at = 0;
-    cfw_theme_pack_release(&pack);
-    assert(!allocations && cfw_catalog_sources[0].data == payload_packed);
-}
-
 int main(void)
 {
     _Static_assert(sizeof(struct pack_header) == 52, "RTH4 header");
@@ -317,126 +435,14 @@ int main(void)
     assert(!metadata_name((const unsigned char *)"A\0B", 4));
     assert(!metadata_name((const unsigned char *)"A\xe2", 2));
     memcpy(original, pixels, sizeof(pixels));
-    baseline_validation();
-    pack_probe();
+    (void)active_bits;
+    crc();
+    prefix_checks();
+    streaming();
+    restoration();
+    catalog_records();
     tinting();
     catalog_codec();
-    catalog_swap();
-    make_baseline();
-    struct cfw_theme_pack pack;
-    struct cfw_theme_transaction tx;
-    for (unsigned cycle = 0; cycle < 100; cycle++) {
-        unsigned asset = cycle % 2;
-        make_target(asset);
-        peak_bytes = 0;
-        assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
-        unsigned expected_peak = pack.size + (cycle ? 24 : 0);
-        assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
-        assert(!pack.data && peak_bytes == expected_peak);
-        cfw_theme_pack_release(&pack);
-        unsigned char before[sizeof(pixels)];
-        memcpy(before, pixels, sizeof(pixels));
-        cfw_theme_transaction_swap(&tx);
-        assert(pixels[asset][32] == 99);
-        assert(!memcmp(pixels[1 - asset], original[1 - asset], 42));
-        assert(!memcmp(pixels[MASK_ASSET], original[MASK_ASSET], 42));
-        cfw_theme_transaction_swap(&tx); /* explicit rollback */
-        assert(!memcmp(pixels, before, sizeof(pixels)));
-        cfw_theme_transaction_swap(&tx);
-        memcpy(active_bits, tx.target_assets, sizeof(active_bits));
-        cfw_theme_transaction_release(&tx);
-        assert(!allocations && opens == closes);
-    }
-    assert(cfw_theme_transaction_prepare(NULL, 0, active_bits, &baseline, &tx));
-    cfw_theme_transaction_swap(&tx);
-    cfw_theme_transaction_release(&tx);
-    memset(active_bits, 0, sizeof(active_bits));
-    assert(!memcmp(pixels, original, sizeof(pixels)));
-    /* Classic artwork uses RTH4 but keeps the built-in style. */
-    make_pack(&files[0], 1, 1, 1);
-    assert(cfw_theme_pack_read(&incoming, 1, 1, &pack));
-    assert(pack.records_offset == CFW_THEME_STYLE_BYTES && pack.count == 1 &&
-           !pack.custom);
-    assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
-    cfw_theme_pack_release(&pack);
-    assert(!tx.custom && tx.dark && !tx.applied);
-    cfw_theme_transaction_swap(&tx);
-    assert(tx.applied && pixels[0][32] == 99);
-    cfw_theme_transaction_swap(&tx);
-    assert(!tx.applied && !memcmp(pixels, original, sizeof(pixels)));
-    cfw_theme_transaction_swap(&tx);
-    memcpy(active_bits, tx.target_assets, sizeof(active_bits));
-    cfw_theme_transaction_release(&tx);
-    assert(cfw_theme_transaction_prepare(NULL, 0, active_bits, &baseline, &tx));
-    assert(!tx.custom && !tx.dark && !tx.target_assets[0]);
-    cfw_theme_transaction_swap(&tx);
-    cfw_theme_transaction_release(&tx);
-    memset(active_bits, 0, sizeof(active_bits));
-    assert(!allocations && !memcmp(pixels, original, sizeof(pixels)));
-    make_target(0);
-    files[0].data[60] ^= 1;
-    rejection();
-    make_target(0);
-    files[0].size--;
-    rejection();
-    make_target(0);
-    files[0].size++;
-    rejection();
-    make_target(0);
-    ((struct record *)(files[0].data + 52 + CFW_THEME_STYLE_BYTES))->asset = ASSETS;
-    fix_crc();
-    rejection();
-    make_target(0);
-    files[0].data[52 + CFW_THEME_STYLE_BYTES + 12 + 8] = 2;
-    fix_crc();
-    rejection(); /* palette index */
-    make_target(0);
-    files[0].data[52 + 3] = 0;
-    fix_crc();
-    rejection(); /* opacity */
-    make_target(0);
-    files[0].data[52 + CFW_THEME_STYLE_BYTES + 23] = 1;
-    fix_crc();
-    rejection(); /* padding */
-    make_target(0);
-    fail_alloc = 1;
-    rejection();
-    fail_alloc = 0;
-    make_target(0);
-    short_reads = 1;
-    rejection();
-    short_reads = 0;
-    make_target(0);
-    reads_fail = 1;
-    rejection();
-    reads_fail = 0;
-    make_target(0);
-    assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
-    active_bits[0] = 2; /* A disjoint previous replacement needs restoration. */
-    fail_alloc = 1;
-    assert(!cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
-    fail_alloc = 0;
-    active_bits[0] = 0;
-    assert(pack.data); /* Failure does not consume the incoming allocation. */
-    cfw_theme_pack_release(&pack);
-    assert(!allocations);
-    /* No-op/custom color-only packages require no bitmap allocation. */
-    make_target(0);
-    struct pack_header *h = (void *)files[0].data;
-    h->count = 0;
-    h->size = CFW_THEME_STYLE_BYTES;
-    files[0].size = 52 + CFW_THEME_STYLE_BYTES;
-    fix_crc();
-    assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
-    assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
-    assert(!tx.patch.data && tx.custom);
-    cfw_theme_pack_release(&pack);
-    cfw_theme_transaction_release(&tx);
-    /* Interrupted/truncated baseline restoration must not change current pixels. */
-    active_bits[0] = 1;
-    files[1].size--;
-    assert(!cfw_theme_transaction_prepare(NULL, 0, active_bits, &baseline, &tx));
-    assert(!allocations && !memcmp(pixels, original, sizeof(pixels)));
     struct cfw_theme_metadata m = {
         .magic = 0x344d5452, .appearance_mask = 3, .id = "modern", .name = "Modern"};
     memcpy(m.catalog, cfw_theme_catalog_hash, 32);
