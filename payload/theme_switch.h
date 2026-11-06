@@ -55,7 +55,10 @@ struct cfw_theme_switch {
     int busy;
     enum cfw_theme_result result;
     struct cfw_theme_active active;
+    /* Bitmaps that differ from stock: the active pack's replacements and the
+     * recolored stock accent artwork, which accented also lists. */
     uint32_t assets[CFW_THEME_BITMAP_WORDS];
+    uint32_t accented[CFW_THEME_BITMAP_WORDS];
 };
 
 int cfw_theme_selection_valid(const struct cfw_theme_selection *selection);
@@ -90,6 +93,9 @@ int cfw_theme_switch_restore(struct cfw_theme_switch *c,
                              const struct osos_path *baseline);
 
 /* Save and apply another accent for the active theme and appearance. Every accent
- * palette is already in memory, so no pack is read; only the palettes of tinted
- * bitmaps are rewritten. */
-int cfw_theme_switch_set_accent(struct cfw_theme_switch *c, unsigned accent);
+ * palette is already in memory, so no pack is read: the palettes of tinted
+ * bitmaps are rewritten, and recolored stock accent artwork is restored from the
+ * baseline and recolored for the new accent. A baseline that fails after saving
+ * recovers Classic light as for apply. */
+int cfw_theme_switch_set_accent(struct cfw_theme_switch *c, unsigned accent,
+                                const struct osos_path *baseline);

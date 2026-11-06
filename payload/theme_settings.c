@@ -226,7 +226,10 @@ int cfw_theme_settings_action(void *controller, const char *action, uint32_t arg
         unsigned row = osos_selection_index(osos_ui_selection());
         if (row >= CFW_THEME_ACCENT_COUNT || !cfw_theme_input_available())
             return 1;
-        int changed = cfw_theme_switch_set_accent(&switcher, accent_order[row]);
+        struct osos_path baseline_path;
+        cfw_theme_path(&baseline_path, CFW_THEME_CLASSIC_BASELINE);
+        int changed =
+            cfw_theme_switch_set_accent(&switcher, accent_order[row], &baseline_path);
         if (switcher.result != CFW_THEME_BUSY) {
             accent_error = switch_error();
             notify(controller, changed);

@@ -108,6 +108,11 @@ int cfw_theme_tinted(unsigned index);
  * assets return the icon tint. */
 const unsigned char *cfw_theme_tint_color(unsigned index, int dark);
 
+/* Whether stock accent artwork (cfw_bitmap_accent_art) takes the theme's colors:
+ * always under a custom style; under Classic for accents other than Theme Default
+ * and Blue, which keep the stock art as they keep the stock selection bar. */
+int cfw_theme_accent_art_active(void);
+
 /* Selection bar colors: gradient start, gradient end, top highlight line.
  * Returns 0 when the native Classic bar should be drawn unchanged. */
 int cfw_theme_selection_bar_colors(unsigned char out[3][4]);

@@ -190,13 +190,18 @@ const unsigned char *cfw_theme_tint_color(unsigned index, int dark)
     return cfw_theme_color((enum cfw_theme_role)(role - CFW_TINT_ROLE_BASE), dark);
 }
 
+int cfw_theme_accent_art_active(void)
+{
+    return has_custom_style || selected_accent > CFW_THEME_ACCENT_BLUE;
+}
+
 /* Native gradient stops are lightened toward white by these /255 weights. */
 static const unsigned char selection_lift[3] = {64, 0, 140};
 
 int cfw_theme_selection_bar_colors(unsigned char out[3][4])
 {
     int flat = cfw_theme_render_flags() & CFW_THEME_FLAT_SELECTION;
-    if (!flat && !has_custom_style && selected_accent <= CFW_THEME_ACCENT_BLUE)
+    if (!flat && !cfw_theme_accent_art_active())
         return 0;
     static const unsigned char white[3] = {255, 255, 255};
     const unsigned char *base =
