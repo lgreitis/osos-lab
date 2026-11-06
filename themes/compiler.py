@@ -102,6 +102,41 @@ def encode_pixels(info, width, height, rgba):
     return bytes(result)
 
 
+MASK_FORMATS = (4, 8)
+PALETTE_FORMATS = (0x64, 0x65)
+ARGB_FORMATS = (0x1888,)
+
+
+def coverage(rgba):
+    """Per-pixel coverage of tinted art: the alpha channel when the PNG uses one,
+    otherwise the gray level. Colored, opaque art has no single coverage."""
+    alpha = rgba[3::4]
+    if any(value != 255 for value in alpha):
+        return bytes(alpha)
+    if any(
+        rgba[i] != rgba[i + 1] or rgba[i + 1] != rgba[i + 2]
+        for i in range(0, len(rgba), 4)
+    ):
+        raise ValueError("tinted art must be grayscale or carry alpha coverage")
+    return bytes(rgba[::4])
+
+
+def mask_pixels(levels, fmt):
+    """Opaque gray pixels for a native mask, rounded to the format's gray steps."""
+    step = 17 if fmt == 4 else 1
+    return b"".join(
+        bytes((value, value, value, 255))
+        for value in (round(level / step) * step for level in levels)
+    )
+
+
+def tinted_pixels(levels, tint):
+    """Placeholder-colored pixels whose alpha carries the coverage; the device
+    rewrites the palette entries or ARGB pixels with the live role color."""
+    color = bytes.fromhex(tint.removeprefix("#"))
+    return b"".join(color + bytes((level,)) if level else bytes(4) for level in levels)
+
+
 def premultiplied(color):
     return tuple(value * color[3] / 255 for value in color[:3]) + (color[3],)
 

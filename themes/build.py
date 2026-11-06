@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from ui_metadata import Templates
 
+from patching.catalog import payload_entries
 from patching.theme_format import catalog_bytes, digest
 from themes.compiler import compile_theme, describe
 
@@ -40,6 +41,8 @@ def metadata(data):
         candidates = names.get(rid, set())
         name = next(iter(candidates)) if len(candidates) == 1 else ""
         bitmaps.append(describe(rid, offset, data[offset : offset + size], name))
+    # The payload's catalog bitmap block follows the firmware bitmaps.
+    bitmaps.extend(payload_entries(ROOT / "payload", describe))
     return {
         "schema": 1,
         "input": {"bytes": len(data), "sha256": digest(data)},

@@ -12,6 +12,7 @@ struct pack_header {
     unsigned char catalog[32];
     uint32_t appearance, size, count, crc;
 };
+
 _Static_assert(sizeof(struct pack_header) == 52, "RTH4 header layout changed");
 
 struct record {
@@ -20,10 +21,12 @@ struct record {
 };
 
 struct layout {
-    uint32_t start, pixels, colors, stride, width, height, depth;
+    uint32_t start, pixels, colors, stride, width, height, depth, mask;
 };
 
-/* Resident bitmap addresses follow from the catalog sizes; walk them in order. */
+/* Resident bitmap addresses follow from the catalog sizes; walk them in order.
+ * The firmware bitmaps start at cfw_bitmap_assets_base; the payload's catalog
+ * bitmap block, listed after them, starts at cfw_catalog_bitmaps_base. */
 struct cursor {
     uint32_t index;
     unsigned char *data;
@@ -37,8 +40,12 @@ static void cursor_init(struct cursor *c)
 
 static unsigned char *asset_data(struct cursor *c, uint32_t index)
 {
-    if (index < c->index)
-        cursor_init(c);
+    int payload = index >= cfw_bitmap_firmware_count;
+    uint32_t start = payload ? cfw_bitmap_firmware_count : 0;
+    if (index < c->index || c->index < start) {
+        c->index = start;
+        c->data = payload ? cfw_catalog_bitmaps_base : cfw_bitmap_assets_base;
+    }
     for (; c->index < index; c->index++)
         c->data += (cfw_bitmap_assets[c->index].size + 3u) & ~3u;
     return c->data;
@@ -109,6 +116,7 @@ static int bitmap_layout(struct cursor *c, uint32_t index, struct layout *b)
     if (size < b->start || cfw_theme_u32(p + b->start - 4) != size - b->start)
         return 0;
     uint32_t format = u16(p);
+    b->mask = format == 4 || format == 8;
     b->depth = format == 4                         ? 4
                : format == 8 || format == 0x64     ? 8
                : format == 0x65 || format == 0x565 ? 16
@@ -149,11 +157,48 @@ static int record_valid(struct cursor *c, const struct record *r, uint32_t i,
            r->size == cfw_bitmap_assets[r->asset].size - b->start;
 }
 
+static int bit(const uint32_t *bits, unsigned index)
+{
+    return !!(bits[index / 32] & (1u << (index % 32)));
+}
+
+/* One bit per tinted asset; records_valid clears each bit as its record arrives
+ * and then requires the remaining assets to be masks, which are colored while
+ * drawing. Paletted and ARGB ones need a record, so the rewritten bytes are
+ * restored with it. */
+static void tint_pending(const unsigned char *style, uint32_t *pending)
+{
+    const struct cfw_theme_options *o =
+        (const void *)(style + sizeof(struct cfw_theme_style));
+    for (unsigned i = 0; i < CFW_THEME_BITMAP_WORDS; i++)
+        pending[i] = 0;
+    for (unsigned i = 0; i < CFW_THEME_MAX_ASSETS; i++)
+        if (o->tint[i])
+            pending[i / 32] |= 1u << (i % 32);
+}
+
+static void tint_replaced(uint32_t *pending, uint32_t asset)
+{
+    pending[asset / 32] &= ~(1u << (asset % 32));
+}
+
+static int tint_pending_valid(struct cursor *c, const uint32_t *pending)
+{
+    for (uint32_t i = 0; i < CFW_THEME_MAX_ASSETS; i++) {
+        struct layout b;
+        if (bit(pending, i) && (!bitmap_layout(c, i, &b) || !b.mask))
+            return 0;
+    }
+    return 1;
+}
+
 static int records_valid(const struct cfw_theme_pack *pack)
 {
     uint32_t at = pack->records_offset, previous = 0;
+    uint32_t pending[CFW_THEME_BITMAP_WORDS];
     struct cursor c;
     cursor_init(&c);
+    tint_pending(pack->data, pending);
     for (uint32_t i = 0; i < pack->count; i++) {
         if (at > pack->size || pack->size - at < sizeof(struct record))
             return 0;
@@ -179,8 +224,9 @@ static int records_valid(const struct cfw_theme_pack *pack)
         }
         previous = r->asset;
         at += length;
+        tint_replaced(pending, r->asset);
     }
-    return at == pack->size;
+    return at == pack->size && tint_pending_valid(&c, pending);
 }
 
 /* Reject malformed UTF-8 and hidden data after a terminating NUL. */
@@ -267,14 +313,17 @@ static int style_valid(const unsigned char *data)
     for (unsigned i = 0; i < CFW_THEME_COLOR_COUNT; i++)
         if (data[i * 4 + 3] != 255)
             return 0;
-    const struct cfw_theme_options *o = (const void *)(data + sizeof(struct cfw_theme_style));
-    if ((o->flags & ~(CFW_THEME_FLAT_SELECTION | CFW_THEME_TINT_PREVIEWS)) ||
-        o->icon[3] != 255)
+    const struct cfw_theme_options *o =
+        (const void *)(data + sizeof(struct cfw_theme_style));
+    if ((o->flags & ~CFW_THEME_FLAT_SELECTION) || o->icon[3] != 255)
         return 0;
     for (unsigned a = 0; a < CFW_THEME_ACCENT_COUNT - 1; a++)
         for (unsigned slot = 0; slot < CFW_PALETTE_COUNT; slot++)
             if (o->accents[a][slot][3] != 255)
                 return 0;
+    for (unsigned i = 0; i < CFW_THEME_MAX_ASSETS; i++)
+        if (o->tint[i] >= CFW_TINT_COUNT)
+            return 0;
     return 1;
 }
 
@@ -303,11 +352,6 @@ int cfw_theme_pack_read(const struct osos_path *path, int dark, int classic,
     return valid;
 }
 
-static int bit(const uint32_t *bits, unsigned index)
-{
-    return !!(bits[index / 32] & (1u << (index % 32)));
-}
-
 /* Walk validated, sorted records once while visiting ascending asset indices. */
 static struct record *next_record(const struct cfw_theme_pack *pack, uint32_t *at,
                                   uint32_t index)
@@ -321,9 +365,9 @@ static struct record *next_record(const struct cfw_theme_pack *pack, uint32_t *a
     return r;
 }
 
-_Static_assert(CFW_THEME_STYLE_BYTES <= 256, "Style prefix exceeds the stream scratch");
+enum { SCRATCH_BYTES = CFW_THEME_STYLE_BYTES > 256 ? CFW_THEME_STYLE_BYTES : 256 };
 
-/* Stream a pack through a 256-byte scratch buffer; the file is never held in RAM.
+/* Stream a pack through a small scratch buffer; the file is never held in RAM.
  * Baseline mode (complete or stage) requires every record to match the original
  * artwork checksum; with a stage, records for assets that the incoming pack omits
  * are copied into the stage's prepared records. Otherwise this probes an
@@ -340,7 +384,8 @@ static int stream_pack(const struct osos_path *path, int dark, int complete,
         return 0;
 
     struct pack_header h;
-    unsigned char scratch[256];
+    unsigned char scratch[SCRATCH_BYTES];
+    uint32_t pending[CFW_THEME_BITMAP_WORDS];
     int valid = exact(file, &h, sizeof(h)) && header_valid(&h, dark) &&
                 (!complete || (h.count == cfw_bitmap_asset_count && h.count)) &&
                 exact(file, scratch, CFW_THEME_STYLE_BYTES) &&
@@ -350,6 +395,8 @@ static int stream_pack(const struct osos_path *path, int dark, int complete,
     uint32_t consumed = CFW_THEME_STYLE_BYTES, previous = 0, stage_at = 0;
     struct cursor c;
     cursor_init(&c);
+    if (valid)
+        tint_pending(scratch, pending);
     for (uint32_t i = 0; valid && i < h.count; i++) {
         struct record r;
         struct layout b;
@@ -392,8 +439,10 @@ static int stream_pack(const struct osos_path *path, int dark, int complete,
         consumed += r.size + padding;
         if (valid && destination)
             needed--;
+        tint_replaced(pending, r.asset);
     }
-    valid = valid && !needed && consumed == h.size && ~crc == h.crc && eof(file);
+    valid = valid && !needed && consumed == h.size && ~crc == h.crc && eof(file) &&
+            (baseline || tint_pending_valid(&c, pending));
     osos_file_close(file);
     return valid;
 }
@@ -406,6 +455,78 @@ int cfw_theme_baseline_valid(const struct osos_path *path)
 int cfw_theme_pack_valid(const struct osos_path *path, int dark)
 {
     return stream_pack(path, dark, 0, 0, 0, 0);
+}
+
+int cfw_theme_asset_from_pixels(const unsigned char *pixels, uint32_t *index)
+{
+    struct cursor c;
+    cursor_init(&c);
+    if (!pixels)
+        return 0;
+    for (uint32_t i = 0; i < cfw_bitmap_asset_count && i < CFW_THEME_MAX_ASSETS; i++) {
+        const unsigned char *data = asset_data(&c, i);
+        uint32_t size = cfw_bitmap_assets[i].size;
+        if (pixels >= data && pixels < data + size) {
+            struct layout b;
+            if (pixels != data + CFW_BMAP_HEADER_BYTES || !bitmap_layout(&c, i, &b))
+                return 0;
+            *index = i;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+unsigned char *cfw_theme_asset_palette(uint32_t index, uint32_t *colors)
+{
+    struct cursor c;
+    struct layout b;
+    cursor_init(&c);
+    if (!bitmap_layout(&c, index, &b) || !b.colors)
+        return 0;
+    *colors = b.colors;
+    return asset_data(&c, index) + b.start;
+}
+
+unsigned char *cfw_theme_asset_argb(uint32_t index, uint32_t *width, uint32_t *height,
+                                    uint32_t *stride)
+{
+    struct cursor c;
+    struct layout b;
+    cursor_init(&c);
+    if (!bitmap_layout(&c, index, &b) || b.depth != 32)
+        return 0;
+    *width = b.width;
+    *height = b.height;
+    *stride = b.stride;
+    return asset_data(&c, index) + b.pixels;
+}
+
+int cfw_theme_asset_center_pixel(uint32_t index, unsigned char out[4])
+{
+    struct cursor c;
+    struct layout b;
+    cursor_init(&c);
+    if (!bitmap_layout(&c, index, &b) || b.mask || b.depth == 16)
+        return 0;
+    const unsigned char *data = asset_data(&c, index);
+    const unsigned char *row = data + b.pixels + ((b.height - 1) / 2) * b.stride;
+    const unsigned char *pixel;
+    if (b.colors) {
+        uint32_t entry = row[(b.width - 1) / 2];
+        if (entry >= b.colors)
+            return 0;
+        pixel = data + b.start + entry * 4;
+    } else {
+        pixel = row + ((b.width - 1) / 2) * 4;
+    }
+    if (!pixel[3])
+        return 0;
+    out[0] = pixel[2];
+    out[1] = pixel[1];
+    out[2] = pixel[0];
+    out[3] = 255;
+    return 1;
 }
 
 int cfw_theme_transaction_bytes(const struct cfw_theme_pack *target,

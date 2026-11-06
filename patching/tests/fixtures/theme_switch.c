@@ -3,6 +3,7 @@
 #include "../../../payload/theme_style.c"
 #include "../../../payload/theme_input.c"
 #include "../../../payload/theme_switch.c"
+#include "../../../payload/theme_tint.c"
 
 static struct cfw_theme_switch switcher;
 static struct cfw_theme_preferences disk;
@@ -188,6 +189,144 @@ static void validation(void)
     check_stock();
 }
 
+/* Tinted palettes and ARGB pixels follow the Theme Default tint, their role and
+ * the accent in RAM; stock restoration returns the exact original bytes. Masks
+ * are tinted while drawing. */
+static void tinting(void)
+{
+    static const unsigned char tinted_entries[] = {30, 20, 10, 255, 30, 20, 10, 255};
+    reset();
+    tint_target(0, 10, 20, 30);
+    tint_target(MASK_ASSET, 10, 20, 30);
+    tint_target(PAYLOAD_ASSET, 10, 20, 30);
+    target_options()->accents[CFW_THEME_ACCENT_PINK - 1][CFW_PALETTE_ICON][0] = 77;
+    target_options()->accents[CFW_THEME_ACCENT_PINK - 1][CFW_PALETTE_ON_ACCENT][0] = 88;
+    fix_crc();
+    assert(!cfw_theme_bitmap_tint(pixels[MASK_ASSET] + 28));
+    assert(!cfw_theme_bitmap_tint(pixels[PAYLOAD_ASSET] + 28));
+    assert(apply(&modern));
+    assert(!memcmp(pixels[0] + 32, tinted_entries,
+                   8)); /* the record's 99 is overwritten */
+    assert(!memcmp(pixels[0] + 40, original[0] + 40, 2));
+    assert(!memcmp(pixels[1], original[1], 42) &&
+           !memcmp(pixels[MASK_ASSET], original[MASK_ASSET], 42));
+    const unsigned char *color = cfw_theme_bitmap_tint(pixels[MASK_ASSET] + 28);
+    assert(color && color[0] == 10 && color[1] == 20 && color[2] == 30);
+    assert(!cfw_theme_bitmap_tint(pixels[1] + 28)); /* not tinted */
+    assert(!cfw_theme_bitmap_tint(pixels[0] + 32)); /* not a pixel start */
+    assert(!cfw_theme_bitmap_tint(NULL));
+    /* The payload's catalog bitmaps are tinted through the same tint roles. */
+    assert(cfw_theme_bitmap_tint(pixels[PAYLOAD_ASSET] + 28) == color);
+    assert(!cfw_theme_bitmap_tint(pixels[PAYLOAD_ASSET] + 29));
+    cfw_theme_input_drained();
+    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_PINK));
+    assert(pixels[0][32 + 2] == 77 && pixels[0][32 + 3] == 255 &&
+           pixels[0][32 + 7] == 255);
+    assert(cfw_theme_bitmap_tint(pixels[MASK_ASSET] + 28)[0] == 77);
+    /* A highlighted view draws tinted assets in on_accent; the palette returns to
+     * the tint after the blit. Masks have no palette to swap. */
+    struct osos_view_stub plain = {pixels[0] + 28, 0}, lit = {pixels[0] + 28, 1},
+                          mask = {pixels[MASK_ASSET] + 28, 1},
+                          other = {pixels[1] + 28, 1};
+    assert(cfw_theme_highlight_tint(&plain)[0] == 77);
+    assert(cfw_theme_highlight_tint(&lit)[0] == 88);
+    assert(cfw_theme_highlight_tint(&mask)[0] == 88);
+    assert(!cfw_theme_highlight_tint(&other));
+    cfw_theme_bitmap_blit_begin(&plain, &plain);
+    assert(pixels[0][32 + 2] == 77);
+    cfw_theme_bitmap_blit_end();
+    cfw_theme_bitmap_blit_begin(&lit, &lit);
+    assert(pixels[0][32 + 2] == 88 && pixels[0][32 + 3] == 255 &&
+           pixels[0][32 + 6] == 88 && pixels[0][32 + 7] == 255);
+    cfw_theme_bitmap_blit_end();
+    assert(pixels[0][32 + 2] == 77 && pixels[0][32 + 6] == 77);
+    cfw_theme_bitmap_blit_begin(&other, &other);
+    cfw_theme_bitmap_blit_end();
+    cfw_theme_bitmap_blit_begin(&mask, &mask);
+    cfw_theme_bitmap_blit_end();
+    assert(!memcmp(pixels[1], original[1], 42) &&
+           !memcmp(pixels[MASK_ASSET], original[MASK_ASSET], 42));
+    cfw_theme_input_drained();
+    assert(apply(&stock));
+    check_stock();
+    assert(!cfw_theme_bitmap_tint(pixels[MASK_ASSET] + 28));
+    assert(!cfw_theme_highlight_tint(&lit));
+    cfw_theme_bitmap_blit_begin(&lit, &lit);
+    cfw_theme_bitmap_blit_end();
+    check_stock();
+    assert(!cfw_theme_bitmap_tint(pixels[PAYLOAD_ASSET] + 28));
+    cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
+
+    /* An ARGB asset tinted in the selection role: opaque pixels take the role's
+     * RGB (BGRA in memory) and keep their alpha, transparent pixels stay as the
+     * record wrote them, and the accent's selection retints. Restoration is exact. */
+    reset();
+    make_target(ARGB_ASSET);
+    tint_target_role(ARGB_ASSET, CFW_TINT_ROLE_BASE + CFW_THEME_SELECTION, 10, 20, 30);
+    unsigned char *selection =
+        (unsigned char *)files[0].data + 52 + CFW_THEME_SELECTION * 4;
+    selection[0] = 1;
+    selection[1] = 2;
+    selection[2] = 3;
+    target_options()->accents[CFW_THEME_ACCENT_PINK - 1][CFW_PALETTE_SELECTION][0] = 66;
+    target_options()->accents[CFW_THEME_ACCENT_PINK - 1][CFW_PALETTE_ON_ACCENT][0] = 99;
+    fix_crc();
+    assert(apply(&modern));
+    static const unsigned char tinted_argb[] = {3, 2, 1, 255, 0, 0, 0, 0};
+    assert(!memcmp(pixels[ARGB_ASSET] + 28, tinted_argb, 8));
+    assert(cfw_theme_bitmap_tint(pixels[ARGB_ASSET] + 28)[0] == 1);
+    cfw_theme_input_drained();
+    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_PINK));
+    assert(pixels[ARGB_ASSET][28 + 2] == 66 && pixels[ARGB_ASSET][28 + 3] == 255 &&
+           !memcmp(pixels[ARGB_ASSET] + 32, tinted_argb + 4, 4));
+    struct osos_view_stub argb_lit = {pixels[ARGB_ASSET] + 28, 1};
+    cfw_theme_bitmap_blit_begin(&argb_lit, &argb_lit);
+    assert(pixels[ARGB_ASSET][28 + 2] == 99); /* the accent's on_accent */
+    cfw_theme_bitmap_blit_end();
+    assert(pixels[ARGB_ASSET][28 + 2] == 66);
+    /* Well letters take text or background, whichever is farther in brightness
+     * from the well center pixel. */
+    for (unsigned shade = 0; shade < 256; shade += 51) {
+        pixels[ARGB_ASSET][28] = pixels[ARGB_ASSET][29] = pixels[ARGB_ASSET][30] =
+            shade;
+        const unsigned char well[4] = {shade, shade, shade, 255};
+        const unsigned char *text = cfw_theme_color(CFW_THEME_TEXT, 1);
+        const unsigned char *background = cfw_theme_color(CFW_THEME_BACKGROUND, 1);
+        int text_gap = abs(cfw_theme_brightness(text) - cfw_theme_brightness(well));
+        int background_gap =
+            abs(cfw_theme_brightness(background) - cfw_theme_brightness(well));
+        for (unsigned style = 0; style < 2; style++)
+            assert(cfw_theme_well_letter_color(style) ==
+                   (text_gap >= background_gap ? text : background));
+    }
+    assert(!cfw_theme_well_letter_color(2));
+    pixels[ARGB_ASSET][31] = 0; /* transparent center keeps the native color */
+    assert(!cfw_theme_well_letter_color(0));
+    pixels[ARGB_ASSET][31] = 255;
+    /* The Search input text follows the same rule against the paletted field
+     * center slice, whose center pixel is its first palette entry. */
+    for (unsigned shade = 0; shade < 256; shade += 51) {
+        pixels[0][32] = pixels[0][33] = pixels[0][34] = shade;
+        const unsigned char field[4] = {shade, shade, shade, 255};
+        const unsigned char *text = cfw_theme_color(CFW_THEME_TEXT, 1);
+        const unsigned char *background = cfw_theme_color(CFW_THEME_BACKGROUND, 1);
+        int text_gap = abs(cfw_theme_brightness(text) - cfw_theme_brightness(field));
+        int background_gap =
+            abs(cfw_theme_brightness(background) - cfw_theme_brightness(field));
+        assert(cfw_theme_field_text_color() ==
+               (text_gap >= background_gap ? text : background));
+    }
+    pixels[0][35] = 0; /* transparent field art keeps the native color */
+    assert(!cfw_theme_field_text_color());
+    memcpy(pixels[0] + 32, original[0] + 32, 4);
+    cfw_theme_input_drained();
+    assert(apply(&stock));
+    check_stock();
+    assert(!cfw_theme_well_letter_color(1));
+    assert(!cfw_theme_field_text_color()); /* Classic keeps the native colors */
+    cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
+}
+
 int main(void)
 {
     memcpy(original, pixels, sizeof(pixels));
@@ -196,5 +335,6 @@ int main(void)
     failures();
     switching();
     classic_dark();
+    tinting();
     return 0;
 }

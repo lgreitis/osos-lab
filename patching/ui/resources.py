@@ -4,6 +4,8 @@
 import struct
 from dataclasses import dataclass
 
+from ..catalog import catalog_bitmap_id
+
 
 @dataclass
 class Template:
@@ -181,7 +183,7 @@ class Resources:
             for entry in templates
         }
         self.added = {}
-        self.packed = {}
+        self.catalog = []
         self.names = {}
         self.event_aliases = {}
         self.event_extensions = {}
@@ -212,12 +214,15 @@ class Resources:
             raise ValueError(f"Duplicate CFW resource {key}")
         self.added[key] = Resource(data)
 
-    def add_packed(self, resource_id, data, packed):
-        """Register a BMap served from a zero-run encoding instead of the bank."""
-        key = ("BMap", resource_id)
-        if key in self.added or key in self.packed:
-            raise ValueError(f"Duplicate CFW resource {key}")
-        self.packed[key] = (bytes(packed), len(data))
+    def add_catalog(self, name, data):
+        """Register a BMap in the payload's catalog bitmap block, which themes
+        address by catalog index like firmware bitmaps. Returns its resource id."""
+        if name in self.names:
+            raise ValueError(f"Duplicate UI resource name: {name}")
+        resource_id = catalog_bitmap_id(len(self.catalog))
+        self.names[name] = resource_id
+        self.catalog.append((name, resource_id, bytes(data)))
+        return resource_id
 
     def replace(self, kind, resource_id, data):
         key = (kind, resource_id)

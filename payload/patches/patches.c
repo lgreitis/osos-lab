@@ -10,6 +10,19 @@ PATCH_CALL(OSOS_TEXT_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
            cfw_theme_text_color_hook);
 PATCH_CALL(OSOS_MARQUEE_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
            cfw_theme_marquee_color_hook);
+PATCH_CALL(OSOS_BITMAP_VIEW_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_bitmap_color_hook);
+PATCH_CALL(OSOS_SEARCH_KEY_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_search_key_color_hook);
+PATCH_CALL(OSOS_OPTION_BAR_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_option_bar_color_hook);
+PATCH_CALL(OSOS_BITMAP_VIEW_BLIT_CALL, OSOS_BITMAP_BLIT, cfw_theme_bitmap_blit_hook);
+PATCH_CALL(OSOS_BITMAP_VIEW_TILE_BLIT_CALL, OSOS_BITMAP_BLIT,
+           cfw_theme_bitmap_blit_hook);
+PATCH_CALL(OSOS_ROW_BITMAP_VIEW_BLIT_CALL, OSOS_BITMAP_BLIT,
+           cfw_theme_bitmap_blit_hook);
+PATCH_CALL(OSOS_ROW_BITMAP_VIEW_TILE_BLIT_CALL, OSOS_BITMAP_BLIT,
+           cfw_theme_bitmap_blit_hook);
 PATCH_CALL(OSOS_COVER_FLOW_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
            cfw_theme_clear_color);
 PATCH_CALL(OSOS_ALBUM_ART_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,

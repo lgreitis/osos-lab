@@ -88,17 +88,30 @@ def read_png(path):
     return width, height, bytes(pixels)
 
 
-def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=False):
+# Native BMap header: format, reserved, stride, depth, two reserved words, height,
+# width and content length.
+BMAP_HEADER = "<HHHHiiiii"
+BMAP_HEADER_BYTES = struct.calcsize(BMAP_HEADER)
+
+
+def encode_bmap(
+    width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=False, gray4=False
+):
+    """Native BMap bytes. gray8 and gray4 write opaque grayscale masks (formats 8
+    and 4); gray4 keeps 16 levels, two pixels per byte with the left one in the
+    high nibble, matching the firmware's 4-bit mask layout."""
     if len(rgba) != width * height * 4:
         raise ValueError("RGBA pixel length does not match its dimensions")
     colors = list(dict.fromkeys(rgba[i : i + 4] for i in range(0, len(rgba), 4)))
-    if gray8 and (rgb565 or any(r != g or g != b or a != 255 for r, g, b, a in colors)):
+    gray = gray8 or gray4
+    if gray and (rgb565 or any(r != g or g != b or a != 255 for r, g, b, a in colors)):
         raise ValueError("Grayscale masks require an opaque grayscale PNG")
     if rgb565 and any(color[3] != 255 for color in colors):
         raise ValueError("RGB565 textures require an opaque PNG")
-    indexed = allow_indexed and not (rgb565 or gray8) and len(colors) <= 256
-    depth = 16 if rgb565 else 8 if indexed or gray8 else 32
-    stride = (width * (depth // 8) + 3) & ~3
+    indexed = allow_indexed and not (rgb565 or gray) and len(colors) <= 256
+    depth = 4 if gray4 else 16 if rgb565 else 8 if indexed or gray8 else 32
+    row = (width * depth + 7) // 8
+    stride = (row + 3) & ~3
     if not width or not height or stride > 0x7FFF:
         raise ValueError("Bitmap dimensions exceed the native row stride")
     palette = {color: index for index, color in enumerate(colors)} if indexed else {}
@@ -110,17 +123,31 @@ def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=
     for y in range(height):
         for x in range(width):
             p = rgba[(y * width + x) * 4 : (y * width + x + 1) * 4]
-            if gray8:
+            if gray4:
+                level = round(p[0] / 17)
+                if x % 2 == 0:
+                    content.append(level << 4)
+                else:
+                    content[-1] |= level
+            elif gray8:
                 content.append(p[0])
             elif rgb565:
                 pixel = ((p[0] >> 3) << 11) | ((p[1] >> 2) << 5) | (p[2] >> 3)
                 content.extend(struct.pack("<H", pixel))
             else:
                 content.extend((palette[p],) if indexed else (p[2], p[1], p[0], p[3]))
-        content.extend(bytes(stride - width * (depth // 8)))
+        content.extend(bytes(stride - row))
     header = struct.pack(
-        "<HHHHiiiii",
-        8 if gray8 else 0x565 if rgb565 else 0x64 if indexed else 0x1888,
+        BMAP_HEADER,
+        4
+        if gray4
+        else 8
+        if gray8
+        else 0x565
+        if rgb565
+        else 0x64
+        if indexed
+        else 0x1888,
         0,
         stride,
         depth,
@@ -131,41 +158,3 @@ def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=
         len(content),
     )
     return header + content
-
-
-def pack_zero_runs(data):
-    """Encode data as (zero count, literal count, literals) groups.
-
-    Grayscale preview masks are mostly zero. A group header costs two bytes, so
-    runs of fewer than three zeros stay inside the literals."""
-    out = bytearray()
-    i, n = 0, len(data)
-    while i < n:
-        zeros = 0
-        while i < n and zeros < 255 and data[i] == 0:
-            zeros += 1
-            i += 1
-        start = i
-        while i < n and i - start < 255:
-            if data[i] == 0:
-                run = 0
-                while i + run < n and data[i + run] == 0:
-                    run += 1
-                if run >= 3 or i + run == n:
-                    break
-            i += 1
-        out += bytes((zeros, i - start)) + data[start:i]
-    return bytes(out)
-
-
-def unpack_zero_runs(packed, size):
-    out = bytearray()
-    at = 0
-    while len(out) < size:
-        zeros, literals = packed[at], packed[at + 1]
-        at += 2
-        out += bytes(zeros) + packed[at : at + literals]
-        at += literals
-    if at != len(packed) or len(out) != size:
-        raise ValueError("Packed bitmap does not match its size")
-    return bytes(out)

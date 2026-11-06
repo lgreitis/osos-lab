@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <ui>
   <list id="CFW_Accent" title="Accent Color" controller="CFWAccent"/>
-  <bitmap id="CFW_Accent_Icon" file="assets/settings-accent.png" format="gray8"/>
+  <bitmap id="CFW_Accent_Icon" file="assets/settings-accent.png" format="gray4"/>
   <settings-entry menu="CFW_Accent" after="SettingsMenu_ListItem_Brightness"
                   open="CFW_Accent_Open" preview="image" image="CFW_Accent_Icon"/>
 </ui>

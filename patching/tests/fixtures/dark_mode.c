@@ -158,6 +158,57 @@ int cfw_theme_settings_indexed_property(uint32_t t, uint32_t p, uint32_t i,
 #include "../../../payload/dark_mode.c"
 #include "../../../payload/theme_render.c"
 
+/* Bitmap tinting is covered by the theme_switch fixture. */
+const unsigned char *cfw_theme_highlight_tint(const void *view)
+{
+    (void)view;
+    return 0;
+}
+
+/* Well letter colors are derived in theme_tint.c; the hook takes what it gets. */
+static const unsigned char *well_letter;
+static unsigned well_styles_asked;
+
+const unsigned char *cfw_theme_well_letter_color(unsigned style)
+{
+    well_styles_asked |= 1u << style;
+    return well_letter;
+}
+
+/* Field text colors are derived in theme_tint.c as well. */
+static const unsigned char *field_text;
+static unsigned field_asked;
+
+const unsigned char *cfw_theme_field_text_color(void)
+{
+    field_asked++;
+    return field_text;
+}
+
+/* Both bar hooks recognize the view's own label colors by pointer. */
+static void check_search_key(int key, const unsigned char *expected)
+{
+    static unsigned char view[0x1d8];
+    static const unsigned char native[] = {255, 255, 255, 201};
+    memcpy(view + 0x1cd, native, 4);
+    memcpy(view + 0x1d1, native, 4);
+    cfw_theme_search_key_color(&surface, view + (key ? 0x1d1 : 0x1cd), view);
+    const unsigned char want[] = {expected[0], expected[1], expected[2], native[3]};
+    assert(!memcmp(drawn, want, 4));
+}
+
+static void check_option_bar(unsigned style, int key, const unsigned char *expected)
+{
+    static unsigned char view[0x1d8];
+    static const unsigned char native[] = {255, 255, 255, 202};
+    view[0x121] = style;
+    memcpy(view + 0x1cc, native, 4);
+    memcpy(view + 0x1d0, native, 4);
+    cfw_theme_option_bar_color(&surface, view + (key ? 0x1d0 : 0x1cc), view);
+    const unsigned char want[] = {expected[0], expected[1], expected[2], native[3]};
+    assert(!memcmp(drawn, want, 4));
+}
+
 static void graphics_fill(void *context, const int32_t *rect)
 {
     (void)rect;
@@ -568,9 +619,11 @@ static void check_custom_theme(void)
         check_text(ordinary_view, light_text, 0x81, 0x81, 0x81);
         check_text(ordinary_view, accent_fill, 160, 80, 30);
         check_text(ordinary_view, accent_text, 140, 70, 20);
-        /* Selected-row text follows on_accent by pointer; equal values do not. */
+        /* Selected-row text follows on_accent by pointer; other white text takes
+         * the text role on this light background. */
         check_text(ordinary_view, palette_white, 20, 10, 0);
-        check_text(ordinary_view, white, 255, 255, 255);
+        check_text(ordinary_view, white, 60, 40, 20);
+        check_text(ordinary_view, light_gray, 0xee, 0xee, 0xee);
         check_background(250 * 0x10000 / 255, 240 * 0x10000 / 255, 220 * 0x10000 / 255,
                          (31u << 11) | (60u << 5) | 27u);
         /* Retained-light views stay unmapped. */
@@ -594,6 +647,7 @@ static void check_custom_theme(void)
     check_fill(pale_gray, 255, 10 + 19, 40 + 19);
     check_text(ordinary_view, black, 255, 250, 100);
     check_text(ordinary_view, dim_text, 255 - 64, 250 - 64, 100 - 64);
+    check_text(ordinary_view, white, 255, 255, 255); /* dark background keeps white */
     check_background(250 * 0x10000 / 255, 10 * 0x10000 / 255, 40 * 0x10000 / 255,
                      (31u << 11) | (2u << 5) | 5u);
 
@@ -609,12 +663,105 @@ static void check_custom_theme(void)
     cfw_theme_appearance_set(0);
 }
 
+/* Bar labels: the highlighted one takes on_accent whenever anything is themed;
+ * the others take the well color derived for the bar's well art; the Now Playing
+ * bar and other colors pass through. */
+static void check_search_key_hook(void)
+{
+    static const unsigned char native_white[] = {255, 255, 255},
+                               sepia_on_accent[] = {20, 10, 0},
+                               well_color[] = {7, 8, 9, 255};
+    cfw_theme_appearance_set(0);
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+    well_letter = NULL;
+    check_search_key(0, native_white);
+    check_search_key(1, native_white);
+    assert(well_styles_asked == 2); /* the keyboard uses the Black well */
+    for (unsigned style = 0; style < 3; style++)
+        for (int key = 0; key < 2; key++)
+            check_option_bar(style, key, native_white);
+    assert(well_styles_asked == 3);
+    /* Classic with an accent keeps white on_accent; the well stays native. */
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_PURPLE));
+    check_search_key(1, native_white);
+    check_search_key(0, native_white);
+    check_option_bar(1, 1, native_white);
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+
+    struct cfw_theme_style style = {{{0}}};
+    for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++)
+        style.colors[role][3] = 255;
+    memcpy(style.colors[CFW_THEME_ON_ACCENT], sepia_on_accent, 3);
+    struct cfw_theme_options options = {0};
+    cfw_theme_style_set(&style, &options);
+    well_letter = well_color;
+    well_styles_asked = 0;
+    check_search_key(1, sepia_on_accent);
+    check_search_key(0, well_color);
+    assert(well_styles_asked == 2);
+    check_option_bar(0, 1, sepia_on_accent);
+    check_option_bar(1, 1, sepia_on_accent);
+    check_option_bar(0, 0, well_color);
+    check_option_bar(1, 0, well_color);
+    assert(well_styles_asked == 3);
+    check_option_bar(2, 1, native_white);
+    check_option_bar(2, 0, native_white);
+    /* A color that is neither letter slot is passed through untouched. */
+    cfw_theme_search_key_color(&surface, white, ordinary_view);
+    assert(!memcmp(drawn, white, 4));
+    cfw_theme_style_reset();
+    cfw_theme_appearance_set(0);
+}
+
+/* The Search input text keeps its native colors for Classic (covered with the
+ * accent presets); under a custom style its dark shades take the color derived
+ * from the field art, or the text role when none is derived, and the caret's
+ * accent blue takes accent_text like any other text. */
+static void check_search_input_hook(void)
+{
+    static const unsigned char on_field[] = {7, 8, 9};
+    uint32_t view[0xa4 / 4] = {0};
+    view[0x4c / 4] = 0x0dad0ddc; /* Search_Input_Text */
+    struct cfw_theme_style style = {{{0}}};
+    for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++)
+        style.colors[role][3] = 255;
+    const unsigned char text_role[] = {200, 201, 202}, accent_role[] = {9, 8, 7};
+    memcpy(style.colors[CFW_THEME_TEXT], text_role, 3);
+    memcpy(style.colors[CFW_THEME_ACCENT_TEXT], accent_role, 3);
+    struct cfw_theme_options options = {0};
+    cfw_theme_style_set(&style, &options);
+    cfw_theme_appearance_set(1);
+    field_text = on_field;
+    field_asked = 0;
+    check_text(view, black, 7, 8, 9);
+    check_text(view, dim_text, 7, 8, 9);
+    check_text(view, accent_text, 9, 8, 7);
+    assert(field_asked == 3);
+    field_text = NULL;
+    check_text(view, black, 200, 201, 202);
+    check_text(view, dim_text, 136, 137, 138);
+    check_text(view, accent_text, 9, 8, 7);
+    /* Other views never ask for the field color. */
+    field_asked = 0;
+    check_text(ordinary_view, black, 200, 201, 202);
+    assert(field_asked == 0);
+    cfw_theme_style_reset();
+    cfw_theme_appearance_set(0);
+    /* Classic light passes everything through. */
+    field_asked = 0;
+    check_text(view, black, 0, 0, 0);
+    check_text(view, accent_text, 0x31, 0x85, 0xd0);
+    assert(field_asked == 0);
+}
+
 static void check_theme(void)
 {
     int was_active = cfw_dark_mode_enabled();
     check_classic_theme();
     check_accent_presets();
     check_custom_theme();
+    check_search_key_hook();
+    check_search_input_hook();
     check_classic_theme();
     assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
     cfw_theme_appearance_set(was_active);

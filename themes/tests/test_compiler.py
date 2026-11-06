@@ -12,13 +12,13 @@ from pathlib import Path
 
 from patching.tests.test_bitmap import png
 from patching.theme_format import HEADER, MAGIC, RECORD, catalog_hash, digest
-from themes.style import STYLE_BYTES, classic_style
 from themes.compiler import (
     compile_theme,
     describe,
     encode_pixels,
     fit_palette,
 )
+from themes.style import STYLE_BYTES, classic_style
 
 
 def indexed(depth=8):

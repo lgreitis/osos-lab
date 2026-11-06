@@ -13,6 +13,16 @@ static inline uint32_t osos_view_id(const void *view)
     return *(const uint32_t *)((const unsigned char *)view + 0x4c);
 }
 
+/* View flags at +0x48. The text and bitmap drawers test the highlighted bit to pick
+ * the selection palette and the highlighted-only artwork variants. */
+enum { OSOS_VIEW_HIGHLIGHTED = 1u << 3 };
+
+static inline int osos_view_highlighted(const void *view)
+{
+    const uint32_t flags = *(const uint32_t *)((const unsigned char *)view + 0x48);
+    return (flags & OSOS_VIEW_HIGHLIGHTED) != 0;
+}
+
 /* Drawing colors are byte-order RGBA; COLR resource words are 0x00RRGGBB. */
 static inline void osos_surface_fill_rect(void *surface, const void *rect,
                                           const unsigned char *color, uint32_t mode,
@@ -38,6 +48,23 @@ static inline void osos_graphics_fill_rect_unmapped(void *context, const int32_t
     void *surface = *(unsigned char **)(bytes + 0x1c) + 4;
     osos_surface_fill_rect(surface, translated, bytes + 0x11, bytes[0x10],
                            (unsigned char *)context + 0x34);
+}
+
+/* Pixel data of a bitmap graphics context: it holds the bitmap at +0x1c, whose
+ * surface at +4 starts with the data pointer. NULL when nothing is loaded. */
+static inline const unsigned char *osos_bitmap_context_pixels(const void *context)
+{
+    const unsigned char *bitmap =
+        context ? *(const unsigned char *const *)((const unsigned char *)context + 0x1c)
+                : 0;
+    return bitmap ? *(const unsigned char *const *)(bitmap + 4) : 0;
+}
+
+/* Pixel data of a BitmapView's loaded bitmap, cached in the context at view+0x15c. */
+static inline const unsigned char *osos_bitmap_view_pixels(const void *view)
+{
+    return osos_bitmap_context_pixels(
+        *(const void *const *)((const unsigned char *)view + 0x15c));
 }
 
 static inline void osos_graphics_set_color(void *context, const unsigned char *color)

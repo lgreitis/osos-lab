@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <ui>
   <toggle id="CFW_DarkMode" title="Dark Mode"/>
-  <bitmap id="CFW_DarkMode_Moon" file="assets/settings-moon.png" format="gray8"/>
+  <bitmap id="CFW_DarkMode_Moon" file="assets/settings-moon.png" format="gray4"/>
   <string id="CFW_DarkMode_LightLabel" text="Light Mode"/>
   <string id="CFW_DarkMode_DarkLabel" text="Dark Mode"/>
   <settings-entry menu="CFW_DarkMode" after="SettingsMenu_ListItem_Brightness" preview="image"/>

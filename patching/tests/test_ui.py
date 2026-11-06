@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from patching.bitmap import unpack_zero_runs
+from patching.catalog import CATALOG_ID_BASE
 from patching.ui import generate, parser
 from patching.ui.codegen import emit_header, emit_visibility
 from patching.ui.compiler import DocumentCompiler, compile_document
@@ -319,15 +319,17 @@ class UiTests(unittest.TestCase):
             )
             resource_id = word(binding, 4)
             if kind == "BMap":
+                # Preview glyphs join the theme catalog as 4-bit masks in the
+                # payload block rather than being embedded as plain resources.
                 self.assertEqual(resource_id, resources.names["CFW_Info_Icon"])
+                self.assertEqual(resource_id, CATALOG_ID_BASE)
                 self.assertNotIn((kind, resource_id), resources.added)
-                packed, size = resources.packed[kind, resource_id]
-                content = unpack_zero_runs(packed, size)
+                name, catalog_id, content = resources.catalog[0]
+                self.assertEqual((name, catalog_id), ("CFW_Info_Icon", resource_id))
                 self.assertEqual(
                     struct.unpack_from("<HHHHiiiii", content),
-                    (8, 0, 80, 8, 0, 0, 121, 78, 9680),
+                    (4, 0, 40, 4, 0, 0, 121, 78, 4840),
                 )
-                self.assertLess(len(packed), size // 2)
             else:
                 content = resources.added[kind, resource_id].data
                 self.assertEqual(content, b"RepriseOS\0")
@@ -378,13 +380,12 @@ class UiTests(unittest.TestCase):
                     (word(binding, 0), word(binding, 4), word(binding, 8)),
                     (0x8900, resources.names[name], 1),
                 )
-            packed, size = resources.packed["BMap", resources.names[menu + "_Icon"]]
-            content = unpack_zero_runs(packed, size)
+            [(name, catalog_id, content)] = resources.catalog
+            self.assertEqual((name, catalog_id), (menu + "_Icon", CATALOG_ID_BASE))
             self.assertEqual(
                 struct.unpack_from("<HHHHiiiii", content),
-                (8, 0, 80, 8, 0, 0, 121, 78, 9680),
+                (4, 0, 40, 4, 0, 0, 121, 78, 4840),
             )
-            self.assertLess(len(packed), size // 3)
 
     def test_theme_list_uses_native_rows_and_explicit_controller(self):
         root = Path(__file__).resolve().parents[2]

@@ -6,6 +6,8 @@
 #include "../../../payload/theme_style.c"
 #include "../../../payload/theme_input.c"
 #include "../../../payload/theme_switch.c"
+#include "../../../payload/theme_tint.c"
+
 #include "../../../payload/theme_boot.h"
 #include "../../../payload/theme_discovery.h"
 #define OSOS_ACTION_SUPPORT_QUERY UINT32_MAX
@@ -169,7 +171,8 @@ int main(void)
     cfw_theme_settings_load();
     cfw_theme_settings_load();
     assert(!stores && !switcher.active.custom && classic_available);
-    assert(cfw_theme_settings_action(NULL, "CFW_Accent_Open", OSOS_ACTION_SUPPORT_QUERY));
+    assert(
+        cfw_theme_settings_action(NULL, "CFW_Accent_Open", OSOS_ACTION_SUPPORT_QUERY));
     row = 2; /* Teal in display order, stable stored identifier 7. */
     int accent_opens = opens;
     unsigned accent_allocs = alloc_attempts;

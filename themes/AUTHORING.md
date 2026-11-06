@@ -24,10 +24,19 @@ RTM4/RTH4 covers:
   All colors are opaque; `#RRGGBB` only.
 - **Accents**: per-appearance values for the named accent colors chosen on the
   device, and the selection bar style.
-- **Bitmaps**: replacing existing firmware `BMap` assets at the same size,
-  using the same rules as the Classic dark compiler (`themes/compiler.py`): exact
-  native dimensions, native pixel format, and the existing palette size
-  (indexed art is reduced to fit).
+- **Bitmaps**: replacing existing `BMap` assets at the same size, using the
+  same rules as the Classic dark compiler (`themes/compiler.py`): exact native
+  dimensions, native pixel format, and the existing palette size (indexed art
+  is reduced to fit). The catalog lists the firmware's bitmaps followed by the
+  RepriseOS Settings preview glyphs (`CFW_Info_Icon`, `CFW_EQ_Icon`,
+  `CFW_Theme_Icon`, `CFW_Accent_Icon`, `CFW_DarkMode_Moon`; 78×121 4-bit
+  masks marked `"source": "payload"`), which are replaced and tinted exactly
+  like the stock `Settings_*_Image` previews.
+- **Tint**: bitmaps marked `tint` follow the icon tint, or a named color role,
+  of the theme and of the accent the user picks. Masks (formats 4 and 8) are
+  colored while drawing; paletted bitmaps (formats 0x64 and 0x65) have their
+  palette colors rewritten in memory and ARGB bitmaps (format 0x1888) their
+  pixel colors, keeping each entry's alpha.
 
 Unsupported: fonts, layouts, metrics, animations, sounds, strings,
 wallpapers, new assets, bitmaps of a different size, translucent colors, and
@@ -60,7 +69,9 @@ the device.
       "colors": { "accent_fill": "#0071e3" },
       "bitmaps": [
         { "id": "0x0DAD012A", "file": "art/status-bar.png" },
-        { "name": "Background_LightBlue_Image", "file": "background.png", "type": "BMap" }
+        { "name": "Background_LightBlue_Image", "file": "background.png", "type": "BMap" },
+        { "name": "Settings_Brightness_Image", "file": "art/sun.png", "tint": "icon_tint" },
+        { "name": "Settings_EQ_Flat_Image", "tint": "icon_tint" }
       ]
     },
     "dark": {}
@@ -83,19 +94,26 @@ the device.
 - `accents`: optional object keyed by accent name (`blue`, `purple`, `pink`,
   `red`, `orange`, `green`, `teal`, `yellow`, `graphite`). Each value is any
   subset of `accent_fill`, `accent_text`, `selection`, `on_accent` and
-  `icon_tint`. When the user
-  picks that accent, these replace the matching roles. Omitted names and roles
-  use built-in values for the appearance; `report.json` lists the names that
-  fell back and the contrast of each resolved text/background pair.
+  `icon_tint`. When the user picks that accent, these replace the matching
+  roles. Omitted names and roles use built-in values for the appearance;
+  `report.json` lists the names that fell back and the contrast of each
+  resolved text/background pair.
 - `rendering`: optional. `selection` is `native` (default; the stock gradient
   bar recolored from `selection`) or `flat` (a solid `selection` bar).
-  `preview_icons` is `native` (default) or `accent`; it is stored with
-  `icon_tint` but has no native drawing consumer.
 - `bitmaps`: each entry gives a catalog `id` (hex string), a catalog `name`,
   or both. If both are given they must refer to the same asset. A name that
   appears more than once in the catalog must be referenced by `id`. Each asset
   may be replaced at most once per appearance. `type` is optional, and if
   given must be `BMap`.
+- `tint`: optional color the device draws the bitmap in: `icon_tint`,
+  `background`, `text`, `accent_fill`, `accent_text`, `on_accent`, `selection`
+  or `cover_border`, following the selected accent's palette. The whole
+  bitmap takes that one color. Its `file` supplies coverage only: the alpha
+  channel if the PNG has one, otherwise the gray level; colored opaque art is
+  rejected. Mask assets (formats 4 and 8) may omit `file` to tint the stock
+  shape. Paletted assets (formats 0x64 and 0x65) and ARGB assets (format 0x1888)
+  require `file`; their palette entries or pixels carry the coverage as alpha
+  and are recolored on the device. RGB565 assets cannot be tinted.
 - `file`: a relative path inside the manifest folder. Each path component must
   start with `A-Z a-z 0-9 _` and contain only those characters, `.`, `-`
   and spaces. Components are limited to 128 characters, paths to 255.
@@ -107,12 +125,12 @@ the device.
 
 | Role | Light | Dark | Current use |
 | --- | --- | --- | --- |
-| background | `#ffffff` | `#181818` | Native surfaces and EQ background |
-| text | `#202020` | `#e8e8e8` | Native text shades and EQ text |
+| background | `#ffffff` | `#181818` | Native surfaces and EQ background; Search strip letters and input text on dark well or field art |
+| text | `#202020` | `#e8e8e8` | Native text shades and EQ text; Search strip letters and input text on light well or field art |
 | accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text; EQ field being edited |
-| accent_text | `#3185d0` | `#00a1ff` | Native accent text; EQ response curve and selected band |
-| on_accent | `#ffffff` | `#ffffff` | Selected-row text; EQ text on the field being edited |
-| selection | `#236cc5` | `#00a1ff` | List selection bar |
+| accent_text | `#3185d0` | `#00a1ff` | Native accent text and the Search input caret; EQ response curve and selected band |
+| on_accent | `#ffffff` | `#ffffff` | Selected-row text and tinted icons; EQ text on the field being edited; the highlighted Search key letter |
+| selection | `#236cc5` | `#00a1ff` | List selection bar; bitmaps tinted with `selection` (for example a Search key cursor) |
 | cover_border | `#7e8183` | `#383838` | Cover Flow border |
 
 The Graphic EQ has no roles of its own. Its grays are mixed from `background`
@@ -138,6 +156,17 @@ Native hooks map stock RGB values rather than individual views. These roles do
 not control every label or icon. Accent presets override accent
 fills and their foregrounds; Theme Default preserves the package colors.
 
+The Search letter strip draws its unhighlighted letters in `text` or
+`background`, whichever differs more in brightness from the center pixel of the
+well art (`OptionBar_*_Well_Center_Image`), so the well may be light or dark.
+The highlighted key letter uses `on_accent`; keep it readable on whatever tints
+the thumb slices.
+
+The text typed into the Search box follows the same rule against the center
+pixel of the field art (`System_Input_Field_Middle_Image`), so the field may be
+light or dark; its caret uses `accent_text`. Classic keeps the stock light field
+with native black text.
+
 The list selection bar is drawn once into a shared cached bitmap and redrawn
 when its style changes. Classic with Theme Default or Blue keeps the stock bar
 unchanged. Otherwise the gradient ends at `selection`, starts at `selection`
@@ -160,15 +189,19 @@ bitmap catalog.
   (NUL-terminated and zero-padded).
 - Appearance pack header (`<4s32sIIII`, 52 bytes): `RTH4`, hash, appearance
   (`0` light, `1` dark), body size, record count, CRC32 of the body.
-- Body: a 216-byte style prefix followed by bitmap records. The prefix holds
+- Body: an 856-byte style prefix followed by bitmap records. The prefix holds
   7 RGBA colors in role order (28 bytes), then a little-endian flags word
-  (`1` flat selection, `2` accent preview icons), the RGBA icon tint, and
-  9 accents × 5 roles of RGBA in the name and role order listed above. Every
-  alpha byte is 255.
+  (`1` flat selection), the RGBA icon tint,
+  9 accents × 5 roles of RGBA in the name and role order listed above, and
+  640 tint role bytes, one per catalog asset index: `0` untinted, `1`
+  `icon_tint`, then `2` to `8` for the 7 base roles in role order. Every
+  alpha byte is 255. A tint role on a paletted or ARGB asset requires a record
+  for that asset in the same pack; roles on RGB565 assets, beyond the catalog,
+  or above `8` are invalid.
 - Records: `record count` entries of `<III asset_index, offset, size>`, then
   `size` bytes of native bitmap data, zero-padded to a 4-byte boundary.
   Records are sorted by unique, ascending asset index. A pack may have no
-  records. The body can be at most `216 + Σ(12 + align4(bytes − data_offset))`
+  records. The body can be at most `856 + Σ(12 + align4(bytes − data_offset))`
   over every catalog bitmap.
 
 `themes.package` provides `inspect_metadata`, `inspect_appearance`, and
@@ -191,7 +224,7 @@ python3 -m themes.stock --input /path/to/original/osos.bin \
 ```
 
 The extractor verifies the firmware SHA-256 and every bitmap CRC before writing.
-The 599-record baseline is 3,218,412 bytes for the current catalog. The
+The 604-record baseline is 3,243,288 bytes for the current catalog. The
 transaction reader streams it with a 256-byte scratch buffer, retaining only
 records required to restore artwork changed by the previous theme. Boot validates this file before enabling theming.
 Install it at `themes/classic/default.bin`.

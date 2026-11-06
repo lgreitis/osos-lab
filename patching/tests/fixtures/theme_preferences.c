@@ -3,6 +3,8 @@
 #include "../../../payload/theme_style.c"
 #include "../../../payload/theme_input.c"
 #include "../../../payload/theme_switch.c"
+#include "../../../payload/theme_tint.c"
+
 #include "../../../payload/theme_preferences.h"
 
 static unsigned char disk[CFW_THEME_PREFERENCE_BYTES + 8];
