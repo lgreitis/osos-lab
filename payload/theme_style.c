@@ -62,11 +62,17 @@ int cfw_theme_color_dark(const unsigned char *color)
     return cfw_theme_brightness(color) < 128 * 256;
 }
 
+/* Exact value / 255 for value <= 65534, without a library division. */
+static unsigned divide_255(unsigned value)
+{
+    return (value + 1 + (value >> 8)) >> 8;
+}
+
 void cfw_theme_mix(unsigned char out[4], const unsigned char *from,
                    const unsigned char *to, unsigned weight)
 {
     for (unsigned i = 0; i < 3; i++)
-        out[i] = (from[i] * (255 - weight) + to[i] * weight + 127) / 255;
+        out[i] = divide_255(from[i] * (255 - weight) + to[i] * weight + 127);
     out[3] = 255;
 }
 
