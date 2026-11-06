@@ -183,6 +183,8 @@ class Resources:
             for entry in templates
         }
         self.added = {}
+        # (kind, id) -> C array symbol, filled by codegen.emit_resources.
+        self.emitted = {}
         self.catalog = []
         self.names = {}
         self.event_aliases = {}

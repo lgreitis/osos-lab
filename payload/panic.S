@@ -132,5 +132,5 @@ cfw_panic_frame:
     .space PANIC_FRAME_BYTES
 .balign 8
 cfw_panic_stack:
-    .space 4096
+    .space 512
 cfw_panic_stack_top:

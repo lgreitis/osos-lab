@@ -27,8 +27,6 @@ static const unsigned char accent_order[CFW_THEME_ACCENT_COUNT] = {
 };
 static char active_name[48];
 static struct cfw_theme_switch switcher;
-/* Shared by every switch; the pack path lives on the caller's stack. */
-static struct osos_path baseline_path;
 
 static const struct cfw_theme_switch_ops ops = {cfw_theme_preferences_store};
 
@@ -48,8 +46,10 @@ void cfw_theme_settings_load(void)
     cfw_theme_switch_init(&switcher, &ops);
     cfw_theme_appearance_set(0);
     set_active_name("Classic");
+    /* Paths live on the caller's stack; the request's pack path doubles as
+     * scratch until the preferences resolve. */
+    struct osos_path baseline_path;
     cfw_theme_path(&baseline_path, CFW_THEME_CLASSIC_BASELINE);
-    /* The request's pack path doubles as scratch until the preferences resolve. */
     struct cfw_theme_boot_request request;
     cfw_theme_path(&request.pack, CFW_THEME_CLASSIC_DARK);
     classic_available = cfw_theme_baseline_valid(&baseline_path) &&
@@ -165,6 +165,8 @@ static void apply(void *controller, const char *id, uint32_t dark, unsigned acce
         cfw_theme_path(&pack, CFW_THEME_CLASSIC_DARK);
         path = &pack;
     }
+    struct osos_path baseline_path;
+    cfw_theme_path(&baseline_path, CFW_THEME_CLASSIC_BASELINE);
     int changed = cfw_theme_switch_apply(&switcher, &selection, path, &baseline_path);
     if (switcher.result == CFW_THEME_BUSY)
         return;

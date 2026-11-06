@@ -85,8 +85,8 @@ def build_recipe(
         includes=(native, source / "patches"),
         thumb_symbols=True,
     )
-    for i, (kind, resource_id) in enumerate(resources.added):
-        if kind == "BMap" and require(symbols, f"resource_{i}") % 4:
+    for (kind, resource_id), name in resources.emitted.items():
+        if kind == "BMap" and require(symbols, name) % 4:
             raise ValueError(f"Embedded bitmap {resource_id:#x} is not word-aligned")
     if require(symbols, "cfw_catalog_bitmaps") % 4:
         raise ValueError("Catalog bitmap block is not word-aligned")
@@ -94,7 +94,8 @@ def build_recipe(
     used = symbols["__payload_end"] - symbols["__payload_start"]
     capacity = symbols["__payload_limit"] - symbols["__payload_start"]
     print(
-        f"CFW reservation: {used:,} / {capacity:,} bytes used; {capacity - used:,} free",
+        f"CFW reservation: {used:,} / {capacity:,} bytes used; {capacity - used:,} free; "
+        f"heap base {symbols['__payload_limit']:#x}",
         flush=True,
     )
     return build(code, patches, symbols, fingerprint)

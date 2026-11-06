@@ -4,9 +4,12 @@
 #define CFW_RESOURCES_H
 #include <stdint.h>
 
+/* kind indexes cfw_resource_kinds, the FourCC table of resource types. */
 struct cfw_resource {
-    uint32_t type, id, size;
+    uint32_t id;
     const unsigned char *data;
+    uint16_t size;
+    uint8_t kind;
 };
 
 struct cfw_resource_name {
@@ -24,6 +27,7 @@ extern const uint32_t cfw_ui_menu_item_count;
 
 /* BMap entries point at resident payload data: embedded bitmaps, or the catalog
  * bitmap block (cfw_catalog_bitmaps in assets.h) that themes replace in place. */
+extern const uint32_t cfw_resource_kinds[];
 extern const struct cfw_resource cfw_resources[];
 extern const uint32_t cfw_resource_count;
 extern const struct cfw_resource_name cfw_resource_names[];

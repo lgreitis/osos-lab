@@ -104,9 +104,10 @@ const struct cfw_ui_menu_item cfw_ui_menu_items[] = {
 const uint32_t cfw_ui_menu_item_count = 3;
 static const unsigned char icon[] = {8, 0, 4, 0};
 static const unsigned char label[] = "Albums";
+const uint32_t cfw_resource_kinds[] = {0x53747220, OSOS_RESOURCE_BMAP};
 const struct cfw_resource cfw_resources[] = {
-    {0x53747220, 99, sizeof(label), label},
-    {OSOS_RESOURCE_BMAP, 26, sizeof(icon), icon},
+    {99, label, sizeof(label), 0},
+    {26, icon, sizeof(icon), 1},
 };
 const uint32_t cfw_resource_count = 2;
 const struct cfw_resource_name cfw_resource_names[] = {{"AlbumArtists", ALBUM_ARTISTS}};

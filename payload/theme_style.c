@@ -38,7 +38,16 @@ static const unsigned char palette_slot[CFW_THEME_COLOR_COUNT] = {
     [CFW_THEME_ON_ACCENT] = CFW_PALETTE_ON_ACCENT + 1,
 };
 static struct cfw_theme_style selected_style;
-static struct cfw_theme_options selected_options;
+
+/* Resident copy of the custom options; tint roles are packed two per byte. */
+static struct {
+    uint32_t flags;
+    unsigned char icon[4];
+    unsigned char accents[CFW_THEME_ACCENT_COUNT - 1][CFW_PALETTE_COUNT][4];
+    unsigned char tint[CFW_THEME_MAX_ASSETS / 2];
+} selected_options;
+
+_Static_assert(CFW_TINT_COUNT <= 16, "Tint roles must fit a nibble");
 static int has_custom_style;
 static unsigned selected_accent;
 static int selected_appearance = -1;
@@ -98,7 +107,13 @@ void cfw_theme_style_set(const struct cfw_theme_style *style,
                          const struct cfw_theme_options *options)
 {
     style_copy(&selected_style, style, sizeof(selected_style));
-    style_copy(&selected_options, options, sizeof(selected_options));
+    selected_options.flags = options->flags;
+    style_copy(selected_options.icon, options->icon, sizeof(selected_options.icon));
+    style_copy(selected_options.accents, options->accents,
+               sizeof(selected_options.accents));
+    for (unsigned i = 0; i < CFW_THEME_MAX_ASSETS; i += 2)
+        selected_options.tint[i / 2] =
+            (unsigned char)((options->tint[i] & 15) | (options->tint[i + 1] << 4));
     has_custom_style = 1;
 }
 
@@ -157,9 +172,9 @@ const unsigned char *cfw_theme_icon_color(int dark)
 
 static unsigned tint_role(unsigned index)
 {
-    return has_custom_style && index < CFW_THEME_MAX_ASSETS
-               ? selected_options.tint[index]
-               : CFW_TINT_NONE;
+    if (!has_custom_style || index >= CFW_THEME_MAX_ASSETS)
+        return CFW_TINT_NONE;
+    return (selected_options.tint[index / 2] >> (index % 2 * 4)) & 15;
 }
 
 int cfw_theme_tinted(unsigned index)
