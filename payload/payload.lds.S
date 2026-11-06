@@ -9,6 +9,7 @@ SECTIONS {
     __payload_start = .;
     __payload_file_offset = CFW_PAYLOAD_FILE_OFFSET;
     __osos_load_offset = OSOS_LOAD_OFFSET;
+    __payload_budget = CFW_PAYLOAD_BUDGET;
     .text : { *(.text.entry) *(.text*) *(.rodata*) }
     .data : { *(.data*) }
     . = ALIGN(4);
@@ -22,6 +23,8 @@ SECTIONS {
     __payload_limit = ALIGN(32);
     ASSERT(__payload_limit <= CFW_PAYLOAD_BASE + CFW_PAYLOAD_BYTES,
            "CFW payload exceeds reserved memory")
+    ASSERT(__payload_end <= CFW_PAYLOAD_BASE + CFW_PAYLOAD_BUDGET,
+           "CFW payload exceeds CFW_PAYLOAD_BUDGET in native/layout.h")
     .cfw.patch 0 (INFO) : { *(.cfw.patch) }
     /DISCARD/ : { *(.comment) *(.ARM.attributes) *(.ARM.exidx*) *(.ARM.extab*) }
 }

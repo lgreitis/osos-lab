@@ -92,9 +92,9 @@ def build_recipe(
         raise ValueError("Catalog bitmap slot is not word-aligned")
     patches = declarations.collect(directory, "payload", prefix)
     used = symbols["__payload_end"] - symbols["__payload_start"]
-    capacity = symbols["__payload_limit"] - symbols["__payload_start"]
+    budget = require(symbols, "__payload_budget")
     print(
-        f"CFW reservation: {used:,} / {capacity:,} bytes used; {capacity - used:,} free; "
+        f"CFW payload: {used:,} / {budget:,} bytes of budget; {budget - used:,} left; "
         f"heap base {symbols['__payload_limit']:#x}",
         flush=True,
     )

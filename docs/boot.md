@@ -51,6 +51,8 @@ may use at most `CFW_PAYLOAD_BYTES` (960 KiB). Each build appends only its linke
 size, rounded to 32 bytes, to the OSOS image; the companion copies those bytes into
 place. The OSOS patch moves the native heap start from `0x08b3b1b0` to the end of
 the linked payload, so every byte the payload links is taken from the heap.
+`CFW_PAYLOAD_BUDGET` (132 KiB) caps the linked size well below that maximum; the
+link fails when the payload exceeds it, so raising it is an explicit change.
 
 Native driver initialization matters: Rockbox disk reads do not establish
 that Apple's ATA and OSOS state are initialized. The companion resumes DXE
