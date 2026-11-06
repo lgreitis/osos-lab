@@ -4,20 +4,39 @@
 #include "native/bindings.h"
 #include "patches/sites.h"
 
-/* Dark-mode software colors and manifest-selected bitmap artwork. */
-PATCH_CALL(OSOS_GRAPHICS_FILL_RECT_CALL, OSOS_SURFACE_FILL_RECT, cfw_dark_mode_fill);
+/* Theme colors at native drawing sites. */
+PATCH_CALL(OSOS_GRAPHICS_FILL_RECT_CALL, OSOS_SURFACE_FILL_RECT, cfw_theme_fill);
 PATCH_CALL(OSOS_TEXT_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
-           cfw_dark_mode_text_color_hook);
+           cfw_theme_text_color_hook);
 PATCH_CALL(OSOS_MARQUEE_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
-           cfw_dark_mode_marquee_color_hook);
+           cfw_theme_marquee_color_hook);
+PATCH_CALL(OSOS_BITMAP_VIEW_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_bitmap_color_hook);
+PATCH_CALL(OSOS_SEARCH_KEY_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_search_key_color_hook);
+PATCH_CALL(OSOS_OPTION_BAR_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_option_bar_color_hook);
+PATCH_CALL(OSOS_BITMAP_VIEW_BLIT_CALL, OSOS_BITMAP_BLIT, cfw_theme_bitmap_blit_hook);
+PATCH_CALL(OSOS_BITMAP_VIEW_TILE_BLIT_CALL, OSOS_BITMAP_BLIT,
+           cfw_theme_bitmap_blit_hook);
+PATCH_CALL(OSOS_ROW_BITMAP_VIEW_BLIT_CALL, OSOS_BITMAP_BLIT,
+           cfw_theme_bitmap_blit_hook);
+PATCH_CALL(OSOS_ROW_BITMAP_VIEW_TILE_BLIT_CALL, OSOS_BITMAP_BLIT,
+           cfw_theme_bitmap_blit_hook);
 PATCH_CALL(OSOS_COVER_FLOW_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
-           cfw_dark_mode_clear_color);
+           cfw_theme_clear_color);
 PATCH_CALL(OSOS_ALBUM_ART_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
-           cfw_dark_mode_clear_color);
+           cfw_theme_clear_color);
 PATCH_CALL(OSOS_ARTWORK_REFLECTION_BLEND_CALL, OSOS_RGB565_BLEND_FIXED,
-           cfw_dark_mode_reflection_blend);
+           cfw_theme_reflection_blend);
+PATCH_POINTER(OSOS_ALBUM_ART_VIEW_DRAW_SLOT, OSOS_ALBUM_ART_VIEW_DRAW,
+              cfw_theme_album_art_view_draw);
+PATCH_CALL(OSOS_ALBUM_ART_DRAW_CALL, OSOS_ARTWORK_RENDERER_DRAW,
+           cfw_theme_album_art_draw);
+PATCH_CALL(OSOS_ALBUM_ART_EDGE_LINES_CALL, OSOS_ARTWORK_EDGE_LINES,
+           cfw_theme_album_art_edge_lines);
 PATCH_CALL(OSOS_VIEW_BACKGROUND_FILL_CALL, OSOS_GRAPHICS_FILL_RECT,
-           cfw_dark_mode_background_fill_hook);
+           cfw_theme_background_fill_hook);
 
 /* Shared Settings hooks */
 PATCH_POINTER(OSOS_SETTINGS_PROPERTY_SLOT, OSOS_SETTINGS_PROPERTY,
@@ -119,6 +138,9 @@ PATCH_CALL(OSOS_SELECT_ARTWORK_SOURCE_CALL, OSOS_SELECT_ARTWORK_SOURCE,
            cfw_album_artists_select_artwork);
 PATCH_CALL(OSOS_ALBUM_ARTWORK_CREATE_CALL, OSOS_ALBUM_ARTWORK_CREATE,
            cfw_album_artists_create_artwork);
+/* Menu Covers */
+/* Original entry: stmdb sp!,{r4-r6,lr}; mov r5,r0. */
+PATCH_JUMP(OSOS_MENU_ART_QUERY_ENTRY, 0xe92d4070, 0xe1a05000, cfw_menu_covers_query);
 PATCH_JUMP(OSOS_MODEL_DESTROY_ENTRY, 0xe92d4010, 0xe1a04000,
            cfw_album_artists_destroy_model);
 PATCH_POINTER(OSOS_SETTINGS_INDEXED_PROPERTY_SLOT, OSOS_SETTINGS_INDEXED_PROPERTY,
@@ -164,3 +186,7 @@ PATCH_CALL(OSOS_MEDIA_LIST_OTG_ADD_CALL, OSOS_OTG_ADD_BROWSER, cfw_queue_selecti
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_A, 0xe92d43f0, 0xe24dd06c, cfw_iap_auth_verify);
 /* stmdb sp!,{r2,r3,r4,lr}; cmp r1,#0 */
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_B, 0xe92d401c, 0xe3510000, cfw_iap_auth_verify);
+
+/* Release repeat-press suppression only after the UI message queue drains. */
+PATCH_CALL(OSOS_UI_DRAIN_MESSAGE_CALL, OSOS_UI_PROCESS_MESSAGE,
+           cfw_theme_input_dispatch);

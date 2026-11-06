@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ui.h"
+#include "theme_settings.h"
 #include "osos.h"
 #include "patch.h"
 
@@ -83,6 +84,7 @@ static PATCH_ARM void *range_create(const char *name, uint32_t screen, uint32_t 
 
 void cfw_ui_register_controllers(void)
 {
+    cfw_theme_settings_register();
     void *registry = osos_controller_registry();
     osos_ui_register_controllers(registry, "CFWRange", 0, range_create);
 }

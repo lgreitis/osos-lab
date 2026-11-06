@@ -5,9 +5,15 @@ import hashlib
 import json
 import struct
 
-HEADER = struct.Struct("<4s32sIII")
+# RTH4 appearance pack: magic, catalog hash, appearance (0 light, 1 dark), body bytes,
+# record count and body CRC32. The body is the style prefix followed by records.
+HEADER = struct.Struct("<4s32sIIII")
 RECORD = struct.Struct("<III")
-MAGIC = b"RTH3"
+MAGIC = b"RTH4"
+# Upper bound on catalog assets, mirrored by CFW_THEME_MAX_ASSETS in the payload.
+# The style prefix carries one tint role byte per asset (TINT_BYTES bytes).
+MAX_ASSETS = 640
+TINT_BYTES = MAX_ASSETS
 
 
 def digest(data):

@@ -4,6 +4,8 @@
 import json
 import struct
 
+from ..bitmap import BMAP_HEADER_BYTES, pack_runs
+from ..catalog import CATALOG_ID_BASE
 from .resources import Resource
 
 
@@ -146,18 +148,98 @@ def emit_resource_data(name, data, *, mutable=False, aligned=False):
     return lines
 
 
+def emit_catalog_bitmaps(resources):
+    """The payload's catalog bitmaps (payload/catalog_bitmaps.h): run-packed pixels
+    in catalog order, their built-in and live source tables, the BMap header they
+    share and the resident slot that holds the one decoded last."""
+    bitmaps = [bitmap for _, _, bitmap in resources.catalog]
+    header = bitmaps[0][:BMAP_HEADER_BYTES] if bitmaps else bytes(BMAP_HEADER_BYTES)
+    if any(bitmap[:BMAP_HEADER_BYTES] != header for bitmap in bitmaps):
+        raise ValueError("Catalog bitmaps must share one size and format")
+    pixel_bytes = len(bitmaps[0]) - BMAP_HEADER_BYTES if bitmaps else 0
+    packed = bytearray()
+    sources = []
+    for bitmap in bitmaps:
+        data = pack_runs(bitmap[BMAP_HEADER_BYTES:])
+        sources.append(f"{{cfw_catalog_packed + {len(packed)}, {len(data)}}}")
+        packed += data
+    sources = sources or ["{0, 0}"]
+    lines = [
+        '#include "catalog_bitmaps.h"',
+        f"_Static_assert({len(bitmaps)} <= CFW_CATALOG_MAX_BITMAPS, "
+        '"Too many catalog bitmaps");',
+        *emit_bytes("static const unsigned char cfw_catalog_packed[]", packed or b"\0"),
+        "const struct cfw_catalog_source cfw_catalog_builtin[] = {",
+        *(f"    {source}," for source in sources),
+        "};",
+        "struct cfw_catalog_source cfw_catalog_sources[] = {",
+        *(f"    {source}," for source in sources),
+        "};",
+        *emit_bytes(
+            "const unsigned char cfw_catalog_header[] __attribute__((aligned(4)))",
+            header,
+        ),
+        "unsigned char cfw_catalog_slot[CFW_BMAP_HEADER_BYTES + "
+        f"{max(pixel_bytes, 4)}] __attribute__((aligned(4)));",
+        f"const uint32_t cfw_catalog_bitmap_count = {len(bitmaps)},",
+        f"               cfw_catalog_pixel_bytes = {pixel_bytes},",
+        f"               cfw_catalog_id_base = {CATALOG_ID_BASE:#x};",
+        "",
+    ]
+    return lines
+
+
+def emit_bytes(declaration, data):
+    lines = [declaration + " = {"]
+    for start in range(0, len(data), 16):
+        lines.append(
+            "    "
+            + ", ".join(f"0x{byte:02x}" for byte in data[start : start + 16])
+            + ","
+        )
+    return lines + ["};"]
+
+
 def emit_resources(resources):
+    """Resource table entries carry a 16-bit size and a kind index into the
+    FourCC table; resources with identical bytes and template copies share one
+    array. resources.emitted maps (kind, id) to the array symbol of each entry."""
     lines = []
     entries = []
-    for i, ((kind, resource_id), data) in enumerate(resources.added.items()):
-        # Native BMap readers load header fields and pixels as halfwords/words.
-        lines.extend(emit_resource_data(f"resource_{i}", data, aligned=kind == "BMap"))
-        resource_type = int.from_bytes(kind.encode("ascii"), "big")
-        entries.append(
-            f"    {{{resource_type:#x}, {resource_id:#x}, sizeof(resource_{i}), resource_{i}}},"
-        )
+    kinds = []
+    arrays = {}
 
-    lines += ["", "const struct cfw_resource cfw_resources[] = {", *entries, "};"]
+    def kind_index(kind):
+        resource_type = int.from_bytes(kind.encode("ascii"), "big")
+        if resource_type not in kinds:
+            kinds.append(resource_type)
+        return kinds.index(resource_type)
+
+    def entry(resource_id, kind, data, size):
+        if size > 0xFFFF:
+            raise ValueError(f"CFW resource {resource_id:#x} exceeds 65535 bytes")
+        entries.append(f"    {{{resource_id:#x}, {data}, {size}, {kind_index(kind)}}},")
+
+    resources.emitted = {}
+    for (kind, resource_id), data in resources.added.items():
+        data = Resource(data)
+        # Native BMap readers load header fields and pixels as halfwords/words.
+        aligned = kind == "BMap"
+        key = (bytes(data.data), tuple(data.copies()), aligned)
+        name = arrays.get(key)
+        if name is None:
+            name = arrays[key] = f"resource_{len(arrays)}"
+            lines.extend(emit_resource_data(name, data, aligned=aligned))
+        resources.emitted[kind, resource_id] = name
+        entry(resource_id, kind, name, len(data))
+
+    lines += [
+        "",
+        array("cfw_resource_kinds", kinds, public=True),
+        "const struct cfw_resource cfw_resources[] = {",
+        *entries,
+        "};",
+    ]
     lines.append(f"const uint32_t cfw_resource_count = {len(entries)};")
     lines.append("const struct cfw_resource_name cfw_resource_names[] = {")
     for name, resource_id in resources.names.items():

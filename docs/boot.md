@@ -46,8 +46,13 @@ bootloader builds share the file-loading and memory interface.
 
 ## Current memory layout
 
-The payload occupies 1 MiB at `0x08b33000`. The OSOS patch moves the heap start
-to `0x08c33000`, and the companion copies the appended payload into that reservation.
+The payload is linked at `CFW_PAYLOAD_BASE` (`0x08b3c000`, above Apple's BSS) and
+may use at most `CFW_PAYLOAD_BYTES` (960 KiB). Each build appends only its linked
+size, rounded to 32 bytes, to the OSOS image; the companion copies those bytes into
+place. The OSOS patch moves the native heap start from `0x08b3b1b0` to the end of
+the linked payload, so every byte the payload links is taken from the heap.
+`CFW_PAYLOAD_BUDGET` (132 KiB) caps the linked size well below that maximum; the
+link fails when the payload exceeds it, so raising it is an explicit change.
 
 Native driver initialization matters: Rockbox disk reads do not establish
 that Apple's ATA and OSOS state are initialized. The companion resumes DXE

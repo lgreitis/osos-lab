@@ -10,6 +10,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from patching.catalog import CATALOG_ID_BASE
 from patching.ui import generate, parser
 from patching.ui.codegen import emit_header, emit_visibility
 from patching.ui.compiler import DocumentCompiler, compile_document
@@ -317,14 +318,21 @@ class UiTests(unittest.TestCase):
                 (0x8900 if kind == "BMap" else 0x80, 1),
             )
             resource_id = word(binding, 4)
-            content = resources.added[kind, resource_id].data
             if kind == "BMap":
+                # Preview glyphs join the theme catalog as 8-bit masks in the
+                # payload's catalog bitmaps rather than being embedded as plain
+                # resources.
                 self.assertEqual(resource_id, resources.names["CFW_Info_Icon"])
+                self.assertEqual(resource_id, CATALOG_ID_BASE)
+                self.assertNotIn((kind, resource_id), resources.added)
+                name, catalog_id, content = resources.catalog[0]
+                self.assertEqual((name, catalog_id), ("CFW_Info_Icon", resource_id))
                 self.assertEqual(
                     struct.unpack_from("<HHHHiiiii", content),
                     (8, 0, 80, 8, 0, 0, 121, 78, 9680),
                 )
             else:
+                content = resources.added[kind, resource_id].data
                 self.assertEqual(content, b"RepriseOS\0")
         appended = b"".join(
             resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
@@ -334,7 +342,165 @@ class UiTests(unittest.TestCase):
         )
         self.assertIn(b"CFW_Info_Screen", appended)
         self.assertIn(b"navigator.PushScreen", appended)
+        # Full-screen pages keep the foreground push; see the Theme test below.
+        self.assertIn(b"foregroundpush", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
+
+    def test_theme_and_accent_previews_use_static_icons_with_live_captions(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        for menu, source_file in (
+            ("CFW_Theme", "theme_settings.ui"),
+            ("CFW_Accent", "accent_settings.ui"),
+            ("CFW_MenuCovers", "menu_covers.ui"),
+        ):
+            resources = Resources(metadata["resources"], bindings)
+            with tempfile.TemporaryDirectory() as directory:
+                generate(
+                    resources, [root / "payload" / source_file], Path(directory), "test"
+                )
+            self.assertIn(menu + "_Icon", resources.names)
+            self.assertIn(menu + "_PreviewText", resources.names)
+            self.assertNotIn(menu + "_PreviewImage", resources.names)
+            layout = resources.added["SLyt", resources.names[menu + "_Preview"]]
+            screen = resources.added["SSin", word(blocks(layout)[0][1], 0)]
+            preview_id = next(
+                word(data, 8)
+                for _, data in blocks(screen)
+                if word(data, 4) == 0x0DAD0C2E
+            )
+            views = dict(blocks(resources.added["VLyt", preview_id]))
+            for view, name in (
+                ("Settings_Icon_View", menu + "_Icon"),
+                ("Settings_InfoDetail_View", menu + "_PreviewText"),
+            ):
+                options = dict(blocks(views[bindings[view]]))
+                source = resources.added["SORC", word(options[0x534F5243], 0)]
+                binding = blocks(source)[0][1]
+                self.assertEqual(
+                    (word(binding, 0), word(binding, 4), word(binding, 8)),
+                    (0x8900, resources.names[name], 1),
+                )
+            [(name, catalog_id, content)] = resources.catalog
+            self.assertEqual((name, catalog_id), (menu + "_Icon", CATALOG_ID_BASE))
+            self.assertEqual(
+                struct.unpack_from("<HHHHiiiii", content),
+                (8, 0, 80, 8, 0, 0, 121, 78, 9680),
+            )
+
+    def test_menu_covers_toggle_follows_dark_mode_with_a_static_icon(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        with tempfile.TemporaryDirectory() as directory:
+            generate(
+                resources,
+                [root / "payload/dark_mode.ui", root / "payload/menu_covers.ui"],
+                Path(directory),
+                "test",
+            )
+            row_ids = [
+                int(
+                    re.search(
+                        rf"#define {name}_Item (0x[0-9a-f]+)u",
+                        (Path(directory) / header).read_text(),
+                    ).group(1),
+                    16,
+                )
+                for name, header in (
+                    ("CFW_DarkMode", "dark_mode_ui.h"),
+                    ("CFW_MenuCovers", "menu_covers_ui.h"),
+                )
+            ]
+        rows = menu_rows(resources, bindings["SettingsMenu_Items"])
+
+        def item(row):
+            # Generated rows store their ids literally; native rows come from
+            # templates, and only the catalogued ones expose an id.
+            if row.origins[0x30] is None:
+                return int.from_bytes(bytes(row.data[0x30:0x34]), "little")
+            try:
+                return word(row, 0x30)
+            except ValueError:
+                return None
+
+        items = [item(row) for _, row in rows]
+        brightness = items.index(0x0DAD0C72)
+        self.assertEqual(items[brightness + 1 : brightness + 3], row_ids)
+        appended = b"".join(
+            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
+        )
+        self.assertIn(b"CFW_MenuCovers_Toggle", appended)
+        self.assertNotIn(b"CFW_MenuCovers_Screen", appended)
+        self.assertNotIn("CFW_MenuCovers_PreviewImage", resources.names)
+        self.assertIn("CFW_MenuCovers_PreviewText", resources.names)
+        self.assertEqual(
+            [name for name, _, _ in resources.catalog],
+            ["CFW_DarkMode_Moon", "CFW_MenuCovers_Icon"],
+        )
+
+    def test_theme_list_uses_native_rows_and_explicit_controller(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.read(root / "payload/theme_settings.ui")
+        resources.allocate("CFW_Theme_Icon")
+        compiled = compile_document(resources, document)
+        screen = resources.names["CFW_Theme_Screen"]
+        self.assertEqual(resources.added["SCST", screen].data, b"CFWTheme")
+        events = resources.added["CEVT", screen].data
+        self.assertIn(b"CFW_Theme_Select", events)
+        self.assertIn(b"navigator.PopTopScreen", events)
+        self.assertIn(b"navigator.SwitchLayout", events)
+        self.assertIn(b"CFW_Theme_Preview", events)
+        self.assertLess(
+            events.index(b"navigator.PopTopScreen"),
+            events.index(b"navigator.SwitchLayout"),
+        )
+        self.assertIn("CFW_Theme_Choices", compiled.string_ids)
+        # Half-screen Settings rows push like native EQ: no transition name, so
+        # only the list pane animates and the preview pane stays put.
+        appended = b"".join(
+            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
+        )
+        self.assertIn(b"navigator.PushScreen", appended)
+        self.assertIn(b"CFW_Theme_Screen", appended)
+        self.assertIn(b"CFW_Theme_Layout", appended)
+        self.assertNotIn(b"foregroundpush", appended)
+        self.assertEqual(len(resources.menu_items), 1)
+        self.assertEqual(
+            word(resources.menu_items[0][3], 0x30),
+            compiled.string_ids["CFW_Theme_Item"],
+        )
+        self.assertFalse(compiled.fields)
+        tables = [data for (kind, _), data in resources.added.items() if kind == "ITEM"]
+        self.assertEqual(len(tables), 1)
+        rows = blocks(tables[0])
+        self.assertEqual(len(rows), 1)
+        layout = resources.names["CFW_Theme_Layout"]
+        instances = [
+            instance
+            for _, group in blocks(resources.added["SLyt", layout])
+            for _, instance in blocks(resources.current("SSin", word(group, 0)))
+        ]
+        # Native Settings uses a 160-pixel list and status bar beside its preview.
+        native_layouts = {
+            word(instance, 4): word(instance, 8) for instance in instances
+        }
+        self.assertEqual(native_layouts[0x0DAD01B2], 0x0DAD01B7)
+        self.assertEqual(native_layouts[0x0DAD01A1], 0x0DAD01A8)
+        self.assertIn(0x0DAD0C2E, native_layouts)  # Settings image/text preview
+        list_instance = next(i for i in instances if word(i, 4) == 0x0DAD01B2)
+        self.assertNotIn(("VCvs", word(list_instance, 0)), resources.added)
+        binding = dict(blocks(resources.current("VSlt", screen)))[0x3F1]
+        self.assertEqual(word(binding, 0), 0x0DAD01B3)
+        bound_rows = blocks(resources.current("ITEM", word(binding, 4)))
+        self.assertEqual(word(bound_rows[0][1], 0x30), word(rows[0][1], 0x30))
+        prototype = blocks(resources.stock("ITEM", "Settings_EQ_Items"))[0][1]
+        self.assertEqual(rows[0][1][0x60:0x64].origins, prototype[0x60:0x64].origins)
 
     def test_settings_toggle_preserves_stock_rows_and_has_no_navigation(self):
         root = Path(__file__).resolve().parents[2]
@@ -536,6 +702,30 @@ class UiTests(unittest.TestCase):
         resources.bindings.clear()
         with self.assertRaises(KeyError):
             resources.bind_screen_event(document.events[0])
+
+    def test_screen_controller_replaces_native_controller_name(self):
+        document = parser.parse(
+            '<ui><screen-controller screen="Settings" controller="CFWSettingsMain"/></ui>'
+        )
+        resources = Resources([], {"Settings": 10})
+        resources.original = {("SCST", 10): b"TSilverSettingsMenuListCntlr"}
+        compile_document(resources, document)
+        self.assertEqual(resources.added["SCST", 10].data, b"CFWSettingsMain")
+        self.assertEqual(
+            resources.original["SCST", 10], b"TSilverSettingsMenuListCntlr"
+        )
+        for declaration in (
+            '<screen-controller screen="Settings" controller="CFW Main"/>',
+            '<screen-controller screen="Settings"/>',
+            '<screen-controller screen="Settings" controller="A"/>'
+            '<screen-controller screen="Settings" controller="B"/>',
+        ):
+            with self.subTest(declaration=declaration), self.assertRaises(ValueError):
+                parser.parse(f"<ui>{declaration}</ui>")
+        missing = Resources([], {"Settings": 10})
+        missing.original = {}
+        with self.assertRaises(KeyError):
+            compile_document(missing, document)
 
     def test_screen_events_are_one_extension_for_all_layouts(self):
         document = parser.parse(

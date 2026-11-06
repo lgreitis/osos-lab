@@ -18,6 +18,7 @@ from themes.compiler import (
     encode_pixels,
     fit_palette,
 )
+from themes.style import STYLE_BYTES, classic_style
 
 
 def indexed(depth=8):
@@ -94,17 +95,18 @@ class ThemeTests(unittest.TestCase):
             (root / "image.png").write_bytes(png(4, 1, 6, b"\0" + rgba))
             with contextlib.redirect_stdout(io.StringIO()):
                 pack = compile_theme(catalog, manifest)
-            magic, fingerprint, count, size, crc = HEADER.unpack_from(pack)
+            magic, fingerprint, appearance, size, count, crc = HEADER.unpack_from(pack)
             self.assertEqual(
-                (magic, fingerprint, count), (MAGIC, catalog_hash(catalog), 1)
+                (magic, fingerprint, appearance, count),
+                (MAGIC, catalog_hash(catalog), 1, 1),
             )
             self.assertEqual(size, len(pack) - HEADER.size)
             self.assertEqual(crc, zlib.crc32(pack[HEADER.size :]))
-            index, offset, length = RECORD.unpack_from(pack, HEADER.size)
+            records = HEADER.size + STYLE_BYTES
+            self.assertEqual(pack[HEADER.size : records], classic_style("dark"))
+            index, offset, length = RECORD.unpack_from(pack, records)
             self.assertEqual((index, offset, length), (0, 32, len(original) - 32))
-            pixels = pack[
-                HEADER.size + RECORD.size : HEADER.size + RECORD.size + length
-            ]
+            pixels = pack[records + RECORD.size : records + RECORD.size + length]
             self.assertEqual(
                 pixels, bytes([30, 20, 10, 50, 60, 50, 40, 70, 0, 1, 0, 1])
             )
@@ -113,12 +115,10 @@ class ThemeTests(unittest.TestCase):
             (root / "image.png").write_bytes(png(4, 1, 6, b"\0" + rgba))
             with contextlib.redirect_stdout(io.StringIO()):
                 pack = compile_theme(catalog, manifest)
-            index, offset, length = RECORD.unpack_from(pack, HEADER.size)
+            index, offset, length = RECORD.unpack_from(pack, records)
             self.assertEqual(index, 0)
             self.assertGreaterEqual(offset, catalog["bitmaps"][0]["data_offset"])
-            pixels = pack[
-                HEADER.size + RECORD.size : HEADER.size + RECORD.size + length
-            ]
+            pixels = pack[records + RECORD.size : records + RECORD.size + length]
             self.assertTrue(all(index < 2 for index in pixels[8:]))
 
     def test_palette_reduction_preserves_transparency_and_opaque_art(self):

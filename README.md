@@ -47,7 +47,10 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Song Info from song and Now Playing context menus.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
-- Dark Mode, with an On/Off toggle in Settings.
+- Themes with custom colors and artwork, plus a Dark Mode toggle in Settings.
+- Menu Covers setting in Settings to replace the main and Music menu cover
+  previews with the stock static icons: On, Off, or Theme to follow the active
+  theme's default.
 
 Open **Settings → Custom EQ → Graphic EQ** to edit all five bands. Use the wheel
 to select a band, then Center to select and edit its Type, Gain, Frequency or Q.
@@ -94,9 +97,9 @@ python3.11 tools/release.py --cross-prefix /path/to/bin/arm-elf-eabi- --jobs 8
 This builds `build/releases/classic/repriseos.zip` without Apple firmware inputs.
 Bundles contain compiled patches, assembly recipes, the NOR installer, and the
 USB helper. Assembly combines them with the 2.0.5 IPSW-derived inputs and the
-device's NOR identity. Schema 2 bundles require installer **0.2.0 or newer**;
-installer 0.1.x does not support this format. Local ZIPs use compatibility
-and hash checks; downloaded releases use signed manifests. Never copy a
+device's NOR identity. Current theme-enabled bundles require installer
+**0.2.9 or newer**. The installer generates stock restoration artwork from the
+verified Apple input. Local ZIPs use compatibility and hash checks; downloaded releases use signed manifests. Never copy a
 personalized companion between devices. Resources currently come from the
 installed Apple resource partition; dedicated resources are deferred.
 
@@ -127,6 +130,10 @@ annotation directory. Logs are in `.build/ghidra-*.log`; all tools expose `--hel
 - [wInd3x](https://github.com/freemyipod/wInd3x) by Serge “q3k” Bazanski:
   the BootROM exploit, DFU protocol, and payload assembler code ported from Go
   to Rust in `reprise-device`, including `payload.rs` and `dfu.rs`.
+- [Cupertino Icons](https://github.com/flutter/packages/tree/main/third_party/packages/cupertino_icons)
+  (Framework7 Icons) by Vladimir Kharlampidi, MIT License: the Dark Mode, Menu
+  Covers, Theme, Accent Color, Custom EQ and CFW Info preview glyphs in
+  `payload/assets/`. See `payload/assets/LICENSE.cupertino-icons`.
 
 ## Support
 

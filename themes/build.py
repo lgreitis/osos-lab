@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from ui_metadata import Templates
 
+from patching.catalog import payload_entries
 from patching.theme_format import catalog_bytes, digest
 from themes.compiler import compile_theme, describe
 
@@ -40,6 +41,8 @@ def metadata(data):
         candidates = names.get(rid, set())
         name = next(iter(candidates)) if len(candidates) == 1 else ""
         bitmaps.append(describe(rid, offset, data[offset : offset + size], name))
+    # The payload's catalog bitmap block follows the firmware bitmaps.
+    bitmaps.extend(payload_entries(ROOT / "payload", describe))
     return {
         "schema": 1,
         "input": {"bytes": len(data), "sha256": digest(data)},
@@ -65,7 +68,7 @@ def main():
     parser.add_argument(
         "--out",
         type=Path,
-        help="Output file (default: build/themes/dark/theme.bin)",
+        help="Output file (default: build/themes/classic/dark.bin)",
     )
     args = parser.parse_args()
     try:
@@ -78,7 +81,7 @@ def main():
             print(f"Wrote {len(catalog['bitmaps'])} bitmap budgets: {args.metadata}")
         else:
             catalog = json.loads(args.metadata.read_text())
-            out = args.out or ROOT / "build/themes/dark/theme.bin"
+            out = args.out or ROOT / "build/themes/classic/dark.bin"
             pinned = json.loads((ROOT / "firmware/ui.json").read_text())["input"]
             if catalog["schema"] != 1 or catalog["input"] != pinned:
                 raise ValueError("Expected metadata for the pinned original OSOS image")

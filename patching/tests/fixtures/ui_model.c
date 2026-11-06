@@ -159,6 +159,11 @@ static void register_controllers(void *r, const char *name, void *ordinary,
 }
 
 #include "../../../payload/ui.c"
+
+void cfw_theme_settings_register(void)
+{
+}
+
 #include "../../../payload/ui_range.c"
 
 int main(void)

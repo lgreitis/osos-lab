@@ -15,7 +15,8 @@ cfw_preferences_hook:
     ldr r12, =OSOS_PREFERENCES_LOAD
     blx r12
     bl cfw_eq_load_preferences
-    bl cfw_dark_mode_load
+    bl cfw_theme_settings_load
+    bl cfw_menu_covers_load
     pop {r4, pc}
 .ltorg
 

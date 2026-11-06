@@ -88,7 +88,14 @@ def read_png(path):
     return width, height, bytes(pixels)
 
 
+# Native BMap header: format, reserved, stride, depth, two reserved words, height,
+# width and content length.
+BMAP_HEADER = "<HHHHiiiii"
+BMAP_HEADER_BYTES = struct.calcsize(BMAP_HEADER)
+
+
 def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=False):
+    """Native BMap bytes. gray8 writes an opaque grayscale mask (format 8)."""
     if len(rgba) != width * height * 4:
         raise ValueError("RGBA pixel length does not match its dimensions")
     colors = list(dict.fromkeys(rgba[i : i + 4] for i in range(0, len(rgba), 4)))
@@ -98,7 +105,8 @@ def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=
         raise ValueError("RGB565 textures require an opaque PNG")
     indexed = allow_indexed and not (rgb565 or gray8) and len(colors) <= 256
     depth = 16 if rgb565 else 8 if indexed or gray8 else 32
-    stride = (width * (depth // 8) + 3) & ~3
+    row = (width * depth + 7) // 8
+    stride = (row + 3) & ~3
     if not width or not height or stride > 0x7FFF:
         raise ValueError("Bitmap dimensions exceed the native row stride")
     palette = {color: index for index, color in enumerate(colors)} if indexed else {}
@@ -117,9 +125,9 @@ def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=
                 content.extend(struct.pack("<H", pixel))
             else:
                 content.extend((palette[p],) if indexed else (p[2], p[1], p[0], p[3]))
-        content.extend(bytes(stride - width * (depth // 8)))
+        content.extend(bytes(stride - row))
     header = struct.pack(
-        "<HHHHiiiii",
+        BMAP_HEADER,
         8 if gray8 else 0x565 if rgb565 else 0x64 if indexed else 0x1888,
         0,
         stride,
@@ -131,3 +139,66 @@ def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=
         len(content),
     )
     return header + content
+
+
+# Run packing of catalog bitmap pixels. Each run starts with a control byte whose
+# top two bits pick its kind and whose low six bits hold its length minus one:
+# literals (the bytes follow), zeros, or copies of the byte that follows.
+RUN_LITERALS, RUN_ZEROS, RUN_REPEAT = 0x00, 0x40, 0x80
+RUN_MAX = 64
+
+
+def pack_runs(data):
+    """Run-pack bytes the way payload/catalog_bitmaps.c does: a run of at least
+    three equal bytes, or two zeros, ends the pending literals."""
+    out = bytearray()
+    literals = bytearray()
+
+    def flush():
+        if literals:
+            out.append(RUN_LITERALS | (len(literals) - 1))
+            out.extend(literals)
+            literals.clear()
+
+    at = 0
+    while at < len(data):
+        value = data[at]
+        run = 1
+        while run < RUN_MAX and at + run < len(data) and data[at + run] == value:
+            run += 1
+        if run >= 3 or (run == 2 and not value):
+            flush()
+            if value:
+                out += bytes((RUN_REPEAT | (run - 1), value))
+            else:
+                out.append(RUN_ZEROS | (run - 1))
+            at += run
+        else:
+            if len(literals) == RUN_MAX:
+                flush()
+            literals.append(value)
+            at += 1
+    flush()
+    return bytes(out)
+
+
+def unpack_runs(packed, size):
+    out = bytearray()
+    at = 0
+    while at < len(packed):
+        control = packed[at]
+        kind, count = control & 0xC0, (control & 0x3F) + 1
+        at += 1
+        if kind == RUN_LITERALS:
+            out += packed[at : at + count]
+            at += count
+        elif kind == RUN_ZEROS:
+            out += bytes(count)
+        elif kind == RUN_REPEAT and at < len(packed):
+            out += bytes((packed[at],)) * count
+            at += 1
+        else:
+            raise ValueError("Malformed packed bitmap")
+    if at != len(packed) or len(out) != size:
+        raise ValueError("Packed bitmap does not match its size")
+    return bytes(out)

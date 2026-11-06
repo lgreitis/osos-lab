@@ -21,6 +21,7 @@ class Item:
     slot: int = 0
     default_index: int = 0
     text_file: str = ""
+    controller: str = ""
     hide_when_zero: bool = False
     items: list["Item"] = field(default_factory=list)
 
@@ -42,10 +43,13 @@ class Document:
     open_action: str = ""
     strings: dict[str, str] = field(default_factory=dict)
     events: list[ScreenEvent] = field(default_factory=list)
+    controllers: dict[str | int, str] = field(default_factory=dict)
     music_entry: dict[str, str] | None = None
     preview: str = ""
     preview_image: str = ""
     preview_caption: str = ""
+    # name -> (file, format): "auto" embeds a native bitmap; "gray8" adds an 8-bit
+    # mask to the payload's catalog bitmaps, where themes can replace it.
     bitmaps: dict[str, tuple[str, str]] = field(default_factory=dict)
 
 

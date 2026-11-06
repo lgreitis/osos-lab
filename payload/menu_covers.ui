@@ -1,0 +1,10 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <toggle id="CFW_MenuCovers" title="Menu Covers"/>
+  <bitmap id="CFW_MenuCovers_Icon" file="assets/settings-covers.png" format="gray8"/>
+  <string id="CFW_MenuCovers_OnLabel" text="Album Covers"/>
+  <string id="CFW_MenuCovers_OffLabel" text="Static Icons"/>
+  <string id="CFW_MenuCovers_ThemeLabel" text="Theme"/>
+  <settings-entry menu="CFW_MenuCovers" after="SettingsMenu_ListItem_Brightness"
+                  preview="image" image="CFW_MenuCovers_Icon"/>
+</ui>

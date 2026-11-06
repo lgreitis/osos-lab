@@ -7,7 +7,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from patching.bitmap import encode_bmap, read_png
+from patching.bitmap import encode_bmap, pack_runs, read_png, unpack_runs
 
 
 def chunk(kind, data):
@@ -129,3 +129,17 @@ class BitmapTests(unittest.TestCase):
         )
         self.assertEqual(struct.unpack_from("<HHHH", texture), (0x565, 0, 4, 16))
         self.assertEqual(texture[28:], struct.pack("<2H", 0xF800, 0))
+
+    def test_run_packing_round_trips_and_bounds_expansion(self):
+        data = bytes((7, 7, 7, 0, 0, 1, 2, 0, 3, 3)) + bytes(70) + bytes(range(1, 131))
+        packed = pack_runs(data)
+        self.assertEqual(packed[:4], bytes((0x82, 7, 0x41, 0x04)))
+        self.assertEqual(unpack_runs(packed, len(data)), data)
+        # Incompressible input costs one control byte per 64 literals.
+        noise = bytes((i * 7 + 1) % 251 or 1 for i in range(9680))
+        noise = bytes(b if i % 2 else b ^ 0x80 for i, b in enumerate(noise))
+        self.assertEqual(len(pack_runs(noise)), 9680 + 152)
+        self.assertEqual(unpack_runs(pack_runs(noise), 9680), noise)
+        for bad in (b"\xc0", b"\x02\x01", b"\x80", b"\x41\x40"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                unpack_runs(bad, 2)

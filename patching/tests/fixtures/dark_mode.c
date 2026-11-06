@@ -6,6 +6,10 @@
 static void fill(void *, const void *, const unsigned char *, uint32_t, void *);
 #undef OSOS_SURFACE_FILL_RECT
 #define OSOS_SURFACE_FILL_RECT ((uintptr_t)fill)
+/* Stands in for the native system palette's white entry. */
+static const unsigned char palette_white[4] = {255, 255, 255, 255};
+#undef OSOS_PALETTE_WHITE
+#define OSOS_PALETTE_WHITE ((uintptr_t)palette_white)
 /* Native layout assertions assume 32-bit pointers; this fixture runs on the host. */
 #define _Static_assert(...)
 #include "../../../payload/osos.h"
@@ -17,30 +21,7 @@ static void fill(void *, const void *, const unsigned char *, uint32_t, void *);
 #define CFW_PATCH_H
 #define PATCH_ARM
 
-static int assets_ready = 1, assets_active, asset_cancellations;
-
-int cfw_assets_prepare(void)
-{
-    return assets_ready;
-}
-
-void cfw_assets_cancel(void)
-{
-    asset_cancellations++;
-}
-
-void cfw_assets_set_enabled(int value)
-{
-    assets_active = value;
-}
-
-int cfw_assets_enabled(void)
-{
-    return assets_active;
-}
-
-static uint32_t disk_record, disk_size = 4;
-static int missing = 1, fail_write, writes, closes, redraws, notifications;
+static int notifications, toggles;
 static int controller, surface;
 
 static struct {
@@ -48,49 +29,11 @@ static struct {
     void *preferences;
 } model;
 
-static int now_playing, now_playing_available = 1, icon_notifications;
-static unsigned icon_invalidations;
-static unsigned preview_invalidations;
 static unsigned char drawn[4];
 static int direct_fill;
 static unsigned char *drawing_context;
 static unsigned char bitmap[32];
 static uint32_t ordinary_view[0xa4 / 4];
-
-static int file_open(const struct osos_path *path, int mode, void **handle)
-{
-    assert(!strcmp(path->text, "iPod_Control\\Device\\CFWDark"));
-    if (mode == 1 && missing)
-        return -1;
-    *handle = &disk_record;
-    return 0;
-}
-
-static int file_read(void *handle, void *out, uint32_t size, uint32_t *count)
-{
-    assert(handle == &disk_record && size == 4);
-    memcpy(out, &disk_record, 4);
-    *count = disk_size;
-    return 0;
-}
-
-static int file_write(void *handle, const void *record, uint32_t size, uint32_t *count)
-{
-    assert(handle == &disk_record && size == 4);
-    writes++;
-    *count = fail_write ? 0 : size;
-    if (!fail_write) {
-        memcpy(&disk_record, record, size);
-        missing = 0;
-    }
-    return 0;
-}
-
-static void file_close(void *handle)
-{
-    assert(handle == &disk_record);
-    closes++;
-}
 
 static void *settings_model(void *value)
 {
@@ -103,39 +46,9 @@ static uintptr_t on_off(int value)
     return value ? 2 : 1;
 }
 
-static void *now_playing_model(void)
-{
-    return now_playing_available ? &now_playing : NULL;
-}
-
-static void invalidate(void)
-{
-    assert(icon_invalidations == (now_playing_available ? 3u : 0u));
-    assert(preview_invalidations == 3);
-    icon_invalidations = 0;
-    preview_invalidations = 0;
-    redraws++;
-}
-
 static void notify(void *value, uint32_t type, uint32_t property)
 {
-    if (value == &now_playing) {
-        assert(type == OSOS_RESOURCE_DRAW);
-        assert(property == 0x7f0c || property == 0x7f0d);
-        assert(cfw_dark_mode_enabled() == (disk_record == 0x314b5244));
-        unsigned bit = 1u << (property - 0x7f0c);
-        assert(!(icon_invalidations & bit));
-        icon_invalidations |= bit;
-        icon_notifications++;
-        return;
-    }
     assert(value == &model && type == OSOS_NOTIFY_ALL);
-    if (property == CFW_DarkMode_PreviewImage || property == CFW_DarkMode_PreviewText) {
-        unsigned bit = property == CFW_DarkMode_PreviewImage ? 1 : 2;
-        assert(!(preview_invalidations & bit));
-        preview_invalidations |= bit;
-        return;
-    }
     (void)property;
     notifications++;
 }
@@ -160,12 +73,13 @@ static void text_color(void *target, const unsigned char *color)
     memcpy(drawn, color, 4);
 }
 
-static int clear_rgb, clear_alpha;
+static int clear_rgb[3], clear_alpha;
 
 static void clear_color(int red, int green, int blue, int alpha)
 {
-    assert(red == green && green == blue);
-    clear_rgb = red;
+    clear_rgb[0] = red;
+    clear_rgb[1] = green;
+    clear_rgb[2] = blue;
     clear_alpha = alpha;
 }
 
@@ -194,27 +108,157 @@ static void graphics_fill(void *context, const int32_t *rect);
 #define osos_graphics_fill_rect graphics_fill
 #define osos_ui_string resource
 #define osos_ui_bitmap resource
-#define osos_file_open file_open
-#define osos_file_read file_read
-#define osos_file_write file_write
-#define osos_file_close file_close
 #define osos_settings_model settings_model
 #define osos_settings_on_off on_off
 #define osos_model_notify notify
-#define osos_now_playing_model now_playing_model
-#define osos_ui_invalidate invalidate
 #define osos_surface_fill_rect fill
 #define osos_graphics_set_color text_color
+static int renderer_draws, edge_line_draws;
+static uint16_t render_target[320 * 240], album_art[128 * 128];
+
+/* The native image bitmap keeps its pixel pointer at +4. */
+static unsigned char album_art_image[4 + sizeof(uint16_t *)];
+
+#include "../../../payload/theme_render.h"
+
+/* Stands in for the native view draw, which reaches the cover wrapper. */
+static void album_art_view_draw(void *view)
+{
+    cfw_theme_album_art_draw(view);
+    cfw_theme_album_art_edge_lines(view);
+}
+
+static const void *album_art_view_image(const void *view)
+{
+    assert(view == &surface);
+    const uint16_t *pixels = album_art;
+    memcpy(album_art_image + 4, &pixels, sizeof(pixels));
+    return album_art_image;
+}
+
+static void artwork_renderer_draw(void *renderer)
+{
+    assert(renderer == &surface);
+    renderer_draws++;
+}
+
+static void artwork_edge_lines(const void *bitmap)
+{
+    assert(bitmap == &surface);
+    edge_line_draws++;
+}
+
+static uint16_t *gles_render_target(void)
+{
+    return render_target;
+}
+
 #define osos_gles_clear_color clear_color
 #define osos_rgb565_blend blend
+#define osos_album_art_view_draw album_art_view_draw
+#define osos_album_art_view_image album_art_view_image
+#define osos_artwork_renderer_draw artwork_renderer_draw
+#define osos_artwork_edge_lines artwork_edge_lines
+#define osos_gles_render_target gles_render_target
+#include "../../../payload/theme_style.c"
+#include "../../../payload/theme_input.c"
+
+void cfw_theme_settings_toggle(void *value)
+{
+    assert(value == &controller);
+    toggles++;
+}
+
+const char *cfw_theme_settings_error(void)
+{
+    return NULL;
+}
+
+int cfw_theme_settings_action(void *c, const char *a, uint32_t v)
+{
+    (void)c;
+    (void)a;
+    (void)v;
+    return 0;
+}
+
+int cfw_theme_settings_property(uint32_t t, uint32_t p, uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)o;
+    return 0;
+}
+
+int cfw_theme_settings_indexed_property(uint32_t t, uint32_t p, uint32_t i,
+                                        uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)i;
+    (void)o;
+    return 0;
+}
+
 #include "../../../payload/dark_mode.c"
+#include "../../../payload/theme_render.c"
+
+/* Bitmap tinting is covered by the theme_switch fixture. */
+const unsigned char *cfw_theme_highlight_tint(const void *view)
+{
+    (void)view;
+    return 0;
+}
+
+/* Well letter colors are derived in theme_tint.c; the hook takes what it gets. */
+static const unsigned char *well_letter;
+static unsigned well_styles_asked;
+
+const unsigned char *cfw_theme_well_letter_color(unsigned style)
+{
+    well_styles_asked |= 1u << style;
+    return well_letter;
+}
+
+/* Field text colors are derived in theme_tint.c as well. */
+static const unsigned char *field_text;
+static unsigned field_asked;
+
+const unsigned char *cfw_theme_field_text_color(void)
+{
+    field_asked++;
+    return field_text;
+}
+
+/* Both bar hooks recognize the view's own label colors by pointer. */
+static void check_search_key(int key, const unsigned char *expected)
+{
+    static unsigned char view[0x1d8];
+    static const unsigned char native[] = {255, 255, 255, 201};
+    memcpy(view + 0x1cd, native, 4);
+    memcpy(view + 0x1d1, native, 4);
+    cfw_theme_search_key_color(&surface, view + (key ? 0x1d1 : 0x1cd), view);
+    const unsigned char want[] = {expected[0], expected[1], expected[2], native[3]};
+    assert(!memcmp(drawn, want, 4));
+}
+
+static void check_option_bar(unsigned style, int key, const unsigned char *expected)
+{
+    static unsigned char view[0x1d8];
+    static const unsigned char native[] = {255, 255, 255, 202};
+    view[0x121] = style;
+    memcpy(view + 0x1cc, native, 4);
+    memcpy(view + 0x1d0, native, 4);
+    cfw_theme_option_bar_color(&surface, view + (key ? 0x1d0 : 0x1cc), view);
+    const unsigned char want[] = {expected[0], expected[1], expected[2], native[3]};
+    assert(!memcmp(drawn, want, 4));
+}
 
 static void graphics_fill(void *context, const int32_t *rect)
 {
     (void)rect;
     direct_fill = 0;
-    cfw_dark_mode_fill(&surface, &model, (unsigned char *)context + 0x11, 7,
-                       &controller);
+    cfw_theme_fill(&surface, &model, (unsigned char *)context + 0x11, 7, &controller);
 }
 
 static void check_cached_colors(void)
@@ -234,32 +278,32 @@ static void check_cached_colors(void)
     const unsigned char cached_white[] = {255, 255, 255, 173};
     memcpy(drawing_context + 0x11, cached_white, 4);
     const int32_t rect[] = {10, 11, 30, 31};
-    int was_active = assets_active;
+    int was_active = cfw_dark_mode_enabled();
     const int modes[] = {0, 1, 0, 1, 1, 0};
     for (unsigned cycle = 0; cycle < sizeof(modes) / sizeof(modes[0]); cycle++) {
-        assets_active = modes[cycle];
+        cfw_theme_appearance_set(modes[cycle]);
         for (unsigned i = 0; i < 4; i++) {
             view[0x4c / 4] = text_views[i];
             view[0x44 / 4] =
                 0x1234 + cycle; /* Binding changes must not change identity. */
-            cfw_dark_mode_text_color(&surface, cached_black, view);
+            cfw_theme_text_color(&surface, cached_black, view);
             assert(!memcmp(drawn, cached_black, 4));
-            cfw_dark_mode_text_color(&surface, selected_white, view);
+            cfw_theme_text_color(&surface, selected_white, view);
             assert(!memcmp(drawn, selected_white, 4));
             view[0x4c / 4] = backgrounds[i];
             direct_fill = 1;
-            cfw_dark_mode_background_fill(drawing_context, rect, view);
+            cfw_theme_background_fill(drawing_context, rect, view);
             assert(direct_fill && !memcmp(drawn, cached_white, 4));
             assert(!memcmp(drawing_context + 0x11, cached_white, 4));
         }
-        cfw_dark_mode_text_color(&surface, cached_black, ordinary_view);
-        assert(drawn[0] == (assets_active ? 0xe8 : 0) && drawn[3] == 123);
+        cfw_theme_text_color(&surface, cached_black, ordinary_view);
+        assert(drawn[0] == (cfw_dark_mode_enabled() ? 0xe8 : 0) && drawn[3] == 123);
         view[0x4c / 4] = 0x0dad092a; /* Lyrics remains themed. */
-        cfw_dark_mode_background_fill(drawing_context, rect, view);
-        assert(!direct_fill && drawn[0] == (assets_active ? 0x18 : 255) &&
+        cfw_theme_background_fill(drawing_context, rect, view);
+        assert(!direct_fill && drawn[0] == (cfw_dark_mode_enabled() ? 0x18 : 255) &&
                drawn[3] == 173);
     }
-    assets_active = was_active;
+    cfw_theme_appearance_set(was_active);
 }
 
 static int stock_actions, stock_properties, adjustments;
@@ -350,6 +394,22 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
     return 0;
 }
 
+int cfw_menu_covers_action(void *c, const char *a, uint32_t v)
+{
+    (void)c;
+    (void)a;
+    (void)v;
+    return 0;
+}
+
+int cfw_menu_covers_property(uint32_t t, uint32_t p, uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)o;
+    return 0;
+}
+
 #define osos_settings_action settings_action
 #define osos_settings_property settings_property
 #include "../../../payload/settings.c"
@@ -377,17 +437,341 @@ static void check_clicker(void)
     }
 }
 
+static void check_fill(const unsigned char *native, unsigned char red,
+                       unsigned char green, unsigned char blue)
+{
+    cfw_theme_fill(&surface, &model, native, 7, &controller);
+    const unsigned char expected[] = {red, green, blue, native[3]};
+    assert(!memcmp(drawn, expected, 4));
+}
+
+static void check_text(const void *view, const unsigned char *native, unsigned char red,
+                       unsigned char green, unsigned char blue)
+{
+    cfw_theme_text_color(&surface, native, view);
+    const unsigned char expected[] = {red, green, blue, native[3]};
+    assert(!memcmp(drawn, expected, 4));
+}
+
+static void check_background(int red, int green, int blue, uint32_t rgb565)
+{
+    cfw_theme_clear_color(0x10000, 0x10000, 0x10000, 0x4321);
+    assert(clear_rgb[0] == red && clear_rgb[1] == green && clear_rgb[2] == blue);
+    assert(clear_alpha == 0x4321);
+    cfw_theme_reflection_blend(0xabcd, 0xffff, 0x8000);
+    assert(blend_background == rgb565);
+}
+
+static const unsigned char white[] = {255, 255, 255, 173},
+                           light_gray[] = {0xee, 0xee, 0xee, 9},
+                           pale_gray[] = {0xb0, 0xb0, 0xb0, 10},
+                           below_gray[] = {0xaf, 0xaf, 0xaf, 11},
+                           cover_border[] = {0x7e, 0x81, 0x83, 127},
+                           accent_fill[] = {0x23, 0x6c, 0xc5, 91},
+                           accent_text[] = {0x31, 0x85, 0xd0, 77},
+                           black[] = {0, 0, 0, 123}, dim_text[] = {0x80, 0x80, 0x80, 5},
+                           light_text[] = {0x81, 0x81, 0x81, 6};
+
+/* A flat cover copies the artwork unscaled to (18, 38) of the color buffer and
+ * skips the GLES cover and its edge lines; otherwise both native draws run. */
+static void check_artwork(int flat)
+{
+    for (unsigned i = 0; i < 128 * 128; i++)
+        album_art[i] = (uint16_t)(i + 1);
+    memset(render_target, 0, sizeof(render_target));
+    renderer_draws = edge_line_draws = 0;
+    cfw_theme_album_art_view_draw(&surface);
+    assert(renderer_draws == !flat && edge_line_draws == !flat);
+    assert(render_target[38 * 320 + 18] == (flat ? 1 : 0));
+    assert(render_target[165 * 320 + 145] == (flat ? 128 * 128 : 0));
+    assert(!render_target[38 * 320 + 17] && !render_target[37 * 320 + 18] &&
+           !render_target[166 * 320 + 145] && !render_target[165 * 320 + 146]);
+}
+
+/* Classic with Theme Default or Blue is exact in both appearances. */
+static void check_classic_theme(void)
+{
+    check_artwork(0);
+    for (unsigned accent = CFW_THEME_ACCENT_DEFAULT; accent <= CFW_THEME_ACCENT_BLUE;
+         accent++) {
+        assert(cfw_theme_accent_set(accent));
+        for (int dark = 0; dark < 2; dark++) {
+            cfw_theme_appearance_set(dark);
+            for (unsigned c = 0; c < 256; c++) {
+                const unsigned char native_gray[] = {c, c, c, 33};
+                unsigned char fill_shade = dark && c >= 0xb0 ? 0x18 + (255 - c) / 4 : c;
+                unsigned char text_shade = dark && c <= 0x80 ? 0xe8 - c / 2 : c;
+                check_fill(native_gray, fill_shade, fill_shade, fill_shade);
+                check_text(ordinary_view, native_gray, text_shade, text_shade,
+                           text_shade);
+            }
+            check_text(ordinary_view, palette_white, 255, 255, 255);
+            check_text(ordinary_view, white, 255, 255, 255);
+            unsigned char cover = dark ? 0x38 : 0;
+            if (dark)
+                check_fill(cover_border, cover, cover, cover);
+            else
+                check_fill(cover_border, 0x7e, 0x81, 0x83);
+            if (dark) {
+                check_fill(accent_fill, 0, 161, 255);
+                check_text(ordinary_view, accent_fill, 0, 161, 255);
+                check_text(ordinary_view, accent_text, 0, 161, 255);
+                check_background(0x18 * 0x10000 / 255, 0x18 * 0x10000 / 255,
+                                 0x18 * 0x10000 / 255, 0x18c3);
+            } else {
+                check_fill(accent_fill, 0x23, 0x6c, 0xc5);
+                check_text(ordinary_view, accent_fill, 0x23, 0x6c, 0xc5);
+                check_text(ordinary_view, accent_text, 0x31, 0x85, 0xd0);
+                check_background(0x10000, 0x10000, 0x10000, 0xffff);
+            }
+        }
+    }
+}
+
+static void check_accent_presets(void)
+{
+    /* Purple recolors accents but leaves Classic light surfaces and backgrounds alone. */
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_PURPLE));
+    cfw_theme_appearance_set(0);
+    check_fill(white, 255, 255, 255);
+    check_fill(light_gray, 0xee, 0xee, 0xee);
+    check_fill(cover_border, 0x7e, 0x81, 0x83);
+    check_text(ordinary_view, black, 0, 0, 0);
+    check_text(ordinary_view, dim_text, 0x80, 0x80, 0x80);
+    check_text(ordinary_view, palette_white, 255, 255, 255);
+    check_fill(accent_fill, 137, 68, 171);
+    check_text(ordinary_view, accent_fill, 137, 68, 171);
+    check_text(ordinary_view, accent_text, 137, 68, 171);
+    check_background(0x10000, 0x10000, 0x10000, 0xffff);
+    cfw_theme_appearance_set(1);
+    check_fill(white, 0x18, 0x18, 0x18);
+    check_fill(accent_fill, 150, 78, 188);
+    check_text(ordinary_view, accent_fill, 150, 78, 188);
+    check_text(ordinary_view, accent_text, 218, 143, 255);
+    check_background(0x18 * 0x10000 / 255, 0x18 * 0x10000 / 255, 0x18 * 0x10000 / 255,
+                     0x18c3);
+
+    /* Native-color views keep their colors under every accent. */
+    uint32_t view[0xa4 / 4] = {0};
+    view[0x4c / 4] = 0x0dad0ddc; /* Search_Input_Text */
+    check_text(view, accent_text, 0x31, 0x85, 0xd0);
+    check_text(view, black, 0, 0, 0);
+
+    const unsigned char light[][3] = {
+        {196, 30, 86}, {208, 32, 40}, {184, 72, 0}, {30, 128, 58}};
+    const unsigned char dark[][3] = {
+        {255, 100, 145}, {255, 105, 97}, {255, 159, 10}, {48, 209, 88}};
+    for (unsigned i = 0; i < 4; i++) {
+        assert(cfw_theme_accent_set(CFW_THEME_ACCENT_PINK + i));
+        cfw_theme_appearance_set(0);
+        check_text(ordinary_view, accent_text, light[i][0], light[i][1], light[i][2]);
+        cfw_theme_appearance_set(1);
+        check_text(ordinary_view, accent_text, dark[i][0], dark[i][1], dark[i][2]);
+    }
+    assert(!cfw_theme_accent_set(CFW_THEME_ACCENT_COUNT));
+    assert(cfw_theme_accent_get() == CFW_THEME_ACCENT_GREEN);
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+}
+
+static void check_custom_theme(void)
+{
+    struct cfw_theme_style style = {{{0}}};
+    const unsigned char sepia[][3] = {
+        [CFW_THEME_BACKGROUND] = {250, 240, 220},
+        [CFW_THEME_TEXT] = {60, 40, 20},
+        [CFW_THEME_ACCENT_FILL] = {160, 80, 30},
+        [CFW_THEME_ACCENT_TEXT] = {140, 70, 20},
+        [CFW_THEME_ON_ACCENT] = {20, 10, 0},
+        [CFW_THEME_COVER_BORDER] = {120, 100, 80},
+    };
+    for (unsigned role = 0; role < sizeof(sepia) / sizeof(sepia[0]); role++) {
+        memcpy(style.colors[role], sepia[role], 3);
+        style.colors[role][3] = 255;
+    }
+    struct cfw_theme_options options = {0};
+    options.flags = CFW_THEME_FLAT_ARTWORK;
+    const unsigned char orange[][3] = {
+        [CFW_PALETTE_FILL] = {190, 76, 0},
+        [CFW_PALETTE_TEXT] = {255, 159, 10},
+    };
+    for (unsigned slot = 0; slot < sizeof(orange) / sizeof(orange[0]); slot++)
+        memcpy(options.accents[CFW_THEME_ACCENT_ORANGE - 1][slot], orange[slot], 3);
+    cfw_theme_style_set(&style, &options);
+    check_artwork(1);
+    /* Custom styles theme light mode too, independent of the dark-mode switch. */
+    for (int dark = 0; dark < 2; dark++) {
+        cfw_theme_appearance_set(dark);
+        check_fill(white, 250, 240, 220);
+        check_fill(light_gray, 250 - 17, 240 - 17, 220 - 17);
+        check_fill(pale_gray, 250 - 79, 240 - 79, 220 - 79);
+        check_fill(below_gray, 0xaf, 0xaf, 0xaf);
+        check_fill(cover_border, 120, 100, 80);
+        check_fill(accent_fill, 160, 80, 30);
+        check_text(ordinary_view, black, 60 - 32, 40 - 32, 0);
+        check_text(ordinary_view, dim_text, 60 + 96, 40 + 96, 20 + 96);
+        check_text(ordinary_view, light_text, 0x81, 0x81, 0x81);
+        check_text(ordinary_view, accent_fill, 160, 80, 30);
+        check_text(ordinary_view, accent_text, 140, 70, 20);
+        /* Selected-row text follows on_accent by pointer; other white text takes
+         * the text role on this light background. */
+        check_text(ordinary_view, palette_white, 20, 10, 0);
+        check_text(ordinary_view, white, 60, 40, 20);
+        check_text(ordinary_view, light_gray, 0xee, 0xee, 0xee);
+        check_background(250 * 0x10000 / 255, 240 * 0x10000 / 255, 220 * 0x10000 / 255,
+                         (31u << 11) | (60u << 5) | 27u);
+        /* Retained-light views stay unmapped. */
+        uint32_t view[0xa4 / 4] = {0};
+        view[0x4c / 4] = 0x0dad0607; /* Settings_DateTime_NumericDay */
+        check_text(view, black, 0, 0, 0);
+        check_text(view, palette_white, 255, 255, 255);
+    }
+
+    /* A dark custom theme inverts native shades and clamps role channels. */
+    const unsigned char night[][3] = {
+        [CFW_THEME_BACKGROUND] = {250, 10, 40},
+        [CFW_THEME_TEXT] = {255, 250, 100},
+    };
+    for (unsigned role = 0; role < 2; role++)
+        memcpy(style.colors[role], night[role], 3);
+    cfw_theme_style_set(&style, &options);
+    memset(&style, 0, sizeof(style)); /* The setter copied it. */
+    cfw_theme_appearance_set(0);
+    check_fill(white, 250, 10, 40);
+    check_fill(pale_gray, 255, 10 + 19, 40 + 19);
+    check_text(ordinary_view, black, 255, 250, 100);
+    check_text(ordinary_view, dim_text, 255 - 64, 250 - 64, 100 - 64);
+    check_text(ordinary_view, white, 255, 255, 255); /* dark background keeps white */
+    check_background(250 * 0x10000 / 255, 10 * 0x10000 / 255, 40 * 0x10000 / 255,
+                     (31u << 11) | (2u << 5) | 5u);
+
+    /* Accents on a custom theme use its authored palette. */
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_ORANGE));
+    check_fill(accent_fill, 190, 76, 0);
+    check_text(ordinary_view, accent_text, 255, 159, 10);
+    check_fill(white, 250, 10, 40);
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+    check_fill(accent_fill, 160, 80, 30);
+
+    cfw_theme_style_reset();
+    cfw_theme_appearance_set(0);
+    check_artwork(0);
+}
+
+/* Bar labels: the highlighted one takes on_accent whenever anything is themed;
+ * the others take the well color derived for the bar's well art; the Now Playing
+ * bar and other colors pass through. */
+static void check_search_key_hook(void)
+{
+    static const unsigned char native_white[] = {255, 255, 255},
+                               sepia_on_accent[] = {20, 10, 0},
+                               well_color[] = {7, 8, 9, 255};
+    cfw_theme_appearance_set(0);
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+    well_letter = NULL;
+    check_search_key(0, native_white);
+    check_search_key(1, native_white);
+    assert(well_styles_asked == 2); /* the keyboard uses the Black well */
+    for (unsigned style = 0; style < 3; style++)
+        for (int key = 0; key < 2; key++)
+            check_option_bar(style, key, native_white);
+    assert(well_styles_asked == 3);
+    /* Classic with an accent keeps white on_accent; the well stays native. */
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_PURPLE));
+    check_search_key(1, native_white);
+    check_search_key(0, native_white);
+    check_option_bar(1, 1, native_white);
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+
+    struct cfw_theme_style style = {{{0}}};
+    for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++)
+        style.colors[role][3] = 255;
+    memcpy(style.colors[CFW_THEME_ON_ACCENT], sepia_on_accent, 3);
+    struct cfw_theme_options options = {0};
+    cfw_theme_style_set(&style, &options);
+    well_letter = well_color;
+    well_styles_asked = 0;
+    check_search_key(1, sepia_on_accent);
+    check_search_key(0, well_color);
+    assert(well_styles_asked == 2);
+    check_option_bar(0, 1, sepia_on_accent);
+    check_option_bar(1, 1, sepia_on_accent);
+    check_option_bar(0, 0, well_color);
+    check_option_bar(1, 0, well_color);
+    assert(well_styles_asked == 3);
+    check_option_bar(2, 1, native_white);
+    check_option_bar(2, 0, native_white);
+    /* A color that is neither letter slot is passed through untouched. */
+    cfw_theme_search_key_color(&surface, white, ordinary_view);
+    assert(!memcmp(drawn, white, 4));
+    cfw_theme_style_reset();
+    cfw_theme_appearance_set(0);
+}
+
+/* The Search input text keeps its native colors for Classic (covered with the
+ * accent presets); under a custom style its dark shades take the color derived
+ * from the field art, or the text role when none is derived, and the caret's
+ * accent blue takes accent_text like any other text. */
+static void check_search_input_hook(void)
+{
+    static const unsigned char on_field[] = {7, 8, 9};
+    uint32_t view[0xa4 / 4] = {0};
+    view[0x4c / 4] = 0x0dad0ddc; /* Search_Input_Text */
+    struct cfw_theme_style style = {{{0}}};
+    for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++)
+        style.colors[role][3] = 255;
+    const unsigned char text_role[] = {200, 201, 202}, accent_role[] = {9, 8, 7};
+    memcpy(style.colors[CFW_THEME_TEXT], text_role, 3);
+    memcpy(style.colors[CFW_THEME_ACCENT_TEXT], accent_role, 3);
+    struct cfw_theme_options options = {0};
+    cfw_theme_style_set(&style, &options);
+    cfw_theme_appearance_set(1);
+    field_text = on_field;
+    field_asked = 0;
+    check_text(view, black, 7, 8, 9);
+    check_text(view, dim_text, 7, 8, 9);
+    check_text(view, accent_text, 9, 8, 7);
+    assert(field_asked == 3);
+    field_text = NULL;
+    check_text(view, black, 200, 201, 202);
+    check_text(view, dim_text, 136, 137, 138);
+    check_text(view, accent_text, 9, 8, 7);
+    /* Other views never ask for the field color. */
+    field_asked = 0;
+    check_text(ordinary_view, black, 200, 201, 202);
+    assert(field_asked == 0);
+    cfw_theme_style_reset();
+    cfw_theme_appearance_set(0);
+    /* Classic light passes everything through. */
+    field_asked = 0;
+    check_text(view, black, 0, 0, 0);
+    check_text(view, accent_text, 0x31, 0x85, 0xd0);
+    assert(field_asked == 0);
+}
+
+static void check_theme(void)
+{
+    int was_active = cfw_dark_mode_enabled();
+    check_classic_theme();
+    check_accent_presets();
+    check_custom_theme();
+    check_search_key_hook();
+    check_search_input_hook();
+    check_classic_theme();
+    assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
+    cfw_theme_appearance_set(was_active);
+}
+
 int main(void)
 {
     check_cached_colors();
+    check_theme();
     uintptr_t value = 0;
     const uint32_t icons[] = {CFW_EQ_Icon, CFW_Info_Icon};
     for (unsigned i = 0; i < sizeof(icons) / sizeof(icons[0]); i++) {
         assert(cfw_settings_property(&model, OSOS_RESOURCE_BMAP, icons[i], &value));
         assert(value == icons[i] && !stock_properties);
     }
-    cfw_dark_mode_load();
-    assert(!cfw_dark_mode_enabled() && !closes);
+    cfw_theme_appearance_set(0);
     assert(cfw_settings_property(&model, OSOS_PROPERTY_STRING, CFW_DarkMode_Value,
                                  &value));
     assert(value == 1 && !stock_properties);
@@ -399,7 +783,7 @@ int main(void)
     assert(cfw_settings_action(&controller, "CFW_EQ_Open", 0));
     assert(cfw_settings_action(&controller, "CFW_DarkMode_Toggle",
                                OSOS_ACTION_SUPPORT_QUERY));
-    assert(stock_actions == 1 && !writes && !redraws && !icon_notifications);
+    assert(stock_actions == 1 && !toggles);
 
     struct color_case {
         unsigned char light[4], dark[4];
@@ -420,9 +804,9 @@ int main(void)
         {{0x23, 0x6c, 0xc5, 91}, {0x00, 0xa1, 0xff, 91}},
     };
     for (int cycle = 0; cycle < 3; cycle++) {
-        if (cycle)
-            assert(cfw_settings_action(&controller, "CFW_DarkMode_Toggle", 0));
+        cfw_theme_input_drained();
         int dark = cycle == 1;
+        cfw_theme_appearance_set(dark);
         assert(cfw_dark_mode_enabled() == dark);
         assert(cfw_settings_property(&model, OSOS_RESOURCE_BMAP,
                                      CFW_DarkMode_PreviewImage, &value));
@@ -431,66 +815,25 @@ int main(void)
                                      CFW_DarkMode_PreviewText, &value));
         assert(value == (dark ? CFW_DarkMode_DarkLabel : CFW_DarkMode_LightLabel));
         for (unsigned i = 0; i < sizeof(fills) / sizeof(fills[0]); i++) {
-            cfw_dark_mode_fill(&surface, &model, fills[i].light, 7, &controller);
+            cfw_theme_fill(&surface, &model, fills[i].light, 7, &controller);
             assert(
                 !memcmp(drawn, dark ? fills[i].dark : fills[i].light, sizeof(drawn)));
         }
         for (unsigned i = 0; i < sizeof(texts) / sizeof(texts[0]); i++) {
-            cfw_dark_mode_text_color(&surface, texts[i].light, ordinary_view);
+            cfw_theme_text_color(&surface, texts[i].light, ordinary_view);
             assert(
                 !memcmp(drawn, dark ? texts[i].dark : texts[i].light, sizeof(drawn)));
         }
-        cfw_dark_mode_clear_color(0x10000, 0x10000, 0x10000, 0x4321);
-        assert(clear_rgb == (dark ? 0x18 * 0x10000 / 255 : 0x10000));
+        cfw_theme_clear_color(0x10000, 0x10000, 0x10000, 0x4321);
+        for (unsigned i = 0; i < 3; i++)
+            assert(clear_rgb[i] == (dark ? 0x18 * 0x10000 / 255 : 0x10000));
         assert(clear_alpha == 0x4321);
-        assert(cfw_dark_mode_reflection_blend(0xabcd, 0xffff, 0x8000) == 0x1234);
+        assert(cfw_theme_reflection_blend(0xabcd, 0xffff, 0x8000) == 0x1234);
         assert(blend_background == (dark ? 0x18c3u : 0xffffu));
-        cfw_dark_mode_load();
         assert(cfw_dark_mode_enabled() == dark);
     }
-    assert(writes == 2 && redraws == 2 && notifications == 2);
-    assert(icon_notifications == 4);
-    assets_ready = 0;
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(!cfw_dark_mode_enabled() && writes == 2 && redraws == 2);
-    disk_record = DARK_MODE_ON_RECORD;
-    cfw_dark_mode_load();
-    assert(!cfw_dark_mode_enabled());
-    assets_ready = 1;
-    fail_write = 1;
-    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(!cfw_dark_mode_enabled() && redraws == 2 && notifications == 2);
-    assert(icon_notifications == 4 && !icon_invalidations);
-    assert(closes == 6);
-    disk_record = DARK_MODE_ON_RECORD;
-    disk_size = 2;
-    cfw_dark_mode_load();
-    assert(!cfw_dark_mode_enabled());
-    disk_size = 4;
-    disk_record = 0;
-    cfw_dark_mode_load();
-    assert(!cfw_dark_mode_enabled());
-    fail_write = 0;
-    now_playing_available = 0;
-    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(cfw_dark_mode_enabled() && redraws == 3 && notifications == 3);
-    assert(icon_notifications == 4);
-    int previous_writes = writes;
-    assets_ready = 0;
-    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(cfw_dark_mode_enabled() && disk_record == DARK_MODE_ON_RECORD);
-    assert(writes == previous_writes && redraws == 3 && notifications == 3);
-    assets_ready = 1;
-    fail_write = 1;
-    int previous_cancellations = asset_cancellations;
-    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(cfw_dark_mode_enabled() && disk_record == DARK_MODE_ON_RECORD);
-    assert(asset_cancellations == previous_cancellations + 1);
-    assert(redraws == 3 && notifications == 3);
-    fail_write = 0;
-    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(!cfw_dark_mode_enabled() && disk_record == DARK_MODE_OFF_RECORD);
-    assert(redraws == 4 && notifications == 4);
-    assert(!preview_invalidations);
+    assert(toggles == 1);
+    cfw_theme_style_reset();
     check_clicker();
 }

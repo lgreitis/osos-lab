@@ -72,9 +72,11 @@ class Parser:
                 "text",
                 "canvas",
                 "toggle",
+                "list",
                 "settings-entry",
                 "string",
                 "screen-event",
+                "screen-controller",
                 "music-entry",
                 "bitmap",
             ),
@@ -87,6 +89,7 @@ class Parser:
             document.root is None
             and not document.strings
             and not document.events
+            and not document.controllers
             and document.music_entry is None
         ):
             raise ValueError("Incomplete UI declaration")
@@ -113,13 +116,18 @@ class Parser:
             )
             validate_values(value)
             document.values[value.name] = value
-        elif node.tag in ("menu", "text", "toggle", "canvas"):
+        elif node.tag in ("menu", "text", "toggle", "canvas", "list"):
             if document.root is not None:
                 raise ValueError("Expected one root menu or page per UI declaration")
-            if node.tag in ("toggle", "canvas"):
-                attributes(node, "id title")
+            if node.tag in ("toggle", "canvas", "list"):
+                attributes(
+                    node, "id title controller" if node.tag == "list" else "id title"
+                )
                 document.root = Item(
-                    node.tag, self.identifier(node), node.attrib["title"]
+                    node.tag,
+                    self.identifier(node),
+                    node.attrib["title"],
+                    controller=node.get("controller", ""),
                 )
             else:
                 document.root = (
@@ -146,6 +154,15 @@ class Parser:
             )
         elif node.tag == "screen-event":
             document.events.append(self.parse_screen_event(node))
+        elif node.tag == "screen-controller":
+            attributes(node, "screen controller")
+            screen = resource_reference(node.attrib["screen"])
+            controller = node.attrib["controller"]
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", controller):
+                raise ValueError(f"Invalid screen controller: {controller}")
+            if screen in document.controllers:
+                raise ValueError(f"Duplicate screen controller: {screen}")
+            document.controllers[screen] = controller
         elif node.tag == "music-entry":
             attributes(
                 node,

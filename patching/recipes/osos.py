@@ -3,9 +3,11 @@
 
 import json
 import struct
+import zlib
 from dataclasses import dataclass
 
 from .. import assets, declarations, ui
+from ..catalog import UI_SOURCES, is_payload
 from ..declarations import Copy, Kind
 from ..symbols import require
 from ..toolchain import compile_payload
@@ -59,18 +61,7 @@ def build_recipe(
     resources = ui.Resources(templates, bindings)
     generated_ui = ui.generate(
         resources,
-        [
-            source / name
-            for name in (
-                "cfw_info.ui",
-                "custom_eq.ui",
-                "play_next.ui",
-                "song_info.ui",
-                "album_artists.ui",
-                "dark_mode.ui",
-                "queue_selection.ui",
-            )
-        ],
+        [source / name for name in UI_SOURCES],
         directory,
         revision,
         version,
@@ -79,6 +70,7 @@ def build_recipe(
     catalog = json.loads((source.parent / "firmware/bitmaps.json").read_text())
     if catalog["schema"] != 1 or catalog["input"] != fingerprint:
         raise ValueError("Bitmap metadata does not match the pinned OSOS")
+    check_catalog_bitmaps(catalog, resources.catalog)
     generated_assets = assets.generate(catalog, directory)
     units.append((str(generated_assets), []))
     units.append((str(source / "patches/patches.c"), []))
@@ -93,17 +85,38 @@ def build_recipe(
         includes=(native, source / "patches"),
         thumb_symbols=True,
     )
-    for i, (kind, resource_id) in enumerate(resources.added):
-        if kind == "BMap" and require(symbols, f"resource_{i}") % 4:
+    for (kind, resource_id), name in resources.emitted.items():
+        if kind == "BMap" and require(symbols, name) % 4:
             raise ValueError(f"Embedded bitmap {resource_id:#x} is not word-aligned")
+    if require(symbols, "cfw_catalog_slot") % 4:
+        raise ValueError("Catalog bitmap slot is not word-aligned")
     patches = declarations.collect(directory, "payload", prefix)
     used = symbols["__payload_end"] - symbols["__payload_start"]
-    capacity = symbols["__payload_limit"] - symbols["__payload_start"]
+    budget = require(symbols, "__payload_budget")
     print(
-        f"CFW reservation: {used:,} / {capacity:,} bytes used; {capacity - used:,} free",
+        f"CFW payload: {used:,} / {budget:,} bytes of budget; {budget - used:,} left; "
+        f"heap base {symbols['__payload_limit']:#x}",
         flush=True,
     )
     return build(code, patches, symbols, fingerprint)
+
+
+def check_catalog_bitmaps(catalog, generated):
+    """The catalog's payload entries must describe the generated catalog bitmaps,
+    since themes and the baseline are compiled against the catalog alone."""
+    listed = [
+        (a["name"], a["id"], a["bytes"], a["crc32"])
+        for a in catalog["bitmaps"]
+        if is_payload(a)
+    ]
+    actual = [
+        (name, resource_id, len(data), zlib.crc32(data))
+        for name, resource_id, data in generated
+    ]
+    if listed != actual:
+        raise ValueError(
+            "Payload catalog bitmaps are out of date; run themes/build.py metadata"
+        )
 
 
 def payload_layout(code, symbols, original_size):

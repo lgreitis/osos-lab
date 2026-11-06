@@ -4,6 +4,8 @@
 import struct
 from dataclasses import dataclass
 
+from ..catalog import catalog_bitmap_id
+
 
 @dataclass
 class Template:
@@ -141,25 +143,29 @@ def serialized_string(value):
     return struct.pack("<I", len(data)) + data
 
 
-def event(name, action=None, *, handler="", arguments=()):
+def event(name, action=None, *, handler="", arguments=(), following=()):
+    actions = ([(action, arguments)] if action is not None else []) + list(following)
     return (
         serialized_string(name)
         + b"1"
         + serialized_string(handler)
-        + struct.pack("<I", int(action is not None))
-        + (
-            serialized_string(action)
-            + struct.pack("<I", len(arguments))
-            + b"".join(serialized_string(argument) for argument in arguments)
-            if action is not None
-            else b""
+        + struct.pack("<I", len(actions))
+        + b"".join(
+            serialized_string(command)
+            + struct.pack("<I", len(values))
+            + b"".join(serialized_string(value) for value in values)
+            for command, values in actions
         )
     )
 
 
-def menu_event(item, name, handler, action=None, arguments=()):
+def menu_event(item, name, handler, action=None, arguments=(), *, following=()):
     return event(
-        f"list.pid.{item}.{name}", action, handler=handler, arguments=arguments
+        f"list.pid.{item}.{name}",
+        action,
+        handler=handler,
+        arguments=arguments,
+        following=following,
     )
 
 
@@ -177,6 +183,9 @@ class Resources:
             for entry in templates
         }
         self.added = {}
+        # (kind, id) -> C array symbol, filled by codegen.emit_resources.
+        self.emitted = {}
+        self.catalog = []
         self.names = {}
         self.event_aliases = {}
         self.event_extensions = {}
@@ -206,6 +215,16 @@ class Resources:
         if key in self.added:
             raise ValueError(f"Duplicate CFW resource {key}")
         self.added[key] = Resource(data)
+
+    def add_catalog(self, name, data):
+        """Register a BMap in the payload's catalog bitmap block, which themes
+        address by catalog index like firmware bitmaps. Returns its resource id."""
+        if name in self.names:
+            raise ValueError(f"Duplicate UI resource name: {name}")
+        resource_id = catalog_bitmap_id(len(self.catalog))
+        self.names[name] = resource_id
+        self.catalog.append((name, resource_id, bytes(data)))
+        return resource_id
 
     def replace(self, kind, resource_id, data):
         key = (kind, resource_id)

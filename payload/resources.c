@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "resources.h"
+#include "assets.h"
+#include "catalog_bitmaps.h"
+#include "cfw.h"
 #include "osos.h"
 #include "patch.h"
 #include "ui.h"
@@ -23,9 +26,12 @@ PATCH_ARM void cfw_ui_append_resource_block(void *list, void *data, uint32_t siz
 
 const void *cfw_resource_bitmap(uint32_t id)
 {
+    if (id - cfw_catalog_id_base < cfw_catalog_bitmap_count)
+        return cfw_catalog_bitmap(id - cfw_catalog_id_base);
     for (uint32_t i = 0; i < cfw_resource_count; i++) {
         const struct cfw_resource *resource = &cfw_resources[i];
-        if (resource->type == OSOS_RESOURCE_BMAP && resource->id == id)
+        if (cfw_resource_kinds[resource->kind] == OSOS_RESOURCE_BMAP &&
+            resource->id == id)
             return resource->data;
     }
     return 0;
@@ -35,7 +41,8 @@ PATCH_ARM const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size
 {
     uint32_t start = 0;
     for (uint32_t i = 0; i < cfw_resource_count; i++) {
-        if (cfw_resources[i].type == 0x56696577 && cfw_resources[i].id == *id) {
+        if (cfw_resource_kinds[cfw_resources[i].kind] == 0x56696577 &&
+            cfw_resources[i].id == *id) {
             start = i + 1;
             break;
         }
@@ -47,7 +54,7 @@ PATCH_ARM const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size
     }
     for (uint32_t i = start; i < cfw_resource_count; i++) {
         const struct cfw_resource *resource = &cfw_resources[i];
-        if (resource->type == 0x56696577) { /* View */
+        if (cfw_resource_kinds[resource->kind] == 0x56696577) { /* View */
             *id = resource->id;
             *size = resource->size;
             return resource->data;
@@ -69,9 +76,9 @@ void cfw_install_resources(void *bank)
     for (uint32_t i = 0; i < cfw_resource_count; i++) {
         const struct cfw_resource *resource = &cfw_resources[i];
         /* Settings bitmap properties borrow pixels from the permanent payload. */
-        if (resource->type == OSOS_RESOURCE_BMAP)
+        uint32_t type = cfw_resource_kinds[resource->kind];
+        if (type == OSOS_RESOURCE_BMAP)
             continue;
-        osos_resource_set(bank, resource->type, resource->id, resource->data,
-                          resource->size);
+        osos_resource_set(bank, type, resource->id, resource->data, resource->size);
     }
 }
