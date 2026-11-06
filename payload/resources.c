@@ -2,6 +2,7 @@
 
 #include "resources.h"
 #include "assets.h"
+#include "catalog_bitmaps.h"
 #include "cfw.h"
 #include "osos.h"
 #include "patch.h"
@@ -25,6 +26,8 @@ PATCH_ARM void cfw_ui_append_resource_block(void *list, void *data, uint32_t siz
 
 const void *cfw_resource_bitmap(uint32_t id)
 {
+    if (id - cfw_catalog_id_base < cfw_catalog_bitmap_count)
+        return cfw_catalog_bitmap(id - cfw_catalog_id_base);
     for (uint32_t i = 0; i < cfw_resource_count; i++) {
         const struct cfw_resource *resource = &cfw_resources[i];
         if (cfw_resource_kinds[resource->kind] == OSOS_RESOURCE_BMAP &&

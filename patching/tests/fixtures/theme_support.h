@@ -10,11 +10,12 @@
 #include "../../../payload/theme_package.h"
 #include "../../../payload/theme_id.c"
 
-/* Five resident bitmaps, packed with the firmware's 4-byte alignment: two 42-byte
- * paletted (format 0x64, two colors), one 42-byte 14x1 gray mask (format 8),
- * one 36-byte 2x1 ARGB (format 0x1888: an opaque dark pixel, then a transparent one)
- * and, standing in for the payload's catalog bitmap block, one 32-byte 8x1 4-bit
- * mask (format 4). */
+/* Four resident bitmaps, packed with the firmware's 4-byte alignment: two 42-byte
+ * paletted (format 0x64, two colors), one 42-byte 14x1 gray mask (format 8) and
+ * one 36-byte 2x1 ARGB (format 0x1888: an opaque dark pixel, then a transparent
+ * one). The fifth, standing in for the payload's catalog bitmaps, is a 36-byte 8x1
+ * gray8 mask; its row here holds the unpacked bytes that records are built from,
+ * while the payload keeps only the run-packed source and decodes it into the slot. */
 #define ASSETS 5
 #define FIRMWARE_ASSETS 4
 #define MASK_ASSET 2
@@ -29,23 +30,34 @@ static unsigned char pixels[ASSETS][44] = {
      0, 0, 0, 14, 0,  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
     {136, 24, 0, 0, 8, 0, 32, 0, 0, 0, 0,  0,  0,  0,   0, 0, 1, 0,
      0,   0,  2, 0, 0, 0, 8,  0, 0, 0, 40, 30, 20, 255, 0, 0, 0, 0},
-    {4, 0, 0, 0, 4, 0, 4, 0, 0, 0, 0, 0, 0,    0,    0,    0,
-     1, 0, 0, 0, 8, 0, 0, 0, 4, 0, 0, 0, 0x12, 0x34, 0x56, 0x78}};
+    {8, 0, 0, 0, 8, 0, 8, 0, 0, 0, 0,    0,    0,    0, 0, 0,    1,    0,
+     0, 0, 8, 0, 0, 0, 8, 0, 0, 0, 0x12, 0x12, 0x12, 0, 0, 0x34, 0x56, 0x78}};
 static unsigned char original[ASSETS][44];
 const struct cfw_bitmap_asset cfw_bitmap_assets[] = {{42, 0x25789516},
                                                      {42, 0x25789516},
                                                      {42, 0x3c33b0ab},
                                                      {36, 0x5130d0ab},
-                                                     {32, 0x03a0153c}};
+                                                     {36, 0xc090ade8}};
 /* The ARGB asset stands in for both option bar well center slices. */
 const uint32_t cfw_bitmap_well_centers[2] = {ARGB_ASSET, ARGB_ASSET};
 /* The first paletted asset stands in for the Search field center slice. */
 const uint32_t cfw_bitmap_field_center = 0;
 unsigned char *const cfw_bitmap_assets_base = pixels[0];
-unsigned char *const cfw_catalog_bitmaps_base = pixels[PAYLOAD_ASSET];
 const uint32_t cfw_bitmap_asset_count = ASSETS,
                cfw_bitmap_firmware_count = FIRMWARE_ASSETS,
-               cfw_theme_max_bytes = 24 + 24 + 28 + 20 + 16;
+               cfw_theme_max_bytes = 24 + 24 + 28 + 20 + 20;
+/* A repeat run of three, a zero run of two and three literals. */
+static const unsigned char payload_packed[] = {0x82, 0x12, 0x41, 0x02,
+                                               0x34, 0x56, 0x78};
+const struct cfw_catalog_source cfw_catalog_builtin[] = {
+    {payload_packed, sizeof(payload_packed)}};
+struct cfw_catalog_source cfw_catalog_sources[] = {
+    {payload_packed, sizeof(payload_packed)}};
+const unsigned char cfw_catalog_header[28] = {8, 0, 0, 0, 8, 0, 8, 0, 0, 0, 0, 0, 0, 0,
+                                              0, 0, 1, 0, 0, 0, 8, 0, 0, 0, 8, 0, 0, 0};
+unsigned char cfw_catalog_slot[36] __attribute__((aligned(4)));
+const uint32_t cfw_catalog_bitmap_count = 1, cfw_catalog_pixel_bytes = 8,
+               cfw_catalog_id_base = 0x0cff0000;
 const unsigned char cfw_theme_catalog_hash[32] = {1, 2, 3};
 
 /* BitmapView stub for theme_tint.c: the loaded pixel data and the highlighted flag. */
@@ -163,18 +175,27 @@ static void osos_file_close(void *handle)
     closes++;
 }
 
+#include "../../../payload/catalog_bitmaps.c"
 #include "../../../payload/theme_package.c"
+
+/* Pixel data of the payload catalog bitmap, decoded into the slot. */
+static inline const unsigned char *payload_pixels(void)
+{
+    const unsigned char *bitmap = cfw_catalog_bitmap(0);
+    assert(bitmap);
+    return bitmap + 28;
+}
 static const struct osos_path incoming = {0, "0"}, baseline = {0, "1"},
                               metadata = {0, "2"};
 static uint32_t active_bits[CFW_THEME_BITMAP_WORDS];
 
 /* Palette assets replace 10 bytes from offset 32; the mask replaces 14 from 28,
- * the ARGB asset 8 from 28 and the payload mask 4 from 28. */
+ * the ARGB asset 8 from 28 and the payload mask 8 from 28. */
 static unsigned record_size(unsigned asset)
 {
     return asset == MASK_ASSET      ? 12 + 16
            : asset == ARGB_ASSET    ? 12 + 8
-           : asset == PAYLOAD_ASSET ? 12 + 4
+           : asset == PAYLOAD_ASSET ? 12 + 8
                                     : 12 + 12;
 }
 

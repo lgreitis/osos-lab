@@ -25,8 +25,9 @@ struct cfw_ui_menu_item {
 extern const struct cfw_ui_menu_item cfw_ui_menu_items[];
 extern const uint32_t cfw_ui_menu_item_count;
 
-/* BMap entries point at resident payload data: embedded bitmaps, or the catalog
- * bitmap block (cfw_catalog_bitmaps in assets.h) that themes replace in place. */
+/* BMap entries point at bitmaps embedded in the payload. Catalog bitmaps, which
+ * themes replace, have no entries; cfw_resource_bitmap decodes them on request
+ * (catalog_bitmaps.h). */
 extern const uint32_t cfw_resource_kinds[];
 extern const struct cfw_resource cfw_resources[];
 extern const uint32_t cfw_resource_count;
@@ -34,7 +35,8 @@ extern const struct cfw_resource_name cfw_resource_names[];
 extern const uint32_t cfw_resource_name_count;
 
 void cfw_install_resources(void *bank);
-/* Returns the resident bytes of a CFW bitmap resource, or NULL. */
+/* Returns the resident bytes of a CFW bitmap resource, or NULL. A catalog bitmap
+ * stays valid until another one is requested. */
 const void *cfw_resource_bitmap(uint32_t id);
 const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size);
 #endif

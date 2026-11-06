@@ -21,9 +21,14 @@ native dispatch behavior. This prevents queued presses from reversing a switch
 without a fixed delay or renderer locks.
 
 Theme opens a native half-screen Settings list with an image/text preview. The
-CFW preview graphics are resident 4-bit masks in the payload's catalog bitmap
-block, listed after the firmware bitmaps in the catalog, so theme packs replace
-and tint them like stock previews.
+CFW preview graphics are 8-bit masks listed after the firmware bitmaps in the
+catalog, so theme packs replace and tint them like stock previews. The payload
+stores their pixels run-packed behind one shared header and decodes the requested
+preview into a single resident slot (`payload/catalog_bitmaps.h`). Their pack
+records carry raw pixels like any other record. Prepare packs each one that
+differs from the built-in art into a heap source, and the switch exchanges
+sources instead of bytes. A restoration selects the built-in source, so stock
+needs no baseline bytes for them.
 
 Classic comes first, followed by up to 64 packages ordered by ID. If the list is
 full, the active package replaces the last entry. The active row is highlighted
@@ -67,7 +72,8 @@ Each catalog asset carries a tint role byte in the pack's style prefix: none, th
 icon tint, or one of the base color roles. Accent palettes override roles as
 they do everywhere else. Tinted mask bitmaps take their color when
 `BitmapView_Draw` sets the drawing color (`cfw_theme_bitmap_color`): the hook
-resolves the view's pixel data to a catalog asset (firmware or payload block)
+resolves the view's pixel data to a catalog asset (a firmware bitmap or the
+payload's decode slot)
 and consults the pack's tint roles. Tinted paletted and ARGB bitmaps are
 recolored in place:
 `cfw_theme_tint_refresh` rewrites the resident palette entries, or the RGB of

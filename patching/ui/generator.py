@@ -45,7 +45,7 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
         bitmap_ids = {}
         for name, (filename, bitmap_format) in document.bitmaps.items():
             if bitmap_format == CATALOG_FORMAT:
-                bitmap = encode_bmap(*read_png(source.parent / filename), gray4=True)
+                bitmap = encode_bmap(*read_png(source.parent / filename), gray8=True)
                 bitmap_ids[name] = resources.add_catalog(name, bitmap)
             else:
                 bitmap = encode_bmap(*read_png(source.parent / filename))

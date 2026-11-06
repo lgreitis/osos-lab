@@ -148,9 +148,13 @@ static void tinting(void)
     assert(cfw_theme_asset_from_pixels(pixels[1] + 28, &index) && index == 1);
     assert(cfw_theme_asset_from_pixels(pixels[MASK_ASSET] + 28, &index) &&
            index == MASK_ASSET);
-    assert(cfw_theme_asset_from_pixels(pixels[PAYLOAD_ASSET] + 28, &index) &&
+    /* The payload asset is found in the slot, not in its unpacked reference row. */
+    assert(!cfw_theme_asset_from_pixels(pixels[PAYLOAD_ASSET] + 28, &index));
+    assert(cfw_theme_asset_from_pixels(payload_pixels(), &index) &&
            index == PAYLOAD_ASSET);
-    assert(!cfw_theme_asset_from_pixels(pixels[PAYLOAD_ASSET] + 29, &index));
+    assert(!cfw_theme_asset_from_pixels(payload_pixels() + 1, &index));
+    assert(!cfw_theme_asset_from_pixels(cfw_catalog_slot, &index));
+    assert(!cfw_theme_asset_palette(PAYLOAD_ASSET, &colors));
     assert(!cfw_theme_asset_from_pixels(pixels[1] + 29, &index));
     assert(!cfw_theme_asset_from_pixels(pixels[1] + 32, &index));
     assert(!cfw_theme_asset_from_pixels(pixels[0], &index));
@@ -190,6 +194,118 @@ static void tinting(void)
     make_target(0);
 }
 
+/* Packed sources decode into the slot, and malformed ones are refused. */
+static void catalog_codec(void)
+{
+    unsigned char packed[16];
+    assert(cfw_catalog_pack(pixels[PAYLOAD_ASSET] + 28, NULL) ==
+           sizeof(payload_packed));
+    assert(cfw_catalog_pack(pixels[PAYLOAD_ASSET] + 28, packed) ==
+           sizeof(payload_packed));
+    assert(!memcmp(packed, payload_packed, sizeof(payload_packed)));
+    assert(cfw_catalog_bitmap(0) == cfw_catalog_slot);
+    assert(!memcmp(cfw_catalog_slot, pixels[PAYLOAD_ASSET], 36));
+    assert(!cfw_catalog_bitmap(1));
+    static const unsigned char flat[8] = {7, 7, 7, 7, 7, 7, 7, 7},
+                               mixed[8] = {1, 2, 0, 3, 0, 0, 4, 4};
+    assert(cfw_catalog_pack(flat, packed) == 2 && packed[0] == 0x87 && packed[1] == 7);
+    /* A lone zero and a pair of equal bytes stay literal; two zeros do not. */
+    assert(cfw_catalog_pack(mixed, packed) == 9 && packed[0] == 0x03 &&
+           packed[5] == 0x41 && packed[6] == 0x01 && packed[8] == 4);
+    static const unsigned char bad[][3] = {
+        {0xc0, 0, 0},    /* unknown run kind */
+        {0x02, 1, 2},    /* literals past the end */
+        {0x88, 0, 0},    /* repeat without its byte */
+        {0x47, 0x40, 0}, /* runs past the pixel count */
+        {0x46, 0, 0},    /* too few pixels */
+    };
+    static const unsigned bad_sizes[] = {1, 3, 1, 2, 1};
+    for (unsigned i = 0; i < sizeof(bad) / sizeof(*bad); i++) {
+        cfw_catalog_sources[0] = (struct cfw_catalog_source){bad[i], bad_sizes[i]};
+        cfw_catalog_reload();
+        assert(!cfw_catalog_bitmap(0));
+        uint32_t index;
+        assert(!cfw_theme_asset_from_pixels(cfw_catalog_slot + 28, &index));
+    }
+    cfw_catalog_sources[0] = cfw_catalog_builtin[0];
+    cfw_catalog_reload();
+    assert(!memcmp(payload_pixels(), pixels[PAYLOAD_ASSET] + 28, 8));
+}
+
+/* A catalog bitmap replacement becomes a heap source that the swap exchanges with
+ * the live one; resident bytes and the reference row stay untouched. */
+static void catalog_swap(void)
+{
+    struct cfw_theme_pack pack;
+    struct cfw_theme_transaction tx;
+    make_baseline();
+    make_target(PAYLOAD_ASSET);
+    assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
+    assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
+    cfw_theme_pack_release(&pack);
+    assert(allocations == 2 && !tx.patch.data && tx.source_mask == 1);
+    /* A view already showing the slot sees the new art and keeps its tint. */
+    const unsigned char *shown = payload_pixels();
+    assert(shown[0] == 0x12);
+    cfw_theme_transaction_swap(&tx);
+    uint32_t index;
+    assert(shown[0] == 99 && cfw_theme_asset_from_pixels(shown, &index) &&
+           index == PAYLOAD_ASSET);
+    assert(cfw_catalog_sources[0].data != payload_packed);
+    assert(payload_pixels()[0] == 99 &&
+           !memcmp(payload_pixels() + 1, pixels[PAYLOAD_ASSET] + 29, 7));
+    cfw_theme_transaction_swap(&tx); /* rollback */
+    assert(payload_pixels()[0] == 0x12);
+    cfw_theme_transaction_swap(&tx);
+    memcpy(active_bits, tx.target_assets, sizeof(active_bits));
+    cfw_theme_transaction_release(&tx);
+    /* The live heap source belongs to the active theme now. */
+    assert(allocations == 1 && payload_pixels()[0] == 99);
+    assert(!memcmp(pixels, original, sizeof(pixels)));
+
+    /* Replacing it again frees the old heap source once the new one is live. */
+    make_target(PAYLOAD_ASSET);
+    assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
+    assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
+    cfw_theme_pack_release(&pack);
+    const unsigned char *previous = cfw_catalog_sources[0].data;
+    cfw_theme_transaction_swap(&tx);
+    assert(tx.sources[0].data == previous);
+    memcpy(active_bits, tx.target_assets, sizeof(active_bits));
+    cfw_theme_transaction_release(&tx);
+    assert(allocations == 1 && payload_pixels()[0] == 99);
+
+    /* Restoring stock returns the built-in source without reading its baseline
+     * record; an aborted transaction frees only what it allocated. */
+    assert(cfw_theme_transaction_prepare(NULL, 0, active_bits, &baseline, &tx));
+    assert(!tx.patch.data && tx.sources[0].data == payload_packed);
+    cfw_theme_transaction_release(&tx);
+    assert(allocations == 1);
+    assert(cfw_theme_transaction_prepare(NULL, 0, active_bits, &baseline, &tx));
+    cfw_theme_transaction_swap(&tx);
+    cfw_theme_transaction_release(&tx);
+    memset(active_bits, 0, sizeof(active_bits));
+    assert(!allocations && cfw_catalog_sources[0].data == payload_packed);
+    assert(payload_pixels()[0] == 0x12);
+
+    /* Built-in art in a pack needs no heap copy. */
+    make_pack(&files[0], 1, ASSETS, 0);
+    assert(cfw_theme_pack_read(&incoming, 1, 1, &pack));
+    assert(cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
+    cfw_theme_pack_release(&pack);
+    assert(allocations == 1 && tx.sources[0].data == payload_packed);
+    cfw_theme_transaction_release(&tx);
+
+    /* A failed heap copy fails the prepare and leaves nothing allocated. */
+    make_target(PAYLOAD_ASSET);
+    assert(cfw_theme_pack_read(&incoming, 1, 0, &pack));
+    fail_alloc_at = alloc_attempts + 1;
+    assert(!cfw_theme_transaction_prepare(&pack, 1, active_bits, &baseline, &tx));
+    fail_alloc_at = 0;
+    cfw_theme_pack_release(&pack);
+    assert(!allocations && cfw_catalog_sources[0].data == payload_packed);
+}
+
 int main(void)
 {
     _Static_assert(sizeof(struct pack_header) == 52, "RTH4 header");
@@ -204,6 +320,8 @@ int main(void)
     baseline_validation();
     pack_probe();
     tinting();
+    catalog_codec();
+    catalog_swap();
     make_baseline();
     struct cfw_theme_pack pack;
     struct cfw_theme_transaction tx;

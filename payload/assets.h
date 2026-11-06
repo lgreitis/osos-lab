@@ -3,10 +3,10 @@
 #pragma once
 #include <stdint.h>
 
-/* Resident bitmaps in catalog order: the firmware's, then the payload's catalog
- * bitmap block (RepriseOS previews that themes address like firmware bitmaps).
- * Within each region a bitmap starts at the previous one's end rounded up to 4
- * bytes, so only sizes and checksums are stored. */
+/* Bitmaps in catalog order: the firmware's resident ones, then the payload's
+ * catalog bitmaps (RepriseOS previews that themes address like firmware bitmaps,
+ * see catalog_bitmaps.h). A firmware bitmap starts at the previous one's end
+ * rounded up to 4 bytes, so only sizes and checksums are stored. */
 struct cfw_bitmap_asset {
     uint32_t size, crc;
 };
@@ -21,8 +21,7 @@ extern const uint32_t cfw_bitmap_well_centers[2];
 /* Catalog index of the Search text box center slice (System_Input_Field_Middle_Image). */
 extern const uint32_t cfw_bitmap_field_center;
 extern unsigned char *const cfw_bitmap_assets_base;
-/* Catalog indices from cfw_bitmap_firmware_count up are the payload block. */
-extern unsigned char *const cfw_catalog_bitmaps_base;
+/* Catalog indices from cfw_bitmap_firmware_count up are the payload's. */
 extern const uint32_t cfw_bitmap_asset_count, cfw_bitmap_firmware_count,
     cfw_theme_max_bytes;
 extern const unsigned char cfw_theme_catalog_hash[32];

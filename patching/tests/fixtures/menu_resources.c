@@ -84,6 +84,18 @@ static uint32_t *osos_resource_name_slot(const struct osos_string *s)
     return &name_id;
 }
 
+#include "../../../payload/catalog_bitmaps.c"
+/* One 4x1 gray8 catalog bitmap: four repeated bytes. */
+static const unsigned char catalog_packed[] = {0x83, 5};
+const struct cfw_catalog_source cfw_catalog_builtin[] = {
+    {catalog_packed, sizeof(catalog_packed)}};
+struct cfw_catalog_source cfw_catalog_sources[] = {
+    {catalog_packed, sizeof(catalog_packed)}};
+const unsigned char cfw_catalog_header[28] = {8, 0, 0,        0,        4,       0,
+                                              8, 0, [16] = 1, [20] = 4, [24] = 4};
+unsigned char cfw_catalog_slot[32] __attribute__((aligned(4)));
+const uint32_t cfw_catalog_bitmap_count = 1, cfw_catalog_pixel_bytes = 4,
+               cfw_catalog_id_base = 0x0cff0000;
 #include "../../../payload/resources.c"
 
 enum { ARTISTS = 1, ITUNES_U, NOW_PLAYING, ALBUM_ARTISTS, SECOND };
@@ -146,6 +158,11 @@ int main(void)
     cfw_install_resources(&bank);
     assert(installed == 1 && name_id == ALBUM_ARTISTS);
     assert(cfw_resource_bitmap(26) == icon && !cfw_resource_bitmap(99));
+    /* Catalog bitmaps are decoded into the slot instead of being installed. */
+    const unsigned char *catalog = cfw_resource_bitmap(0x0cff0000);
+    assert(catalog == cfw_catalog_slot && catalog[0] == 8 &&
+           !memcmp(catalog + 28, "\5\5\5\5", 4));
+    assert(!cfw_resource_bitmap(0x0cff0001));
     registry[ARTISTS]->visible = 1;
     registry[ALBUM_ARTISTS]->visible = 1;
     registry[ITUNES_U]->visible = 0;

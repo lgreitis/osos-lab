@@ -44,7 +44,7 @@ class AssetsTests(unittest.TestCase):
         self.assertIn("const uint32_t cfw_bitmap_asset_count = 5;", source)
         self.assertIn("const uint32_t cfw_bitmap_firmware_count = 3;", source)
         self.assertIn("(unsigned char *)(0x1000 + OSOS_RUNTIME_BASE", source)
-        self.assertIn("cfw_catalog_bitmaps_base = cfw_catalog_bitmaps;", source)
+        self.assertNotIn("cfw_catalog", source)
         self.assertEqual(source.count("u, 1u},"), 5)
 
     def test_rejects_gaps_and_misordered_regions(self):

@@ -319,8 +319,9 @@ class UiTests(unittest.TestCase):
             )
             resource_id = word(binding, 4)
             if kind == "BMap":
-                # Preview glyphs join the theme catalog as 4-bit masks in the
-                # payload block rather than being embedded as plain resources.
+                # Preview glyphs join the theme catalog as 8-bit masks in the
+                # payload's catalog bitmaps rather than being embedded as plain
+                # resources.
                 self.assertEqual(resource_id, resources.names["CFW_Info_Icon"])
                 self.assertEqual(resource_id, CATALOG_ID_BASE)
                 self.assertNotIn((kind, resource_id), resources.added)
@@ -328,7 +329,7 @@ class UiTests(unittest.TestCase):
                 self.assertEqual((name, catalog_id), ("CFW_Info_Icon", resource_id))
                 self.assertEqual(
                     struct.unpack_from("<HHHHiiiii", content),
-                    (4, 0, 40, 4, 0, 0, 121, 78, 4840),
+                    (8, 0, 80, 8, 0, 0, 121, 78, 9680),
                 )
             else:
                 content = resources.added[kind, resource_id].data
@@ -385,7 +386,7 @@ class UiTests(unittest.TestCase):
             self.assertEqual((name, catalog_id), (menu + "_Icon", CATALOG_ID_BASE))
             self.assertEqual(
                 struct.unpack_from("<HHHHiiiii", content),
-                (4, 0, 40, 4, 0, 0, 121, 78, 4840),
+                (8, 0, 80, 8, 0, 0, 121, 78, 9680),
             )
 
     def test_menu_covers_toggle_follows_dark_mode_with_a_static_icon(self):
