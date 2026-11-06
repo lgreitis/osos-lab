@@ -106,7 +106,7 @@ int main(void)
         style.colors[role][3] = 200 + role;
     }
     struct cfw_theme_options options = {0};
-    options.flags = CFW_THEME_FLAT_SELECTION;
+    options.flags = CFW_THEME_FLAT_SELECTION | CFW_THEME_FLAT_ARTWORK;
     for (unsigned a = 0; a < CFW_THEME_ACCENT_COUNT - 1; a++)
         for (unsigned slot = 0; slot < CFW_PALETTE_COUNT; slot++) {
             options.accents[a][slot][0] = a;
@@ -134,7 +134,8 @@ int main(void)
     memset(&style, 0, sizeof(style));
     memset(&options, 0, sizeof(options));
     assert(cfw_theme_style_custom());
-    assert(cfw_theme_render_flags() == 1);
+    assert(cfw_theme_render_flags() ==
+           (CFW_THEME_FLAT_SELECTION | CFW_THEME_FLAT_ARTWORK));
     assert(cfw_theme_icon_color(0)[0] == 42);
     for (int dark = 0; dark < 2; dark++)
         for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++)

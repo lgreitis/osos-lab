@@ -29,6 +29,12 @@ PATCH_CALL(OSOS_ALBUM_ART_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
            cfw_theme_clear_color);
 PATCH_CALL(OSOS_ARTWORK_REFLECTION_BLEND_CALL, OSOS_RGB565_BLEND_FIXED,
            cfw_theme_reflection_blend);
+PATCH_POINTER(OSOS_ALBUM_ART_VIEW_DRAW_SLOT, OSOS_ALBUM_ART_VIEW_DRAW,
+              cfw_theme_album_art_view_draw);
+PATCH_CALL(OSOS_ALBUM_ART_DRAW_CALL, OSOS_ARTWORK_RENDERER_DRAW,
+           cfw_theme_album_art_draw);
+PATCH_CALL(OSOS_ALBUM_ART_EDGE_LINES_CALL, OSOS_ARTWORK_EDGE_LINES,
+           cfw_theme_album_art_edge_lines);
 PATCH_CALL(OSOS_VIEW_BACKGROUND_FILL_CALL, OSOS_GRAPHICS_FILL_RECT,
            cfw_theme_background_fill_hook);
 

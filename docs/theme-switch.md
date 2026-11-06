@@ -103,6 +103,19 @@ art, so the view stays on the native-color list there. Both rules read the cente
 pixel through `cfw_theme_asset_center_pixel`, which handles paletted and ARGB
 assets.
 
+Now Playing draws the cover with the firmware's GLES renderer into a 320 by
+240 color buffer: first the tilted cover and its reflection, then antialiased
+lines along the cover's slanted top and bottom edges. With `now_playing_art`
+set to `flat`, `cfw_theme_album_art_draw` copies the cover's 128 by 128 pixels
+into the buffer at (18, 38) instead, and `cfw_theme_album_art_edge_lines` skips
+the edge lines. The pixels are the image the view would otherwise upload as a
+texture; the draw hook fetches it from the view that
+`cfw_theme_album_art_view_draw` records for the duration of each draw.
+
+The hooks check the theme on every draw, so a theme switch shows up the next
+time Now Playing draws. Cover Flow uses the same renderer through other calls
+and is not affected.
+
 ## Preference storage
 
 `iPod_Control/Device/CFWTheme` contains a 56-byte RTP1 record: little-endian magic,

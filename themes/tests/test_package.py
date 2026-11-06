@@ -212,14 +212,18 @@ class PackageTests(unittest.TestCase):
             dark={
                 "colors": {"icon_tint": "#ff4477"},
                 "accents": {"teal": {"selection": "#006666", "on_accent": "#ffffff"}},
-                "rendering": {"selection": "flat", "menu_covers": "off"},
+                "rendering": {
+                    "selection": "flat",
+                    "menu_covers": "off",
+                    "now_playing_art": "flat",
+                },
             }
         )
         files = self.compile(source)
         self.assertEqual(files["theme.bin"][:4], b"RTM4")
         self.assertEqual(files["dark.bin"][:4], b"RTH4")
         decoded = inspect_appearance(files["dark.bin"], self.catalog)
-        self.assertEqual(decoded["flags"], 3)
+        self.assertEqual(decoded["flags"], 7)
         self.assertEqual(decoded["icon_tint"], "#ff4477")
         self.assertEqual(decoded["accents"]["teal"]["selection"], "#006666")
         self.assertEqual(len(decoded["accents"]), 9)
@@ -236,6 +240,10 @@ class PackageTests(unittest.TestCase):
             manifest(dark={"rendering": {"preview_icons": "accent"}}), "unknown field"
         )
         self.rejects(manifest(dark={"rendering": {"menu_covers": True}}), "on or off")
+        self.rejects(
+            manifest(dark={"rendering": {"now_playing_art": "tilted"}}),
+            "native or flat",
+        )
         data = bytearray(files["dark.bin"])
         data[HEADER.size + COLORS] = 128
         struct.pack_into("<I", data, 48, zlib.crc32(data[HEADER.size :]))

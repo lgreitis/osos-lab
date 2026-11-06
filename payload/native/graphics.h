@@ -143,6 +143,44 @@ static inline uint32_t osos_rgb565_blend(uint32_t first, uint32_t second, int we
     return ((fn)OSOS_RGB565_BLEND_FIXED)(first, second, weight);
 }
 
+static inline void osos_album_art_view_draw(void *view)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_ALBUM_ART_VIEW_DRAW)(view);
+}
+
+/* The album art view's current Draw image: a bitmap whose word at +4 points to
+ * its 128 by 128 RGB565 pixels, or NULL. */
+static inline const void *osos_album_art_view_image(const void *view)
+{
+    typedef const void *(*fn)(const void *);
+    return ((fn)OSOS_ALBUM_ART_VIEW_IMAGE)(view);
+}
+
+/* Draws the artwork quad, and its reflection when one was generated. */
+static inline void osos_artwork_renderer_draw(void *renderer)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_ARTWORK_RENDERER_DRAW)(renderer);
+}
+
+/* Draws antialiased lines along the tilted cover's top and bottom edges into
+ * the bitmap {pixels, uint16 width, uint16 height}. */
+static inline void osos_artwork_edge_lines(const void *bitmap)
+{
+    typedef void (*fn)(const void *);
+    ((fn)OSOS_ARTWORK_EDGE_LINES)(bitmap);
+}
+
+/* Pixels of the current GLES color buffer. */
+static inline uint16_t *osos_gles_render_target(void)
+{
+    typedef void (*fn)(uint16_t **);
+    uint16_t *pixels;
+    ((fn)OSOS_GLES_RENDER_TARGET)(&pixels);
+    return pixels;
+}
+
 static inline void osos_ui_invalidate(void)
 {
     typedef unsigned char *(*root_fn)(void);
