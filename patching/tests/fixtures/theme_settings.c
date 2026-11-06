@@ -171,6 +171,8 @@ int main(void)
     cfw_theme_settings_load();
     cfw_theme_settings_load();
     assert(!stores && !switcher.active.custom && classic_available);
+    /* Boot probes for a custom package once; Settings reuses the result. */
+    assert(probes == 1 && custom_available && !custom_stale);
     assert(
         cfw_theme_settings_action(NULL, "CFW_Accent_Open", OSOS_ACTION_SUPPORT_QUERY));
     row = 2; /* Teal in display order, stable stored identifier 7. */
@@ -196,8 +198,25 @@ int main(void)
     cfw_theme_input_drained();
     stores = 0;
     no_custom = 1;
+    unsigned before_probes = probes;
     cfw_theme_settings_refresh();
-    assert(!theme_visible && dark_visible && !count);
+    assert(theme_visible && probes == before_probes);
+    cfw_theme_settings_invalidate();
+    cfw_theme_settings_refresh();
+    cfw_theme_settings_refresh();
+    assert(!theme_visible && dark_visible && !count && probes == before_probes + 1);
+    /* A library load probes only while the result is stale. */
+    cfw_theme_settings_probe_stale();
+    assert(probes == before_probes + 1);
+    no_custom = 0;
+    cfw_theme_settings_invalidate();
+    cfw_theme_settings_probe_stale();
+    cfw_theme_settings_refresh();
+    assert(theme_visible && probes == before_probes + 2);
+    no_custom = 1;
+    cfw_theme_settings_invalidate();
+    cfw_theme_settings_refresh();
+    assert(!theme_visible && probes == before_probes + 3);
     cfw_theme_settings_toggle(NULL);
     assert(switcher.active.selection.dark && stores == 1);
     cfw_theme_input_drained();
@@ -206,7 +225,9 @@ int main(void)
     cfw_theme_input_drained();
     stores = 0;
     no_custom = 0;
-    unsigned before_probes = probes, before_allocs = alloc_attempts;
+    before_probes = probes;
+    unsigned before_allocs = alloc_attempts;
+    cfw_theme_settings_invalidate();
     cfw_theme_settings_refresh();
     assert(theme_visible && dark_visible && !count && !choices);
     assert(probes == before_probes + 1 && alloc_attempts == before_allocs);
@@ -224,10 +245,20 @@ int main(void)
     assert(!strcmp((const char *)value, "Not enough memory"));
     choose(1);
     assert(!stores && !switcher.active.custom);
+    /* A picker scan updates the cached result without another probe. */
+    no_custom = 1;
+    before_probes = probes;
+    assert(cfw_theme_settings_action(NULL, "CFW_Theme_Open", 0));
+    assert(!count && !custom_available && !custom_stale);
+    cfw_theme_settings_refresh();
+    assert(!theme_visible && probes == before_probes);
+    no_custom = 0;
     cfw_theme_settings_close();
     unsigned live_before = live_bytes;
     assert(cfw_theme_settings_action(NULL, "CFW_Theme_Open", 0));
-    assert(choices && count == 1 && !error);
+    assert(choices && count == 1 && !error && custom_available);
+    cfw_theme_settings_refresh();
+    assert(theme_visible && probes == before_probes);
     assert(live_bytes == live_before + THEME_CHOICES * sizeof(struct cfw_theme_choice));
     assert(
         cfw_theme_settings_property(OSOS_PROPERTY_COUNT, CFW_Theme_Choices, &value) &&
