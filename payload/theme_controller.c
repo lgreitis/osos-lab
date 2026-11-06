@@ -8,7 +8,7 @@ int cfw_settings_action(void *, const char *, uint32_t);
 /* Refresh before the Settings main menu builds its visible rows. Its screen
  * uses CFWSettingsMain so the other screens that share the native
  * TSilverSettingsMenuListCntlr class (About, Language, Date & Time and the EU
- * volume limit) do not scan /themes on every activation. */
+ * volume limit) leave the Theme row alone. */
 static PATCH_ARM uint32_t main_activate(void *controller, uint32_t entering)
 {
     if (entering)
@@ -120,6 +120,44 @@ static PATCH_ARM void *accent_create(const char *name, uint32_t screen, uint32_t
         accent_controller = controller;
     return controller;
 }
+
+/* TDiskModeCntlr exists only while the host owns the volume, which may change
+ * /themes, so creating it marks the custom package probe stale. Both factories it
+ * registers (0x0813921c) are wrapped: the resource screen subclasses the plain
+ * controller with a vtable of its own. Settings cannot open before disk mode
+ * ends. */
+static PATCH_ARM void *disk_mode_create(uint32_t factory, uint32_t a, uint32_t b,
+                                        uint32_t c, uint32_t d)
+{
+    cfw_theme_settings_invalidate();
+    typedef void *(*create_fn)(uint32_t, uint32_t, uint32_t, uint32_t);
+    return ((create_fn)factory)(a, b, c, d);
+}
+
+PATCH_ARM void *cfw_theme_disk_mode_create(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+{
+    return disk_mode_create(0x0814e570, a, b, c, d);
+}
+PATCH_POINTER(0x08139280, 0x0814e570, cfw_theme_disk_mode_create);
+
+PATCH_ARM void *cfw_theme_disk_mode_resource_create(uint32_t a, uint32_t b, uint32_t c,
+                                                    uint32_t d)
+{
+    return disk_mode_create(0x0814e7d8, a, b, c, d);
+}
+PATCH_POINTER(0x0813927c, 0x0814e7d8, cfw_theme_disk_mode_resource_create);
+
+/* TMusicLoadingTask (vtable 0x08994174) reloads the music library when disk mode
+ * ends; boot loads it elsewhere. Probing after its load reads /themes while the
+ * disk is active, so the next Settings open reads nothing. */
+PATCH_ARM uint32_t cfw_theme_music_loading_run(void *task)
+{
+    typedef uint32_t (*run_fn)(void *);
+    uint32_t result = ((run_fn)0x081aec04)(task);
+    cfw_theme_settings_probe_stale();
+    return result;
+}
+PATCH_POINTER(0x08994174 + 8, 0x081aec04, cfw_theme_music_loading_run);
 
 void cfw_theme_settings_register(void)
 {

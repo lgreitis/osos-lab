@@ -18,6 +18,10 @@
 static struct cfw_theme_choice *choices;
 static uint32_t count;
 static int initialized, overflow, classic_available;
+/* Whether /themes holds a valid custom package. Probed at boot and after each
+ * library load, and updated by picker scans. Disk mode marks it stale; if no
+ * library load follows, the next Settings open probes. */
+static int custom_available, custom_stale = 1;
 static const char *error, *dark_error, *accent_error;
 /* Display order of the Accent Color list; stored values keep enum order. */
 static const unsigned char accent_order[CFW_THEME_ACCENT_COUNT] = {
@@ -47,6 +51,15 @@ static void disable(void)
     osos_menu_item_set_visible(CFW_Theme_Item, 0);
     osos_menu_item_set_visible(CFW_Accent_Item, 0);
     osos_menu_item_set_visible(CFW_DarkMode_Item, 0);
+}
+
+/* The scan stops at the first valid package. */
+static void probe(void)
+{
+    int any;
+    cfw_theme_discovery_scan(0, 0, &any);
+    custom_available = any;
+    custom_stale = 0;
 }
 
 void cfw_theme_settings_load(void)
@@ -87,6 +100,12 @@ void cfw_theme_settings_load(void)
     }
     osos_menu_item_set_visible(CFW_DarkMode_Item,
                                !switcher.active.custom || request.appearance_mask == 3);
+    if (switcher.active.custom) {
+        custom_available = 1;
+        custom_stale = 0;
+    } else if (custom_stale) {
+        probe();
+    }
 }
 
 void cfw_theme_settings_refresh(void)
@@ -94,9 +113,20 @@ void cfw_theme_settings_refresh(void)
     cfw_theme_settings_load();
     if (!classic_available)
         return;
-    int any;
-    cfw_theme_discovery_scan(0, 0, &any);
-    osos_menu_item_set_visible(CFW_Theme_Item, any);
+    if (custom_stale)
+        probe();
+    osos_menu_item_set_visible(CFW_Theme_Item, custom_available);
+}
+
+void cfw_theme_settings_invalidate(void)
+{
+    custom_stale = 1;
+}
+
+void cfw_theme_settings_probe_stale(void)
+{
+    if (custom_stale && classic_available)
+        probe();
 }
 
 static void open_list(void)
@@ -109,6 +139,8 @@ static void open_list(void)
         return;
     }
     count = cfw_theme_discovery_scan(choices, THEME_CHOICES, &overflow);
+    custom_available = count || overflow;
+    custom_stale = 0;
     error = 0;
 }
 

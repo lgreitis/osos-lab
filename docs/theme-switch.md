@@ -50,14 +50,20 @@ artwork, returning to the parent Theme row. Failures before saving keep the acti
 theme, and failures while writing artwork leave Classic light; both show an error
 in the preview. Opening the list clears the error for retry.
 
-Opening Settings hides Theme unless a custom package has valid metadata; the
-scan stops at the first one. Only the Settings main screen checks, through its
-`CFWSettingsMain` controller. The picker list is allocated when Theme opens and
-freed with the Settings main controller, because the picker's view still renders
-its rows during the pop transition. If allocation fails, the picker offers
-Classic and an error row. Dark Mode changes the active theme's appearance and is
-hidden for single-appearance packages. Selecting such a package uses its sole
-appearance.
+Settings hides Theme unless a custom package has valid metadata. Whether one
+exists is probed at boot, unless a custom selection was just restored; the probe
+stops at the first valid package. Each picker scan updates the result, so opening
+Settings reads nothing from disk. Creating the disk mode controller
+(`TDiskModeCntlr`) marks the result stale, because the host may change
+`/themes`. The music library load that follows disk mode (`TMusicLoadingTask`)
+probes a stale result while the disk is active; if no load runs, the next
+Settings open probes. Only the Settings main screen applies the result, through
+its `CFWSettingsMain` controller. The picker list is allocated when Theme opens
+and freed with the Settings main controller, because the picker's view still
+renders its rows during the pop transition. If allocation fails, the picker
+offers Classic and an error row. Dark Mode changes the active theme's appearance
+and is hidden for single-appearance packages. Selecting such a package uses its
+sole appearance.
 
 ## Boot and installation
 
