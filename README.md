@@ -44,7 +44,8 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Five-band custom EQ with a graphical editor and adjustable filter types,
   frequency, gain, Q and precut.
 - Play Next and Play Last from song, album and artist context menus.
-- EU volume limit removal for European iPods.
+- Apple's EU Volume Limit setting on every European iPod, with full volume
+  and no volume warning when it is Off.
 - Song Info from song and Now Playing context menus.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
@@ -53,6 +54,12 @@ RepriseOS package and builds a companion using that iPod's identity.
 Open **Settings → Custom EQ → Graphic EQ** to edit all five bands. Use the wheel
 to select a band, then Center to select and edit its Type, Gain, Frequency or Q.
 Switch Hold on to view the combined EQ response and off to return to editing.
+
+Every supported Classic runs Apple 2.0.5, so European iPods, older models
+included, get Apple's **Settings → Volume Limit** screen with **EU Volume Limit**.
+On limits headphone volume to the EU level. Off allows full volume without Apple's
+high-volume warning, the reduction to the EU level at startup or the automatic
+reduction after long listening.
 
 **Album Artists** groups tracks by their Album Artist tag, using Artist when that
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →
