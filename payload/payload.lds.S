@@ -19,7 +19,7 @@ SECTIONS {
         __bss_end = .;
     }
     __payload_end = .;
-    __payload_limit = ALIGN(0x1000);
+    __payload_limit = ALIGN(32);
     ASSERT(__payload_limit <= CFW_PAYLOAD_BASE + CFW_PAYLOAD_BYTES,
            "CFW payload exceeds reserved memory")
     .cfw.patch 0 (INFO) : { *(.cfw.patch) }

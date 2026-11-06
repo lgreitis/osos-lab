@@ -167,25 +167,49 @@ def emit_catalog_bitmaps(resources):
 
 
 def emit_resources(resources):
+    """Resource table entries carry a 16-bit size and a kind index into the
+    FourCC table; resources with identical bytes and template copies share one
+    array. resources.emitted maps (kind, id) to the array symbol of each entry."""
     lines = []
     entries = []
-    for i, ((kind, resource_id), data) in enumerate(resources.added.items()):
-        # Native BMap readers load header fields and pixels as halfwords/words.
-        lines.extend(emit_resource_data(f"resource_{i}", data, aligned=kind == "BMap"))
+    kinds = []
+    arrays = {}
+
+    def kind_index(kind):
         resource_type = int.from_bytes(kind.encode("ascii"), "big")
-        entries.append(
-            f"    {{{resource_type:#x}, {resource_id:#x}, sizeof(resource_{i}), resource_{i}}},"
-        )
-    bmap = int.from_bytes(b"BMap", "big")
+        if resource_type not in kinds:
+            kinds.append(resource_type)
+        return kinds.index(resource_type)
+
+    def entry(resource_id, kind, data, size):
+        if size > 0xFFFF:
+            raise ValueError(f"CFW resource {resource_id:#x} exceeds 65535 bytes")
+        entries.append(f"    {{{resource_id:#x}, {data}, {size}, {kind_index(kind)}}},")
+
+    resources.emitted = {}
+    for (kind, resource_id), data in resources.added.items():
+        data = Resource(data)
+        # Native BMap readers load header fields and pixels as halfwords/words.
+        aligned = kind == "BMap"
+        key = (bytes(data.data), tuple(data.copies()), aligned)
+        name = arrays.get(key)
+        if name is None:
+            name = arrays[key] = f"resource_{len(arrays)}"
+            lines.extend(emit_resource_data(name, data, aligned=aligned))
+        resources.emitted[kind, resource_id] = name
+        entry(resource_id, kind, name, len(data))
     offset = 0
     for _, resource_id, bitmap in resources.catalog:
-        entries.append(
-            f"    {{{bmap:#x}, {resource_id:#x}, {len(bitmap)}, "
-            f"cfw_catalog_bitmaps + {offset}}},"
-        )
+        entry(resource_id, "BMap", f"cfw_catalog_bitmaps + {offset}", len(bitmap))
         offset += (len(bitmap) + 3) & ~3
 
-    lines += ["", "const struct cfw_resource cfw_resources[] = {", *entries, "};"]
+    lines += [
+        "",
+        array("cfw_resource_kinds", kinds, public=True),
+        "const struct cfw_resource cfw_resources[] = {",
+        *entries,
+        "};",
+    ]
     lines.append(f"const uint32_t cfw_resource_count = {len(entries)};")
     lines.append("const struct cfw_resource_name cfw_resource_names[] = {")
     for name, resource_id in resources.names.items():
