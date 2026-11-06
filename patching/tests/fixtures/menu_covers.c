@@ -104,12 +104,13 @@ int cfw_menu_covers_query_original(void *value, uint32_t flags)
     return 7;
 }
 
-static void check(int enabled)
+/* The row reads Theme while following the theme, otherwise On or Off. */
+static void check(int enabled, int theme)
 {
     uintptr_t value = 0;
     assert(cfw_menu_covers_enabled() == enabled);
     assert(cfw_menu_covers_property(OSOS_PROPERTY_STRING, CFW_MenuCovers_Value, &value));
-    assert(value == (enabled ? 2u : 1u));
+    assert(value == (theme ? CFW_MenuCovers_ThemeLabel : enabled ? 2u : 1u));
     assert(cfw_menu_covers_property(OSOS_PROPERTY_STRING, CFW_MenuCovers_PreviewText,
                                     &value));
     assert(value == (enabled ? CFW_MenuCovers_OnLabel : CFW_MenuCovers_OffLabel));
@@ -126,32 +127,34 @@ int main(void)
 
     /* No preference file: the theme decides, and Classic shows covers. */
     cfw_menu_covers_load();
-    check(1);
+    check(1, 1);
     render_flags = CFW_THEME_MENU_COVERS_OFF;
-    check(0);
+    check(0, 1);
     render_flags = CFW_THEME_FLAT_SELECTION;
-    check(1);
+    check(1, 1);
 
     /* Unknown records are ignored. */
     present = 1;
     stored = 0x12345678;
     cfw_menu_covers_load();
-    check(1);
+    check(1, 1);
 
     /* A stored choice outranks the theme. */
     render_flags = CFW_THEME_MENU_COVERS_OFF;
     stored = COVERS_ON_RECORD;
     cfw_menu_covers_load();
-    check(1);
+    check(1, 0);
 
     render_flags = 0;
     stored = COVERS_OFF_RECORD;
     cfw_menu_covers_load();
-    check(0);
+    check(0, 0);
 
-    stored = COVERS_ON_RECORD;
+    /* A stored Theme choice follows the theme again. */
+    render_flags = CFW_THEME_MENU_COVERS_OFF;
+    stored = COVERS_THEME_RECORD;
     cfw_menu_covers_load();
-    check(1);
+    check(0, 1);
 
     /* Other actions pass through; the toggle answers the support query. */
     assert(!cfw_menu_covers_action(&controller, "CFW_DarkMode_Toggle", 0));
@@ -160,21 +163,27 @@ int main(void)
                                   OSOS_ACTION_SUPPORT_QUERY));
     assert(writes == 0 && notifications == 0);
 
+    /* The toggle cycles Theme, On, Off and back to Theme. */
     assert(cfw_menu_covers_action(&controller, "CFW_MenuCovers_Toggle", 0));
-    assert(stored == COVERS_OFF_RECORD && writes == 1);
+    assert(stored == COVERS_ON_RECORD && writes == 1);
     assert(notifications == 2 && invalidations == 1);
-    check(0);
+    check(1, 0);
+
+    assert(cfw_menu_covers_action(&controller, "CFW_MenuCovers_Toggle", 0));
+    assert(stored == COVERS_OFF_RECORD && writes == 2);
+    assert(notifications == 4 && invalidations == 2);
+    check(0, 0);
 
     /* A failed write keeps the current state. */
     write_error = 1;
     assert(cfw_menu_covers_action(&controller, "CFW_MenuCovers_Toggle", 0));
-    assert(stored == COVERS_OFF_RECORD && writes == 1 && notifications == 2);
-    check(0);
+    assert(stored == COVERS_OFF_RECORD && writes == 2 && notifications == 4);
+    check(0, 0);
 
     write_error = 0;
     assert(cfw_menu_covers_action(&controller, "CFW_MenuCovers_Toggle", 0));
-    assert(stored == COVERS_ON_RECORD && writes == 2);
-    assert(notifications == 4 && invalidations == 2);
-    check(1);
+    assert(stored == COVERS_THEME_RECORD && writes == 3);
+    assert(notifications == 6 && invalidations == 3);
+    check(0, 1);
     return 0;
 }
