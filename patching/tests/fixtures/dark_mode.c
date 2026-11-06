@@ -349,6 +349,22 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
     return 0;
 }
 
+int cfw_menu_covers_action(void *c, const char *a, uint32_t v)
+{
+    (void)c;
+    (void)a;
+    (void)v;
+    return 0;
+}
+
+int cfw_menu_covers_property(uint32_t t, uint32_t p, uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)o;
+    return 0;
+}
+
 static char boot_calls[16];
 static unsigned boot_count, native_flushes, store_flushes;
 static const char *deleted[4];
@@ -374,6 +390,11 @@ void cfw_eq_load_preferences(void)
 void cfw_theme_settings_load(void)
 {
     boot_step('T');
+}
+
+void cfw_menu_covers_load(void)
+{
+    boot_step('M');
 }
 
 void cfw_ui_visibility_load_preferences(void)
@@ -427,7 +448,7 @@ static void check_settings_lifecycle(void)
 {
     boot_count = 0;
     cfw_settings_boot(&native_preferences_object);
-    assert(!strcmp(boot_calls, "SETVF"));
+    assert(!strcmp(boot_calls, "SETMVF"));
     cfw_settings_sleep();
     assert(native_flushes == 1 && store_flushes == 2);
     cfw_store_delete_legacy();

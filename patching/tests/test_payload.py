@@ -55,6 +55,7 @@ class PayloadTests(unittest.TestCase):
                 Resources(metadata["resources"], bindings),
                 [
                     root / "payload/dark_mode.ui",
+                    root / "payload/menu_covers.ui",
                     root / "payload/song_info.ui",
                     root / "payload/theme_settings.ui",
                     root / "payload/accent_settings.ui",
@@ -86,6 +87,7 @@ class PayloadTests(unittest.TestCase):
                 "theme_discovery",
                 "theme_style",
                 "dark_mode",
+                "menu_covers",
                 "store",
                 "osos_handoff",
             ):

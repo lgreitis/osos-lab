@@ -315,7 +315,8 @@ static int style_valid(const unsigned char *data)
             return 0;
     const struct cfw_theme_options *o =
         (const void *)(data + sizeof(struct cfw_theme_style));
-    if ((o->flags & ~CFW_THEME_FLAT_SELECTION) || o->icon[3] != 255)
+    if ((o->flags & ~(CFW_THEME_FLAT_SELECTION | CFW_THEME_MENU_COVERS_OFF)) ||
+        o->icon[3] != 255)
         return 0;
     for (unsigned a = 0; a < CFW_THEME_ACCENT_COUNT - 1; a++)
         for (unsigned slot = 0; slot < CFW_PALETTE_COUNT; slot++)

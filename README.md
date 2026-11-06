@@ -49,6 +49,8 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Themes with custom colors and artwork, plus a Dark Mode toggle in Settings.
+- Menu Covers toggle in Settings to replace the main and Music menu cover
+  previews with the stock static icons; themes can set its default.
 
 Open **Settings → Custom EQ → Graphic EQ** to edit all five bands. Use the wheel
 to select a band, then Center to select and edit its Type, Gain, Frequency or Q.
@@ -131,9 +133,9 @@ annotation directory. Logs are in `.build/ghidra-*.log`; all tools expose `--hel
   the BootROM exploit, DFU protocol, and payload assembler code ported from Go
   to Rust in `reprise-device`, including `payload.rs` and `dfu.rs`.
 - [Cupertino Icons](https://github.com/flutter/packages/tree/main/third_party/packages/cupertino_icons)
-  (Framework7 Icons) by Vladimir Kharlampidi, MIT License: the Dark Mode, Theme,
-  Accent Color, Custom EQ and CFW Info preview glyphs in `payload/assets/`. See
-  `payload/assets/LICENSE.cupertino-icons`.
+  (Framework7 Icons) by Vladimir Kharlampidi, MIT License: the Dark Mode, Menu
+  Covers, Theme, Accent Color, Custom EQ and CFW Info preview glyphs in
+  `payload/assets/`. See `payload/assets/LICENSE.cupertino-icons`.
 
 ## Support
 

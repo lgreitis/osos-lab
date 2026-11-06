@@ -9069,6 +9069,22 @@
       "palette_colors": 0,
       "crc32": 3750541810,
       "source": "payload"
+    },
+    {
+      "id": 218038277,
+      "name": "CFW_MenuCovers_Icon",
+      "offset": 24340,
+      "bytes": 4868,
+      "format": 4,
+      "depth": 4,
+      "width": 78,
+      "height": 121,
+      "stride": 40,
+      "data_offset": 28,
+      "pixels_offset": 28,
+      "palette_colors": 0,
+      "crc32": 53059864,
+      "source": "payload"
     }
   ]
 }

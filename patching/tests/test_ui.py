@@ -352,6 +352,7 @@ class UiTests(unittest.TestCase):
         for menu, source_file in (
             ("CFW_Theme", "theme_settings.ui"),
             ("CFW_Accent", "accent_settings.ui"),
+            ("CFW_MenuCovers", "menu_covers.ui"),
         ):
             resources = Resources(metadata["resources"], bindings)
             with tempfile.TemporaryDirectory() as directory:
@@ -386,6 +387,58 @@ class UiTests(unittest.TestCase):
                 struct.unpack_from("<HHHHiiiii", content),
                 (4, 0, 40, 4, 0, 0, 121, 78, 4840),
             )
+
+    def test_menu_covers_toggle_follows_dark_mode_with_a_static_icon(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        with tempfile.TemporaryDirectory() as directory:
+            generate(
+                resources,
+                [root / "payload/dark_mode.ui", root / "payload/menu_covers.ui"],
+                Path(directory),
+                "test",
+            )
+            row_ids = [
+                int(
+                    re.search(
+                        rf"#define {name}_Item (0x[0-9a-f]+)u",
+                        (Path(directory) / header).read_text(),
+                    ).group(1),
+                    16,
+                )
+                for name, header in (
+                    ("CFW_DarkMode", "dark_mode_ui.h"),
+                    ("CFW_MenuCovers", "menu_covers_ui.h"),
+                )
+            ]
+        rows = menu_rows(resources, bindings["SettingsMenu_Items"])
+
+        def item(row):
+            # Generated rows store their ids literally; native rows come from
+            # templates, and only the catalogued ones expose an id.
+            if row.origins[0x30] is None:
+                return int.from_bytes(bytes(row.data[0x30:0x34]), "little")
+            try:
+                return word(row, 0x30)
+            except ValueError:
+                return None
+
+        items = [item(row) for _, row in rows]
+        brightness = items.index(0x0DAD0C72)
+        self.assertEqual(items[brightness + 1 : brightness + 3], row_ids)
+        appended = b"".join(
+            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
+        )
+        self.assertIn(b"CFW_MenuCovers_Toggle", appended)
+        self.assertNotIn(b"CFW_MenuCovers_Screen", appended)
+        self.assertNotIn("CFW_MenuCovers_PreviewImage", resources.names)
+        self.assertIn("CFW_MenuCovers_PreviewText", resources.names)
+        self.assertEqual(
+            [name for name, _, _ in resources.catalog],
+            ["CFW_DarkMode_Moon", "CFW_MenuCovers_Icon"],
+        )
 
     def test_theme_list_uses_native_rows_and_explicit_controller(self):
         root = Path(__file__).resolve().parents[2]

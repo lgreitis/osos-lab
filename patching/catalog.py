@@ -21,6 +21,7 @@ UI_SOURCES = (
     "theme_settings.ui",
     "accent_settings.ui",
     "dark_mode.ui",
+    "menu_covers.ui",
     "queue_selection.ui",
 )
 # Catalog bitmaps take ids from the top of the reserved CFW range (0x0CF00000 up),

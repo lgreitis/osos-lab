@@ -139,6 +139,9 @@ PATCH_CALL(OSOS_SELECT_ARTWORK_SOURCE_CALL, OSOS_SELECT_ARTWORK_SOURCE,
            cfw_album_artists_select_artwork);
 PATCH_CALL(OSOS_ALBUM_ARTWORK_CREATE_CALL, OSOS_ALBUM_ARTWORK_CREATE,
            cfw_album_artists_create_artwork);
+/* Menu Covers */
+/* Original entry: stmdb sp!,{r4-r6,lr}; mov r5,r0. */
+PATCH_JUMP(OSOS_MENU_ART_QUERY_ENTRY, 0xe92d4070, 0xe1a05000, cfw_menu_covers_query);
 PATCH_JUMP(OSOS_MODEL_DESTROY_ENTRY, 0xe92d4010, 0xe1a04000,
            cfw_album_artists_destroy_model);
 PATCH_POINTER(OSOS_SETTINGS_INDEXED_PROPERTY_SLOT, OSOS_SETTINGS_INDEXED_PROPERTY,

@@ -3,6 +3,7 @@
 #include "clicker.h"
 #include "custom_eq.h"
 #include "dark_mode.h"
+#include "menu_covers.h"
 #include "theme_settings.h"
 #include "osos.h"
 #include "patch.h"
@@ -20,6 +21,7 @@ void cfw_settings_boot(void *preferences)
     cfw_store_load();
     cfw_eq_load_preferences();
     cfw_theme_settings_load();
+    cfw_menu_covers_load();
     cfw_ui_visibility_load_preferences();
     cfw_store_flush();
 }
@@ -55,6 +57,7 @@ PATCH_ARM int cfw_settings_action(void *controller, const char *action,
         cfw_ui_handle_action(action, argument) ||
         cfw_clicker_action(controller, action, argument) ||
         cfw_dark_mode_action(controller, action, argument) ||
+        cfw_menu_covers_action(controller, action, argument) ||
         cfw_eq_action(action, argument))
         return 1;
 
@@ -67,6 +70,7 @@ PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t propert
     if (cfw_theme_settings_property(type, property, out) ||
         cfw_ui_property(type, property, out) ||
         cfw_dark_mode_property(type, property, out) ||
+        cfw_menu_covers_property(type, property, out) ||
         cfw_clicker_property(model, type, property, out))
         return 1;
 
