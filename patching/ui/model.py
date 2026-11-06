@@ -48,8 +48,8 @@ class Document:
     preview: str = ""
     preview_image: str = ""
     preview_caption: str = ""
-    # name -> (file, format): "auto" embeds a native bitmap; "gray4" adds a 4-bit
-    # mask to the payload's catalog bitmap block, where themes can replace it.
+    # name -> (file, format): "auto" embeds a native bitmap; "gray8" adds an 8-bit
+    # mask to the payload's catalog bitmaps, where themes can replace it.
     bitmaps: dict[str, tuple[str, str]] = field(default_factory=dict)
 
 

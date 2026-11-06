@@ -203,7 +203,7 @@ static void tinting(void)
     target_options()->accents[CFW_THEME_ACCENT_PINK - 1][CFW_PALETTE_ON_ACCENT][0] = 88;
     fix_crc();
     assert(!cfw_theme_bitmap_tint(pixels[MASK_ASSET] + 28));
-    assert(!cfw_theme_bitmap_tint(pixels[PAYLOAD_ASSET] + 28));
+    assert(!cfw_theme_bitmap_tint(payload_pixels()));
     assert(apply(&modern));
     assert(!memcmp(pixels[0] + 32, tinted_entries,
                    8)); /* the record's 99 is overwritten */
@@ -216,8 +216,8 @@ static void tinting(void)
     assert(!cfw_theme_bitmap_tint(pixels[0] + 32)); /* not a pixel start */
     assert(!cfw_theme_bitmap_tint(NULL));
     /* The payload's catalog bitmaps are tinted through the same tint roles. */
-    assert(cfw_theme_bitmap_tint(pixels[PAYLOAD_ASSET] + 28) == color);
-    assert(!cfw_theme_bitmap_tint(pixels[PAYLOAD_ASSET] + 29));
+    assert(cfw_theme_bitmap_tint(payload_pixels()) == color);
+    assert(!cfw_theme_bitmap_tint(payload_pixels() + 1));
     cfw_theme_input_drained();
     assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_PINK));
     assert(pixels[0][32 + 2] == 77 && pixels[0][32 + 3] == 255 &&
@@ -254,7 +254,7 @@ static void tinting(void)
     cfw_theme_bitmap_blit_begin(&lit, &lit);
     cfw_theme_bitmap_blit_end();
     check_stock();
-    assert(!cfw_theme_bitmap_tint(pixels[PAYLOAD_ASSET] + 28));
+    assert(!cfw_theme_bitmap_tint(payload_pixels()));
     cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
 
     /* An ARGB asset tinted in the selection role: opaque pixels take the role's

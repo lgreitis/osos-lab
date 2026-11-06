@@ -4,6 +4,8 @@
 import json
 import struct
 
+from ..bitmap import BMAP_HEADER_BYTES, pack_runs
+from ..catalog import CATALOG_ID_BASE
 from .resources import Resource
 
 
@@ -147,23 +149,55 @@ def emit_resource_data(name, data, *, mutable=False, aligned=False):
 
 
 def emit_catalog_bitmaps(resources):
-    """The payload's catalog bitmap block: every gray4 UI bitmap back to back,
-    word-aligned, in catalog order. It is writable because theme packs replace
-    its pixels in place, like the firmware's resident bitmaps."""
-    data = bytearray()
-    for _, _, bitmap in resources.catalog:
-        data += bitmap + bytes(-len(bitmap) % 4)
-    if not data:
-        data = bytearray(4)
-    lines = ["unsigned char cfw_catalog_bitmaps[] __attribute__((aligned(4))) = {"]
+    """The payload's catalog bitmaps (payload/catalog_bitmaps.h): run-packed pixels
+    in catalog order, their built-in and live source tables, the BMap header they
+    share and the resident slot that holds the one decoded last."""
+    bitmaps = [bitmap for _, _, bitmap in resources.catalog]
+    header = bitmaps[0][:BMAP_HEADER_BYTES] if bitmaps else bytes(BMAP_HEADER_BYTES)
+    if any(bitmap[:BMAP_HEADER_BYTES] != header for bitmap in bitmaps):
+        raise ValueError("Catalog bitmaps must share one size and format")
+    pixel_bytes = len(bitmaps[0]) - BMAP_HEADER_BYTES if bitmaps else 0
+    packed = bytearray()
+    sources = []
+    for bitmap in bitmaps:
+        data = pack_runs(bitmap[BMAP_HEADER_BYTES:])
+        sources.append(f"{{cfw_catalog_packed + {len(packed)}, {len(data)}}}")
+        packed += data
+    sources = sources or ["{0, 0}"]
+    lines = [
+        '#include "catalog_bitmaps.h"',
+        f"_Static_assert({len(bitmaps)} <= CFW_CATALOG_MAX_BITMAPS, "
+        '"Too many catalog bitmaps");',
+        *emit_bytes("static const unsigned char cfw_catalog_packed[]", packed or b"\0"),
+        "const struct cfw_catalog_source cfw_catalog_builtin[] = {",
+        *(f"    {source}," for source in sources),
+        "};",
+        "struct cfw_catalog_source cfw_catalog_sources[] = {",
+        *(f"    {source}," for source in sources),
+        "};",
+        *emit_bytes(
+            "const unsigned char cfw_catalog_header[] __attribute__((aligned(4)))",
+            header,
+        ),
+        "unsigned char cfw_catalog_slot[CFW_BMAP_HEADER_BYTES + "
+        f"{max(pixel_bytes, 4)}] __attribute__((aligned(4)));",
+        f"const uint32_t cfw_catalog_bitmap_count = {len(bitmaps)},",
+        f"               cfw_catalog_pixel_bytes = {pixel_bytes},",
+        f"               cfw_catalog_id_base = {CATALOG_ID_BASE:#x};",
+        "",
+    ]
+    return lines
+
+
+def emit_bytes(declaration, data):
+    lines = [declaration + " = {"]
     for start in range(0, len(data), 16):
         lines.append(
             "    "
             + ", ".join(f"0x{byte:02x}" for byte in data[start : start + 16])
             + ","
         )
-    lines += ["};", ""]
-    return lines
+    return lines + ["};"]
 
 
 def emit_resources(resources):
@@ -198,10 +232,6 @@ def emit_resources(resources):
             lines.extend(emit_resource_data(name, data, aligned=aligned))
         resources.emitted[kind, resource_id] = name
         entry(resource_id, kind, name, len(data))
-    offset = 0
-    for _, resource_id, bitmap in resources.catalog:
-        entry(resource_id, "BMap", f"cfw_catalog_bitmaps + {offset}", len(bitmap))
-        offset += (len(bitmap) + 3) & ~3
 
     lines += [
         "",

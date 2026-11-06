@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "theme_package.h"
 #include "assets.h"
+#include "catalog_bitmaps.h"
 #include "cfw.h"
 #include "osos.h"
 #include "theme_id.h"
@@ -24,9 +25,10 @@ struct layout {
     uint32_t start, pixels, colors, stride, width, height, depth, mask;
 };
 
-/* Resident bitmap addresses follow from the catalog sizes; walk them in order.
- * The firmware bitmaps start at cfw_bitmap_assets_base; the payload's catalog
- * bitmap block, listed after them, starts at cfw_catalog_bitmaps_base. */
+/* Resident firmware bitmap addresses follow from the catalog sizes; walk them in
+ * order from cfw_bitmap_assets_base. The payload's catalog bitmaps, listed after
+ * them, resolve to their shared header: their pixels are run-packed, so their
+ * records exchange sources (catalog_bitmaps.h) instead of bytes. */
 struct cursor {
     uint32_t index;
     unsigned char *data;
@@ -38,14 +40,17 @@ static void cursor_init(struct cursor *c)
     c->data = cfw_bitmap_assets_base;
 }
 
+static int packed(uint32_t index)
+{
+    return index >= cfw_bitmap_firmware_count;
+}
+
 static unsigned char *asset_data(struct cursor *c, uint32_t index)
 {
-    int payload = index >= cfw_bitmap_firmware_count;
-    uint32_t start = payload ? cfw_bitmap_firmware_count : 0;
-    if (index < c->index || c->index < start) {
-        c->index = start;
-        c->data = payload ? cfw_catalog_bitmaps_base : cfw_bitmap_assets_base;
-    }
+    if (packed(index))
+        return (unsigned char *)cfw_catalog_header;
+    if (index < c->index)
+        cursor_init(c);
     for (; c->index < index; c->index++)
         c->data += (cfw_bitmap_assets[c->index].size + 3u) & ~3u;
     return c->data;
@@ -465,7 +470,13 @@ int cfw_theme_asset_from_pixels(const unsigned char *pixels, uint32_t *index)
     cursor_init(&c);
     if (!pixels)
         return 0;
-    for (uint32_t i = 0; i < cfw_bitmap_asset_count && i < CFW_THEME_MAX_ASSETS; i++) {
+    uint32_t position;
+    if (cfw_catalog_slot_position(pixels, &position)) {
+        *index = cfw_bitmap_firmware_count + position;
+        return 1;
+    }
+    for (uint32_t i = 0; i < cfw_bitmap_firmware_count && i < CFW_THEME_MAX_ASSETS;
+         i++) {
         const unsigned char *data = asset_data(&c, i);
         uint32_t size = cfw_bitmap_assets[i].size;
         if (pixels >= data && pixels < data + size) {
@@ -541,7 +552,7 @@ int cfw_theme_transaction_bytes(const struct cfw_theme_pack *target,
     struct cursor c;
     cursor_init(&c);
     for (uint32_t i = 0; i < cfw_bitmap_asset_count; i++) {
-        if (next_record(target, &at, i) || !bit(previous, i))
+        if (next_record(target, &at, i) || !bit(previous, i) || packed(i))
             continue;
         struct layout b;
         if (!bitmap_layout(&c, i, &b))
@@ -553,6 +564,36 @@ int cfw_theme_transaction_bytes(const struct cfw_theme_pack *target,
         if (*bytes > cfw_theme_max_bytes || length > cfw_theme_max_bytes - *bytes)
             return 0;
         *bytes += length;
+    }
+    return 1;
+}
+
+/* Catalog bitmap sources for the swap: a heap copy of each replacement in target
+ * that differs from the built-in art, and the built-in art for every other
+ * replacement and for each previous replacement that target drops. */
+static int prepare_sources(const struct cfw_theme_pack *target,
+                           const uint32_t *previous, struct cfw_theme_transaction *out)
+{
+    uint32_t at = target ? target->records_offset : 0;
+    for (uint32_t i = 0; i < cfw_bitmap_asset_count; i++) {
+        const struct record *r = next_record(target, &at, i);
+        if (!packed(i) || (!r && !bit(previous, i)))
+            continue;
+        uint32_t position = i - cfw_bitmap_firmware_count;
+        struct cfw_catalog_source *source = &out->sources[position];
+        *source = cfw_catalog_builtin[position];
+        out->source_mask |= 1u << position;
+        if (!r ||
+            ~cfw_theme_crc32(cfw_theme_crc32(UINT32_MAX, cfw_catalog_header, r->offset),
+                             r->data, r->size) == cfw_bitmap_assets[i].crc)
+            continue;
+        uint32_t size = cfw_catalog_pack(r->data, 0);
+        unsigned char *data = osos_import_alloc(size);
+        if (!data)
+            return 0;
+        cfw_catalog_pack(r->data, data);
+        source->data = data;
+        source->size = size;
     }
     return 1;
 }
@@ -575,7 +616,7 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
         const struct record *r = next_record(target, &target_at, i);
         if (r)
             out->target_assets[i / 32] |= 1u << (i % 32);
-        if (!r && bit(previous, i))
+        if (!r && bit(previous, i) && !packed(i))
             missing++;
     }
     if (total) {
@@ -591,7 +632,7 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
     cursor_init(&c);
     for (uint32_t i = 0; i < cfw_bitmap_asset_count; i++) {
         const struct record *source = next_record(target, &target_at, i);
-        if (source || !bit(previous, i))
+        if (source || !bit(previous, i) || packed(i))
             continue;
         struct layout b;
         if (!bitmap_layout(&c, i, &b)) {
@@ -605,7 +646,8 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
         cfw_zero(r->data, (r->size + 3u) & ~3u);
         at += record_bytes(r);
     }
-    if (!stream_pack(baseline, 0, 0, &out->patch, out->target_assets, missing)) {
+    if (!stream_pack(baseline, 0, 0, &out->patch, out->target_assets, missing) ||
+        !prepare_sources(target, previous, out)) {
         cfw_theme_transaction_release(out);
         return 0;
     }
@@ -623,13 +665,15 @@ static void pack_swap(struct cfw_theme_pack *pack)
     cursor_init(&c);
     for (uint32_t i = 0; i < pack->count; i++) {
         struct record *r = (void *)(pack->data + at);
+        at += record_bytes(r);
+        if (packed(r->asset))
+            continue;
         unsigned char *target = asset_data(&c, r->asset) + r->offset;
         for (uint32_t j = 0; j < r->size; j++) {
             unsigned char old = target[j];
             target[j] = r->data[j];
             r->data[j] = old;
         }
-        at += record_bytes(r);
     }
 }
 
@@ -637,11 +681,23 @@ void cfw_theme_transaction_swap(struct cfw_theme_transaction *transaction)
 {
     pack_swap(&transaction->incoming);
     pack_swap(&transaction->patch);
+    for (uint32_t p = 0; p < cfw_catalog_bitmap_count; p++) {
+        if (!(transaction->source_mask & (1u << p)))
+            continue;
+        struct cfw_catalog_source live = cfw_catalog_sources[p];
+        cfw_catalog_sources[p] = transaction->sources[p];
+        transaction->sources[p] = live;
+    }
+    cfw_catalog_reload();
     transaction->applied = !transaction->applied;
 }
 
 void cfw_theme_transaction_release(struct cfw_theme_transaction *transaction)
 {
+    for (uint32_t p = 0; p < cfw_catalog_bitmap_count; p++)
+        if ((transaction->source_mask & (1u << p)) &&
+            transaction->sources[p].data != cfw_catalog_builtin[p].data)
+            osos_import_free((void *)transaction->sources[p].data);
     cfw_theme_pack_release(&transaction->incoming);
     cfw_theme_pack_release(&transaction->patch);
     cfw_zero(transaction, sizeof(*transaction));

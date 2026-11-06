@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #pragma once
 #include <stdint.h>
+#include "catalog_bitmaps.h"
 #include "theme_style.h"
 
 struct osos_path;
@@ -20,9 +21,13 @@ struct cfw_theme_pack {
     uint32_t custom;
 };
 
-/* A custom incoming pack keeps its style prefix at the start of incoming.data. */
+/* A custom incoming pack keeps its style prefix at the start of incoming.data.
+ * Catalog bitmaps take no bytes in incoming or patch: sources holds the run-packed
+ * art that swap exchanges with cfw_catalog_sources, for positions in source_mask. */
 struct cfw_theme_transaction {
     struct cfw_theme_pack incoming, patch;
+    struct cfw_catalog_source sources[CFW_CATALOG_MAX_BITMAPS];
+    uint32_t source_mask;
     uint32_t target_assets[CFW_THEME_BITMAP_WORDS];
     int custom, dark, applied;
 };
@@ -72,7 +77,9 @@ int cfw_theme_transaction_prepare(struct cfw_theme_pack *target, int dark,
                                   const uint32_t *previous,
                                   const struct osos_path *baseline,
                                   struct cfw_theme_transaction *out);
-/* Call only after successful prepare. Swaps bitmap bytes only; a second call
- * restores them. Release frees staging storage without applying or undoing it. */
+/* Call only after successful prepare. Swaps bitmap bytes and catalog bitmap
+ * sources only; a second call restores them. Release frees staging storage,
+ * including the heap sources the transaction holds, without applying or undoing
+ * it. */
 void cfw_theme_transaction_swap(struct cfw_theme_transaction *transaction);
 void cfw_theme_transaction_release(struct cfw_theme_transaction *transaction);

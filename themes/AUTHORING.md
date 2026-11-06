@@ -31,9 +31,12 @@ RTM4/RTH4 covers:
   dimensions, native pixel format, and the existing palette size (indexed art
   is reduced to fit). The catalog lists the firmware's bitmaps followed by the
   RepriseOS Settings preview glyphs (`CFW_Info_Icon`, `CFW_EQ_Icon`,
-  `CFW_Theme_Icon`, `CFW_Accent_Icon`, `CFW_DarkMode_Moon`; 78×121 4-bit
-  masks marked `"source": "payload"`), which are replaced and tinted exactly
-  like the stock `Settings_*_Image` previews.
+  `CFW_Theme_Icon`, `CFW_Accent_Icon`, `CFW_DarkMode_Moon`,
+  `CFW_MenuCovers_Icon`; 78×121 8-bit masks marked `"source": "payload"`),
+  which are replaced and tinted exactly like the stock `Settings_*_Image`
+  previews. The payload keeps them run-packed, so mostly black art costs
+  little memory: each replacement that differs from the built-in glyph is
+  packed into its own allocation while the theme is active.
 - **Tint**: bitmaps marked `tint` follow the icon tint, or a named color role,
   of the theme and of the accent the user picks. Masks (formats 4 and 8) are
   colored while drawing; paletted bitmaps (formats 0x64 and 0x65) have their

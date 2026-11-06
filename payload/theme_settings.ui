@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <ui>
   <list id="CFW_Theme" title="Theme" controller="CFWTheme"/>
-  <bitmap id="CFW_Theme_Icon" file="assets/settings-theme.png" format="gray4"/>
+  <bitmap id="CFW_Theme_Icon" file="assets/settings-theme.png" format="gray8"/>
   <settings-entry menu="CFW_Theme" after="SettingsMenu_ListItem_Brightness"
                   open="CFW_Theme_Open" preview="image" image="CFW_Theme_Icon"/>
   <screen-controller screen="SettingsMenus_Main_Screen" controller="CFWSettingsMain"/>

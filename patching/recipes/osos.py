@@ -88,8 +88,8 @@ def build_recipe(
     for (kind, resource_id), name in resources.emitted.items():
         if kind == "BMap" and require(symbols, name) % 4:
             raise ValueError(f"Embedded bitmap {resource_id:#x} is not word-aligned")
-    if require(symbols, "cfw_catalog_bitmaps") % 4:
-        raise ValueError("Catalog bitmap block is not word-aligned")
+    if require(symbols, "cfw_catalog_slot") % 4:
+        raise ValueError("Catalog bitmap slot is not word-aligned")
     patches = declarations.collect(directory, "payload", prefix)
     used = symbols["__payload_end"] - symbols["__payload_start"]
     capacity = symbols["__payload_limit"] - symbols["__payload_start"]
@@ -102,7 +102,7 @@ def build_recipe(
 
 
 def check_catalog_bitmaps(catalog, generated):
-    """The catalog's payload entries must describe the generated bitmap block,
+    """The catalog's payload entries must describe the generated catalog bitmaps,
     since themes and the baseline are compiled against the catalog alone."""
     listed = [
         (a["name"], a["id"], a["bytes"], a["crc32"])

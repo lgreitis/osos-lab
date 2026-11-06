@@ -16,8 +16,6 @@ def generate(catalog, directory):
         '#include "assets.h"',
         '#include "osos.h"',
         '#include "theme_package.h"',
-        "extern unsigned char cfw_catalog_bitmaps[];",
-        "unsigned char *const cfw_catalog_bitmaps_base = cfw_catalog_bitmaps;",
         "const struct cfw_bitmap_asset cfw_bitmap_assets[] = {",
     ]
     maximum = 0
@@ -25,7 +23,7 @@ def generate(catalog, directory):
     if expected["firmware"] % 4:
         raise ValueError("First catalog bitmap is not word-aligned")
     for a in bitmaps:
-        # Both regions pack bitmaps contiguously with 4-byte alignment; the payload
+        # Both regions list bitmaps contiguously with 4-byte alignment; the firmware
         # derives each address from the previous size instead of storing it.
         region = "payload" if is_payload(a) else "firmware"
         if a["offset"] != expected[region]:

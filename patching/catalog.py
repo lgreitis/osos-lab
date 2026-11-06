@@ -2,12 +2,14 @@
 """Payload bitmaps that extend the firmware bitmap catalog.
 
 The theme engine addresses bitmaps by catalog index. The firmware's own BMap
-bank cannot grow, so RepriseOS preview bitmaps (``<bitmap format="gray4">`` in
-the UI sources) live in one contiguous block inside the payload and are listed
-after the firmware bitmaps with ``"source": "payload"`` and offsets relative to
-that block. Their order is the document order of UI_SOURCES, and their resource
-ids come from a fixed range so the catalog, the generated payload and the host
-tools agree without sharing allocator state."""
+bank cannot grow, so RepriseOS preview bitmaps (``<bitmap format="gray8">`` in
+the UI sources) are listed after the firmware bitmaps with ``"source": "payload"``
+and offsets that place them back to back, word-aligned, as if unpacked. The
+payload stores their pixels run-packed behind one shared BMap header and decodes
+the requested one into a single resident slot (payload/catalog_bitmaps.h), so
+they must all have the same dimensions. Their order is the document order of
+UI_SOURCES, and their resource ids come from a fixed range so the catalog, the
+generated payload and the host tools agree without sharing allocator state."""
 
 from .bitmap import encode_bmap, read_png
 
@@ -27,7 +29,7 @@ UI_SOURCES = (
 # Catalog bitmaps take ids from the top of the reserved CFW range (0x0CF00000 up),
 # far above the sequential allocations of the UI generator.
 CATALOG_ID_BASE = 0x0CFF0000
-CATALOG_FORMAT = "gray4"
+CATALOG_FORMAT = "gray8"
 
 
 def align(size):
@@ -49,7 +51,7 @@ def payload_bitmaps(source):
         for bitmap_name, (filename, bitmap_format) in document.bitmaps.items():
             if bitmap_format != CATALOG_FORMAT:
                 continue
-            data = encode_bmap(*read_png(path.parent / filename), gray4=True)
+            data = encode_bmap(*read_png(path.parent / filename), gray8=True)
             bitmaps.append((bitmap_name, catalog_bitmap_id(len(bitmaps)), data))
     return bitmaps
 
