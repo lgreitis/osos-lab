@@ -4,6 +4,61 @@
 from .catalog import is_payload
 from .theme_format import RECORD, catalog_hash
 
+# Stock blue artwork that follows the accent while a theme leaves it stock, with
+# the color role each takes. Blue that marks content (capacity legends, playlist
+# kinds) is not listed.
+ACCENT_ART = (
+    (
+        "CFW_THEME_SELECTION",
+        (
+            "OptionBar_White_Thumb_LeftCap_Image",
+            "OptionBar_White_Thumb_Center_Image",
+            "OptionBar_White_Thumb_RightCap_Image",
+            "OptionBar_Black_Thumb_LeftCap_Image",
+            "OptionBar_Black_Thumb_Center_Image",
+            "OptionBar_Black_Thumb_RightCap_Image",
+            "System_ActiveButtonLeftCap_Image",
+            "System_ActiveButtonRightCap_Image",
+            "System_ActiveButtonFill_Image",
+            "DateTimePicker_Selection",
+            "Alarms_Timer_Time_Panel_Focus",
+            "Settings_DateTime_Capsule_Hilite",
+            "Calendar_Hilite_Cell",
+            "LockScreen_TumblerFocus_Image",
+            "Settings_MainMenu_CheckmarkWhite_Image",
+        ),
+    ),
+    (
+        "CFW_THEME_ACCENT_FILL",
+        (
+            "NowPlaying_ProgressBar_Active_Fill_Image",
+            "NowPlaying_ProgressBar_Scrub_Image",
+            "Genius_Slider_Endcap_Image",
+            "Genius_Slider_Fill_Image",
+            "Podcasts_new_item_Image",
+            "Podcasts_new_item_video_Image",
+            "NowPlaying_Blue_Dot_Image",
+            "NowPlaying_Blue_Star_Image",
+            "NowPlaying_Large_Blue_Star_Image",
+            "StatusBarWhite_PlayStatus_Image",
+            "NowPlaying_White_Play_Image",
+            "NowPlaying_White_Pause_Image",
+            "NowPlaying_White_FF_Image",
+            "NowPlaying_White_Rew_Image",
+            "Radio_Preset_Image",
+            "Radio_Signal_Indicator_Light_Image",
+        ),
+    ),
+)
+RECOLORABLE_FORMATS = (0x64, 0x65, 0x1888)
+
+
+def unique_index(bitmaps, name):
+    matches = [i for i, a in enumerate(bitmaps) if a["name"] == name]
+    if len(matches) != 1:
+        raise ValueError(f"Catalog needs exactly one {name}")
+    return matches[0]
+
 
 def generate(catalog, directory):
     bitmaps = catalog["bitmaps"]
@@ -31,26 +86,29 @@ def generate(catalog, directory):
         expected[region] += (a["bytes"] + 3) & ~3
         lines.append(f"    {{{a['bytes']}u, {a['crc32']}u}},")
         maximum += RECORD.size + ((a["bytes"] - a["data_offset"] + 3) & ~3)
-    wells = []
-    for name in (
-        "OptionBar_White_Well_Center_Image",
-        "OptionBar_Black_Well_Center_Image",
-    ):
-        matches = [i for i, a in enumerate(bitmaps) if a["name"] == name]
-        if len(matches) != 1:
-            raise ValueError(f"Catalog needs exactly one {name}")
-        wells.append(matches[0])
-    fields = [
-        i
-        for i, a in enumerate(bitmaps)
-        if a["name"] == "System_Input_Field_Middle_Image"
+    wells = [
+        unique_index(bitmaps, name)
+        for name in (
+            "OptionBar_White_Well_Center_Image",
+            "OptionBar_Black_Well_Center_Image",
+        )
     ]
-    if len(fields) != 1:
-        raise ValueError("Catalog needs exactly one System_Input_Field_Middle_Image")
+    field = unique_index(bitmaps, "System_Input_Field_Middle_Image")
+    accent_art = []
+    for role, names in ACCENT_ART:
+        for name in names:
+            index = unique_index(bitmaps, name)
+            if bitmaps[index]["format"] not in RECOLORABLE_FORMATS:
+                raise ValueError(f"{name} is not paletted or ARGB")
+            accent_art.append(f"    {{{index}u, {role}}},")
     lines += [
         "};",
         f"const uint32_t cfw_bitmap_well_centers[2] = {{{wells[0]}u, {wells[1]}u}};",
-        f"const uint32_t cfw_bitmap_field_center = {fields[0]}u;",
+        f"const uint32_t cfw_bitmap_field_center = {field}u;",
+        "const struct cfw_accent_art cfw_bitmap_accent_art[] = {",
+        *accent_art,
+        "};",
+        f"const uint32_t cfw_bitmap_accent_art_count = {len(accent_art)};",
         "unsigned char *const cfw_bitmap_assets_base = "
         f"(unsigned char *)({firmware[0]['offset']:#x} + OSOS_RUNTIME_BASE - OSOS_LOAD_OFFSET);",
         f"const uint32_t cfw_bitmap_asset_count = {len(bitmaps)};",

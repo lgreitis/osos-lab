@@ -48,6 +48,27 @@ static int apply(const struct cfw_theme_selection *selection)
         &baseline);
 }
 
+/* The accent asset matches stock except its stock blue palette entry, which holds
+ * the active selection color (BGRA); its gray entry stays. */
+static int accent_recolored(void)
+{
+    const unsigned char *selection =
+        cfw_theme_color(CFW_THEME_SELECTION, cfw_theme_appearance_get(0));
+    const unsigned char entry[4] = {selection[2], selection[1], selection[0], 255};
+    return !memcmp(pixels[ACCENT_ASSET], original[ACCENT_ASSET], 32) &&
+           !memcmp(pixels[ACCENT_ASSET] + 32, entry, 4) &&
+           !memcmp(pixels[ACCENT_ASSET] + 36, original[ACCENT_ASSET] + 36, 8);
+}
+
+/* Everything but the recolored accent asset matches stock. */
+static int stock_but_accent(void)
+{
+    for (unsigned i = 0; i < ASSETS; i++)
+        if (i != ACCENT_ASSET && memcmp(pixels[i], original[i], sizeof(pixels[i])))
+            return 0;
+    return accent_recolored();
+}
+
 static void check_stock(void)
 {
     assert(!switcher.active.selection.id[0] && !switcher.active.selection.dark);
@@ -148,7 +169,9 @@ static void failures(void)
     cfw_theme_input_drained();
     files[1].data[52 + CFW_THEME_STYLE_BYTES + 12 + 4] ^= 1;
     assert(!apply(&stock));
-    assert(switcher.result == CFW_THEME_RESTORE_FAILED && switcher.assets[0] == 1);
+    /* Asset 0 is the failed replacement, the accent asset its recolored art. */
+    assert(switcher.result == CFW_THEME_RESTORE_FAILED &&
+           switcher.assets[0] == (1u | 1u << ACCENT_ASSET));
     assert(!switcher.active.custom && !cfw_theme_style_custom());
     assert(disk.version == 1 && !disk.selection.id[0] && opens == closes);
     /* A stale baseline header fails before anything is saved or written. */
@@ -192,7 +215,7 @@ static void switching(void)
     files[0].size = 52 + CFW_THEME_STYLE_BYTES;
     fix_crc();
     assert(apply(&modern)); /* color-only target restores all prior replacements */
-    assert(!memcmp(pixels, original, sizeof(pixels)) && cfw_theme_style_custom());
+    assert(stock_but_accent() && cfw_theme_style_custom());
     cfw_theme_input_drained();
     outcome = CFW_THEME_STORE_UNCHANGED;
     assert(!apply(&stock));
@@ -261,7 +284,7 @@ static void tinting(void)
     assert(!memcmp(pixels[0] + 32, tinted_entries,
                    8)); /* the record's 99 is overwritten */
     assert(!memcmp(pixels[0] + 40, original[0] + 40, 2));
-    assert(!memcmp(pixels[1], original[1], 42) &&
+    assert(accent_recolored() &&
            !memcmp(pixels[MASK_ASSET], original[MASK_ASSET], 42));
     const unsigned char *color = cfw_theme_bitmap_tint(pixels[MASK_ASSET] + 28);
     assert(color && color[0] == 10 && color[1] == 20 && color[2] == 30);
@@ -272,7 +295,7 @@ static void tinting(void)
     assert(cfw_theme_bitmap_tint(payload_pixels()) == color);
     assert(!cfw_theme_bitmap_tint(payload_pixels() + 1));
     cfw_theme_input_drained();
-    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_PINK));
+    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_PINK, &baseline));
     assert(pixels[0][32 + 2] == 77 && pixels[0][32 + 3] == 255 &&
            pixels[0][32 + 7] == 255);
     assert(cfw_theme_bitmap_tint(pixels[MASK_ASSET] + 28)[0] == 77);
@@ -297,7 +320,7 @@ static void tinting(void)
     cfw_theme_bitmap_blit_end();
     cfw_theme_bitmap_blit_begin(&mask, &mask);
     cfw_theme_bitmap_blit_end();
-    assert(!memcmp(pixels[1], original[1], 42) &&
+    assert(accent_recolored() &&
            !memcmp(pixels[MASK_ASSET], original[MASK_ASSET], 42));
     cfw_theme_input_drained();
     assert(apply(&stock));
@@ -329,7 +352,7 @@ static void tinting(void)
     assert(!memcmp(pixels[ARGB_ASSET] + 28, tinted_argb, 8));
     assert(cfw_theme_bitmap_tint(pixels[ARGB_ASSET] + 28)[0] == 1);
     cfw_theme_input_drained();
-    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_PINK));
+    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_PINK, &baseline));
     assert(pixels[ARGB_ASSET][28 + 2] == 66 && pixels[ARGB_ASSET][28 + 3] == 255 &&
            !memcmp(pixels[ARGB_ASSET] + 32, tinted_argb + 4, 4));
     struct osos_view_stub argb_lit = {pixels[ARGB_ASSET] + 28, 1};
@@ -380,6 +403,84 @@ static void tinting(void)
     cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
 }
 
+/* Stock accent artwork follows Classic accents other than Theme Default and Blue,
+ * recolored from stock pixels each time, and returns to stock exactly. */
+static void classic_accent(void)
+{
+    reset();
+    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_BLUE, &baseline));
+    check_stock();
+    assert(!switcher.assets[0] && opens == closes);
+    cfw_theme_input_drained();
+    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_PINK, &baseline));
+    assert(pixels[ACCENT_ASSET][32] == 86 && pixels[ACCENT_ASSET][34] == 196);
+    assert(accent_recolored() && stock_but_accent());
+    assert(switcher.assets[0] == 1u << ACCENT_ASSET &&
+           switcher.accented[0] == 1u << ACCENT_ASSET);
+    assert(disk.selection.accent == CFW_THEME_ACCENT_PINK);
+    assert(!cfw_theme_switch_store_classic(&switcher));
+    /* Another accent starts again from the stock pixels. */
+    cfw_theme_input_drained();
+    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_GREEN, &baseline));
+    assert(pixels[ACCENT_ASSET][32] == 58 && stock_but_accent());
+    cfw_theme_input_drained();
+    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_DEFAULT, &baseline));
+    check_stock();
+    assert(!switcher.assets[0] && !switcher.accented[0] && opens == closes);
+
+    /* Classic dark takes the dark preset; a theme switch restores the art first. */
+    cfw_theme_input_drained();
+    make_pack(&files[0], 1, 1, 1);
+    struct cfw_theme_selection dark = {.dark = 1, .accent = CFW_THEME_ACCENT_TEAL};
+    assert(apply(&dark));
+    assert(pixels[0][32] == 99 && accent_recolored());
+    assert(pixels[ACCENT_ASSET][34] == 0 && pixels[ACCENT_ASSET][33] == 120);
+    assert(switcher.assets[0] == (1u | 1u << ACCENT_ASSET));
+    cfw_theme_input_drained();
+    assert(apply(&stock));
+    check_stock();
+    assert(!switcher.assets[0] && !switcher.accented[0]);
+
+    /* A custom pack that replaces the asset keeps its own art. */
+    cfw_theme_input_drained();
+    make_target(ACCENT_ASSET);
+    assert(apply(&modern));
+    assert(pixels[ACCENT_ASSET][32] == 99 && !switcher.accented[0]);
+    assert(switcher.assets[0] == 1u << ACCENT_ASSET);
+    cfw_theme_input_drained();
+    assert(cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_PINK, &baseline));
+    assert(pixels[ACCENT_ASSET][32] == 99 && !switcher.accented[0]);
+    cfw_theme_input_drained();
+    assert(apply(&stock));
+    check_stock();
+
+    /* Boot restores a saved accent the same way. */
+    reset();
+    struct cfw_theme_selection pink = {.accent = CFW_THEME_ACCENT_PINK};
+    assert(cfw_theme_switch_restore(&switcher, &pink, NULL, &baseline));
+    assert(!stores && stock_but_accent());
+
+    /* A stale baseline prefix fails before saving; damaged records recover. */
+    cfw_theme_input_drained();
+    files[1].data[4] ^= 1;
+    assert(!cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_GREEN, &baseline));
+    assert(switcher.result == CFW_THEME_LOAD_FAILED && !stores);
+    assert(stock_but_accent() && cfw_theme_accent_get() == CFW_THEME_ACCENT_PINK);
+    files[1].data[4] ^= 1;
+    cfw_theme_input_drained();
+    /* The accent asset's record follows asset 0's 24-byte record. */
+    files[1].data[52 + CFW_THEME_STYLE_BYTES + 24 + 12 + 4] ^= 1;
+    assert(!cfw_theme_switch_set_accent(&switcher, CFW_THEME_ACCENT_GREEN, &baseline));
+    assert(switcher.result == CFW_THEME_RESTORE_FAILED);
+    assert(switcher.assets[0] == 1u << ACCENT_ASSET && !cfw_theme_accent_get());
+    assert(disk.version == 1 && !disk.selection.accent && opens == closes);
+    cfw_theme_input_drained();
+    make_baseline();
+    assert(apply(&stock));
+    check_stock();
+    assert(!switcher.assets[0]);
+}
+
 int main(void)
 {
     memcpy(original, pixels, sizeof(pixels));
@@ -389,5 +490,6 @@ int main(void)
     switching();
     classic_dark();
     tinting();
+    classic_accent();
     return 0;
 }

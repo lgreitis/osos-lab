@@ -80,9 +80,10 @@ static void recover(struct cfw_theme_switch *c, const uint32_t *touched,
         restore[i] = c->assets[i] | touched[i];
     int restored = cfw_theme_baseline_restore(baseline, restore);
     cfw_zero(&c->active, sizeof(c->active));
-    if (restored)
+    if (restored) {
         cfw_zero(c->assets, sizeof(c->assets));
-    else
+        cfw_zero(c->accented, sizeof(c->accented));
+    } else
         cfw_copy(c->assets, restore, sizeof(c->assets));
     cfw_theme_style_reset();
     cfw_theme_appearance_set(0);
@@ -90,6 +91,16 @@ static void recover(struct cfw_theme_switch *c, const uint32_t *touched,
     cfw_theme_tint_refresh();
     store_selection(c, &c->active.selection);
     c->result = restored ? CFW_THEME_RECOVERED : CFW_THEME_RESTORE_FAILED;
+}
+
+/* Recolor the stock accent artwork the active pack leaves stock. Expects every
+ * previously recolored bitmap to be stock again. */
+static void recolor_accent_art(struct cfw_theme_switch *c)
+{
+    cfw_zero(c->accented, sizeof(c->accented));
+    cfw_theme_accent_art_apply(c->assets, c->accented);
+    for (unsigned i = 0; i < CFW_THEME_BITMAP_WORDS; i++)
+        c->assets[i] |= c->accented[i];
 }
 
 static int switch_run(struct cfw_theme_switch *c,
@@ -145,6 +156,7 @@ static int switch_run(struct cfw_theme_switch *c,
         cfw_theme_appearance_set(selection->dark);
         cfw_theme_accent_set(selection->accent);
         cfw_theme_tint_refresh();
+        recolor_accent_art(c);
         c->result = CFW_THEME_OK;
     }
     cfw_catalog_reload();
@@ -172,14 +184,15 @@ int cfw_theme_switch_restore(struct cfw_theme_switch *c,
     return stock_active(c) && switch_run(c, selection, pack, baseline, 0);
 }
 
-int cfw_theme_switch_set_accent(struct cfw_theme_switch *c, unsigned accent)
+int cfw_theme_switch_set_accent(struct cfw_theme_switch *c, unsigned accent,
+                                const struct osos_path *baseline)
 {
     if (c->busy)
         return 0;
     struct cfw_theme_selection selection;
     cfw_copy(&selection, &c->active.selection, sizeof(selection));
     selection.accent = accent;
-    if (!cfw_theme_selection_valid(&selection)) {
+    if (!cfw_theme_selection_valid(&selection) || !baseline) {
         c->result = CFW_THEME_INVALID;
         return 0;
     }
@@ -188,13 +201,28 @@ int cfw_theme_switch_set_accent(struct cfw_theme_switch *c, unsigned accent)
         return 0;
     }
     c->busy = 1;
+    int recolored = 0;
+    for (unsigned i = 0; i < CFW_THEME_BITMAP_WORDS; i++)
+        recolored |= c->accented[i] != 0;
+    /* Recovery needs the baseline, so check it before saving anything. */
+    c->result = CFW_THEME_LOAD_FAILED;
+    if (recolored && !cfw_theme_baseline_valid(baseline))
+        goto done;
     c->result = CFW_THEME_STORE_FAILED;
-    if (store_selection(c, &selection)) {
-        c->active.selection.accent = accent;
-        cfw_theme_accent_set(accent);
-        cfw_theme_tint_refresh();
+    if (!store_selection(c, &selection))
+        goto done;
+    c->active.selection.accent = accent;
+    cfw_theme_accent_set(accent);
+    cfw_theme_tint_refresh();
+    if (!cfw_theme_baseline_restore(baseline, c->accented)) {
+        recover(c, c->assets, baseline);
+    } else {
+        for (unsigned i = 0; i < CFW_THEME_BITMAP_WORDS; i++)
+            c->assets[i] &= ~c->accented[i];
+        recolor_accent_art(c);
         c->result = CFW_THEME_OK;
     }
+done:
     c->busy = 0;
     cfw_theme_input_finish();
     return c->result == CFW_THEME_OK;

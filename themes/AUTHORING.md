@@ -136,10 +136,10 @@ the device.
 | --- | --- | --- | --- |
 | background | `#ffffff` | `#181818` | Native surfaces and EQ background; Search strip letters and input text on dark well or field art |
 | text | `#202020` | `#e8e8e8` | Native text shades and EQ text; Search strip letters and input text on light well or field art |
-| accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text; EQ field being edited |
+| accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text; EQ field being edited; stock progress, dot, star and playback art the theme leaves stock |
 | accent_text | `#3185d0` | `#00a1ff` | Native accent text and the Search input caret; EQ response curve and selected band |
 | on_accent | `#ffffff` | `#ffffff` | Selected-row text and tinted icons; EQ text on the field being edited; the highlighted Search key letter |
-| selection | `#236cc5` | `#00a1ff` | List selection bar; bitmaps tinted with `selection` (for example a Search key cursor) |
+| selection | `#236cc5` | `#00a1ff` | List selection bar; bitmaps tinted with `selection` (for example a Search key cursor); stock selection and focus art the theme leaves stock |
 | cover_border | `#7e8183` | `#383838` | Cover Flow border |
 
 The Graphic EQ has no roles of its own. Its grays are mixed from `background`
@@ -164,6 +164,15 @@ reports the contrast of both pairs.
 Native hooks map stock RGB values rather than individual views. These roles do
 not control every label or icon. Accent presets override accent
 fills and their foregrounds; Theme Default preserves the package colors.
+
+Stock blue artwork that marks selection, focus or progress follows the theme
+when your pack does not replace it. This covers the OptionBar thumbs (the Search
+keyboard cursor and the Clock's Add/Edit bar), the active button, picker and
+calendar highlights, the Settings checkmark, the progress and Genius sliders,
+new-item dots, rating stars and playback glyphs. The device recolors them from
+the stock pixels with `selection` or `accent_fill`, keeping their shading; the
+full list is `ACCENT_ART` in `patching/assets.py`. To give one of them other art,
+replace or tint it as usual; replaced assets are never recolored.
 
 The Search letter strip draws its unhighlighted letters in `text` or
 `background`, whichever differs more in brightness from the center pixel of the

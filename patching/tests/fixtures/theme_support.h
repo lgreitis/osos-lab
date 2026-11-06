@@ -12,7 +12,8 @@
 #include "../../../payload/theme_id.c"
 
 /* Four resident bitmaps, packed with the firmware's 4-byte alignment: two 42-byte
- * paletted (format 0x64, two colors), one 42-byte 14x1 gray mask (format 8) and
+ * paletted (format 0x64, two colors; the second's first entry is the stock
+ * selection blue), one 42-byte 14x1 gray mask (format 8) and
  * one 36-byte 2x1 ARGB (format 0x1888: an opaque dark pixel, then a transparent
  * one). The fifth, standing in for the payload's catalog bitmaps, is a 36-byte 8x1
  * gray8 mask; its row here holds the unpacked bytes that records are built from,
@@ -25,8 +26,8 @@
 static unsigned char pixels[ASSETS][44] = {
     {100, 0, 0, 0,  2, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0,   0, 1, 0, 0,   0, 2,
      0,   0, 0, 14, 0, 0, 0, 2, 0, 0, 0, 3, 2, 1, 255, 6, 5, 4, 255, 0, 1},
-    {100, 0, 0, 0,  2, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0,   0, 1, 0, 0,   0, 2,
-     0,   0, 0, 14, 0, 0, 0, 2, 0, 0, 0, 3, 2, 1, 255, 6, 5, 4, 255, 0, 1},
+    {100, 0, 0, 0,  2, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0,   0,   1,  0,  0,   0, 2,
+     0,   0, 0, 14, 0, 0, 0, 2, 0, 0, 0, 197, 108, 35, 255, 6, 5, 4, 255, 0, 1},
     {8, 0, 0, 0,  14, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,  0,  0,  14,
      0, 0, 0, 14, 0,  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
     {136, 24, 0, 0, 8, 0, 32, 0, 0, 0, 0,  0,  0,  0,   0, 0, 1, 0,
@@ -35,7 +36,7 @@ static unsigned char pixels[ASSETS][44] = {
      0, 0, 8, 0, 0, 0, 8, 0, 0, 0, 0x12, 0x12, 0x12, 0, 0, 0x34, 0x56, 0x78}};
 static unsigned char original[ASSETS][44];
 const struct cfw_bitmap_asset cfw_bitmap_assets[] = {{42, 0x25789516},
-                                                     {42, 0x25789516},
+                                                     {42, 0x7f2bd4ed},
                                                      {42, 0x3c33b0ab},
                                                      {36, 0x5130d0ab},
                                                      {36, 0xc090ade8}};
@@ -43,6 +44,11 @@ const struct cfw_bitmap_asset cfw_bitmap_assets[] = {{42, 0x25789516},
 const uint32_t cfw_bitmap_well_centers[2] = {ARGB_ASSET, ARGB_ASSET};
 /* The first paletted asset stands in for the Search field center slice. */
 const uint32_t cfw_bitmap_field_center = 0;
+/* The second paletted asset stands in for the stock accent artwork. */
+#define ACCENT_ASSET 1
+const struct cfw_accent_art cfw_bitmap_accent_art[] = {
+    {ACCENT_ASSET, CFW_THEME_SELECTION}};
+const uint32_t cfw_bitmap_accent_art_count = 1;
 unsigned char *const cfw_bitmap_assets_base = pixels[0];
 const uint32_t cfw_bitmap_asset_count = ASSETS,
                cfw_bitmap_firmware_count = FIRMWARE_ASSETS,
