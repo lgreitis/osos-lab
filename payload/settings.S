@@ -16,6 +16,7 @@ cfw_preferences_hook:
     blx r12
     bl cfw_eq_load_preferences
     bl cfw_theme_settings_load
+    bl cfw_menu_covers_load
     pop {r4, pc}
 .ltorg
 

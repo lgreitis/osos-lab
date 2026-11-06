@@ -349,6 +349,22 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
     return 0;
 }
 
+int cfw_menu_covers_action(void *c, const char *a, uint32_t v)
+{
+    (void)c;
+    (void)a;
+    (void)v;
+    return 0;
+}
+
+int cfw_menu_covers_property(uint32_t t, uint32_t p, uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)o;
+    return 0;
+}
+
 #define osos_settings_action settings_action
 #define osos_settings_property settings_property
 #include "../../../payload/settings.c"

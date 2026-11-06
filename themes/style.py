@@ -47,6 +47,9 @@ ACCENT_ROLES = (
     "icon_tint",
 )
 FLAT_SELECTION = 1
+# The theme turns the Menu Covers setting off unless the user has chosen a value.
+MENU_COVERS_OFF = 2
+RENDER_FLAGS = FLAT_SELECTION | MENU_COVERS_OFF
 # Colors a tinted bitmap may follow; the on-disk byte is 1 + index, 0 for untinted.
 TINT_ROLES = ("icon_tint", *COLOR_ROLES)
 PALETTE_BYTES = len(ACCENT_NAMES) * len(ACCENT_ROLES) * 4
@@ -154,7 +157,7 @@ def decode_options(data):
     if len(data) != OPTIONS_BYTES:
         raise ValueError("invalid RTH4 options length")
     flags = struct.unpack_from("<I", data)[0]
-    if flags & ~FLAT_SELECTION:
+    if flags & ~RENDER_FLAGS:
         raise ValueError("unknown RTH4 rendering flags")
     if any(data[i] != 255 for i in range(7, 8 + PALETTE_BYTES, 4)):
         raise ValueError("RTH4 colors must be opaque")

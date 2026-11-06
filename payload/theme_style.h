@@ -70,7 +70,7 @@ enum cfw_theme_palette_role {
     CFW_PALETTE_COUNT
 };
 
-enum { CFW_THEME_FLAT_SELECTION = 1 };
+enum { CFW_THEME_FLAT_SELECTION = 1, CFW_THEME_MENU_COVERS_OFF = 2 };
 
 /* Tint role byte of a catalog asset: untinted, the icon tint, or a base role
  * offset by CFW_TINT_ROLE_BASE (accent palettes override roles as usual). */

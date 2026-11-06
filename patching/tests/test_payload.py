@@ -55,6 +55,7 @@ class PayloadTests(unittest.TestCase):
                 Resources(metadata["resources"], bindings),
                 [
                     root / "payload/dark_mode.ui",
+                    root / "payload/menu_covers.ui",
                     root / "payload/theme_settings.ui",
                     root / "payload/accent_settings.ui",
                     root / "payload/custom_eq.ui",
@@ -82,6 +83,7 @@ class PayloadTests(unittest.TestCase):
                 "theme_discovery",
                 "theme_style",
                 "dark_mode",
+                "menu_covers",
                 "osos_handoff",
             ):
                 with self.subTest(fixture=name):

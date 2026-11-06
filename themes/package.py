@@ -33,7 +33,7 @@ METADATA_MAGIC = b"RTM4"
 SCHEMA = 1
 
 APPEARANCES = {"light": (0, 1), "dark": (1, 2)}
-RENDERING = {"selection": ("native", "flat")}
+RENDERING = {"selection": ("native", "flat"), "menu_covers": ("on", "off")}
 
 # Capabilities recognised by name so authors get a precise answer instead of
 # a generic "unknown field". Each one is extended only after native proof.
@@ -267,6 +267,8 @@ def resolve_style(appearance, entry, where):
         if rendering.get(key, choices[0]) not in choices:
             fail(f"{where}.rendering.{key}", f"expected {' or '.join(choices)}")
     flags = style.FLAT_SELECTION if rendering.get("selection") == "flat" else 0
+    if rendering.get("menu_covers") == "off":
+        flags |= style.MENU_COVERS_OFF
 
     return (flags, icon or colors["accent_text"], palettes), {
         "colors": colors,

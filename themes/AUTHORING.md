@@ -100,6 +100,8 @@ the device.
   resolved text/background pair.
 - `rendering`: optional. `selection` is `native` (default; the stock gradient
   bar recolored from `selection`) or `flat` (a solid `selection` bar).
+  `menu_covers` is `on` (default) or `off`: the Menu Covers setting the theme
+  applies until the user chooses a value in Settings.
 - `bitmaps`: each entry gives a catalog `id` (hex string), a catalog `name`,
   or both. If both are given they must refer to the same asset. A name that
   appears more than once in the catalog must be referenced by `id`. Each asset

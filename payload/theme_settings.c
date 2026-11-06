@@ -5,6 +5,7 @@
 #include "theme_settings_ui.h"
 #include "accent_settings_ui.h"
 #include "dark_mode_ui.h"
+#include "menu_covers_ui.h"
 #include "theme_boot.h"
 #include "theme_discovery.h"
 #include "theme_preferences.h"
@@ -115,10 +116,11 @@ const char *cfw_theme_settings_error(void)
 static void notify(void *controller, int changed)
 {
     void *model = osos_settings_model(controller);
-    const uint32_t properties[] = {CFW_Accent_Choices,  CFW_Accent_PreviewText,
-                                   CFW_Theme_Choices,   CFW_Theme_PreviewText,
-                                   CFW_DarkMode_Value,  CFW_DarkMode_PreviewImage,
-                                   CFW_DarkMode_PreviewText};
+    const uint32_t properties[] = {
+        CFW_Accent_Choices,       CFW_Accent_PreviewText,   CFW_Theme_Choices,
+        CFW_Theme_PreviewText,    CFW_DarkMode_Value,       CFW_DarkMode_PreviewImage,
+        CFW_DarkMode_PreviewText, CFW_MenuCovers_Value,     CFW_MenuCovers_PreviewText,
+    };
     for (unsigned i = 0; i < sizeof(properties) / sizeof(*properties); i++)
         osos_model_notify(model, OSOS_NOTIFY_ALL, properties[i]);
     if (changed) {
