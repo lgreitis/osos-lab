@@ -58,6 +58,7 @@ class PayloadTests(unittest.TestCase):
                     root / "payload/custom_eq.ui",
                     root / "payload/cfw_info.ui",
                     root / "payload/album_artists.ui",
+                    root / "payload/volume_warning.ui",
                 ],
                 directory,
                 "test",
@@ -74,6 +75,7 @@ class PayloadTests(unittest.TestCase):
                 "menu_resources",
                 "bitmap_assets",
                 "dark_mode",
+                "volume_warning",
                 "osos_handoff",
             ):
                 with self.subTest(fixture=name):

@@ -46,6 +46,9 @@
     "Settings_Brightness_Bar": 229444704,
     "Settings_Brightness_Value_Text": 229444705,
     "NowPlaying_StatusBar_Template": 229442060,
-    "NowPlaying_StatusBar_Text_View": 229442062
+    "NowPlaying_StatusBar_Text_View": 229442062,
+    "SettingsMenus_VolumeLimitEU_Screen": 229444776,
+    "SettingsMenu_ListItem_VolumeLimitEU_Toggle": 229444778,
+    "SettingsMenus_VolumeLimitEU_Items": 70
   }
 }

@@ -128,7 +128,7 @@ class Parser:
                     else self.parse_text(node)
                 )
         elif node.tag == "settings-entry":
-            attributes(node, "menu after", "open preview image caption")
+            attributes(node, "menu after", "open preview image caption screen items")
             if self.entry is not None:
                 raise ValueError("Duplicate Settings menu entry")
             self.entry = node
@@ -275,6 +275,15 @@ class Parser:
         if document.root is None or entry.attrib["menu"] != document.root.name:
             raise ValueError("Invalid Settings menu entry")
         document.after = resource_reference(entry.attrib["after"])
+        if ("screen" in entry.attrib) != ("items" in entry.attrib):
+            raise ValueError("Settings screen and items must be given together")
+        if "screen" in entry.attrib:
+            if document.root.kind != "toggle" or {"open", "preview"} & set(
+                entry.attrib
+            ):
+                raise ValueError("Only plain toggles can join another Settings screen")
+            document.settings_screen = resource_reference(entry.attrib["screen"])
+            document.settings_items = resource_reference(entry.attrib["items"])
         document.open_action = entry.get("open", "")
         document.preview = entry.get("preview", "")
         if document.preview not in ("", "image"):
