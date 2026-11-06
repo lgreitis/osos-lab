@@ -6,6 +6,9 @@ void cfw_theme_fill(void *surface, const void *rect, const unsigned char *color,
                     uint32_t mode, void *clip);
 void cfw_theme_clear_color(int red, int green, int blue, int alpha);
 uint32_t cfw_theme_reflection_blend(uint32_t pixel, uint32_t background, int weight);
+void cfw_theme_album_art_view_draw(void *view);
+void cfw_theme_album_art_draw(void *renderer);
+void cfw_theme_album_art_edge_lines(const void *bitmap);
 void cfw_theme_text_color(void *context, const unsigned char *color, const void *view);
 void cfw_theme_bitmap_color(void *context, const unsigned char *color,
                             const void *view);

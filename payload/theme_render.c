@@ -2,6 +2,7 @@
 #include "theme_render.h"
 #include "theme_style.h"
 #include "theme_tint.h"
+#include "cfw.h"
 #include "osos.h"
 #include "patch.h"
 
@@ -163,6 +164,55 @@ PATCH_ARM uint32_t cfw_theme_reflection_blend(uint32_t pixel, uint32_t backgroun
         background = ((color[0] >> 3) << 11) | ((color[1] >> 2) << 5) | (color[2] >> 3);
     }
     return osos_rgb565_blend(pixel, background, weight);
+}
+
+/* Now Playing draws its cover with GLES into a 320 by 240 RGB565 color buffer:
+ * the tilted, reflected artwork, then antialiased lines along its edges. A flat
+ * theme copies the artwork's pixels into the buffer instead, face-on and
+ * unscaled where the stock cover starts, and skips the edge lines. */
+enum {
+    ALBUM_ART_TARGET_WIDTH = 320,
+    ALBUM_ART_SIZE = 128,
+    FLAT_COVER_X = 18,
+    FLAT_COVER_Y = 38,
+};
+
+static const void *drawing_view;
+
+static int flat_artwork(void)
+{
+    return cfw_theme_render_flags() & CFW_THEME_FLAT_ARTWORK;
+}
+
+PATCH_ARM void cfw_theme_album_art_view_draw(void *view)
+{
+    drawing_view = view;
+    osos_album_art_view_draw(view);
+    drawing_view = NULL;
+}
+
+PATCH_ARM void cfw_theme_album_art_draw(void *renderer)
+{
+    if (!flat_artwork() || !drawing_view) {
+        osos_artwork_renderer_draw(renderer);
+        return;
+    }
+    const unsigned char *image = osos_album_art_view_image(drawing_view);
+    const uint16_t *pixels;
+    if (!image)
+        return;
+    cfw_copy(&pixels, image + 4, sizeof(pixels));
+    uint16_t *target = osos_gles_render_target() +
+                       FLAT_COVER_Y * ALBUM_ART_TARGET_WIDTH + FLAT_COVER_X;
+    for (int row = 0; row < ALBUM_ART_SIZE; row++, target += ALBUM_ART_TARGET_WIDTH)
+        for (int column = 0; column < ALBUM_ART_SIZE; column++)
+            target[column] = *pixels++;
+}
+
+PATCH_ARM void cfw_theme_album_art_edge_lines(const void *bitmap)
+{
+    if (!flat_artwork())
+        osos_artwork_edge_lines(bitmap);
 }
 
 /* Native white text sits on the stock blue-gray preview pane and on dark art. A

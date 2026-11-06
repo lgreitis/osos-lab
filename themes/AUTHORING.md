@@ -23,7 +23,9 @@ RTM4/RTH4 covers:
 - **Colors**: the 7 color roles below, for a light and/or dark appearance.
   All colors are opaque; `#RRGGBB` only.
 - **Accents**: per-appearance values for the named accent colors chosen on the
-  device, and the selection bar style.
+  device.
+- **Rendering**: the selection bar style, the Menu Covers default, and an
+  optional flat Now Playing cover.
 - **Bitmaps**: replacing existing `BMap` assets at the same size, using the
   same rules as the Classic dark compiler (`themes/compiler.py`): exact native
   dimensions, native pixel format, and the existing palette size (indexed art
@@ -101,7 +103,9 @@ the device.
 - `rendering`: optional. `selection` is `native` (default; the stock gradient
   bar recolored from `selection`) or `flat` (a solid `selection` bar).
   `menu_covers` is `on` (default) or `off`: the Menu Covers setting the theme
-  applies until the user chooses a value in Settings.
+  applies until the user chooses a value in Settings. `now_playing_art` is
+  `native` (default; the stock tilted cover with its reflection) or `flat` (the
+  cover drawn face-on with no reflection).
 - `bitmaps`: each entry gives a catalog `id` (hex string), a catalog `name`,
   or both. If both are given they must refer to the same asset. A name that
   appears more than once in the catalog must be referenced by `id`. Each asset
@@ -193,7 +197,8 @@ bitmap catalog.
   (`0` light, `1` dark), body size, record count, CRC32 of the body.
 - Body: an 856-byte style prefix followed by bitmap records. The prefix holds
   7 RGBA colors in role order (28 bytes), then a little-endian flags word
-  (`1` flat selection), the RGBA icon tint,
+  (`1` flat selection, `2` Menu Covers off, `4` flat Now Playing artwork), the
+  RGBA icon tint,
   9 accents × 5 roles of RGBA in the name and role order listed above, and
   640 tint role bytes, one per catalog asset index: `0` untinted, `1`
   `icon_tint`, then `2` to `8` for the 7 base roles in role order. Every

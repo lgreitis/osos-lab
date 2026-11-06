@@ -113,8 +113,53 @@ static void graphics_fill(void *context, const int32_t *rect);
 #define osos_model_notify notify
 #define osos_surface_fill_rect fill
 #define osos_graphics_set_color text_color
+static int renderer_draws, edge_line_draws;
+static uint16_t render_target[320 * 240], album_art[128 * 128];
+
+/* The native image bitmap keeps its pixel pointer at +4. */
+static unsigned char album_art_image[4 + sizeof(uint16_t *)];
+
+#include "../../../payload/theme_render.h"
+
+/* Stands in for the native view draw, which reaches the cover wrapper. */
+static void album_art_view_draw(void *view)
+{
+    cfw_theme_album_art_draw(view);
+    cfw_theme_album_art_edge_lines(view);
+}
+
+static const void *album_art_view_image(const void *view)
+{
+    assert(view == &surface);
+    const uint16_t *pixels = album_art;
+    memcpy(album_art_image + 4, &pixels, sizeof(pixels));
+    return album_art_image;
+}
+
+static void artwork_renderer_draw(void *renderer)
+{
+    assert(renderer == &surface);
+    renderer_draws++;
+}
+
+static void artwork_edge_lines(const void *bitmap)
+{
+    assert(bitmap == &surface);
+    edge_line_draws++;
+}
+
+static uint16_t *gles_render_target(void)
+{
+    return render_target;
+}
+
 #define osos_gles_clear_color clear_color
 #define osos_rgb565_blend blend
+#define osos_album_art_view_draw album_art_view_draw
+#define osos_album_art_view_image album_art_view_image
+#define osos_artwork_renderer_draw artwork_renderer_draw
+#define osos_artwork_edge_lines artwork_edge_lines
+#define osos_gles_render_target gles_render_target
 #include "../../../payload/theme_style.c"
 #include "../../../payload/theme_input.c"
 
@@ -519,9 +564,26 @@ static const unsigned char white[] = {255, 255, 255, 173},
                            black[] = {0, 0, 0, 123}, dim_text[] = {0x80, 0x80, 0x80, 5},
                            light_text[] = {0x81, 0x81, 0x81, 6};
 
+/* A flat cover copies the artwork unscaled to (18, 38) of the color buffer and
+ * skips the GLES cover and its edge lines; otherwise both native draws run. */
+static void check_artwork(int flat)
+{
+    for (unsigned i = 0; i < 128 * 128; i++)
+        album_art[i] = (uint16_t)(i + 1);
+    memset(render_target, 0, sizeof(render_target));
+    renderer_draws = edge_line_draws = 0;
+    cfw_theme_album_art_view_draw(&surface);
+    assert(renderer_draws == !flat && edge_line_draws == !flat);
+    assert(render_target[38 * 320 + 18] == (flat ? 1 : 0));
+    assert(render_target[165 * 320 + 145] == (flat ? 128 * 128 : 0));
+    assert(!render_target[38 * 320 + 17] && !render_target[37 * 320 + 18] &&
+           !render_target[166 * 320 + 145] && !render_target[165 * 320 + 146]);
+}
+
 /* Classic with Theme Default or Blue is exact in both appearances. */
 static void check_classic_theme(void)
 {
+    check_artwork(0);
     for (unsigned accent = CFW_THEME_ACCENT_DEFAULT; accent <= CFW_THEME_ACCENT_BLUE;
          accent++) {
         assert(cfw_theme_accent_set(accent));
@@ -619,6 +681,7 @@ static void check_custom_theme(void)
         style.colors[role][3] = 255;
     }
     struct cfw_theme_options options = {0};
+    options.flags = CFW_THEME_FLAT_ARTWORK;
     const unsigned char orange[][3] = {
         [CFW_PALETTE_FILL] = {190, 76, 0},
         [CFW_PALETTE_TEXT] = {255, 159, 10},
@@ -626,6 +689,7 @@ static void check_custom_theme(void)
     for (unsigned slot = 0; slot < sizeof(orange) / sizeof(orange[0]); slot++)
         memcpy(options.accents[CFW_THEME_ACCENT_ORANGE - 1][slot], orange[slot], 3);
     cfw_theme_style_set(&style, &options);
+    check_artwork(1);
     /* Custom styles theme light mode too, independent of the dark-mode switch. */
     for (int dark = 0; dark < 2; dark++) {
         cfw_theme_appearance_set(dark);
@@ -682,6 +746,7 @@ static void check_custom_theme(void)
 
     cfw_theme_style_reset();
     cfw_theme_appearance_set(0);
+    check_artwork(0);
 }
 
 /* Bar labels: the highlighted one takes on_accent whenever anything is themed;

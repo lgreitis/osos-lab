@@ -49,7 +49,9 @@ ACCENT_ROLES = (
 FLAT_SELECTION = 1
 # The theme turns the Menu Covers setting off unless the user has chosen a value.
 MENU_COVERS_OFF = 2
-RENDER_FLAGS = FLAT_SELECTION | MENU_COVERS_OFF
+# The Now Playing cover is drawn face-on without its reflection.
+FLAT_ARTWORK = 4
+RENDER_FLAGS = FLAT_SELECTION | MENU_COVERS_OFF | FLAT_ARTWORK
 # Colors a tinted bitmap may follow; the on-disk byte is 1 + index, 0 for untinted.
 TINT_ROLES = ("icon_tint", *COLOR_ROLES)
 PALETTE_BYTES = len(ACCENT_NAMES) * len(ACCENT_ROLES) * 4
