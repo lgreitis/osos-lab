@@ -198,6 +198,8 @@ static void osos_file_close(void *handle)
     closes++;
 }
 
+#define CFW_PATCH_H
+#define PATCH_ARM
 #include "../../../payload/catalog_bitmaps.c"
 #include "../../../payload/theme_package.c"
 

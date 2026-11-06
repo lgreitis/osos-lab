@@ -4,6 +4,7 @@
 #include "catalog_bitmaps.h"
 #include "cfw.h"
 #include "osos.h"
+#include "patch.h"
 #include "theme_id.h"
 
 enum { RTH4_MAGIC = 0x34485452u, RTM4_MAGIC = 0x344d5452u };
@@ -63,7 +64,9 @@ static const uint32_t crc_nibbles[16] = {
     0x9b64c2b0u, 0x86d3d2d4u, 0xa00ae278u, 0xbdbdf21cu,
 };
 
-uint32_t cfw_theme_crc32(uint32_t crc, const void *data, uint32_t size)
+/* ARM code: shifted operands make each step three instructions, against five
+ * in Thumb, and packs are checksummed byte for byte on every switch. */
+PATCH_ARM uint32_t cfw_theme_crc32(uint32_t crc, const void *data, uint32_t size)
 {
     const unsigned char *p = data;
     while (size--) {
@@ -203,13 +206,22 @@ static int tint_pending_valid(struct cursor *c, const uint32_t *pending)
  * record bytes, which start at the palette. */
 static int indices_valid(const struct layout *b, const unsigned char *data)
 {
-    if (!b->colors)
+    uint32_t colors = b->colors, width = b->width;
+    /* Every 8-bit index names an entry of a full palette. */
+    if (!colors || (b->depth == 8 && colors >= 256))
         return 1;
     const unsigned char *row = data + b->pixels - b->start;
-    for (uint32_t y = 0; y < b->height; y++, row += b->stride)
-        for (uint32_t x = 0; x < b->width; x++)
-            if ((b->depth == 8 ? row[x] : u16(row + x * 2)) >= b->colors)
-                return 0;
+    for (uint32_t y = 0; y < b->height; y++, row += b->stride) {
+        if (b->depth == 8) {
+            for (uint32_t x = 0; x < width; x++)
+                if (row[x] >= colors)
+                    return 0;
+        } else {
+            for (uint32_t x = 0; x < width; x++)
+                if (u16(row + x * 2) >= colors)
+                    return 0;
+        }
+    }
     return 1;
 }
 
