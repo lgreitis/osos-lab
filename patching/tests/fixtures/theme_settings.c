@@ -290,6 +290,19 @@ int main(void)
     choose(1);
     assert(!switcher.active.custom && !strcmp(error, "Could not load theme"));
     reads_fail = 0;
+    /* Damage found while writing returns to Classic light and saves it. */
+    unsigned char *checked = files[0].data + 52 + CFW_THEME_STYLE_BYTES + 12 + 4;
+    *checked ^= 1;
+    accepted = stores;
+    dark_visible = 0;
+    set_active_name("Modern");
+    cfw_theme_input_drained();
+    choose(1);
+    assert(switcher.result == CFW_THEME_RECOVERED && !switcher.active.custom);
+    assert(!strcmp(error, "Could not load theme") && !strcmp(active_name, "Classic"));
+    assert(dark_visible && classic_available && stores == accepted + 2);
+    assert(!saved.selection.id[0] && !memcmp(pixels, original, sizeof(pixels)));
+    *checked ^= 1;
     /* Closing the picker releases the list; stale rows and Select are inert. */
     cfw_theme_settings_close();
     cfw_theme_settings_close();
@@ -337,6 +350,19 @@ int main(void)
     initialized = 0;
     cfw_theme_settings_load();
     assert(classic_available && switcher.active.custom && stores == accepted);
+    memcpy(pixels, original, sizeof(pixels));
+    /* A boot restore that cannot be undone hides theming for the session. */
+    initialized = 0;
+    *checked ^= 1;
+    files[1].data[52 + CFW_THEME_STYLE_BYTES + 12 + 4] ^= 1;
+    theme_visible = dark_visible = 1;
+    cfw_theme_input_drained();
+    cfw_theme_settings_load();
+    assert(switcher.result == CFW_THEME_RESTORE_FAILED && !classic_available);
+    assert(!theme_visible && !dark_visible && !saved.selection.id[0]);
+    accepted = stores;
+    *checked ^= 1;
+    files[1].data[52 + CFW_THEME_STYLE_BYTES + 12 + 4] ^= 1;
     memcpy(pixels, original, sizeof(pixels));
     for (unsigned missing = 1; missing <= 3; missing++) {
         initialized = 0;

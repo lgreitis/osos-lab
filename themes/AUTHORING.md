@@ -234,9 +234,10 @@ python3 -m themes.stock --input /path/to/original/osos.bin \
 ```
 
 The extractor verifies the firmware SHA-256 and every bitmap CRC before writing.
-The 604-record baseline is 3,243,288 bytes for the current catalog. The
-transaction reader streams it with a 256-byte scratch buffer, retaining only
-records required to restore artwork changed by the previous theme. Boot validates this file before enabling theming.
+The 605-record baseline is 3,277,180 bytes for the current catalog. Switching reads
+it straight into resident artwork, only up to the last bitmap that needs restoring,
+and checks each restored bitmap against its original checksum. Boot checks its
+header before enabling theming.
 Install it at `themes/classic/default.bin`.
 The `classic` folder is reserved and does not appear in directory discovery. Its
 complete baseline can restore artwork changed by any custom theme. Install the

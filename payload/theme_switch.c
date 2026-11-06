@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "theme_switch.h"
+#include "catalog_bitmaps.h"
 #include "cfw.h"
 #include "theme_id.h"
 #include "theme_input.h"
@@ -68,6 +69,29 @@ int cfw_theme_switch_store_classic(struct cfw_theme_switch *c)
     return ok;
 }
 
+/* Artwork changed after the selection was saved: restore every bitmap the
+ * previous or the failed theme touched and save Classic light. Bitmaps that could
+ * not be restored stay marked as replacements. */
+static void recover(struct cfw_theme_switch *c, const uint32_t *touched,
+                    const struct osos_path *baseline)
+{
+    uint32_t restore[CFW_THEME_BITMAP_WORDS];
+    for (unsigned i = 0; i < CFW_THEME_BITMAP_WORDS; i++)
+        restore[i] = c->assets[i] | touched[i];
+    int restored = cfw_theme_baseline_restore(baseline, restore);
+    cfw_zero(&c->active, sizeof(c->active));
+    if (restored)
+        cfw_zero(c->assets, sizeof(c->assets));
+    else
+        cfw_copy(c->assets, restore, sizeof(c->assets));
+    cfw_theme_style_reset();
+    cfw_theme_appearance_set(0);
+    cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
+    cfw_theme_tint_refresh();
+    store_selection(c, &c->active.selection);
+    c->result = restored ? CFW_THEME_RECOVERED : CFW_THEME_RESTORE_FAILED;
+}
+
 static int switch_run(struct cfw_theme_switch *c,
                       const struct cfw_theme_selection *selection,
                       const struct osos_path *path, const struct osos_path *baseline,
@@ -85,40 +109,47 @@ static int switch_run(struct cfw_theme_switch *c,
         return 0;
     }
     c->busy = 1;
-    struct cfw_theme_pack pack;
-    struct cfw_theme_transaction transaction;
+    struct cfw_theme_reader pack;
+    uint32_t style[CFW_THEME_STYLE_BYTES / 4];
+    uint32_t target[CFW_THEME_BITMAP_WORDS], restore[CFW_THEME_BITMAP_WORDS];
     cfw_zero(&pack, sizeof(pack));
-    cfw_zero(&transaction, sizeof(transaction));
+    cfw_zero(target, sizeof(target));
+    /* Recovery needs the baseline, so check it before saving anything. */
     c->result = CFW_THEME_LOAD_FAILED;
-    if (path && !cfw_theme_pack_read(path, selection->dark, !selection->id[0], &pack))
+    if ((path &&
+         !cfw_theme_pack_open(path, selection->dark, &pack, (unsigned char *)style)) ||
+        !cfw_theme_baseline_valid(baseline))
         goto done;
-    if (!cfw_theme_transaction_prepare(path ? &pack : 0, selection->dark, c->assets,
-                                       baseline, &transaction))
-        goto done;
-    cfw_theme_pack_release(&pack);
     c->result = CFW_THEME_STORE_FAILED;
     if (persist && !store_selection(c, selection))
         goto done;
-    cfw_theme_transaction_swap(&transaction);
-    cfw_copy(&c->active.selection, selection, sizeof(*selection));
-    c->active.custom = transaction.custom;
-    cfw_copy(c->assets, transaction.target_assets, sizeof(c->assets));
-    if (c->active.custom) {
-        const unsigned char *prefix = transaction.incoming.data;
-        cfw_theme_style_set(
-            (const struct cfw_theme_style *)prefix,
-            (const struct cfw_theme_options *)(prefix +
-                                               sizeof(struct cfw_theme_style)));
+    int applied = !path || cfw_theme_pack_apply(&pack, (unsigned char *)style, target);
+    cfw_theme_reader_close(&pack);
+    for (unsigned i = 0; i < CFW_THEME_BITMAP_WORDS; i++)
+        restore[i] = c->assets[i] & ~target[i];
+    if (!applied || !cfw_theme_baseline_restore(baseline, restore)) {
+        recover(c, target, baseline);
     } else {
-        cfw_theme_style_reset();
+        cfw_copy(&c->active.selection, selection, sizeof(*selection));
+        c->active.custom = selection->id[0] != 0;
+        cfw_copy(c->assets, target, sizeof(c->assets));
+        if (c->active.custom) {
+            const unsigned char *prefix = (const unsigned char *)style;
+            cfw_theme_style_set(
+                (const struct cfw_theme_style *)prefix,
+                (const struct cfw_theme_options *)(prefix +
+                                                   sizeof(struct cfw_theme_style)));
+        } else {
+            cfw_theme_style_reset();
+        }
+        cfw_theme_appearance_set(selection->dark);
+        cfw_theme_accent_set(selection->accent);
+        cfw_theme_tint_refresh();
+        c->result = CFW_THEME_OK;
     }
-    cfw_theme_appearance_set(selection->dark);
-    cfw_theme_accent_set(selection->accent);
-    cfw_theme_tint_refresh();
-    c->result = CFW_THEME_OK;
+    cfw_catalog_reload();
 done:
-    cfw_theme_pack_release(&pack);
-    cfw_theme_transaction_release(&transaction);
+    cfw_theme_reader_close(&pack);
     c->busy = 0;
     cfw_theme_input_finish();
     return c->result == CFW_THEME_OK;

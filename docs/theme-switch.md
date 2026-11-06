@@ -1,16 +1,27 @@
 # Theme switching
 
 Settings and boot use one [switcher](../payload/theme_switch.h), initialized with
-stock artwork and called on the UI task. Switching is synchronous: validate and
-prepare artwork, save the selection, apply artwork and colors, then release the
-buffers. The caller refreshes cached playback icons and invalidates the UI.
-Preparation and storage failures leave the active theme unchanged.
+stock artwork and called on the UI task. Switching is synchronous: check the pack
+and baseline prefixes, save the selection, stream the pack into resident artwork,
+restore what it omits, then apply colors. The caller refreshes cached playback
+icons and invalidates the UI. Failures before saving leave the active theme
+unchanged.
 
-The transaction owns the incoming pack and a separate buffer for previous
-replacements omitted by the next theme. It streams those restorations from
-`themes/classic/default.bin` with a 256-byte scratch buffer. Incoming artwork is
-not copied into a second staging buffer; neither pack remains resident after
-switching. See [stock restoration data](../themes/AUTHORING.md#stock-restoration-data).
+Nothing is staged in heap. Each record is read straight into its resident bitmap
+and checked there: layout, palette indices, padding, and at the end tint coverage
+and the pack checksum. Previous replacements the new pack omits are then restored
+from `themes/classic/default.bin`. Records there are complete and sorted, so the
+read stops after the last bitmap to restore, and each restored bitmap must match
+its original checksum. See
+[stock restoration data](../themes/AUTHORING.md#stock-restoration-data).
+
+A failure after saving leaves artwork partly replaced. The switcher then restores
+every bitmap the previous or the failed pack touched from the baseline, returns to
+Classic light with the default accent, and saves that selection. A rejected record
+is zeroed first, so no resident bitmap indexes past its palette. If the baseline
+cannot restore everything, the affected bitmaps stay marked as replacements and
+Settings hides theming for the session; the firmware reloads stock artwork at the
+next boot.
 
 ## Input and Settings
 
@@ -25,17 +36,19 @@ CFW preview graphics are 8-bit masks listed after the firmware bitmaps in the
 catalog, so theme packs replace and tint them like stock previews. The payload
 stores their pixels run-packed behind one shared header and decodes the requested
 preview into a single resident slot (`payload/catalog_bitmaps.h`). Their pack
-records carry raw pixels like any other record. Prepare packs each one that
-differs from the built-in art into a heap source, and the switch exchanges
-sources instead of bytes. A restoration selects the built-in source, so stock
-needs no baseline bytes for them.
+records carry raw pixels like any other record. The switch reads each one into
+the slot and run-packs it into a heap source when it differs from the built-in
+art, freeing the previous theme's copy first; these copies are the only heap a
+theme holds. A restoration selects the built-in source, so stock needs no
+baseline bytes for them.
 
 Classic comes first, followed by up to 64 packages ordered by ID. If the list is
 full, the active package replaces the last entry. The active row is highlighted
 on opening; there are no checkmarks. Discovery normalizes FAT name case and
 retains only IDs and display names. Selection revalidates package metadata and
-artwork, returning to the parent Theme row. Failures keep the active theme and
-show an error in its preview; opening the list clears the error for retry.
+artwork, returning to the parent Theme row. Failures before saving keep the active
+theme, and failures while writing artwork leave Classic light; both show an error
+in the preview. Opening the list clears the error for retry.
 
 Opening Settings hides Theme unless a custom package has valid metadata; the
 scan stops at the first one. Only the Settings main screen checks, through its
@@ -49,9 +62,10 @@ appearance.
 ## Boot and installation
 
 Install `themes/classic/default.bin` (complete stock baseline) and
-`themes/classic/dark.bin` (Classic dark artwork). Both are streamed and validated at
-boot without loading them into memory; palette indices are checked when a pack is
-read for switching. Otherwise the firmware stays in Classic light, hides both
+`themes/classic/dark.bin` (Classic dark artwork). Boot reads only their prefixes:
+magic, catalog fingerprint and appearance, the baseline's record count and body
+size, and the Classic dark style. Records are checked when a switch applies or
+restores them. Without both files the firmware stays in Classic light, hides both
 settings, and leaves preferences unchanged. Restore the files and restart to enable
 theming.
 The `classic` directory is reserved and excluded from custom discovery.

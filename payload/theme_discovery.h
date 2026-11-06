@@ -20,8 +20,8 @@ uint32_t cfw_theme_discovery_scan(struct cfw_theme_choice *entries, uint32_t cap
 /* Revalidate a custom theme and choose an appearance. prefer_dark is 0 or 1.
  * allow_fallback selects the sole supported appearance if the preference is
  * unavailable; boot restoration passes 0. Classic and legacy ids are rejected.
- * All outputs are required and remain unchanged on failure. The pack itself is
- * validated by the transaction loader before saving or applying the selection. */
+ * All outputs are required and remain unchanged on failure. The switcher checks
+ * the pack prefix before saving the selection and its records while applying. */
 int cfw_theme_discovery_select(const char *id, uint32_t prefer_dark, int allow_fallback,
                                struct cfw_theme_metadata *metadata,
                                struct osos_path *pack, uint32_t *dark);

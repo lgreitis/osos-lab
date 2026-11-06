@@ -7,6 +7,7 @@
 #include <string.h>
 #define CFW_OSOS_H
 #include "../../../payload/assets.h"
+#include "../../../payload/catalog_bitmaps.h"
 #include "../../../payload/theme_package.h"
 #include "../../../payload/theme_id.c"
 
@@ -95,6 +96,8 @@ static struct file {
 static unsigned missing_files;
 
 static int fail_alloc, allocations, reads_fail, short_reads, opens, closes;
+/* reads counts read calls and read_bytes their bytes; fail_read_at fails one call. */
+static unsigned reads, read_bytes, fail_read_at;
 
 static unsigned alloc_attempts, fail_alloc_at, live_bytes, peak_bytes;
 static void *allocated[4];
@@ -151,7 +154,8 @@ static int osos_file_open(const struct osos_path *p, uint32_t mode, void **out)
 static int osos_file_read(void *handle, void *out, uint32_t size, uint32_t *read)
 {
     struct file *f = handle;
-    if (reads_fail) {
+    reads++;
+    if (reads_fail || reads == fail_read_at) {
         *read = 0;
         return -1;
     }
@@ -165,7 +169,20 @@ static int osos_file_read(void *handle, void *out, uint32_t size, uint32_t *read
         size--;
     memcpy(out, f->data + f->cursor, size);
     f->cursor += size;
+    read_bytes += size;
     *read = size;
+    return 0;
+}
+
+/* Native seek: positions outside [0, size] return 5 and keep the cursor. */
+static int osos_file_seek(void *handle, int64_t offset, uint32_t whence)
+{
+    struct file *f = handle;
+    assert(whence <= 2);
+    int64_t to = offset + (whence == 1 ? f->cursor : whence == 2 ? f->size : 0);
+    if (to < 0 || to > f->size)
+        return 5;
+    f->cursor = (unsigned)to;
     return 0;
 }
 
