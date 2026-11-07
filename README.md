@@ -15,8 +15,9 @@ own identity in its companion.
 ## Repository layout
 
 - `payload/`: OSOS features, C patch declarations, and UI definitions.
-- `game-sdk/`: deferred homebrew runtime; its old bindings are not ported to 2.0.5.
+- `game-sdk/`: deferred, incomplete homebrew runtime for the stock Games loader; it does not support sound.
 - `doom/`: deferred, incomplete Doom port.
+- `nes/`: deferred, incomplete InfoNES port built on the game SDK.
 - `patching/`: Python recipe builder, native UI generation, and framework tests.
 - `firmware/`: pinned Apple inputs, hardware eligibility and native UI metadata.
 - `loader/` and `patches/`: Apple companion loader and Rockbox bootloader patches.
