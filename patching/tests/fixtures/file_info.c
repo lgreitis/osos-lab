@@ -33,7 +33,7 @@ enum osos_media_text {
 };
 
 static int valid = 1, create_failed, controller, screen, registry;
-static unsigned creates, pushes, strings;
+static unsigned creates, pushes, selects, strings;
 static uint8_t record[0x100];
 static const char *path = "F21\\FMTAAC.m4a";
 
@@ -151,6 +151,13 @@ static void osos_controller_push(void *owner, void *destination)
 {
     assert(owner == &controller && destination == &screen);
     pushes++;
+}
+
+/* A new list opens at its first row. */
+static void osos_ui_list_select(uint32_t index)
+{
+    assert(index == 0 && selects < pushes);
+    selects++;
 }
 
 #include "../../../payload/file_info.c"
@@ -326,6 +333,6 @@ int main(void)
     open(1); /* Opening releases the previous text value. */
     assert(!strings);
     assert(!strcmp(detail(row("Play Count")), "0") && !strings);
-    assert(pushes == creates - 1);
+    assert(pushes == creates - 1 && selects == pushes);
     return 0;
 }

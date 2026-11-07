@@ -731,6 +731,20 @@ static inline void *osos_ui_selection(void)
     return ((fn)OSOS_UI_SELECTION)();
 }
 
+/* Select a row of the current layout's list, as TCSettings_EQ does after layout. */
+static inline void osos_ui_list_select(uint32_t index)
+{
+    typedef void *(*view_fn)(void *);
+    typedef void *(*interface_fn)(void *, uint32_t);
+    typedef void (*select_fn)(void *, uint32_t);
+    void *selection = osos_ui_selection();
+    void *view = selection ? ((view_fn)osos_method(selection, 0xe4))(selection) : 0;
+    void *list =
+        view ? ((interface_fn)OSOS_VIEW_INTERFACE)(view, OSOS_UI_LIST_INTERFACE) : 0;
+    if (list)
+        ((select_fn)osos_method(list, 0x174))(list, index);
+}
+
 static inline int osos_menu_item_set_visible(uint32_t item, uint32_t visible)
 {
     typedef int (*fn)(uint32_t, uint32_t);

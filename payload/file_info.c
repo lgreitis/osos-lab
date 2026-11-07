@@ -330,6 +330,8 @@ int cfw_file_info_show(void *controller, struct osos_media_item *item)
     if (!screen)
         return 0;
     osos_controller_push(controller, screen);
+    /* Push activates the list at the shared native list's previous position. */
+    osos_ui_list_select(0);
     return 1;
 }
 
