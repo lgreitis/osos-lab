@@ -100,6 +100,10 @@ PATCH_POINTER(OSOS_NOW_PLAYING_SECONDARY_ACTION_SLOT, OSOS_NOW_PLAYING_ACTION,
               cfw_now_playing_action);
 PATCH_CALL(OSOS_TRACKDATA_DESTROY_STORAGE_CALL, OSOS_TRACKDATA_DESTROY_STORAGE,
            cfw_album_artist_destroy_tracks);
+/* Share identical artwork thumbnail chains between ArtworkDB images. */
+PATCH_CALL(OSOS_ARTWORK_IMPORT_CALL, OSOS_ARTWORK_IMPORT, cfw_artwork_import);
+PATCH_CALL(OSOS_ARTWORK_IMAGE_THUMBS_CALL, OSOS_ARTWORK_IMAGE_THUMBS,
+           cfw_artwork_image_thumbs);
 /* Retain Album Artist and sort names that the native importer discards. */
 PATCH_CALL(OSOS_ITUNES_IMPORT_TRACKS_CALL, OSOS_ITUNES_IMPORT_TRACKS,
            cfw_album_artist_import_tracks);

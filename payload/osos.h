@@ -612,6 +612,32 @@ static inline int osos_import_file_position(void *file, uint64_t *position)
     return ((fn)OSOS_IMPORT_FILE_POSITION)(file, position);
 }
 
+static inline int osos_artwork_import(void *db, uint32_t owner, const void *path,
+                                      uint32_t a3, uint32_t a4, uint32_t a5)
+{
+    typedef int (*fn)(void *, uint32_t, const void *, uint32_t, uint32_t, uint32_t);
+    return ((fn)OSOS_ARTWORK_IMPORT)(db, owner, path, a3, a4, a5);
+}
+
+static inline int osos_artwork_image_thumbs(void *reader, void *image, uint32_t count,
+                                            uint32_t flags)
+{
+    typedef int (*fn)(void *, void *, uint32_t, uint32_t);
+    return ((fn)OSOS_ARTWORK_IMAGE_THUMBS)(reader, image, count, flags);
+}
+
+static inline void osos_artwork_thumb_destroy(void *thumb)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_ARTWORK_THUMB_DESTROY)(thumb);
+}
+
+static inline void *osos_artwork_thumb_name_cache(void *thumb)
+{
+    typedef void *(*fn)(void *);
+    return ((fn)OSOS_ARTWORK_THUMB_NAME_CACHE)(thumb);
+}
+
 static inline int osos_itunes_import_tracks(void *reader)
 {
     typedef int (*fn)(void *);
