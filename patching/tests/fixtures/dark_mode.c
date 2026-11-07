@@ -230,6 +230,16 @@ const unsigned char *cfw_theme_field_text_color(void)
     return field_text;
 }
 
+/* So are the status bar title colors. */
+static const unsigned char *bar_text;
+static unsigned bar_asked;
+
+const unsigned char *cfw_theme_status_bar_text_color(void)
+{
+    bar_asked++;
+    return bar_text;
+}
+
 /* Both bar hooks recognize the view's own label colors by pointer. */
 static void check_search_key(int key, const unsigned char *expected)
 {
@@ -840,6 +850,33 @@ static void check_search_input_hook(void)
     assert(field_asked == 0);
 }
 
+/* The status bar title takes the color derived from the bar art under a
+ * custom style and keeps its native light gray otherwise. */
+static void check_status_bar_title_hook(void)
+{
+    static const unsigned char native[] = {0xd3, 0xd3, 0xd3, 255}, on_bar[] = {7, 8, 9};
+    uint32_t view[0xa4 / 4] = {0};
+    view[0x4c / 4] = 0x0dad020e; /* NowPlaying_StatusBar_Text_View */
+    struct cfw_theme_style style = {{{0}}};
+    for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++)
+        style.colors[role][3] = 255;
+    struct cfw_theme_options options = {0};
+    cfw_theme_style_set(&style, &options);
+    cfw_theme_appearance_set(1);
+    bar_text = on_bar;
+    bar_asked = 0;
+    check_text(view, native, 7, 8, 9);
+    assert(bar_asked == 1);
+    bar_text = NULL;
+    check_text(view, native, 0xd3, 0xd3, 0xd3);
+    /* Other views never ask for the bar color. */
+    bar_asked = 0;
+    check_text(ordinary_view, native, 0xd3, 0xd3, 0xd3);
+    assert(bar_asked == 0);
+    cfw_theme_style_reset();
+    cfw_theme_appearance_set(0);
+}
+
 static void check_theme(void)
 {
     int was_active = cfw_dark_mode_enabled();
@@ -848,6 +885,7 @@ static void check_theme(void)
     check_custom_theme();
     check_search_key_hook();
     check_search_input_hook();
+    check_status_bar_title_hook();
     check_classic_theme();
     assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
     cfw_theme_appearance_set(was_active);

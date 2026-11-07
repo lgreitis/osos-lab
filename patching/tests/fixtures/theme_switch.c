@@ -391,15 +391,19 @@ static void tinting(void)
             abs(cfw_theme_brightness(background) - cfw_theme_brightness(field));
         assert(cfw_theme_field_text_color() ==
                (text_gap >= background_gap ? text : background));
+        /* The fixture's status bar is the same paletted asset. */
+        assert(cfw_theme_status_bar_text_color() == cfw_theme_field_text_color());
     }
     pixels[0][35] = 0; /* transparent field art keeps the native color */
     assert(!cfw_theme_field_text_color());
+    assert(!cfw_theme_status_bar_text_color());
     memcpy(pixels[0] + 32, original[0] + 32, 4);
     cfw_theme_input_drained();
     assert(apply(&stock));
     check_stock();
     assert(!cfw_theme_well_letter_color(1));
     assert(!cfw_theme_field_text_color()); /* Classic keeps the native colors */
+    assert(!cfw_theme_status_bar_text_color());
     cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
 }
 

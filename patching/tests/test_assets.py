@@ -23,7 +23,7 @@ def entry(offset, size, name="", source=None, fmt=0x1888):
 
 
 ACCENT_NAMES = [name for _, names in assets.ACCENT_ART for name in names]
-FIRMWARE = 3 + len(ACCENT_NAMES)
+FIRMWARE = 4 + len(ACCENT_NAMES)
 
 
 class AssetsTests(unittest.TestCase):
@@ -35,7 +35,8 @@ class AssetsTests(unittest.TestCase):
                 entry(4096, 30, "OptionBar_White_Well_Center_Image"),
                 entry(4128, 32, "OptionBar_Black_Well_Center_Image"),
                 entry(4160, 33, "System_Input_Field_Middle_Image"),
-                *(entry(4196 + 4 * i, 4, name) for i, name in enumerate(ACCENT_NAMES)),
+                entry(4196, 4, "NowPlaying_StatusBar_Image"),
+                *(entry(4200 + 4 * i, 4, name) for i, name in enumerate(ACCENT_NAMES)),
                 entry(0, 40, "CFW_A", "payload", 8),
                 entry(40, 29, "CFW_B", "payload", 8),
             ],
@@ -53,23 +54,24 @@ class AssetsTests(unittest.TestCase):
         self.assertIn(f"const uint32_t cfw_bitmap_firmware_count = {FIRMWARE};", source)
         self.assertIn("(unsigned char *)(0x1000 + OSOS_RUNTIME_BASE", source)
         self.assertNotIn("cfw_catalog", source)
+        self.assertIn("const uint32_t cfw_bitmap_status_bar = 3u;", source)
         self.assertEqual(source.count("u, 1u},"), FIRMWARE + 2)
 
     def test_accent_art_lists_each_asset_with_its_role(self):
         source = self.generate(self.catalog)
         count = len(ACCENT_NAMES)
         self.assertIn(f"const uint32_t cfw_bitmap_accent_art_count = {count};", source)
-        self.assertIn("    {3u, CFW_THEME_SELECTION},", source)
+        self.assertIn("    {4u, CFW_THEME_SELECTION},", source)
         self.assertIn(f"    {{{FIRMWARE - 1}u, CFW_THEME_ACCENT_FILL}},", source)
 
     def test_accent_art_needs_one_recolorable_asset_per_name(self):
         for change in ("missing", "duplicate", "mask"):
             catalog = copy.deepcopy(self.catalog)
-            bitmap = catalog["bitmaps"][3]
+            bitmap = catalog["bitmaps"][4]
             if change == "missing":
                 bitmap["name"] = "Other"
             elif change == "duplicate":
-                catalog["bitmaps"][4]["name"] = bitmap["name"]
+                catalog["bitmaps"][5]["name"] = bitmap["name"]
             else:
                 bitmap["format"] = 8
             message = "not paletted or ARGB" if change == "mask" else "exactly one"

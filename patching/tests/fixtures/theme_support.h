@@ -44,6 +44,8 @@ const struct cfw_bitmap_asset cfw_bitmap_assets[] = {{42, 0x25789516},
 const uint32_t cfw_bitmap_well_centers[2] = {ARGB_ASSET, ARGB_ASSET};
 /* The first paletted asset stands in for the Search field center slice. */
 const uint32_t cfw_bitmap_field_center = 0;
+/* So does the status bar background. */
+const uint32_t cfw_bitmap_status_bar = 0;
 /* The second paletted asset stands in for the stock accent artwork. */
 #define ACCENT_ASSET 1
 const struct cfw_accent_art cfw_bitmap_accent_art[] = {

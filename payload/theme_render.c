@@ -41,6 +41,11 @@ enum { WELL_WHITE, WELL_BLACK };
  * text then follows whatever contrasts with the field art. */
 enum { SEARCH_INPUT_TEXT = 0x0dad0ddc };
 
+/* The NowPlaying_StatusBar_Image header (Stopwatch, Charging) draws its title in
+ * a fixed light gray that no role mapping covers. A custom theme may paint the
+ * bar light or dark, so the title follows whatever contrasts with the bar art. */
+enum { STATUS_BAR_TITLE = 0x0dad020e };
+
 static int native_text_color(const void *view)
 {
     switch (osos_view_id(view)) {
@@ -225,7 +230,11 @@ PATCH_ARM void cfw_theme_text_color(void *context, const unsigned char *color,
         const unsigned char *text = role(CFW_THEME_TEXT);
         const unsigned char *field =
             osos_view_id(view) == SEARCH_INPUT_TEXT ? cfw_theme_field_text_color() : 0;
-        if (field && gray(color) && color[0] <= TEXT_DARK_MAX)
+        const unsigned char *bar =
+            osos_view_id(view) == STATUS_BAR_TITLE ? cfw_theme_status_bar_text_color() : 0;
+        if (bar)
+            color = recolor(color, bar, mapped);
+        else if (field && gray(color) && color[0] <= TEXT_DARK_MAX)
             color = recolor(color, field, mapped);
         else if (color == (const unsigned char *)OSOS_PALETTE_WHITE)
             color = recolor(color, role(CFW_THEME_ON_ACCENT), mapped);
