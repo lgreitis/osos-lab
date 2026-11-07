@@ -76,6 +76,7 @@ class Parser:
                 "settings-entry",
                 "string",
                 "screen-event",
+                "layout-event",
                 "music-entry",
                 "bitmap",
             ),
@@ -156,6 +157,18 @@ class Parser:
             )
         elif node.tag == "screen-event":
             document.events.append(self.parse_screen_event(node))
+        elif node.tag == "layout-event":
+            attributes(node, "layout event handler")
+            if not node.attrib["event"] or not node.attrib["handler"]:
+                raise ValueError("Layout events require an event and handler")
+            document.events.append(
+                ScreenEvent(
+                    resource_reference(node.attrib["layout"]),
+                    node.attrib["event"],
+                    node.attrib["handler"],
+                    "SEVT",
+                )
+            )
         elif node.tag == "music-entry":
             attributes(
                 node,

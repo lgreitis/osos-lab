@@ -15,6 +15,7 @@ from patching.ui.codegen import emit_header, emit_visibility
 from patching.ui.compiler import DocumentCompiler, compile_document
 from patching.ui.model import ScreenEvent
 from patching.ui.resources import (
+    Resource,
     Resources,
     blocks,
     event,
@@ -636,6 +637,21 @@ class UiTests(unittest.TestCase):
         header = emit_header(document, compiled.string_ids)
         for suffix in ("Screen", "Layout", "Rows", "Detail"):
             self.assertIn(f"#define CFW_FileInfo_{suffix} ", header)
+
+    def test_layout_event_extends_the_native_layout_events(self):
+        document = parser.parse(
+            '<ui><layout-event layout="0x20" event="button.select.pressandhold" '
+            'handler="HandleShowContextualMenu"/></ui>'
+        )
+        resources = Resources([], {})
+        resources.original = {("SEVT", 0x20): Resource(struct.pack("<I", 0))}
+        compile_document(resources, document)
+        self.assertEqual(
+            resources.event_extensions["SEVT", 0x20],
+            [event("button.select.pressandhold", handler="HandleShowContextualMenu")],
+        )
+        with self.assertRaisesRegex(ValueError, "Layout events require"):
+            parser.parse('<ui><layout-event layout="0x20" event="" handler="X"/></ui>')
 
     def test_named_screen_uses_selected_binding_and_rejects_missing_names(self):
         document = parser.parse(

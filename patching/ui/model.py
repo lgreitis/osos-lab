@@ -32,6 +32,7 @@ class ScreenEvent:
     screen: str | int
     event: str
     handler: str
+    kind: str = "CEVT"  # SEVT extends a layout instead of a screen.
 
 
 @dataclass
