@@ -43,7 +43,7 @@ static const uint8_t label_offsets[FIELDS] = {
     81, 90, 99, 105, 110, 120, 132, 140, 150, 157, 168,
 };
 
-/* Rows per media kind, in display order. CHAPTERS is shown only when nonzero. */
+/* Rows per media kind, in display order. Fields without a value are left out. */
 static const uint8_t song_rows[] = {
     TITLE,     ARTIST,   ALBUM,      ALBUM_ARTIST, YEAR,      GENRE,       COMPOSER,
     GROUPING,  DURATION, TRACK,      DISC,         FILE_TYPE, SAMPLE_RATE, BITRATE,
@@ -87,6 +87,7 @@ static struct {
     struct osos_media_item item;
     struct osos_native_string text;
     uint8_t text_live;
+    uint8_t unknown; /* Set when the requested field has no value. */
     uint8_t rows[FIELDS];
     uint8_t count;
     uint8_t size;
@@ -130,7 +131,7 @@ static void two_digits(uint32_t number)
 static void number(uint32_t value, const char *unit)
 {
     if (!value) {
-        append("Unknown");
+        info.unknown = 1;
         return;
     }
     decimal(value);
@@ -158,13 +159,16 @@ static const char *text(enum field field)
                              &info.text);
     }
     const char *data = osos_native_string_data(&info.text);
-    return data && *data ? data : "Unknown";
+    if (data && *data)
+        return data;
+    info.unknown = 1;
+    return "";
 }
 
 static void duration(uint32_t milliseconds)
 {
     if (!milliseconds) {
-        append("Unknown");
+        info.unknown = 1;
         return;
     }
     uint32_t seconds = milliseconds / 1000;
@@ -210,7 +214,7 @@ static void file_type(void)
             append(upper);
         }
     } else {
-        append("Unknown");
+        info.unknown = 1;
     }
     osos_native_string_destroy(&path);
 }
@@ -222,7 +226,7 @@ static void sample_rate(uint32_t bits)
     if (!(bits >> 31) && exponent >= 127 && exponent < 150)
         hertz = ((bits & 0x7fffff) | 0x800000) >> (150 - exponent);
     if (!hertz) {
-        append("Unknown");
+        info.unknown = 1;
         return;
     }
     decimal(hertz / 1000);
@@ -245,7 +249,7 @@ static const char *value(enum field field)
         duration(osos_media_item_duration(item));
         break;
     case CHAPTERS:
-        decimal(osos_media_item_chapter_count(item));
+        number(osos_media_item_chapter_count(item), "");
         break;
     /* Records keep track and disc totals beside their 16-bit ordinals. */
     case TRACK:
@@ -266,7 +270,7 @@ static const char *value(enum field field)
     case FILE_SIZE: {
         uint32_t bytes = osos_media_item_file_size(item);
         if (!bytes) {
-            append("Unknown");
+            info.unknown = 1;
             break;
         }
         decimal(bytes / 1048576);
@@ -320,9 +324,14 @@ int cfw_file_info_show(void *controller, struct osos_media_item *item)
     info.item = *item;
     info.count = 0;
     uint32_t kind = *(const uint32_t *)((const uint8_t *)item->record + 0xbc);
-    for (const uint8_t *row = rows_for(kind); *row != FIELDS; row++)
-        if (*row != CHAPTERS || osos_media_item_chapter_count(item))
+    for (const uint8_t *row = rows_for(kind); *row != FIELDS; row++) {
+        info.size = 0;
+        info.unknown = 0;
+        value((enum field)*row);
+        if (!info.unknown)
             info.rows[info.count++] = *row;
+    }
+    release_text();
 
     void *screen =
         osos_create_screen_controller(osos_controller_registry(), CFW_FileInfo_Screen,

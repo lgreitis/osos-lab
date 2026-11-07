@@ -224,72 +224,82 @@ static void open(uint32_t kind)
 static void check_song(void)
 {
     open(1);
-    assert(count() == 18);
+    /* Fields without a value are left out. */
+    assert(count() == 8);
     assert(!strcmp(label(0), "Title") && !strcmp(detail(0), "Song Title"));
     assert(!strcmp(detail(row("Artist")), "Ärtist & Co, 日本"));
     assert(!strcmp(detail(row("Album Artist")), "Album Artist Name"));
-    assert(!strcmp(detail(row("Composer")), "Unknown"));
-    assert(!strcmp(detail(row("Year")), "Unknown"));
+    assert(!has_row("Composer") && !has_row("Year") && !has_row("Duration"));
+    assert(!has_row("Track") && !has_row("Disc") && !has_row("Sample Rate"));
+    assert(!has_row("Bitrate") && !has_row("File Size") && !has_row("Chapters"));
+    /* Unrated and zero counts are values. */
+    assert(!strcmp(detail(row("Rating")), "Unrated"));
+    assert(!strcmp(detail(row("Play Count")), "0"));
+    assert(!strcmp(detail(row("Skip Count")), "0"));
+
     fake.year = 2026;
-    assert(!strcmp(detail(row("Year")), "2026"));
     fake.duration = 125000;
+    fake.track = 3;
+    fake.disc = 1;
+    fake.bitrate = 256;
+    fake.file_size = 14747256;
+    set_sample_rate(44100.0f);
+    open(1);
+    assert(count() == 15 && !has_row("Composer") && !has_row("Chapters"));
+    assert(!strcmp(detail(row("Year")), "2026"));
     assert(!strcmp(detail(row("Duration")), "2:05"));
     fake.duration = 3725000;
     assert(!strcmp(detail(row("Duration")), "1:02:05"));
-    fake.track = 3;
     assert(!strcmp(detail(row("Track")), "3"));
     record[0x86] = 12;
     assert(!strcmp(detail(row("Track")), "3 of 12"));
-    assert(!strcmp(detail(row("Disc")), "Unknown"));
+    assert(!strcmp(detail(row("Disc")), "1"));
     assert(!strcmp(detail(row("File Type")), "M4A"));
     path = "F22\\BOOK.m4b";
     assert(!strcmp(detail(row("File Type")), "M4B"));
-    path = "F22\\NOEXT";
-    assert(!strcmp(detail(row("File Type")), "Unknown"));
-    path = "F2.2\\X.toolongext";
-    assert(!strcmp(detail(row("File Type")), "Unknown"));
-    assert(!strcmp(detail(row("Sample Rate")), "Unknown"));
-    set_sample_rate(44100.0f);
     assert(!strcmp(detail(row("Sample Rate")), "44.1 kHz"));
     set_sample_rate(48000.0f);
     assert(!strcmp(detail(row("Sample Rate")), "48 kHz"));
-    set_sample_rate(-44100.0f);
-    assert(!strcmp(detail(row("Sample Rate")), "Unknown"));
-    fake.bitrate = 256;
     assert(!strcmp(detail(row("Bitrate")), "256 kbps"));
-    fake.file_size = 14747256;
     assert(!strcmp(detail(row("File Size")), "14.0 MiB"));
-    assert(!strcmp(detail(row("Rating")), "Unrated"));
     fake.rating = 80;
     assert(!strcmp(detail(row("Rating")), "4/5"));
-    assert(!strcmp(detail(row("Play Count")), "0"));
     fake.skip_count = 7;
     assert(!strcmp(detail(row("Skip Count")), "7"));
-    assert(!has_row("Chapters"));
+
+    path = "F22\\NOEXT";
+    set_sample_rate(-44100.0f);
+    open(1);
+    assert(count() == 13 && !has_row("File Type") && !has_row("Sample Rate"));
+    path = "F2.2\\X.toolongext";
+    open(1);
+    assert(!has_row("File Type"));
+    path = "F21\\FMTAAC.m4a";
+    set_sample_rate(44100.0f);
 }
 
 static void check_kinds(void)
 {
     open(0x4); /* Podcast without chapters. */
-    assert(count() == 10 && !has_row("Chapters") && has_row("Podcast"));
+    assert(count() == 9 && !has_row("Chapters") && has_row("Podcast"));
     assert(!strcmp(detail(row("Podcast")), "Album Name"));
     fake.chapters = 3;
     open(0x4);
-    assert(count() == 11 && !strcmp(detail(row("Chapters")), "3"));
+    assert(count() == 10 && !strcmp(detail(row("Chapters")), "3"));
     open(0x8);
     assert(count() == 10 && has_row("Author") && has_row("Book"));
     assert(!has_row("Album") && !has_row("Skip Count"));
     open(0x200000);
-    assert(count() == 11 && has_row("Album") && !has_row("Podcast"));
+    assert(count() == 10 && has_row("Album") && !has_row("Podcast"));
     fake.chapters = 0;
     open(0x20);
-    assert(count() == 10 && has_row("Artist") && !has_row("Sample Rate"));
+    assert(count() == 9 && has_row("Artist") && !has_row("Sample Rate"));
     open(0x2);
-    assert(count() == 8 && !has_row("Artist") && has_row("File Size"));
+    assert(count() == 7 && !has_row("Artist") && has_row("File Size"));
     open(0x40);
-    assert(count() == 8);
+    assert(count() == 7);
     open(0x8000);
-    assert(count() == 8);
+    assert(count() == 7);
     open(0x8 | 0x4); /* An audiobook flag wins over podcast. */
     assert(has_row("Author"));
 }
