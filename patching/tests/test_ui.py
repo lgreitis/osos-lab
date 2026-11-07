@@ -605,7 +605,7 @@ class UiTests(unittest.TestCase):
         header = emit_header(document, compiled.string_ids)
         self.assertIn("#define CFW_AlbumArtists_Screen ", header)
 
-    def test_file_info_rows_are_dynamic_text_without_chosen_actions(self):
+    def test_file_info_is_a_stacked_runtime_list_that_stays_open(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
         shim = root / "payload/native"
@@ -614,21 +614,16 @@ class UiTests(unittest.TestCase):
         document = parser.read(root / "payload/file_info.ui")
         compiled = compile_document(resources, document)
         screen = compiled.string_ids["CFW_FileInfo_Screen"]
-        self.assertEqual(word(resources.added["CEVT", screen], 0), 0)
-        rows = [
+        events = bytes(resources.added["CEVT", screen].data)
+        self.assertIn(b"CFW_FileInfo_Select", events)
+        self.assertNotIn(b"navigator.PopTopScreen", events)
+        [row] = [
             row
             for (kind, _), data in resources.added.items()
             if kind == "ITEM"
             for _, row in blocks(data)
         ]
-        self.assertEqual(len(rows), 16)
-        self.assertTrue(all(word(row, 0x60) == 2 for row in rows))
-        for item in document.root.items:
-            string_id = compiled.string_ids[item.name]
-            self.assertEqual(
-                bytes(resources.added["Str ", string_id].data),
-                (item.title + ": Unknown\0").encode(),
-            )
+        self.assertEqual(word(row, 0x60), 6)
         for item_event in document.events:
             self.assertIn(
                 b"contextualMenu.CFW_FileInfo",
@@ -639,8 +634,8 @@ class UiTests(unittest.TestCase):
                 ),
             )
         header = emit_header(document, compiled.string_ids)
-        self.assertIn("#define CFW_FileInfo_Screen ", header)
-        self.assertIn("#define CFW_FileInfo_Layout ", header)
+        for suffix in ("Screen", "Layout", "Rows", "Detail"):
+            self.assertIn(f"#define CFW_FileInfo_{suffix} ", header)
 
     def test_named_screen_uses_selected_binding_and_rejects_missing_names(self):
         document = parser.parse(

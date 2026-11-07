@@ -516,7 +516,16 @@ OSOS_MEDIA_GETTER(track, uint16_t, 0xbc)
 OSOS_MEDIA_GETTER(disc, uint16_t, 0xc0)
 OSOS_MEDIA_GETTER(play_count, uint32_t, 0xc4)
 OSOS_MEDIA_GETTER(skip_count, uint32_t, 0xcc)
+OSOS_MEDIA_GETTER(chapter_count, uint32_t, OSOS_MEDIA_CHAPTER_COUNT_SLOT)
 #undef OSOS_MEDIA_GETTER
+
+/* Returns the file path by value: the callee constructs the string. */
+static inline void osos_media_item_path(struct osos_media_item *item,
+                                        struct osos_native_string *path)
+{
+    typedef void (*fn)(struct osos_native_string *, struct osos_media_item *);
+    ((fn)osos_method(item, OSOS_MEDIA_PATH_SLOT))(path, item);
+}
 
 static inline void osos_player_current_item(struct osos_player *player,
                                             struct osos_media_item *item)
