@@ -80,6 +80,8 @@ PATCH_WORD(OSOS_MEDIA_PLAYER_BUFFER_MIN_SET_WORD, 0xb3a00606, 0xe1a00000);
 /* add r0, r4, #0xf; bic r0, r0, #0xf -> add r0, r4, #7; bic r0, r0, #7 */
 PATCH_WORD(OSOS_POOL_SLOT_ROUND_ADD_WORD, 0xe284000f, 0xe2840007);
 PATCH_WORD(OSOS_POOL_SLOT_ROUND_MASK_WORD, 0xe3c0000f, 0xe3c00007);
+/* UI task stack: 32 KiB instead of 128 KiB. mov r1, r0, lsl #4 -> lsl #2 */
+PATCH_WORD(OSOS_UI_TASK_STACK_SHIFT_WORD, 0xe1a01200, 0xe1a01100);
 
 /* Panic */
 PATCH_JUMP(OSOS_PANIC_ENTRY, 0xe59f1010, 0xe3a00004, cfw_panic_entry);

@@ -62,6 +62,8 @@
 /* Fixed-size pool setup: slot size = (size + 15) & ~15. */
 #define OSOS_POOL_SLOT_ROUND_ADD_WORD 0x080530b4
 #define OSOS_POOL_SLOT_ROUND_MASK_WORD 0x080530b8
+/* UI task creation: stack bytes = *0x089d2eac (0x2000) << 4. */
+#define OSOS_UI_TASK_STACK_SHIFT_WORD 0x081391dc
 /* The ArtworkDB load in the boot import; photo databases load elsewhere. */
 #define OSOS_ARTWORK_IMPORT_CALL 0x0804d458
 #define OSOS_ARTWORK_IMAGE_THUMBS_CALL 0x08074f34
