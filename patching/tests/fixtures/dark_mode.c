@@ -319,7 +319,23 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
     return 0;
 }
 
-static char boot_calls[8];
+int cfw_crossfeed_action(void *owner, const char *action, uint32_t argument)
+{
+    (void)owner;
+    (void)action;
+    (void)argument;
+    return 0;
+}
+
+int cfw_crossfeed_property(uint32_t type, uint32_t property, uintptr_t *out)
+{
+    (void)type;
+    (void)property;
+    (void)out;
+    return 0;
+}
+
+static char boot_calls[16];
 static unsigned boot_count, native_flushes, store_flushes;
 static const char *deleted[4];
 static unsigned delete_count;
@@ -339,6 +355,16 @@ void cfw_store_load(void)
 void cfw_eq_load_preferences(void)
 {
     boot_step('E');
+}
+
+void cfw_crossfeed_load(void)
+{
+    boot_step('X');
+}
+
+void cfw_crossfeed_reset(void)
+{
+    boot_step('C');
 }
 
 void cfw_ui_visibility_load_preferences(void)
@@ -392,7 +418,7 @@ static void check_settings_lifecycle(void)
 {
     boot_count = 0;
     cfw_settings_boot(&native_preferences_object);
-    assert(!strcmp(boot_calls, "SEVF"));
+    assert(!strcmp(boot_calls, "SEXVF"));
     cfw_settings_sleep();
     assert(native_flushes == 1 && store_flushes == 2);
     cfw_store_delete_legacy();
@@ -412,7 +438,7 @@ static void check_reset_all_settings(void)
     boot_count = 0;
     memset(boot_calls, 0, sizeof(boot_calls));
     cfw_settings_reset(&reset_model);
-    assert(!strcmp(boot_calls, "NQ"));
+    assert(!strcmp(boot_calls, "NQC"));
     assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
     assert(redraws == previous_redraws + 1 && notifications == previous_notifications);
     assert(icon_notifications == previous_icons + 2);

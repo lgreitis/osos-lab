@@ -7,6 +7,7 @@
 #include "patch.h"
 #include "preferences.h"
 #include "resources.h"
+#include "sound.h"
 #include "store.h"
 
 static void *native_preferences;
@@ -19,6 +20,7 @@ void cfw_settings_boot(void *preferences)
     cfw_store_load();
     cfw_eq_load_preferences();
     cfw_dark_mode_load();
+    cfw_crossfeed_load();
     cfw_ui_visibility_load_preferences();
     cfw_store_flush();
 }
@@ -46,13 +48,15 @@ PATCH_ARM void cfw_settings_reset(void *model)
     osos_reset_all_settings(model);
     cfw_eq_reset_preferences();
     cfw_dark_mode_reset();
+    cfw_crossfeed_reset();
 }
 
 PATCH_ARM int cfw_settings_action(void *controller, const char *action,
                                   uint32_t argument)
 {
     if (cfw_clicker_action(controller, action, argument) ||
-        cfw_dark_mode_action(controller, action, argument))
+        cfw_dark_mode_action(controller, action, argument) ||
+        cfw_crossfeed_action(controller, action, argument))
         return 1;
 
     return osos_settings_action(controller, action, argument);
@@ -62,7 +66,8 @@ PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t propert
                                     uintptr_t *out)
 {
     if (cfw_dark_mode_property(type, property, out) ||
-        cfw_clicker_property(model, type, property, out))
+        cfw_clicker_property(model, type, property, out) ||
+        cfw_crossfeed_property(type, property, out))
         return 1;
 
     if (type == OSOS_RESOURCE_BMAP) {

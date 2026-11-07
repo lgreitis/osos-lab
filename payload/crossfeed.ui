@@ -1,0 +1,8 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <toggle id="CFW_Crossfeed" title="Crossfeed"/>
+  <bitmap id="CFW_Crossfeed_Icon" file="assets/settings-headphones.png" format="gray8"/>
+  <settings-entry menu="CFW_Crossfeed" after="SettingsMenu_ListItem_SoundCheck"
+                  preview="image" image="CFW_Crossfeed_Icon"
+                  caption="Blend Stereo for Headphones"/>
+</ui>

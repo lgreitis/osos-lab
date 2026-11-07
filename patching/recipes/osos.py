@@ -64,6 +64,7 @@ def build_recipe(
             for name in (
                 "cfw_info.ui",
                 "custom_eq.ui",
+                "crossfeed.ui",
                 "play_next.ui",
                 "song_info.ui",
                 "album_artists.ui",

@@ -4,6 +4,7 @@
 
 /* One record per feature. Keys are stored on disk; never reuse one. */
 enum {
+    CFW_STORE_CROSSFEED = 0x44454658,       /* "XFED" */
     CFW_STORE_CUSTOM_EQ = 0x20514543,       /* "CEQ " */
     CFW_STORE_DARK = 0x4b524144,            /* "DARK" */
     CFW_STORE_MENU_VISIBILITY = 0x5349564d, /* "MVIS" */

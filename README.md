@@ -45,6 +45,9 @@ RepriseOS package and builds a companion using that iPod's identity.
   frequency, gain, Q and precut.
 - Clipping-free EQ: built-in presets and the custom EQ lower their gain by
   their peak boost and keep headroom between filter stages.
+- Crossfeed for headphones: Jan Meier's crossfeed from Rockbox blends a
+  filtered part of each channel into the other, so hard-panned stereo
+  recordings sound less separated. It applies after the EQ, to all audio.
 - Play Next and Play Last from song, album and artist context menus.
 - EU volume limit removal for European iPods.
 - Song Info from song and Now Playing context menus.
@@ -131,7 +134,9 @@ annotation directory. Logs are in `.build/ghidra-*.log`; all tools expose `--hel
 ## Credits
 
 - [Rockbox](https://github.com/Rockbox/rockbox) contributors: the bootloader,
-  dual-boot installer, and hardware drivers used by the USB helper.
+  dual-boot installer, and hardware drivers used by the USB helper, and the
+  Meier crossfeed (Thom Johansen, Bertrik Sikken and Michael Sevakis), ported
+  to `payload/crossfeed.c` under GPL-2.0-or-later.
 - [wInd3x](https://github.com/freemyipod/wInd3x) by Serge “q3k” Bazanski:
   the BootROM exploit, DFU protocol, and payload assembler code ported from Go
   to Rust in `reprise-device`, including `payload.rs` and `dfu.rs`.
