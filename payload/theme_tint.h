@@ -31,3 +31,8 @@ const unsigned char *cfw_theme_well_letter_color(unsigned style);
  * (System_Input_Field_Middle_Image). NULL keeps the native color: Classic, or
  * transparent field art. */
 const unsigned char *cfw_theme_field_text_color(void);
+/* Color for the status bar title: the text or background role,
+ * whichever contrasts more with the resident bar art
+ * (NowPlaying_StatusBar_Image). NULL keeps the native color: Classic, or
+ * transparent bar art. */
+const unsigned char *cfw_theme_status_bar_text_color(void);

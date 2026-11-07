@@ -94,6 +94,7 @@ def generate(catalog, directory):
         )
     ]
     field = unique_index(bitmaps, "System_Input_Field_Middle_Image")
+    status_bar = unique_index(bitmaps, "NowPlaying_StatusBar_Image")
     accent_art = []
     for role, names in ACCENT_ART:
         for name in names:
@@ -105,6 +106,7 @@ def generate(catalog, directory):
         "};",
         f"const uint32_t cfw_bitmap_well_centers[2] = {{{wells[0]}u, {wells[1]}u}};",
         f"const uint32_t cfw_bitmap_field_center = {field}u;",
+        f"const uint32_t cfw_bitmap_status_bar = {status_bar}u;",
         "const struct cfw_accent_art cfw_bitmap_accent_art[] = {",
         *accent_art,
         "};",

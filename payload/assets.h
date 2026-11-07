@@ -20,6 +20,8 @@ extern const struct cfw_bitmap_asset cfw_bitmap_assets[];
 extern const uint32_t cfw_bitmap_well_centers[2];
 /* Catalog index of the Search text box center slice (System_Input_Field_Middle_Image). */
 extern const uint32_t cfw_bitmap_field_center;
+/* Catalog index of the status bar background (NowPlaying_StatusBar_Image). */
+extern const uint32_t cfw_bitmap_status_bar;
 /* Stock blue artwork that follows the accent while the active theme leaves it
  * stock: a paletted or ARGB catalog bitmap and the theme color role it takes. */
 struct cfw_accent_art {

@@ -134,8 +134,8 @@ the device.
 
 | Role | Light | Dark | Current use |
 | --- | --- | --- | --- |
-| background | `#ffffff` | `#181818` | Native surfaces and EQ background; Search strip letters and input text on dark well or field art |
-| text | `#202020` | `#e8e8e8` | Native text shades and EQ text; Search strip letters and input text on light well or field art |
+| background | `#ffffff` | `#181818` | Native surfaces and EQ background; Search strip letters, input text and status bar title on dark well, field or bar art |
+| text | `#202020` | `#e8e8e8` | Native text shades and EQ text; Search strip letters, input text and status bar title on light well, field or bar art |
 | accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text; EQ field being edited; stock progress, dot, star and playback art the theme leaves stock |
 | accent_text | `#3185d0` | `#00a1ff` | Native accent text and the Search input caret; EQ response curve and selected band |
 | on_accent | `#ffffff` | `#ffffff` | Selected-row text and tinted icons; EQ text on the field being edited; the highlighted Search key letter |
@@ -184,6 +184,10 @@ The text typed into the Search box follows the same rule against the center
 pixel of the field art (`System_Input_Field_Middle_Image`), so the field may be
 light or dark; its caret uses `accent_text`. Classic keeps the stock light field
 with native black text.
+
+The title of the Stopwatch and Charging header follows the same rule against
+the center pixel of the bar art (`NowPlaying_StatusBar_Image`), so the bar may
+be light or dark. Classic keeps the stock dark bar with its native light title.
 
 The list selection bar is drawn once into a shared cached bitmap and redrawn
 when its style changes. Classic with Theme Default or Blue keeps the stock bar

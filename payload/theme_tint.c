@@ -188,3 +188,10 @@ const unsigned char *cfw_theme_field_text_color(void)
         return 0;
     return contrast_color(cfw_bitmap_field_center);
 }
+
+const unsigned char *cfw_theme_status_bar_text_color(void)
+{
+    if (!cfw_theme_style_custom())
+        return 0;
+    return contrast_color(cfw_bitmap_status_bar);
+}
