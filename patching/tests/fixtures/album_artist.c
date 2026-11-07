@@ -230,6 +230,110 @@ static void import_one(struct reader *reader)
     retain(reader, &imported, artist, 6, 3);
 }
 
+/* Compaction: songs whose Album Artist matches their Artist keep only their ID. */
+enum { COMPACT_SONGS = 300 };
+static struct osos_media_record compact_songs[COMPACT_SONGS + 1];
+static uint32_t native_artist, native_other;
+static int fail_compaction;
+
+static uint32_t native_token(struct reader *reader, const uint16_t *text,
+                             uint32_t units)
+{
+    struct file scratch = {0, text, units, 0, 0, 0};
+    struct reader native = {&scratch, reader->owner};
+    uint32_t token = 0;
+    assert(mock_decode(&native, 1, 22, string_cache, &token, 0, 1) == 0 && token);
+    return token;
+}
+
+static void set_artist(struct osos_media_record *record, uint32_t token)
+{
+    memcpy(record->data.bytes + 0x2c, &token, 4);
+}
+
+static void import_compact(struct reader *reader)
+{
+    native_artist = native_token(reader, artist, 6);
+    native_other = native_token(reader, other, 5);
+    for (uint32_t i = 0; i < COMPACT_SONGS; i++) {
+        /* Spread IDs so the sort and both halves of the key matter. */
+        compact_songs[i] = record(reader->owner, i * 2654435761u, (i * 7) % 5);
+        /* Same as Artist, different Artist, own Sort Artist, Sort Artist = Artist. */
+        set_artist(&compact_songs[i], i % 4 == 1 ? native_other : native_artist);
+        retain(reader, &compact_songs[i], artist, 6, 0);
+        if (i % 4 == 2)
+            retain_field(reader, &compact_songs[i], other, 5, 0, 23);
+        if (i % 4 == 3)
+            retain_field(reader, &compact_songs[i], artist, 6, 0, 23);
+    }
+    compact_songs[COMPACT_SONGS] = record(reader->owner, 7, 7);
+    retain(reader, &compact_songs[COMPACT_SONGS], NULL, 0, 0);
+    fail_alloc = fail_compaction;
+}
+
+static void expect_compacted(void)
+{
+    for (uint32_t i = 0; i < COMPACT_SONGS; i++) {
+        struct osos_media_record *song = &compact_songs[i];
+        assert(cfw_album_artist_token(song) == native_artist);
+        expect(song, artist, 6);
+        assert(!cfw_album_artist_sort_token(song, 1));
+        uint32_t sort = i % 4 == 2 ? native_other : i % 4 == 3 ? native_artist : 0;
+        assert(cfw_album_artist_sort_token(song, 0) == sort);
+    }
+    assert(!cfw_album_artist_token(&compact_songs[COMPACT_SONGS]));
+}
+
+static void test_compaction(struct reader *reader)
+{
+    /* Compaction keeps every reference: the firmware's record Artist token holds none,
+     * so releasing the duplicate would free the string the record still names. */
+    during_import = import_compact;
+    assert(cfw_album_artist_import_tracks(reader) == 0);
+    during_import = NULL;
+    assert(!capacity && !count && field_count == 150);
+    assert(same_count[SAME_PLAIN] == 75 && same_count[SAME_SORTED] == 75);
+    assert(tokens[native_artist].refs == 1 + 300 + 75 &&
+           tokens[native_other].refs == 1 + 75);
+    expect_compacted();
+
+    /* Later updates move a song out of the compact arrays without releasing borrowed
+     * references; owned ones are released as before. */
+    struct osos_media_record *plain = &compact_songs[0], *owned = &compact_songs[1],
+                             *sorted = &compact_songs[3];
+    retain_field(reader, plain, other, 5, 0, 29);
+    assert(cfw_album_artist_token(plain) == native_artist);
+    assert(cfw_album_artist_sort_token(plain, 1) == native_other);
+    assert(tokens[native_artist].refs == 376 && tokens[native_other].refs == 77);
+    retain(reader, plain, other, 5, 0);
+    expect(plain, other, 5);
+    assert(tokens[native_artist].refs == 376 && tokens[native_other].refs == 78);
+    retain(reader, owned, NULL, 0, 0);
+    assert(!cfw_album_artist_token(owned) && tokens[native_artist].refs == 375);
+    retain_field(reader, sorted, other, 5, 0, 23);
+    assert(cfw_album_artist_token(sorted) == native_artist);
+    assert(cfw_album_artist_sort_token(sorted, 0) == native_other);
+    assert(tokens[native_artist].refs == 375 && tokens[native_other].refs == 79);
+
+    /* Stock finalization freezes accounting; destroying the library frees the cache. */
+    void *library = owner;
+    frozen = 1;
+    cfw_album_artist_destroy_tracks(library);
+    assert(!live_refs && !fields && !same[SAME_PLAIN] && !same[SAME_SORTED]);
+
+    /* Without memory for the arrays, the import table keeps answering. */
+    fail_compaction = 1;
+    during_import = import_compact;
+    assert(cfw_album_artist_import_tracks(reader) == 0);
+    during_import = NULL;
+    fail_alloc = fail_compaction = 0;
+    assert(capacity && !fields && !same[SAME_PLAIN] && !same[SAME_SORTED]);
+    expect_compacted();
+    frozen = 1;
+    cfw_album_artist_destroy_tracks(library);
+    assert(!live_refs);
+}
+
 int main(void)
 {
     struct file file = {0};
@@ -366,6 +470,10 @@ int main(void)
     assert(cfw_album_artist_import_tracks(&reader) == 0);
     clear();
     assert(live_refs == 0);
-    puts("Album Artist: lookup, collisions, deduplication, reloads, failures and "
-         "Unicode bounds passed");
+
+    reader.owner = &library_a;
+    test_compaction(&reader);
+    puts("Album Artist: lookup, collisions, deduplication, compaction, reloads, "
+         "failures "
+         "and Unicode bounds passed");
 }
