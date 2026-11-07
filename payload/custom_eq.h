@@ -7,6 +7,8 @@
 #include "eq_coefficients.h"
 
 #define CFW_EQ_DSP_PRESET 23
+/* Legacy import: pre-store EQ file. */
+#define CFW_EQ_LEGACY_FILE "iPod_Control\\Device\\CFWEQ"
 
 uint32_t cfw_irq_save(void);
 void cfw_irq_restore(uint32_t flags);

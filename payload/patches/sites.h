@@ -5,6 +5,12 @@
 #define OSOS_RESOURCE_BLOCK_APPEND_CALL 0x0817a88c
 
 #define OSOS_PREFERENCES_LOAD_CALL 0x08058808
+/* Native save-all; it runs only around USB disk mode. */
+#define OSOS_PREFERENCES_FLUSH_CALL 0x0806392c
+/* The only two calls to native light sleep, both dispatched from 0x0819aaf4; the
+ * first is idle sleep. */
+#define OSOS_SLEEP_CALL 0x0819b32c
+#define OSOS_SLEEP_REQUEST_CALL 0x0819bba8
 #define OSOS_SETTINGS_ACTION_SLOT 0x089a3bf4
 #define OSOS_SETTINGS_SECONDARY_ACTION_SLOT 0x089a7c3c
 #define OSOS_GRAPHICS_FILL_RECT_CALL 0x0825ae9c

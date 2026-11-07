@@ -228,6 +228,7 @@ def emit_visibility(resources):
             raise ValueError("Duplicate menu visibility preference key")
         keys.add(key)
         lines.append(f"static uint32_t ui_visible_{i} = {entry['defaults']};")
+        # Legacy import: pre-store per-entry visibility file.
         filename = f"iPod_Control\\Device\\CFWMenu_{key:08x}"
         items = ", ".join(f"{entry['items'][m]:#x}" for m in ("Main", "Music"))
         anchors = ", ".join(f"{entry['anchors'][m]:#x}" for m in ("Main", "Music"))
