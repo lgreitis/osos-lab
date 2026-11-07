@@ -638,6 +638,20 @@ static inline void *osos_artwork_thumb_name_cache(void *thumb)
     return ((fn)OSOS_ARTWORK_THUMB_NAME_CACHE)(thumb);
 }
 
+static inline void *osos_artwork_find_image(void *db, uint32_t id)
+{
+    typedef void *(*fn)(void *, uint32_t);
+    return ((fn)OSOS_ARTWORK_FIND_IMAGE)(db, id);
+}
+
+static inline void *osos_artwork_find_image_by_dbid(void *db, uint32_t a1,
+                                                    uint32_t dbid_low,
+                                                    uint32_t dbid_high, uint32_t sorted)
+{
+    typedef void *(*fn)(void *, uint32_t, uint32_t, uint32_t, uint32_t);
+    return ((fn)OSOS_ARTWORK_FIND_IMAGE_BY_DBID)(db, a1, dbid_low, dbid_high, sorted);
+}
+
 static inline int osos_itunes_import_tracks(void *reader)
 {
     typedef int (*fn)(void *);

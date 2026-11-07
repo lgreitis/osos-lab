@@ -62,6 +62,11 @@
 /* The ArtworkDB load in the boot import; photo databases load elsewhere. */
 #define OSOS_ARTWORK_IMPORT_CALL 0x0804d458
 #define OSOS_ARTWORK_IMAGE_THUMBS_CALL 0x08074f34
+#define OSOS_ARTWORK_ALBUM_IMAGE_CALL 0x08074d44
+#define OSOS_ARTWORK_TRACK_DBID_CALL 0x0804581c
+#define OSOS_ARTWORK_PLAYING_DBID_CALL 0x08046494
+/* `str r0, [r4, #0xf0]`: the track's ArtworkDB image ID in the mhit parser. */
+#define OSOS_ITUNES_TRACK_ARTWORK_ID_WORD 0x0808a868
 #define OSOS_ITUNES_ALBUM_ARTIST_SLOT 0x0808adcc
 #define OSOS_ITUNES_ALBUM_ARTIST_DISCARD_WORD 0xea0000ec
 #define OSOS_ITUNES_SORT_ARTIST_SLOT 0x0808add0

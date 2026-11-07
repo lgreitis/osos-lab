@@ -2,6 +2,7 @@
 
 #include "album_artist.h"
 #include "album_artists.h"
+#include "artwork_thumbs.h"
 #include "patch.h"
 
 struct artist_entry {
@@ -112,6 +113,7 @@ PATCH_ARM int cfw_album_artist_import_tracks(void *reader)
     owner = *(void **)((uint8_t *)reader + OSOS_ITUNES_READER_OWNER_OFFSET);
     string_cache = (uint8_t *)owner + OSOS_TRACKDATA_ARTIST_CACHE_OFFSET;
     int status = osos_itunes_import_tracks(reader);
+    cfw_artwork_tracks_imported();
     if (status)
         clear();
     return status;
