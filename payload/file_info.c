@@ -32,11 +32,15 @@ enum field {
     FIELDS
 };
 
-static const char *const labels[FIELDS] = {
-    "Title",        "Artist", "Author",     "Album",      "Podcast",     "Book",
-    "Album Artist", "Year",   "Genre",      "Composer",   "Grouping",    "Duration",
-    "Chapters",     "Track",  "Disc",       "File Type",  "Sample Rate", "Bitrate",
-    "File Size",    "Rating", "Play Count", "Skip Count",
+/* Labels in field order, each found by its offset into one string. */
+static const char labels[] =
+    "Title\0Artist\0Author\0Album\0Podcast\0Book\0Album Artist\0"
+    "Year\0Genre\0Composer\0Grouping\0Duration\0Chapters\0Track\0"
+    "Disc\0File Type\0Sample Rate\0Bitrate\0File Size\0Rating\0"
+    "Play Count\0Skip Count";
+static const uint8_t label_offsets[FIELDS] = {
+    0,  6,  13, 20,  26,  34,  39,  52,  57,  63,  72,
+    81, 90, 99, 105, 110, 120, 132, 140, 150, 157, 168,
 };
 
 /* Rows per media kind, in display order. CHAPTERS is shown only when nonzero. */
@@ -77,25 +81,30 @@ enum media_kind {
 };
 
 /* MediaItem is a non-owning, generation-checked native value (24 bytes).
- * Values are formatted on request into one buffer; the list copies each string. */
+ * Values are produced on request and the list copies each string: text fields
+ * stay in the native string until the next request, formatted numbers in value. */
 static struct {
     struct osos_media_item item;
+    struct osos_native_string text;
+    uint8_t text_live;
     uint8_t rows[FIELDS];
     uint8_t count;
-    unsigned size;
-    char value[768]; /* 255 UTF-16 units need at most 765 UTF-8 bytes plus NUL. */
+    uint8_t size;
+    char value[24]; /* The longest is "4294967295 kbps". */
 } info;
 
+static void release_text(void)
+{
+    if (info.text_live)
+        osos_native_string_destroy(&info.text);
+    info.text_live = 0;
+}
+
+/* Formatted values are short: numbers, units and extensions of up to five bytes. */
 static void append(const char *text)
 {
-    while (*text) {
-        unsigned char lead = (unsigned char)*text;
-        unsigned bytes = lead < 0xc0 ? 1 : lead < 0xe0 ? 2 : lead < 0xf0 ? 3 : 4;
-        if (info.size + bytes >= sizeof(info.value))
-            break;
-        for (unsigned i = 0; i < bytes && *text; i++)
-            info.value[info.size++] = *text++;
-    }
+    while (*text && info.size < sizeof(info.value) - 1)
+        info.value[info.size++] = *text++;
     info.value[info.size] = 0;
 }
 
@@ -128,7 +137,7 @@ static void number(uint32_t value, const char *unit)
     append(unit);
 }
 
-static void text(enum field field)
+static const char *text(enum field field)
 {
     static const uint8_t slots[FIELDS] = {
         [TITLE] = OSOS_MEDIA_TITLE,       [ARTIST] = OSOS_MEDIA_ARTIST,
@@ -137,18 +146,19 @@ static void text(enum field field)
         [GENRE] = OSOS_MEDIA_GENRE,       [COMPOSER] = OSOS_MEDIA_COMPOSER,
         [GROUPING] = OSOS_MEDIA_GROUPING,
     };
-    struct osos_native_string string;
-    osos_native_string_init(&string);
+    release_text();
+    osos_native_string_init(&info.text);
+    info.text_live = 1;
     if (field == ALBUM_ARTIST) {
         uint16_t units[255];
         uint32_t length = cfw_album_artist_read(info.item.record, units, 255);
-        osos_native_string_assign_utf16(&string, units, length);
+        osos_native_string_assign_utf16(&info.text, units, length);
     } else {
-        osos_media_item_text(&info.item, (enum osos_media_text)slots[field], &string);
+        osos_media_item_text(&info.item, (enum osos_media_text)slots[field],
+                             &info.text);
     }
-    const char *data = osos_native_string_data(&string);
-    append(data && *data ? data : "Unknown");
-    osos_native_string_destroy(&string);
+    const char *data = osos_native_string_data(&info.text);
+    return data && *data ? data : "Unknown";
 }
 
 static void duration(uint32_t milliseconds)
@@ -223,7 +233,7 @@ static void sample_rate(uint32_t bits)
     append(" kHz");
 }
 
-static void value(enum field field)
+static const char *value(enum field field)
 {
     const uint8_t *record = (const uint8_t *)info.item.record;
     struct osos_media_item *item = &info.item;
@@ -282,8 +292,9 @@ static void value(enum field field)
         decimal(osos_media_item_skip_count(item));
         break;
     default:
-        text(field);
+        return text(field);
     }
+    return info.value;
 }
 
 static const uint8_t *rows_for(uint32_t kind)
@@ -305,6 +316,7 @@ int cfw_file_info_show(void *controller, struct osos_media_item *item)
 {
     if (!item || !item->record || !osos_media_item_valid(item))
         return 0;
+    release_text();
     info.item = *item;
     info.count = 0;
     uint32_t kind = *(const uint32_t *)((const uint8_t *)item->record + 0xbc);
@@ -342,7 +354,7 @@ int cfw_file_info_indexed_property(uint32_t type, uint32_t property, uint32_t in
         return 0;
     enum field field = (enum field)info.rows[index];
     if (property == CFW_FileInfo_Rows) {
-        *out = (uintptr_t)labels[field];
+        *out = (uintptr_t)(labels + label_offsets[field]);
         return 1;
     }
     if (property != CFW_FileInfo_Detail)
@@ -350,8 +362,6 @@ int cfw_file_info_indexed_property(uint32_t type, uint32_t property, uint32_t in
     info.size = 0;
     info.value[0] = 0;
     /* The list can outlive the item when the library reloads. */
-    if (osos_media_item_valid(&info.item))
-        value(field);
-    *out = (uintptr_t)info.value;
+    *out = (uintptr_t)(osos_media_item_valid(&info.item) ? value(field) : info.value);
     return 1;
 }

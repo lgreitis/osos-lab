@@ -185,7 +185,8 @@ static const char *detail(uint32_t index)
     uintptr_t out = 0;
     assert(cfw_file_info_indexed_property(OSOS_PROPERTY_STRING, CFW_FileInfo_Detail,
                                           index, &out));
-    assert(!strings);
+    /* A text value stays in its native string until the next request. */
+    assert(strings <= 1);
     return (const char *)out;
 }
 
@@ -321,6 +322,10 @@ int main(void)
     check_song();
     check_kinds();
     check_bounds();
-    assert(pushes == creates - 1 && !strings);
+    assert(!strcmp(detail(0), "Song Title") && strings == 1);
+    open(1); /* Opening releases the previous text value. */
+    assert(!strings);
+    assert(!strcmp(detail(row("Play Count")), "0") && !strings);
+    assert(pushes == creates - 1);
     return 0;
 }
