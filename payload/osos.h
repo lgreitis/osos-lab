@@ -37,6 +37,12 @@ static inline void osos_string_destroy(struct osos_string *string)
     ((fn)OSOS_STRING_DESTROY)(string);
 }
 
+/* The boot disk's ATA IDENTIFY words, read by the native ATA driver when it opens. */
+static inline const uint16_t *osos_ata_identify(void)
+{
+    return (const uint16_t *)OSOS_ATA_IDENTIFY;
+}
+
 /* Find or insert a name in the global resource-name map and return its ID slot. */
 static inline uint32_t *osos_resource_name_slot(const struct osos_string *name)
 {

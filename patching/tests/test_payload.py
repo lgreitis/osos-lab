@@ -64,6 +64,7 @@ class PayloadTests(unittest.TestCase):
             )
             for name in (
                 "album_artist",
+                "block_cache",
                 "album_artists_index",
                 "album_artists",
                 "ui_visibility",

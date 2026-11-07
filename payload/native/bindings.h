@@ -115,6 +115,9 @@
 #define OSOS_NOW_PLAYING_ACTION 0x08212dbc
 #define OSOS_PLAYER_CURRENT_ITEM_SLOT 0x0000015c
 
+/* IDENTIFY words of the boot disk, filled by the native ATA open (0x08362d18). */
+#define OSOS_ATA_IDENTIFY 0x08ae087c
+
 /* Shared CFW metadata retained during stock track import. */
 #define OSOS_ITUNES_IMPORT_TRACKS 0x0808a488
 #define OSOS_ITUNES_IMPORT_STRING 0x080cdee0
