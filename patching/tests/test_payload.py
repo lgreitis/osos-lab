@@ -67,6 +67,7 @@ class PayloadTests(unittest.TestCase):
                 "context_menu",
                 "song_actions",
                 "file_info",
+                "media_menus",
                 "album_artist",
                 "album_artists_index",
                 "album_artists",

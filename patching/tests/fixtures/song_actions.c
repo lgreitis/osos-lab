@@ -7,6 +7,15 @@
 #define CFW_OSOS_H
 #define OSOS_ACTION_SUPPORT_QUERY 0xdeadbeef
 #include "../../../payload/native/bindings.h"
+int cfw_song_action_original(void *, const char *, uint32_t);
+
+static int video_playlist_action(void *c, const char *a, uint32_t n)
+{
+    return cfw_song_action_original(c, a, n);
+}
+
+#undef OSOS_VIDEO_PLAYLIST_ACTION
+#define OSOS_VIDEO_PLAYLIST_ACTION ((uintptr_t)video_playlist_action)
 
 struct osos_media_item {
     void *record;
@@ -166,17 +175,15 @@ static int osos_now_playing_action(void *c, const char *a, uint32_t n)
 int main(void)
 {
     int (*actions[])(void *, const char *, uint32_t) = {
-        cfw_song_action,
-        cfw_playlist_action,
-        cfw_genius_action,
-        cfw_now_playing_action,
+        cfw_song_action,        cfw_playlist_action,       cfw_genius_action,
+        cfw_now_playing_action, cfw_video_playlist_action,
     };
     controller[0xd4 / 4] = 1;
     controller[0xe8 / 4] = 1;
     for (unsigned i = 0; i < sizeof(actions) / sizeof(*actions); i++) {
-        unsigned layout_offset = i == 3   ? OSOS_NOW_PLAYING_LAYOUT_OFFSET
-                                 : i == 1 ? OSOS_PLAYLIST_LAYOUT_OFFSET
-                                          : OSOS_SONG_LAYOUT_OFFSET;
+        unsigned layout_offset = i == 3             ? OSOS_NOW_PLAYING_LAYOUT_OFFSET
+                                 : i == 1 || i == 4 ? OSOS_PLAYLIST_LAYOUT_OFFSET
+                                                    : OSOS_SONG_LAYOUT_OFFSET;
         shown = original = queued = restores = 0;
         support_query = 1;
         assert(actions[i](controller, "CFW_FileInfo", OSOS_ACTION_SUPPORT_QUERY));

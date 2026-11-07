@@ -99,6 +99,16 @@ PATCH_ARM int cfw_playlist_action(void *controller, const char *action,
     return cfw_playlist_action_original(controller, action, argument);
 }
 
+/* Video playlists reuse the playlist controller layout with their own dispatcher. */
+PATCH_ARM int cfw_video_playlist_action(void *controller, const char *action,
+                                        uint32_t argument)
+{
+    if (song_action(controller, PLAYLIST, action, argument))
+        return 1;
+    typedef int (*fn)(void *, const char *, uint32_t);
+    return ((fn)OSOS_VIDEO_PLAYLIST_ACTION)(controller, action, argument);
+}
+
 PATCH_ARM int cfw_genius_action(void *controller, const char *action, uint32_t argument)
 {
     if (song_action(controller, GENIUS, action, argument))

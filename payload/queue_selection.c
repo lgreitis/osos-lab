@@ -2,6 +2,7 @@
 /* Play Next and Play Last for whole albums and artists. */
 #include "osos.h"
 #include "cfw.h"
+#include "media_menus.h"
 #include "patch.h"
 #include "play_next.h"
 
@@ -20,6 +21,8 @@ PATCH_ARM void cfw_selection_menu_cancel(struct osos_context_menu *menu, uint32_
 PATCH_ARM int cfw_media_list_action(void *controller, const char *action,
                                     uint32_t argument)
 {
+    if (cfw_media_menu_action(controller, action, argument))
+        return 1;
     int last = cfw_string_equal(action, "CFW_PlayLast");
     if (!last && !cfw_string_equal(action, "CFW_PlayNext"))
         return cfw_media_list_action_original(controller, action, argument);

@@ -626,14 +626,17 @@ class UiTests(unittest.TestCase):
         ]
         self.assertEqual(word(row, 0x60), 6)
         for item_event in document.events:
-            self.assertIn(
-                b"contextualMenu.CFW_FileInfo",
-                b"".join(
-                    resources.event_extensions[
-                        "CEVT", resources.native(item_event.screen)
-                    ]
-                ),
+            events = b"".join(
+                resources.event_extensions[
+                    item_event.kind, resources.native(item_event.screen)
+                ]
             )
+            self.assertIn(item_event.event.encode(), events)
+            self.assertIn(item_event.handler.encode(), events)
+        layouts = [item.screen for item in document.events if item.kind == "SEVT"]
+        self.assertEqual(
+            layouts, ["MediaLists_Movies_Layout", "MediaLists_TVEpisodes_Layout"]
+        )
         header = emit_header(document, compiled.string_ids)
         for suffix in ("Screen", "Layout", "Rows", "Detail"):
             self.assertIn(f"#define CFW_FileInfo_{suffix} ", header)
