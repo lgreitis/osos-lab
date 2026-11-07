@@ -572,6 +572,13 @@ static inline void osos_preferences_flush(void *preferences)
     ((fn)OSOS_PREFERENCES_FLUSH)(preferences);
 }
 
+/* Takes the settings model; also resets the main and music menus. */
+static inline void osos_reset_all_settings(void *model)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_RESET_ALL_SETTINGS)(model);
+}
+
 /* Resource-screen factories receive name, screen, layout and transition. */
 typedef void *(*osos_controller_factory)(const char *, uint32_t, uint32_t, uint32_t);
 

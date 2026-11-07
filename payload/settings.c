@@ -40,6 +40,14 @@ void cfw_store_delete_legacy(void)
     cfw_ui_visibility_delete_legacy();
 }
 
+/* Menu visibility resets through the native menu-reset hooks. */
+PATCH_ARM void cfw_settings_reset(void *model)
+{
+    osos_reset_all_settings(model);
+    cfw_eq_reset_preferences();
+    cfw_dark_mode_reset();
+}
+
 PATCH_ARM int cfw_settings_action(void *controller, const char *action,
                                   uint32_t argument)
 {

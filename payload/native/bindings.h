@@ -95,6 +95,8 @@
 #define OSOS_FILE_DELETE 0x0804f99c
 #define OSOS_PREFERENCES_LOAD 0x0809c69c
 #define OSOS_PREFERENCES_FLUSH 0x08063760
+/* Reset All Settings: native Preferences defaults, then both menu resets. */
+#define OSOS_RESET_ALL_SETTINGS 0x081e1e6c
 /* Light sleep: powers the disk down, sleeps the CPU and returns after wake. */
 #define OSOS_SLEEP 0x0805d0c0
 #define OSOS_SONG_ACTION_RESUME 0x08218b2c

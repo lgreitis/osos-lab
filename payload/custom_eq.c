@@ -132,6 +132,13 @@ static void commit_values(void)
     cfw_store_set(CFW_STORE_CUSTOM_EQ, settings, sizeof(settings));
 }
 
+void cfw_eq_reset_preferences(void)
+{
+    defaults();
+    save_status = 0;
+    commit_values();
+}
+
 const struct cfw_ui_model cfw_eq_model = {settings, change_value, commit_values};
 
 int cfw_eq_action(const char *action, uint32_t argument)

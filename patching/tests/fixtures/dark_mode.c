@@ -109,10 +109,13 @@ static void *now_playing_model(void)
     return now_playing_available ? &now_playing : NULL;
 }
 
+static int resetting;
+
 static void invalidate(void)
 {
     assert(icon_invalidations == (now_playing_available ? 3u : 0u));
-    assert(preview_invalidations == 3);
+    /* Reset All Settings has no Settings model to notify. */
+    assert(preview_invalidations == (resetting ? 0u : 3u));
     icon_invalidations = 0;
     preview_invalidations = 0;
     redraws++;
@@ -391,6 +394,19 @@ void cfw_ui_visibility_delete_legacy(void)
     cfw_preferences_delete("menus");
 }
 
+static int reset_model;
+
+static void native_reset(void *value)
+{
+    assert(value == &reset_model);
+    boot_step('N');
+}
+
+void cfw_eq_reset_preferences(void)
+{
+    boot_step('Q');
+}
+
 static void native_flush(void *preferences)
 {
     assert(preferences == &native_preferences_object);
@@ -400,6 +416,7 @@ static void native_flush(void *preferences)
 #define osos_settings_action settings_action
 #define osos_settings_property settings_property
 #define osos_preferences_flush native_flush
+#define osos_reset_all_settings native_reset
 #include "../../../payload/settings.c"
 
 static void check_settings_lifecycle(void)
@@ -413,6 +430,41 @@ static void check_settings_lifecycle(void)
     assert(delete_count == 3 && !strcmp(deleted[0], "iPod_Control\\Device\\CFWEQ") &&
            !strcmp(deleted[1], "iPod_Control\\Device\\CFWDark") &&
            !strcmp(deleted[2], "menus"));
+}
+
+static void check_reset_all_settings(void)
+{
+    now_playing_available = 1;
+    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
+    assert(cfw_dark_mode_enabled());
+    resetting = 1;
+    int previous_redraws = redraws, previous_notifications = notifications;
+    int previous_icons = icon_notifications;
+    boot_count = 0;
+    memset(boot_calls, 0, sizeof(boot_calls));
+    cfw_settings_reset(&reset_model);
+    assert(!strcmp(boot_calls, "NQ"));
+    assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
+    assert(redraws == previous_redraws + 1 && notifications == previous_notifications);
+    assert(icon_notifications == previous_icons + 2);
+
+    /* Already light: only the record is written. */
+    stored = 0;
+    stored_record = DARK_MODE_ON_RECORD;
+    cfw_settings_reset(&reset_model);
+    assert(stored && stored_record == DARK_MODE_OFF_RECORD);
+    assert(redraws == previous_redraws + 1);
+
+    /* Without loadable light assets, Off is still saved for the next boot. */
+    assets_active = 1;
+    stored_record = DARK_MODE_ON_RECORD;
+    assets_ready = 0;
+    cfw_settings_reset(&reset_model);
+    assert(cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
+    assert(redraws == previous_redraws + 1);
+    assets_ready = 1;
+    assets_active = 0;
+    resetting = 0;
 }
 
 static void check_clicker(void)
@@ -562,4 +614,5 @@ int main(void)
     assert(!preview_invalidations);
     check_clicker();
     check_settings_lifecycle();
+    check_reset_all_settings();
 }

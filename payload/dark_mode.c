@@ -78,22 +78,18 @@ int cfw_dark_mode_property(uint32_t type, uint32_t property, uintptr_t *out)
     return 0;
 }
 
-int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument)
+/* settings is null when the caller has no Settings model to notify. */
+static void apply(void *settings, int next)
 {
-    if (!cfw_string_equal(action, "CFW_DarkMode_Toggle"))
-        return 0;
-    if (argument == OSOS_ACTION_SUPPORT_QUERY)
-        return 1;
-
-    int next = !cfw_dark_mode_enabled();
     if (!cfw_assets_prepare())
-        return 1;
+        return;
     save(next);
     cfw_assets_set_enabled(next);
-    void *settings = osos_settings_model(controller);
-    osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_Value);
-    osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_PreviewImage);
-    osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_PreviewText);
+    if (settings) {
+        osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_Value);
+        osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_PreviewImage);
+        osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_PreviewText);
+    }
     void *now_playing = osos_now_playing_model();
     if (now_playing) {
         /* Match Apple's playback-state notifications to reload cached icons. */
@@ -101,7 +97,25 @@ int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument
         osos_model_notify(now_playing, OSOS_RESOURCE_DRAW, 0x7f0d);
     }
     osos_ui_invalidate();
+}
+
+int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument)
+{
+    if (!cfw_string_equal(action, "CFW_DarkMode_Toggle"))
+        return 0;
+    if (argument == OSOS_ACTION_SUPPORT_QUERY)
+        return 1;
+
+    apply(osos_settings_model(controller), !cfw_dark_mode_enabled());
     return 1;
+}
+
+/* Saves Off even when the light assets cannot load, so the next boot is light. */
+void cfw_dark_mode_reset(void)
+{
+    save(0);
+    if (cfw_dark_mode_enabled())
+        apply(0, 0);
 }
 
 static int native_text_color(const void *view)

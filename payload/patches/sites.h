@@ -11,6 +11,9 @@
  * first is idle sleep. */
 #define OSOS_SLEEP_CALL 0x0819b32c
 #define OSOS_SLEEP_REQUEST_CALL 0x0819bba8
+/* The Reset All Settings confirmation; the other caller, 0x080f3cb0, keeps the
+ * native reset only. */
+#define OSOS_RESET_ALL_SETTINGS_CALL 0x08212844
 #define OSOS_SETTINGS_ACTION_SLOT 0x089a3bf4
 #define OSOS_SETTINGS_SECONDARY_ACTION_SLOT 0x089a7c3c
 #define OSOS_GRAPHICS_FILL_RECT_CALL 0x0825ae9c

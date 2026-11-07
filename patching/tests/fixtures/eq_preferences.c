@@ -198,6 +198,25 @@ int main(void)
     boot();
     assert(settings[0] == 45 && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
 
+    /* Reset All Settings stores the defaults and keeps other records. */
+    const uint32_t other = 0x12345678, other_key = 0x4b4e554b;
+    cfw_store_set(other_key, &other, sizeof(other));
+    cfw_store_flush();
+    filter_failure = 1;
+    cfw_eq_model.change(0, 46);
+    assert(status == 1);
+    filter_failure = 0;
+    cfw_eq_reset_preferences();
+    assert(settings[0] == 0 && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
+    assert(dirty);
+    cfw_eq_action("CFW_EQ_Open", 0);
+    assert(status == 0);
+    cfw_store_flush();
+    boot();
+    assert(settings[0] == 0 && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
+    uint32_t kept = 0;
+    assert(cfw_store_get(other_key, &kept, sizeof(kept)) == 4 && kept == other);
+
     /* A corrupted store falls back to defaults. */
     fake_find(STORE_FILE, 0)->data[20] ^= 1;
     boot();
