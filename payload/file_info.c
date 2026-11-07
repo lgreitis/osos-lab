@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
-#include "song_info.h"
+#include "file_info.h"
 
 #include "album_artist.h"
-#include "song_info_ui.h"
+#include "file_info_ui.h"
 
 /* UI actions run sequentially; each completed row is copied into the resource bank. */
 static struct {
@@ -168,7 +168,7 @@ static void metadata(struct osos_media_item *item)
     decimal(osos_media_item_skip_count(item));
 }
 
-int cfw_song_info_show(void *controller, struct osos_media_item *item)
+int cfw_file_info_show(void *controller, struct osos_media_item *item)
 {
     if (!item || !item->record || !osos_media_item_valid(item))
         return 0;
@@ -179,8 +179,8 @@ int cfw_song_info_show(void *controller, struct osos_media_item *item)
     flush();
 
     void *screen =
-        osos_create_screen_controller(osos_controller_registry(), CFW_SongInfo_Screen,
-                                      CFW_SongInfo_Layout, 2); /* foregroundpush */
+        osos_create_screen_controller(osos_controller_registry(), CFW_FileInfo_Screen,
+                                      CFW_FileInfo_Layout, 2); /* foregroundpush */
     if (!screen)
         return 0;
     osos_controller_push(controller, screen);

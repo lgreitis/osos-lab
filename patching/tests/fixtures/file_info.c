@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define CFW_OSOS_H
-#include "song_info_ui.h"
+#include "file_info_ui.h"
 
 struct osos_media_record;
 
@@ -117,8 +117,8 @@ static void *osos_controller_registry(void)
 static void *osos_create_screen_controller(void *r, uint32_t id, uint32_t layout,
                                            unsigned mode)
 {
-    assert(r == &registry && id == CFW_SongInfo_Screen);
-    assert(layout == CFW_SongInfo_Layout && mode == 2);
+    assert(r == &registry && id == CFW_FileInfo_Screen);
+    assert(layout == CFW_FileInfo_Layout && mode == 2);
     creates++;
     return create_failed ? NULL : &screen;
 }
@@ -129,24 +129,24 @@ static void osos_controller_push(void *owner, void *destination)
     pushes++;
 }
 
-#include "../../../payload/song_info.c"
+#include "../../../payload/file_info.c"
 
 int main(void)
 {
     struct osos_media_item item = {NULL};
-    assert(!cfw_song_info_show(&controller, NULL));
-    assert(!cfw_song_info_show(&controller, &item));
+    assert(!cfw_file_info_show(&controller, NULL));
+    assert(!cfw_file_info_show(&controller, &item));
     item.record = record;
     valid = 0;
-    assert(!cfw_song_info_show(&controller, &item));
+    assert(!cfw_file_info_show(&controller, &item));
     assert(!creates && !pushes && !resources && !strings);
     valid = 1;
     create_failed = 1;
-    assert(!cfw_song_info_show(&controller, &item));
+    assert(!cfw_file_info_show(&controller, &item));
     assert(creates == 1 && !pushes && resources && !strings);
     create_failed = 0;
     for (unsigned i = 0; i < 3; i++) {
-        assert(cfw_song_info_show(&controller, &item));
+        assert(cfw_file_info_show(&controller, &item));
         assert(creates == i + 2 && pushes == i + 1 && !strings);
     }
     return 0;

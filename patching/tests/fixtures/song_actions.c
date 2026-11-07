@@ -118,7 +118,7 @@ static void osos_controller_restore_layout(void *c, unsigned offset)
 static int osos_now_playing_action(void *, const char *, uint32_t);
 #include "../../../payload/song_actions.c"
 
-int cfw_song_info_show(void *c, struct osos_media_item *item)
+int cfw_file_info_show(void *c, struct osos_media_item *item)
 {
     owner = c;
     shown_item.record = item ? item->record : NULL;
@@ -179,19 +179,19 @@ int main(void)
                                           : OSOS_SONG_LAYOUT_OFFSET;
         shown = original = queued = restores = 0;
         support_query = 1;
-        assert(actions[i](controller, "CFW_SongInfo", OSOS_ACTION_SUPPORT_QUERY));
+        assert(actions[i](controller, "CFW_FileInfo", OSOS_ACTION_SUPPORT_QUERY));
         assert(!shown && !original && !queued && !restores && !locks);
         support_query = 0;
-        assert(actions[i](controller, "CFW_SongInfo", 0));
+        assert(actions[i](controller, "CFW_FileInfo", 0));
         assert(owner == controller && shown_item.record == &record);
         assert(shown == 1 && !queued && !original && !restores && !locks);
         create_failed = 1;
-        assert(actions[i](controller, "CFW_SongInfo", 0));
+        assert(actions[i](controller, "CFW_FileInfo", 0));
         assert(restores == 1 && restored_offset == layout_offset && !locks);
         create_failed = 0;
         restores = 0;
         valid = 0;
-        assert(actions[i](controller, "CFW_SongInfo", 0));
+        assert(actions[i](controller, "CFW_FileInfo", 0));
         assert(shown_item.record == NULL && restores == 1);
         assert(restored_offset == layout_offset);
         valid = 1;
@@ -205,20 +205,20 @@ int main(void)
     }
     restores = 0;
     missing_model = 1;
-    assert(cfw_song_action(controller, "CFW_SongInfo", 0));
+    assert(cfw_song_action(controller, "CFW_FileInfo", 0));
     assert(shown_item.record == NULL);
     assert(restores == 1 && restored_offset == OSOS_SONG_LAYOUT_OFFSET);
     missing_model = 0;
     restores = 0;
     mapped_row = -1;
-    assert(cfw_playlist_action(controller, "CFW_SongInfo", 0));
+    assert(cfw_playlist_action(controller, "CFW_FileInfo", 0));
     assert(shown_item.record == NULL);
     assert(restores == 1 && restored_offset == OSOS_PLAYLIST_LAYOUT_OFFSET);
-    assert(cfw_genius_action(controller, "CFW_SongInfo", 0));
+    assert(cfw_genius_action(controller, "CFW_FileInfo", 0));
     assert(shown_item.record == NULL);
     assert(restores == 2 && restored_offset == OSOS_SONG_LAYOUT_OFFSET);
     controller[0xd4 / 4] = UINT32_MAX;
-    assert(cfw_song_action(controller, "CFW_SongInfo", 0));
+    assert(cfw_song_action(controller, "CFW_FileInfo", 0));
     assert(shown_item.record == NULL);
     assert(restores == 3 && restored_offset == OSOS_SONG_LAYOUT_OFFSET);
     return 0;

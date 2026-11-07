@@ -605,15 +605,15 @@ class UiTests(unittest.TestCase):
         header = emit_header(document, compiled.string_ids)
         self.assertIn("#define CFW_AlbumArtists_Screen ", header)
 
-    def test_song_info_rows_are_dynamic_text_without_chosen_actions(self):
+    def test_file_info_rows_are_dynamic_text_without_chosen_actions(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
         shim = root / "payload/native"
         bindings = json.loads((shim / "ui.json").read_text())["bindings"]
         resources = Resources(metadata["resources"], bindings)
-        document = parser.read(root / "payload/song_info.ui")
+        document = parser.read(root / "payload/file_info.ui")
         compiled = compile_document(resources, document)
-        screen = compiled.string_ids["CFW_SongInfo_Screen"]
+        screen = compiled.string_ids["CFW_FileInfo_Screen"]
         self.assertEqual(word(resources.added["CEVT", screen], 0), 0)
         rows = [
             row
@@ -631,7 +631,7 @@ class UiTests(unittest.TestCase):
             )
         for item_event in document.events:
             self.assertIn(
-                b"contextualMenu.CFW_SongInfo",
+                b"contextualMenu.CFW_FileInfo",
                 b"".join(
                     resources.event_extensions[
                         "CEVT", resources.native(item_event.screen)
@@ -639,8 +639,8 @@ class UiTests(unittest.TestCase):
                 ),
             )
         header = emit_header(document, compiled.string_ids)
-        self.assertIn("#define CFW_SongInfo_Screen ", header)
-        self.assertIn("#define CFW_SongInfo_Layout ", header)
+        self.assertIn("#define CFW_FileInfo_Screen ", header)
+        self.assertIn("#define CFW_FileInfo_Layout ", header)
 
     def test_named_screen_uses_selected_binding_and_rejects_missing_names(self):
         document = parser.parse(

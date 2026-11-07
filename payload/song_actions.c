@@ -3,8 +3,8 @@
 #include "cfw.h"
 #include "patch.h"
 #include "play_next.h"
-#include "song_info.h"
-#include "song_info_ui.h"
+#include "file_info.h"
+#include "file_info_ui.h"
 
 int cfw_song_action_original(void *, const char *, uint32_t);
 int cfw_playlist_action_original(void *, const char *, uint32_t);
@@ -49,7 +49,7 @@ static int selected_item(void *controller, enum song_source source,
 static int song_action(void *controller, enum song_source source, const char *action,
                        uint32_t argument)
 {
-    int info = cfw_string_equal(action, "CFW_SongInfo");
+    int info = cfw_string_equal(action, "CFW_FileInfo");
     int last = cfw_string_equal(action, "CFW_PlayLast");
     if (!info &&
         (source == NOW_PLAYING || (!last && !cfw_string_equal(action, "CFW_PlayNext"))))
@@ -62,7 +62,7 @@ static int song_action(void *controller, enum song_source source, const char *ac
         struct osos_media_item *selected =
             selected_item(controller, source, &item) ? &item : NULL;
         if (info) {
-            if (!cfw_song_info_show(controller, selected))
+            if (!cfw_file_info_show(controller, selected))
                 osos_controller_restore_layout(
                     controller, source == NOW_PLAYING ? OSOS_NOW_PLAYING_LAYOUT_OFFSET
                                 : source == PLAYLIST  ? OSOS_PLAYLIST_LAYOUT_OFFSET
@@ -80,7 +80,7 @@ PATCH_ARM void cfw_song_menu_cancel(struct osos_context_menu *menu, uint32_t lab
                                     const char *action, uint32_t flags)
 {
     cfw_play_next_menu(menu);
-    osos_context_menu_append(menu, CFW_SONG_INFO_LABEL, "CFW_SongInfo", 1);
+    osos_context_menu_append(menu, CFW_FILE_INFO_LABEL, "CFW_FileInfo", 1);
     osos_context_menu_append(menu, label, action, flags);
 }
 
@@ -110,7 +110,7 @@ PATCH_ARM void cfw_now_playing_menu_cancel(struct osos_context_menu *menu,
                                            uint32_t label, const char *action,
                                            uint32_t flags)
 {
-    osos_context_menu_append(menu, CFW_SONG_INFO_LABEL, "CFW_SongInfo", 1);
+    osos_context_menu_append(menu, CFW_FILE_INFO_LABEL, "CFW_FileInfo", 1);
     osos_context_menu_append(menu, label, action, flags);
 }
 

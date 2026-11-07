@@ -65,7 +65,7 @@ def build_recipe(
                 "cfw_info.ui",
                 "custom_eq.ui",
                 "play_next.ui",
-                "song_info.ui",
+                "file_info.ui",
                 "album_artists.ui",
                 "dark_mode.ui",
                 "queue_selection.ui",
