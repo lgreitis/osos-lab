@@ -3,7 +3,7 @@
 
 import struct
 
-from .model import ActionBinding, CompiledDocument, FieldBinding
+from .model import CompiledDocument
 from .resources import (
     Resource,
     blocks,
@@ -30,8 +30,6 @@ class DocumentCompiler:
             raise ValueError("Native Settings menu is missing the Legal row template")
         self.sources = {}
         self.string_ids = {}
-        self.fields: dict[int, FieldBinding] = {}
-        self.actions: dict[str, ActionBinding] = {}
 
     def text_page(self, text):
         resources, root = self.resources, self.document.root
@@ -150,11 +148,6 @@ class DocumentCompiler:
         put(data, 0x68, title)
         return item, (0, data)
 
-    def model_row(self, property_id):
-        item, row = self.row(self.resources.property_source(0x8900, property_id))
-        row[1][0x94:0x95] = b"\x01"
-        return item, row
-
     def page(self, name, title, rows, events):
         resources = self.resources
         screen = resources.allocate(name + "_Screen")
@@ -196,100 +189,16 @@ class DocumentCompiler:
             [name + "_Screen", name + "_Layout", "foregroundpush"],
         )
 
-    def selector(self, item):
-        resources = self.resources
-        property_id, summary = resources.allocate(), resources.allocate()
-        if self.document.values[item.choices].numeric:
-            self.range_page(item, property_id)
-        else:
-            kind, prototype = blocks(resources.stock("ITEM", "Settings_EQ_Items"))[0]
-            row = Resource(prototype)
-            row_id = resources.allocate()
-            put(row, 0x30, row_id)
-            put(row, 0x68, resources.property_source(0x8900, property_id))
-            row[0x94:0x95] = b"\x01"
-            self.page(
-                item.name,
-                item.title,
-                [(kind, row)],
-                [menu_event(row_id, "chosen", item.name, "navigator.PopTopScreen", [])],
-            )
-        parent_item, parent_row = self.model_row(summary)
-        self.fields[item.slot] = FieldBinding(
-            parent_item=parent_item,
-            property=property_id,
-            summary_property=summary,
-            screen=resources.names[item.name + "_Screen"],
-        )
-        return parent_row, self.push(parent_item, item.name)
-
-    def range_page(self, item, property_id):
-        resources = self.resources
-        template_name = "CFW_Range_Template"
-        if template_name not in resources.names:
-            template = resources.allocate(template_name)
-            views = [
-                (kind, data)
-                for kind, data in blocks(
-                    resources.stock("View", "Settings_Brightness_Template")
-                )
-                if kind in (0x70676F67, 0x74657874)
-            ]
-            resources.add("View", template, pack_blocks(views))
-            resources.add(
-                "TMLT",
-                template,
-                resources.stock("TMLT", "Settings_Brightness_Template"),
-            )
-        template = resources.names[template_name]
-        screen = resources.allocate(item.name + "_Screen")
-        layout = resources.allocate(item.name + "_Layout")
-        resources.add("SCST", screen, b"CFWRange")
-        resources.set_events("CEVT", screen, struct.pack("<I", 0))
-        source = resources.property_source(0x8900, property_id)
-        binding = pack_blocks(
-            [
-                (
-                    resources.native(view),
-                    pack_blocks([(0x534F5243, struct.pack("<I", source))]),
-                )
-                for view in (
-                    "Settings_Brightness_Bar",
-                    "Settings_Brightness_Value_Text",
-                )
-            ]
-        )
-        resources.clone_layout(
-            resources.native("Settings_Brightness_Screen_Default"),
-            layout,
-            resources.source(item.title),
-            {resources.native("Settings_Brightness_Template"): template},
-            view_bindings={resources.native("Settings_Brightness_Template"): binding},
-        )
-        layouts = blocks(resources.stock("SLst", "Settings_Brightness_Screen"))
-        put(layouts[0][1], 0, layout)
-        resources.add("SLst", screen, pack_blocks(layouts))
-        resources.set_events(
-            "SEVT",
-            layout,
-            struct.pack("<I", 3)
-            + event("button.select.up", "navigator.PopTopScreen")
-            + event("button.menu.up", "navigator.PopTopScreen")
-            + event("button.menu.pressandhold", "navigator.PopToMainScreen"),
-        )
-
     def menu(self, menu):
         rows, events = [], []
         for item in menu.items:
-            row, chosen = self.menu_item(menu, item)
+            row, chosen = self.menu_item(item)
             rows.append(row)
             if chosen is not None:
                 events.append(chosen)
         return self.page(menu.name, menu.title, rows, events)
 
-    def menu_item(self, menu, item):
-        if item.kind == "selector":
-            return self.selector(item)
+    def menu_item(self, item):
         if item.kind == "info":
             string_id = self.resources.allocate()
             self.string_ids[item.name] = string_id
@@ -299,25 +208,9 @@ class DocumentCompiler:
             # Native text rows omit the submenu arrow; no chosen event is bound.
             put(row[1], 0x60, 2)
             return row, None
-        if item.kind in ("menu", "canvas"):
-            row_id, row = self.row(self.source(item.title))
-            chosen = self.push(row_id, item.name)
-            if item.kind == "canvas":
-                self.canvas_page(item)
-            else:
-                self.menu(item)
-        else:
-            property_id = self.resources.allocate()
-            row_id, row = self.model_row(property_id)
-            put(row[1], 0x60, 2)
-            self.actions[item.name] = ActionBinding(item=row_id, property=property_id)
-            chosen = menu_event(
-                row_id,
-                "chosen",
-                item.name,
-                "navigator.SwitchLayout",
-                [menu.name + "_Layout"],
-            )
+        row_id, row = self.row(self.source(item.title))
+        chosen = self.push(row_id, item.name)
+        self.menu(item)
         return row, chosen
 
     def insert_settings(self):
@@ -476,8 +369,6 @@ def compile_document(resources, document, text=""):
     if builder is not None:
         builder.insert_settings()
         compiled.string_ids.update(builder.string_ids)
-        compiled.fields = builder.fields
-        compiled.actions = builder.actions
     return compiled
 
 

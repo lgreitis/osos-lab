@@ -5,7 +5,6 @@
 #define CFW_OSOS_H
 #define CFW_PATCH_H
 #define PATCH_COPY(...)
-#define OSOS_ACTION_SUPPORT_QUERY 0xdeadbeef
 #include "../../../payload/custom_eq.h"
 
 struct osos_path {
@@ -13,7 +12,6 @@ struct osos_path {
     char text[258];
 };
 
-static uint32_t status, refreshes;
 static int filter_failure;
 const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
     {.count = 102},
@@ -38,7 +36,6 @@ const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
     {.count = 38, .default_value = 4},
     {.count = 49, .default_value = 24},
 };
-const struct cfw_ui_action cfw_eq_save = {.count = 3};
 
 #include "fake_files.h"
 
@@ -47,18 +44,6 @@ int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS])
     for (unsigned i = 0; i < CFW_EQ_FIELDS; i++)
         assert(values[i] < cfw_eq_fields[i].count);
     return !filter_failure;
-}
-
-void cfw_ui_refresh(const struct cfw_ui_field *field)
-{
-    assert(field >= cfw_eq_fields && field < cfw_eq_fields + CFW_EQ_FIELDS);
-    refreshes++;
-}
-
-void cfw_ui_status(const struct cfw_ui_action *action, unsigned value)
-{
-    assert(action == &cfw_eq_save && value < 3);
-    status = value;
 }
 
 #include "../../../payload/preferences.c"
@@ -154,17 +139,13 @@ int main(void)
 
     /* Edits stay in RAM until the store flushes. */
     unsigned writes = fake_writes;
-    assert(cfw_eq_action("CFW_EQ_Save", OSOS_ACTION_SUPPORT_QUERY));
     cfw_eq_model.change(0, 38);
-    assert(settings[0] == 38 && refreshes == 1);
+    assert(settings[0] == 38);
     cfw_eq_model.change(CFW_EQ_FIELDS, 0);
     cfw_eq_model.change(0, 102);
-    cfw_eq_model.change(0, 38);
-    assert(refreshes == 1 && settings[0] == 38);
+    assert(settings[0] == 38);
     cfw_eq_model.commit();
     assert(dirty && fake_writes == writes);
-    cfw_eq_action("CFW_EQ_Open", 0);
-    assert(status == 0);
     boot();
     assert(settings[0] == 40 && fake_writes == writes);
     cfw_eq_model.change(0, 38);
@@ -174,14 +155,13 @@ int main(void)
     boot();
     assert(settings[0] == 38);
 
-    /* Rejected filters report status 1 and keep the published values. */
+    /* Rejected filters keep the published values; failed writes retry. */
     filter_failure = 1;
     cfw_eq_model.change(0, 39);
-    assert(settings[0] == 38 && status == 1);
+    assert(settings[0] == 38);
     filter_failure = 0;
     cfw_eq_model.change(0, 39);
-    assert(status == 0);
-    cfw_eq_action("CFW_EQ_Save", 0);
+    cfw_eq_model.commit();
     assert(dirty);
     fake_fail_write = 1;
     cfw_store_flush();
@@ -228,15 +208,9 @@ int main(void)
     const uint32_t other = 0x12345678, other_key = 0x4b4e554b;
     cfw_store_set(other_key, &other, sizeof(other));
     cfw_store_flush();
-    filter_failure = 1;
-    cfw_eq_model.change(0, 46);
-    assert(status == 1);
-    filter_failure = 0;
     cfw_eq_reset_preferences();
     assert(settings[0] == CFW_EQ_PRECUT_AUTO && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
     assert(dirty);
-    cfw_eq_action("CFW_EQ_Open", 0);
-    assert(status == 0);
     cfw_store_flush();
     boot();
     assert(settings[0] == CFW_EQ_PRECUT_AUTO && settings[CFW_EQ_BAND4_FREQUENCY] == 12);

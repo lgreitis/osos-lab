@@ -42,11 +42,7 @@ static void commit_values(void)
 }
 const struct cfw_ui_model cfw_eq_model = {values, change_value, commit_values};
 #define FIELD(slot_, title_, labels_, count_)                                          \
-    [slot_] = {.slot = slot_,                                                          \
-               .title = title_,                                                        \
-               .labels = labels_,                                                      \
-               .count = count_,                                                        \
-               .model = &cfw_eq_model}
+    [slot_] = {.title = title_, .labels = labels_, .count = count_}
 static const char *const type_labels[] = {"Off", "Peaking", "Low shelf", "High shelf"};
 static const char *const precut_labels[] = {"Auto", "0.0 dB", "-0.1 dB"};
 const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
@@ -271,11 +267,19 @@ static void osos_graphics_draw_text(void *context, const char *text)
     assert(pen_y + osos_graphics_font_descent(context) <= 217);
     if (!strcmp(text, "EQ response"))
         assert(pen_x == 8);
-    if (!strcmp(text, "Precut") || !strcmp(text, "Auto precut")) {
+    int parameter_row = pen_y > 141 && pen_y < 168;
+    if (parameter_row) {
+        /* The Precut cell ends 12 px inside the canvas, like the Type cell. */
+        if (!strcmp(text, "Precut"))
+            assert(pen_x == 172);
+        if (!strcmp(text, "0.0 dB") || !strcmp(text, "-0.1 dB") ||
+            !strcmp(text, "Auto"))
+            assert(pen_x + osos_graphics_text_width(context, text) == 308);
+    } else if (!strcmp(text, "Precut") || !strcmp(text, "Auto precut")) {
         precut_title = text;
         precut_title_right = pen_x + osos_graphics_text_width(context, text);
     }
-    if (!strcmp(text, "0.0 dB") || !strcmp(text, "-0.1 dB")) {
+    if (!parameter_row && (!strcmp(text, "0.0 dB") || !strcmp(text, "-0.1 dB"))) {
         assert(pen_x + osos_graphics_text_width(context, text) == 312);
         precut_value = text;
         precut_value_left = pen_x;
@@ -421,13 +425,30 @@ int main(void)
     wheel(0);
     wheel(1);
     assert(editor.parameter == 0);
-    wheel(14);
+    wheel(19);
     assert(editor.parameter == PARAM_Q && editor.band == 1);
     assert(button(0x0d, 0x6f) == 1);
     wheel(0);
     wheel(5);
     assert(values[CFW_EQ_BAND2_Q] == 5 && changes == 1 && commits == 0);
     assert(values[CFW_EQ_BAND1_Q] == 4 && values[CFW_EQ_BAND3_Q] == 4);
+    /* Precut is one global setting, whichever band is selected. */
+    assert(button(0x0d, 0x6e) == 1);
+    wheel(0);
+    wheel(-15);
+    assert(editor.parameter == PARAM_PRECUT);
+    assert(button(0x0d, 0x6f) == 1 && editor.mode == MODE_EDIT);
+    wheel(0);
+    wheel(5);
+    assert(values[CFW_EQ_PRECUT] == 1 && changes == 2 && commits == 1);
+    assert(values[CFW_EQ_BAND2_TYPE] == 0);
+    wheel(-5);
+    assert(values[CFW_EQ_PRECUT] == 0 && commits == 1);
+    assert(button(0x0d, 0x6f) == 1 && editor.mode == MODE_PARAMETER && commits == 2);
+    wheel(0);
+    wheel(15);
+    assert(editor.parameter == PARAM_Q);
+    assert(button(0x0d, 0x6f) == 1 && editor.mode == MODE_EDIT);
     assert(button(0x0d, 0x6e) == 1);
     assert(editor.mode == MODE_PARAMETER);
     assert(button(0x0d, 0x6e) == 1);
@@ -455,14 +476,15 @@ int main(void)
                     assert(editor.parameter == PARAM_COUNT - 1);
                 else
                     assert(canvas_index(band, parameter) ==
-                           canvas_field(band, parameter)->count - 1);
+                           cfw_eq_fields[canvas_slot(band, parameter)].count - 1);
                 canvas_draw(NULL, NULL, NULL);
                 if (mode != MODE_BAND) {
-                    int type = editor.parameter == PARAM_TYPE;
-                    int left = type ? 0 : (editor.parameter - 1) * 320 / 3;
-                    int right = type ? 319 : editor.parameter * 320 / 3 - 1;
-                    int top = type ? 141 : 170;
-                    int bottom = type ? 167 : 215;
+                    int inline_row = editor.parameter < PARAM_GAIN;
+                    int column = editor.parameter - PARAM_GAIN;
+                    int left = inline_row ? editor.parameter * 160 : column * 320 / 3;
+                    int right = inline_row ? left + 159 : (column + 1) * 320 / 3 - 1;
+                    int top = inline_row ? 141 : 170;
+                    int bottom = inline_row ? 167 : 215;
                     assert(!memcmp(pixels[top][left], canvas_palettes[0][COLOR_ACCENT],
                                    3));
                     assert(!memcmp(pixels[top][right], canvas_palettes[0][COLOR_ACCENT],

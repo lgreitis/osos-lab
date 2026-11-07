@@ -52,12 +52,12 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Dark Mode, with an On/Off toggle in Settings.
 
-Open **Settings → Custom EQ → Graphic EQ** to edit all five bands. Use the wheel
-to select a band, then Center to select and edit its Type, Gain, Frequency or Q.
-Switch Hold on to view the combined EQ response and off to return to editing.
-Precut defaults to **Auto**, which attenuates by the response's peak between
-20 Hz and 20 kHz; the response view shows the applied value. Choose a fixed
-precut from 0.0 to -10.0 dB instead to set it by hand.
+Open **Settings → Custom EQ** to edit all five bands. Use the wheel to select a
+band, then Center to select and edit its Type, Gain, Frequency or Q, or the
+Precut shared by all bands. Switch Hold on to view the combined EQ response and
+off to return to editing. Precut defaults to **Auto**, which attenuates by the
+response's peak between 20 Hz and 20 kHz; the response view shows the applied
+value. Choose a fixed precut from 0.0 to -10.0 dB instead to set it by hand.
 
 **Album Artists** groups tracks by their Album Artist tag, using Artist when that
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →

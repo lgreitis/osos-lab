@@ -56,7 +56,7 @@ class Parser:
     """Track document-wide names and bindings while reading nested menu nodes."""
 
     def __init__(self):
-        self.document = Document(None, {}, [], [])
+        self.document = Document(None, {}, [])
         self.names = set()
         self.entry = None
 
@@ -72,6 +72,7 @@ class Parser:
                 "text",
                 "canvas",
                 "toggle",
+                "setting",
                 "settings-entry",
                 "string",
                 "screen-event",
@@ -90,6 +91,11 @@ class Parser:
             and document.music_entry is None
         ):
             raise ValueError("Incomplete UI declaration")
+        # Only canvas pages read settings; nothing else would emit their storage.
+        if document.fields and (
+            document.root is None or document.root.kind != "canvas"
+        ):
+            raise ValueError("Settings require a canvas page")
         validate_slots(document.fields)
         return document
 
@@ -127,6 +133,8 @@ class Parser:
                     if node.tag == "menu"
                     else self.parse_text(node)
                 )
+        elif node.tag == "setting":
+            self.parse_setting(node)
         elif node.tag == "settings-entry":
             attributes(node, "menu after", "open preview image caption")
             if self.entry is not None:
@@ -179,7 +187,6 @@ class Parser:
             node, "id first last step", "scale suffix signed", children=("value",)
         )
         value = Values(self.identifier(node))
-        value.numeric = True
         # Named choices such as Auto precede the generated numeric sequence.
         for child in node:
             attributes(child, "number label")
@@ -207,53 +214,32 @@ class Parser:
         return value
 
     def parse_menu(self, node):
-        attributes(
-            node, "id title", children=("menu", "selector", "action", "info", "canvas")
-        )
+        attributes(node, "id title", children=("menu", "info"))
         item = Item("menu", self.identifier(node), node.attrib["title"])
         for child in node:
             if child.tag == "menu":
                 row = self.parse_menu(child)
             else:
-                row = self.parse_row(child)
+                attributes(child, "id title")
+                row = Item("info", self.identifier(child), child.attrib["title"])
             item.items.append(row)
-        # Native VMax controls the row count only for the final dynamic item.
-        if any(row.hide_when_zero for row in item.items[:-1]):
-            raise ValueError("A hide-when-zero action must be the final menu row")
         if not item.items:
             raise ValueError(f"Empty UI menu: {item.name}")
         return item
 
-    def parse_row(self, node):
-        if node.tag in ("info", "canvas"):
-            attributes(node, "id title")
-            return Item(node.tag, self.identifier(node), node.attrib["title"])
-        required = "id title values"
-        if node.tag == "selector":
-            required += " slot default"
-        attributes(node, required, "hide-when-zero" if node.tag == "action" else "")
+    def parse_setting(self, node):
+        attributes(node, "id title values slot default")
         name, ref = self.identifier(node), node.attrib["values"]
         if ref not in self.document.values:
             raise ValueError(f"Unknown values for {name}: {ref}")
-        row = Item(node.tag, name, node.attrib["title"], choices=ref)
-        if node.tag == "selector":
-            self.bind_selector(node, row)
-        else:
-            hidden = node.get("hide-when-zero", "false")
-            if hidden not in ("true", "false"):
-                raise ValueError("Invalid hide-when-zero on <action>")
-            row.hide_when_zero = hidden == "true"
-            self.document.actions.append(row)
-        return row
-
-    def bind_selector(self, node, row):
-        row.slot = integer(node, "slot", minimum=0, maximum=99)
+        item = Item("setting", name, node.attrib["title"], choices=ref)
+        item.slot = integer(node, "slot", minimum=0, maximum=99)
         default = integer(node, "default")
-        choices = self.document.values[row.choices].numbers
+        choices = self.document.values[ref].numbers
         if default not in choices:
-            raise ValueError(f"Invalid default for {row.name}: {default}")
-        row.default_index = choices.index(default)
-        self.document.fields.append(row)
+            raise ValueError(f"Invalid default for {name}: {default}")
+        item.default_index = choices.index(default)
+        self.document.fields.append(item)
 
     def parse_text(self, node):
         attributes(node, "id title file")

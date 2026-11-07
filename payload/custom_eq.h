@@ -20,7 +20,6 @@ extern const struct cfw_ui_model cfw_eq_model;
 uint32_t cfw_eq_snapshot(int32_t coefficients[CFW_EQ_BANDS][5], uint32_t *rate,
                          uint32_t *precut);
 
-int cfw_eq_action(const char *action, uint32_t argument);
 void cfw_eq_load_preferences(void);
 /* Reset All Settings: restores and stores the default Custom EQ. */
 void cfw_eq_reset_preferences(void);

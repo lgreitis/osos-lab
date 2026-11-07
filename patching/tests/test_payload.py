@@ -71,7 +71,6 @@ class PayloadTests(unittest.TestCase):
                 "album_artists_index",
                 "album_artists",
                 "ui_visibility",
-                "ui_model",
                 "eq_preferences",
                 "eq_audio",
                 "eq_canvas",

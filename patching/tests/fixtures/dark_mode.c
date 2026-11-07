@@ -282,12 +282,6 @@ static int settings_property(void *value, uint32_t type, uint32_t property,
     return property == 123;
 }
 
-int cfw_eq_action(const char *action, uint32_t argument)
-{
-    (void)argument;
-    return !strcmp(action, "CFW_EQ_Open");
-}
-
 static uint32_t clicker_value;
 static uintptr_t preference_methods[0xe0 / 4];
 static uintptr_t *preference_object = preference_methods;
@@ -312,31 +306,6 @@ void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property, uintptr
     assert(type == OSOS_PROPERTY_COUNT && property == 123 && *out == 5);
     adjustments++;
     ++*out;
-}
-
-int cfw_ui_handle_action(const char *action, uint32_t argument)
-{
-    (void)action;
-    (void)argument;
-    return 0;
-}
-
-int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out)
-{
-    (void)type;
-    (void)property;
-    (void)out;
-    return 0;
-}
-
-int cfw_ui_indexed_property(uint32_t type, uint32_t property, uint32_t index,
-                            uintptr_t *out)
-{
-    (void)type;
-    (void)property;
-    (void)index;
-    (void)out;
-    return 0;
 }
 
 int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
@@ -509,7 +478,6 @@ int main(void)
     assert(!cfw_settings_property(&model, OSOS_PROPERTY_COUNT, 124, &value));
     assert(adjustments == 1);
     assert(cfw_settings_action(&controller, "stock", 0) == 7);
-    assert(cfw_settings_action(&controller, "CFW_EQ_Open", 0));
     assert(cfw_settings_action(&controller, "CFW_DarkMode_Toggle",
                                OSOS_ACTION_SUPPORT_QUERY));
     assert(stock_actions == 1 && !store_sets && !redraws && !icon_notifications);

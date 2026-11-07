@@ -22,7 +22,6 @@ PATCH_COPY(cfw_eq_preset_ids, 0, OSOS_EQ_PRESET_IDS, 23 * 4);
 
 static uint32_t settings[CFW_EQ_FIELDS];
 static int initialized;
-static unsigned int save_status;
 
 /* The store record: the fields, then the precut choice layout. Records from builds
  * before Auto precut lack the layout word and index manual precuts from 0 dB. */
@@ -144,40 +143,14 @@ static void change_value(uint32_t field, uint32_t value)
         return;
     uint32_t previous = settings[field];
     settings[field] = value;
-    if (cfw_eq_publish(settings)) {
-        save_status = 0;
-        cfw_ui_refresh(&cfw_eq_fields[field]);
-    } else {
+    if (!cfw_eq_publish(settings))
         settings[field] = previous;
-        save_status = 1;
-    }
-    cfw_ui_status(&cfw_eq_save, save_status);
 }
 
 void cfw_eq_reset_preferences(void)
 {
     defaults();
-    save_status = 0;
     commit_values();
 }
 
 const struct cfw_ui_model cfw_eq_model = {settings, change_value, commit_values};
-
-int cfw_eq_action(const char *action, uint32_t argument)
-{
-    int open = cfw_string_equal(action, "CFW_EQ_Open");
-    int save = cfw_string_equal(action, "CFW_EQ_Save");
-    if (!open && !save)
-        return 0;
-    if (argument == OSOS_ACTION_SUPPORT_QUERY)
-        return 1;
-    if (!initialized)
-        defaults();
-    if (save)
-        commit_values();
-    if (open)
-        for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
-            cfw_ui_refresh(&cfw_eq_fields[i]);
-    cfw_ui_status(&cfw_eq_save, save_status);
-    return 1;
-}
