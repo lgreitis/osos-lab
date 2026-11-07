@@ -86,17 +86,25 @@ int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS])
     return 1;
 }
 
+/* The bank published for a rate, or unity before the first publish. Callers keep
+ * interrupts off so the bank and its version match. */
+static uint32_t copy_published(int32_t coefficients[CFW_EQ_BANDS][5], uint32_t rate)
+{
+    uint32_t version = generation;
+    for (unsigned int band = 0; band < CFW_EQ_BANDS; band++)
+        for (unsigned int c = 0; c < 5; c++)
+            coefficients[band][c] =
+                version ? published[rate == 48000][band][c] : (c == 0 ? 1 << 24 : 0);
+    return version;
+}
+
 /* Snapshot the same quantized bank used by playback; never retain the audio state. */
 uint32_t cfw_eq_snapshot(int32_t coefficients[CFW_EQ_BANDS][5], uint32_t *rate,
                          uint32_t *precut)
 {
     uint32_t flags = cfw_irq_save();
     *rate = response_rate;
-    uint32_t version = generation;
-    for (unsigned int band = 0; band < CFW_EQ_BANDS; band++)
-        for (unsigned int c = 0; c < 5; c++)
-            coefficients[band][c] =
-                version ? published[*rate == 48000][band][c] : (c == 0 ? 1 << 24 : 0);
+    uint32_t version = copy_published(coefficients, *rate);
     *precut = version ? published_precut[*rate == 48000] : 0;
     cfw_irq_restore(flags);
     return version;
@@ -213,15 +221,11 @@ static int install_coefficients(void *state, int force)
     }
     uint32_t flags = cfw_irq_save();
     response_rate = rate;
-    uint32_t version = generation;
-    if (!force && current_state == state && current_generation == version) {
+    if (!force && current_state == state && current_generation == generation) {
         cfw_irq_restore(flags);
         return 0;
     }
-    for (unsigned int band = 0; band < CFW_EQ_BANDS; band++)
-        for (unsigned int c = 0; c < 5; c++)
-            coefficients[band][c] =
-                version ? published[rate == 48000][band][c] : (c == 0 ? 1 << 24 : 0);
+    uint32_t version = copy_published(coefficients, rate);
     cfw_irq_restore(flags);
 
     for (unsigned int band = 0; band < CFW_EQ_BANDS; band++)
