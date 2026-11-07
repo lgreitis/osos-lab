@@ -3,8 +3,10 @@
 
 #include <stdint.h>
 
-/* Shared native three-band EQ layout. */
+/* Shared native three-band EQ layout. Stage fields are relative to
+ * state + stage * OSOS_EQ_STAGE_STRIDE. */
 enum {
+    OSOS_EQ_NATIVE_STAGES = 3,
     OSOS_EQ_STATE_BYTES = 0xb8,
     OSOS_EQ_RATE_OFFSET = 4,
     OSOS_EQ_ENABLED_OFFSET = 8,
@@ -16,6 +18,8 @@ enum {
     OSOS_EQ_B0_OFFSET = 0x14,
     OSOS_EQ_B1_OFFSET = 0x18,
     OSOS_EQ_B2_OFFSET = 0x1c,
+    /* Signed 32-bit x1, x2, y1, y2 history pairs, each left then right. */
+    OSOS_EQ_HISTORY_OFFSET = 0x20,
     OSOS_EQ_BYPASS_OFFSET = 0x40,
 };
 

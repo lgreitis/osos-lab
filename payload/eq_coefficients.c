@@ -4,8 +4,8 @@
 
 #define SCALE 16777216
 
-/* The supported gains keep |x| below 1.2. */
-static double exponential(double x)
+/* Callers keep |x| below 1.2: decibel gains and the peak grid ratio. */
+static __attribute__((noinline)) double exponential(double x)
 {
     double sum = 1.0, term = 1.0;
     for (unsigned int n = 1; n <= 18; n++) {
@@ -86,6 +86,26 @@ int cfw_eq_coefficients(int32_t out[5], unsigned int type, unsigned int hz,
            (int64_t)SCALE - out[3] + out[4] > 0;
 }
 
+void cfw_eq_attenuate(int32_t coefficients[3], unsigned int precut_tenths_db)
+{
+    double gain = exponential(-2.302585092994045684 * precut_tenths_db / 200.0);
+    for (unsigned int i = 0; i < 3; i++) {
+        double scaled = coefficients[i] * gain;
+        coefficients[i] = (int32_t)(scaled + (scaled < 0.0 ? -0.5 : 0.5));
+    }
+}
+
+/* Newton iteration from above; callers pass small positive values. */
+static __attribute__((noinline)) double square_root(double value)
+{
+    if (!(value > 0.0))
+        return 0.0;
+    double root = value > 1.0 ? value : 1.0;
+    for (unsigned int n = 0; n < 48; n++)
+        root = 0.5 * (root + value / root);
+    return root;
+}
+
 /* Natural log via range reduction and the rapidly converging atanh series. */
 static double logarithm(double value)
 {
@@ -104,6 +124,20 @@ static double logarithm(double value)
         sum += term / n;
     }
     return 2.0 * sum + power * 0.693147180559945309;
+}
+
+/* Power ratio as tenths of a decibel within +/-48 dB, rounded or rounded up. */
+static __attribute__((noinline)) int power_tenths(double power, int round_up)
+{
+    if (!(power > 0.000015848931924611))
+        return -480;
+    if (!(power < 63095.7344480193))
+        return 480;
+    double tenths = logarithm(power) * 43.42944819032518;
+    int result = (int)tenths;
+    if (round_up)
+        return result < tenths ? result + 1 : result;
+    return (int)(tenths + (tenths < 0.0 ? -0.5 : 0.5));
 }
 
 int cfw_eq_response(const int32_t coefficients[CFW_EQ_BANDS][5], double hz,
@@ -126,10 +160,119 @@ int cfw_eq_response(const int32_t coefficients[CFW_EQ_BANDS][5], double hz,
         power *= (nr * nr + ni * ni) / denominator;
     }
     /* Bound the plot, including singular or underflowed responses. */
-    if (!(power > 0.000015848931924611))
-        return -480;
-    if (!(power < 63095.7344480193))
-        return 480;
-    double tenths = logarithm(power) * 43.42944819032518;
-    return (int)(tenths + (tenths < 0.0 ? -0.5 : 0.5));
+    return power_tenths(power, 0);
+}
+
+/* |H|^2 of one biquad is a quadratic in cos(w) over another; keep both per stage. */
+struct peak_stage {
+    double numerator[3], denominator[3];
+};
+
+/* Evaluate at u = tan(w / 2), where cos(w) = (1 - u^2) / (1 + u^2). */
+static double peak_power(const struct peak_stage *stages, unsigned int count, double u)
+{
+    double u2 = u * u, c = (1.0 - u2) / (1.0 + u2), c2 = 2.0 * c * c - 1.0;
+    double numerator = 1.0, denominator = 1.0;
+    for (unsigned int i = 0; i < count; i++) {
+        const double *n = stages[i].numerator, *d = stages[i].denominator;
+        numerator *= n[0] + n[1] * c + n[2] * c2;
+        denominator *= d[0] + d[1] * c + d[2] * c2;
+    }
+    return denominator > 0.0 ? numerator / denominator : 1e30;
+}
+
+static double tan_half(double hz, unsigned int rate)
+{
+    double s, c;
+    sine_cosine(6.283185307179586477 * hz / rate, &s, &c);
+    return s / (1.0 + c);
+}
+
+/* Golden-section search for a local maximum of a unimodal interval. */
+static double peak_refine(const struct peak_stage *stages, unsigned int count, double a,
+                          double b)
+{
+    const double g = 0.6180339887498949;
+    double x1 = b - g * (b - a), x2 = a + g * (b - a);
+    double f1 = peak_power(stages, count, x1), f2 = peak_power(stages, count, x2);
+    for (unsigned int n = 0; n < 10; n++) {
+        if (f1 < f2) {
+            a = x1;
+            x1 = x2;
+            f1 = f2;
+            x2 = a + g * (b - a);
+            f2 = peak_power(stages, count, x2);
+        } else {
+            b = x2;
+            x2 = x1;
+            f2 = f1;
+            x1 = b - g * (b - a);
+            f1 = peak_power(stages, count, x1);
+        }
+    }
+    return f1 > f2 ? f1 : f2;
+}
+
+int cfw_eq_peak(const int32_t (*coefficients)[5], unsigned int count, unsigned int rate)
+{
+    enum { POINTS = 48 };
+    struct peak_stage stages[CFW_EQ_BANDS];
+    double grid[POINTS], starts[POINTS + CFW_EQ_BANDS];
+    unsigned int start_count = 0;
+    if (count > CFW_EQ_BANDS || (rate != 44100 && rate != 48000))
+        return 0;
+    for (unsigned int i = 0; i < count; i++) {
+        double b0 = coefficients[i][0] / (double)SCALE,
+               b1 = coefficients[i][1] / (double)SCALE,
+               b2 = coefficients[i][2] / (double)SCALE,
+               a1 = coefficients[i][3] / (double)SCALE,
+               a2 = coefficients[i][4] / (double)SCALE;
+        stages[i] = (struct peak_stage){
+            {b0 * b0 + b1 * b1 + b2 * b2, 2.0 * (b0 * b1 + b1 * b2), 2.0 * b0 * b2},
+            {1.0 + a1 * a1 + a2 * a2, 2.0 * (a1 + a1 * a2), 2.0 * a2},
+        };
+    }
+
+    /* RBJ filters keep their shape on a log tan(w / 2) axis, so a uniform grid
+     * there resolves narrow bells near Nyquist as well as at low frequencies. */
+    double low = tan_half(20.0, rate), high = tan_half(20000.0, rate);
+    double ratio = exponential(logarithm(high / low) / (POINTS - 1)), u = low;
+    double best = 0.0;
+    for (unsigned int k = 0; k < POINTS; k++) {
+        grid[k] = peak_power(stages, count, u);
+        if (grid[k] > best)
+            best = grid[k];
+        u *= ratio;
+    }
+    u = low;
+    for (unsigned int k = 0; k < POINTS; k++) {
+        double left = k ? grid[k - 1] : -1.0,
+               right = k + 1 < POINTS ? grid[k + 1] : -1.0;
+        if (grid[k] > left && grid[k] >= right)
+            starts[start_count++] = u;
+        u *= ratio;
+    }
+    /* Resonant pole angles locate peaks that sit on another band's slope. */
+    for (unsigned int i = 0; i < count; i++) {
+        double a1 = coefficients[i][3] / (double)SCALE,
+               a2 = coefficients[i][4] / (double)SCALE;
+        if (!(a2 > 0.0) || a1 * a1 >= 4.0 * a2)
+            continue;
+        double c = -a1 / (2.0 * square_root(a2));
+        if (!(c > -1.0 && c < 1.0))
+            continue;
+        u = square_root((1.0 - c) / (1.0 + c));
+        if (u >= low && u <= high)
+            starts[start_count++] = u;
+    }
+    for (unsigned int i = 0; i < start_count; i++) {
+        double x = starts[i], a = x / ratio, b = x * ratio;
+        double value = peak_power(stages, count, x);
+        if (value > best)
+            best = value;
+        value = peak_refine(stages, count, a < low ? low : a, b > high ? high : b);
+        if (value > best)
+            best = value;
+    }
+    return power_tenths(best, 1);
 }

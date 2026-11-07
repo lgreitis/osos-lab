@@ -285,8 +285,8 @@ static void canvas_response(void *context, const int32_t *bounds,
                             const unsigned char colors[COLOR_COUNT][4])
 {
     int32_t coefficients[CFW_EQ_BANDS][5];
-    uint32_t rate;
-    uint32_t version = cfw_eq_snapshot(coefficients, &rate);
+    uint32_t rate, applied_precut;
+    uint32_t version = cfw_eq_snapshot(coefficients, &rate, &applied_precut);
     if (!response_valid || version != response_version ||
         rate != response_sample_rate) {
         double hz = 20.0;
@@ -306,13 +306,19 @@ static void canvas_response(void *context, const int32_t *bounds,
                         colors[COLOR_TEXT], colors[COLOR_BACKGROUND]);
     if (canvas_fonts[0][0] & ~1u) {
         const struct cfw_ui_field *precut = &cfw_eq_fields[CFW_EQ_PRECUT];
-        const char *value = precut->labels[precut->model->values[precut->slot]];
+        uint32_t selected = precut->model->values[precut->slot];
+        const char *title = "Precut", *value = precut->labels[selected];
+        /* Show the computed attenuation using the matching manual label. */
+        if (selected == CFW_EQ_PRECUT_AUTO && applied_precut + 1 < precut->count) {
+            title = "Auto precut";
+            value = precut->labels[applied_precut + 1];
+        }
         osos_graphics_set_font(context, canvas_fonts[0]);
         int value_width = osos_graphics_text_width(context, value);
-        int label_width = osos_graphics_text_width(context, "Precut");
+        int label_width = osos_graphics_text_width(context, title);
         canvas_text_aligned(context, bounds, 312 - value_width - 6 - label_width, 3,
-                            label_width, 24, "Precut", 0, ALIGN_LEFT,
-                            colors[COLOR_MUTED], colors[COLOR_BACKGROUND]);
+                            label_width, 24, title, 0, ALIGN_LEFT, colors[COLOR_MUTED],
+                            colors[COLOR_BACKGROUND]);
         canvas_text_aligned(context, bounds, 312 - value_width, 3, value_width, 24,
                             value, 0, ALIGN_RIGHT, colors[COLOR_TEXT],
                             colors[COLOR_BACKGROUND]);

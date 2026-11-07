@@ -124,7 +124,7 @@ class UiTests(unittest.TestCase):
         self.assertEqual(len(compiled.fields), 21)
         self.assertEqual(
             sum(len(document.values[item.choices].labels) for item in document.fields),
-            716,
+            717,
         )
         rows = [
             row
@@ -209,10 +209,10 @@ class UiTests(unittest.TestCase):
             b"CFW_EQ_Save",
             resources.added["CEVT", resources.names["CFW_EQ_Screen"]].data,
         )
-        self.assertEqual(len(document.values["cfw_eq_precut_values"].numbers), 101)
-        self.assertEqual(
-            document.values["cfw_eq_precut_values"].numbers, list(range(0, -101, -1))
-        )
+        precut = document.values["cfw_eq_precut_values"]
+        self.assertEqual(precut.numbers, [1, *range(0, -101, -1)])
+        self.assertEqual(precut.labels[:3], ["Auto", "0.0 dB", "-0.1 dB"])
+        self.assertEqual(document.fields[0].default_index, 0)
 
     def test_layout_reuses_unchanged_instance_resources(self):
         resources = Resources(
@@ -625,11 +625,23 @@ class UiTests(unittest.TestCase):
             with self.subTest(numbers=numbers), self.assertRaises(ValueError):
                 parser.parse(data)
 
+    def test_range_named_choices_count_and_stay_unique(self):
+        for data in (
+            '<range id="values" first="0" last="1023" step="1">'
+            '<value number="-1" label="Auto"/></range>',
+            '<range id="values" first="0" last="10" step="1">'
+            '<value number="0" label="Auto"/></range>',
+        ):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                parser.parse(f'<ui>{data}<string id="NAME" text="Text"/></ui>')
+
     def test_ranges_keep_scaled_labels_and_default_indices(self):
         document = parser.parse("""<ui>
           <range id="gain_values" first="-5" last="5" step="5"
                  scale="10" suffix=" dB" signed="true"/>
-          <range id="precut" first="0" last="-10" step="-5" scale="10"/>
+          <range id="precut" first="0" last="-10" step="-5" scale="10">
+            <value number="1" label="Auto"/>
+          </range>
           <menu id="EQ" title="EQ">
             <menu id="BAND" title="Band">
               <selector id="GAIN" title="Gain" values="gain_values" slot="0" default="0"/>
@@ -639,7 +651,10 @@ class UiTests(unittest.TestCase):
         self.assertEqual(
             document.values["gain_values"].labels, ["-0.5 dB", "0.0 dB", "+0.5 dB"]
         )
-        self.assertEqual(document.values["precut"].numbers, [0, -5, -10])
+        self.assertEqual(document.values["precut"].numbers, [1, 0, -5, -10])
+        self.assertEqual(
+            document.values["precut"].labels, ["Auto", "0.0", "-0.5", "-1.0"]
+        )
         self.assertEqual(document.fields[0].default_index, 1)
         self.assertIs(document.root.items[0].items[0], document.fields[0])
 

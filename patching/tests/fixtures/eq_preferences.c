@@ -16,7 +16,7 @@ struct osos_path {
 static uint32_t status, refreshes;
 static int filter_failure;
 const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
-    {.count = 101},
+    {.count = 102},
     {.count = 4},
     {.count = 32},
     {.count = 38},
@@ -101,28 +101,29 @@ static void fresh_device(void)
 
 int main(void)
 {
-    /* Migration: a v1 file is imported, written to the store and deleted. */
+    /* Migration: a v1 file is imported, written to the store and deleted. Files
+     * before v4 index manual precuts from 0 dB, so they move past Auto. */
     legacy(1, 7);
     boot();
-    assert(settings[0] == 35 && settings[4] == 24);
+    assert(settings[0] == 36 && settings[4] == 24);
     assert(fake_writes == 1 && fake_find(STORE_FILE, 0));
     assert(!fake_find(CFW_EQ_LEGACY_FILE, 0) && !migrating);
     boot();
-    assert(settings[0] == 35 && fake_writes == 1);
+    assert(settings[0] == 36 && fake_writes == 1);
 
     /* With a store present legacy files are ignored and kept. */
     legacy(2, 37);
     boot();
-    assert(settings[0] == 35 && fake_find(CFW_EQ_LEGACY_FILE, 0));
+    assert(settings[0] == 36 && fake_find(CFW_EQ_LEGACY_FILE, 0));
 
     fresh_device();
     legacy(1, 21);
     boot();
-    assert(settings[0] == 0 && !fake_find(CFW_EQ_LEGACY_FILE, 0));
+    assert(settings[0] == CFW_EQ_PRECUT_AUTO && !fake_find(CFW_EQ_LEGACY_FILE, 0));
     fresh_device();
     legacy(2, 37);
     boot();
-    assert(settings[0] == 37);
+    assert(settings[0] == 38);
     assert(settings[CFW_EQ_BAND4_TYPE] == 0 && settings[CFW_EQ_BAND5_TYPE] == 0);
     assert(settings[CFW_EQ_BAND4_GAIN] == 24 && settings[CFW_EQ_BAND5_GAIN] == 24);
     assert(settings[CFW_EQ_BAND4_FREQUENCY] == 12 &&
@@ -134,13 +135,22 @@ int main(void)
     v3.checksum = checksum(&v3, sizeof(v3));
     fake_put(CFW_EQ_LEGACY_FILE, &v3, sizeof(v3));
     boot();
-    assert(settings[0] == 40 && settings[CFW_EQ_BAND5_GAIN] == 30);
+    assert(settings[0] == 41 && settings[CFW_EQ_BAND5_GAIN] == 30);
     fresh_device();
     v3.values[1] = 4;
     v3.checksum = checksum(&v3, sizeof(v3));
     fake_put(CFW_EQ_LEGACY_FILE, &v3, sizeof(v3));
     boot();
-    assert(settings[0] == 0 && settings[CFW_EQ_BAND5_GAIN] == 24);
+    assert(settings[0] == CFW_EQ_PRECUT_AUTO && settings[CFW_EQ_BAND5_GAIN] == 24);
+    /* v4 files already include Auto. */
+    fresh_device();
+    struct eq_file v4 = {.magic = 0x51455743, .version = 4};
+    v4.values[0] = 40;
+    v4.values[CFW_EQ_BAND5_GAIN] = 30;
+    v4.checksum = checksum(&v4, sizeof(v4));
+    fake_put(CFW_EQ_LEGACY_FILE, &v4, sizeof(v4));
+    boot();
+    assert(settings[0] == 40 && settings[CFW_EQ_BAND5_GAIN] == 30);
 
     /* Edits stay in RAM until the store flushes. */
     unsigned writes = fake_writes;
@@ -148,7 +158,7 @@ int main(void)
     cfw_eq_model.change(0, 38);
     assert(settings[0] == 38 && refreshes == 1);
     cfw_eq_model.change(CFW_EQ_FIELDS, 0);
-    cfw_eq_model.change(0, 101);
+    cfw_eq_model.change(0, 102);
     cfw_eq_model.change(0, 38);
     assert(refreshes == 1 && settings[0] == 38);
     cfw_eq_model.commit();
@@ -156,7 +166,7 @@ int main(void)
     cfw_eq_action("CFW_EQ_Open", 0);
     assert(status == 0);
     boot();
-    assert(settings[0] == 0 && fake_writes == writes);
+    assert(settings[0] == 40 && fake_writes == writes);
     cfw_eq_model.change(0, 38);
     cfw_eq_model.commit();
     cfw_store_flush();
@@ -181,18 +191,34 @@ int main(void)
     boot();
     assert(settings[0] == 39);
 
+    /* A record from before Auto precut moves past Auto once and is rewritten. */
+    uint32_t old_record[CFW_EQ_FIELDS];
+    for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
+        old_record[i] = settings[i];
+    old_record[0] = 20;
+    cfw_store_set(CFW_STORE_CUSTOM_EQ, old_record, sizeof(old_record));
+    cfw_store_flush();
+    boot();
+    assert(settings[0] == 21);
+    struct eq_record saved;
+    assert(cfw_store_get(CFW_STORE_CUSTOM_EQ, &saved, sizeof(saved)) == sizeof(saved));
+    assert(saved.values[0] == 21 && saved.layout == EQ_LAYOUT_AUTO_PRECUT);
+    boot();
+    assert(settings[0] == 21);
+
     /* A record from a build with fewer fields keeps defaults for the rest. */
     uint32_t short_record[EQ_LEGACY_FIELDS] = {50};
     cfw_store_set(CFW_STORE_CUSTOM_EQ, short_record, sizeof(short_record));
     cfw_store_flush();
     boot();
-    assert(settings[0] == 50 && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
+    assert(settings[0] == 51 && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
 
     /* A record from a build with more fields keeps the known prefix. */
     uint32_t long_record[CFW_EQ_FIELDS + 2] = {45};
     for (unsigned int i = 1; i < CFW_EQ_FIELDS; i++)
         long_record[i] = settings[i];
-    long_record[CFW_EQ_FIELDS] = 99;
+    long_record[CFW_EQ_FIELDS] = EQ_LAYOUT_AUTO_PRECUT;
+    long_record[CFW_EQ_FIELDS + 1] = 99;
     cfw_store_set(CFW_STORE_CUSTOM_EQ, long_record, sizeof(long_record));
     cfw_store_flush();
     boot();
@@ -207,19 +233,19 @@ int main(void)
     assert(status == 1);
     filter_failure = 0;
     cfw_eq_reset_preferences();
-    assert(settings[0] == 0 && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
+    assert(settings[0] == CFW_EQ_PRECUT_AUTO && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
     assert(dirty);
     cfw_eq_action("CFW_EQ_Open", 0);
     assert(status == 0);
     cfw_store_flush();
     boot();
-    assert(settings[0] == 0 && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
+    assert(settings[0] == CFW_EQ_PRECUT_AUTO && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
     uint32_t kept = 0;
     assert(cfw_store_get(other_key, &kept, sizeof(kept)) == 4 && kept == other);
 
     /* A corrupted store falls back to defaults. */
     fake_find(STORE_FILE, 0)->data[20] ^= 1;
     boot();
-    assert(settings[0] == 0 && !migrating);
+    assert(settings[0] == CFW_EQ_PRECUT_AUTO && !migrating);
     return 0;
 }

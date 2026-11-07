@@ -40,7 +40,9 @@
     <value number="16000" label="16000 Hz"/>
     <value number="20000" label="20000 Hz"/>
   </values>
-  <range id="cfw_eq_precut_values" first="0" last="-100" step="-1" scale="10" suffix=" dB"/>
+  <range id="cfw_eq_precut_values" first="0" last="-100" step="-1" scale="10" suffix=" dB">
+    <value number="1" label="Auto"/>
+  </range>
   <range id="cfw_eq_q" first="3" last="40" step="1" scale="10"/>
   <range id="cfw_eq_gain" first="-120" last="120" step="5" scale="10" suffix=" dB" signed="true"/>
   <values id="cfw_eq_save_status">
@@ -50,7 +52,7 @@
 
   <!-- Slots and choice order are part of the saved EQ settings format. -->
   <menu id="CFW_EQ" title="Custom EQ">
-    <selector id="CFW_EQ_Precut" title="Precut" values="cfw_eq_precut_values" slot="0" default="0"/>
+    <selector id="CFW_EQ_Precut" title="Precut" values="cfw_eq_precut_values" slot="0" default="1"/>
     <canvas id="CFW_EQCanvas" title="Graphic EQ"/>
     <menu id="CFW_EQ_Band1" title="Band 1">
       <selector id="CFW_EQ_Band1_Type" title="Type" values="cfw_eq_types" slot="1" default="2"/>

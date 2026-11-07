@@ -175,9 +175,16 @@ class Parser:
         return value
 
     def parse_range(self, node):
-        attributes(node, "id first last step", "scale suffix signed")
+        attributes(
+            node, "id first last step", "scale suffix signed", children=("value",)
+        )
         value = Values(self.identifier(node))
         value.numeric = True
+        # Named choices such as Auto precede the generated numeric sequence.
+        for child in node:
+            attributes(child, "number label")
+            value.numbers.append(integer(child, "number"))
+            value.labels.append(child.attrib["label"])
         first, last, step = (integer(node, key) for key in ("first", "last", "step"))
         scale = integer(node, "scale", "1")
         signed = node.get("signed", "false")
@@ -189,12 +196,13 @@ class Parser:
             or signed not in ("true", "false")
         ):
             raise ValueError(f"Invalid UI range: {value.name}")
-        if (last - first) // step + 1 > 1024:
+        if len(value.numbers) + (last - first) // step + 1 > 1024:
             raise ValueError("UI selectors support at most 1024 choices")
-        value.numbers = list(range(first, last + (1 if step > 0 else -1), step))
-        value.labels = [
+        numbers = list(range(first, last + (1 if step > 0 else -1), step))
+        value.numbers += numbers
+        value.labels += [
             range_label(number, scale, signed == "true", node.get("suffix", ""))
-            for number in value.numbers
+            for number in numbers
         ]
         return value
 

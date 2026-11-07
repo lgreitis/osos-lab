@@ -165,20 +165,6 @@ static inline void osos_eq_reset_stage(void *state, unsigned int stage)
     ((fn)OSOS_EQ_RESET_STAGE)(state, stage);
 }
 
-static inline void osos_eq_process_stage(void *state, int16_t *samples, uint32_t frames,
-                                         unsigned int stage)
-{
-    typedef void (*fn)(void *, int16_t *, int16_t *, uint32_t, unsigned int);
-    ((fn)OSOS_EQ_PROCESS_STAGE)(state, samples, samples, frames, stage);
-}
-
-static inline void osos_eq_process(void *state, int16_t *samples, uint32_t frames,
-                                   int16_t **output, uint32_t *output_frames)
-{
-    typedef void (*fn)(void *, int16_t *, uint32_t, int16_t **, uint32_t *);
-    ((fn)OSOS_EQ_PROCESS)(state, samples, frames, output, output_frames);
-}
-
 /* Shared native layouts; media items are non-owning views. */
 struct osos_media_list;
 

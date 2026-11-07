@@ -31,6 +31,8 @@ static const char *gain_labels[49], *frequency_labels[32], *q_labels[38];
 static uint32_t values[CFW_EQ_FIELDS];
 static unsigned changes, commits, snapshots, version;
 static int rejected, locked, example_response;
+static const char *precut_title, *precut_value;
+static int precut_title_right, precut_value_left;
 static unsigned native_hold_calls;
 static void change_value(uint32_t field, uint32_t value);
 
@@ -46,9 +48,9 @@ const struct cfw_ui_model cfw_eq_model = {values, change_value, commit_values};
                .count = count_,                                                        \
                .model = &cfw_eq_model}
 static const char *const type_labels[] = {"Off", "Peaking", "Low shelf", "High shelf"};
-static const char *const precut_labels[] = {"0.0 dB"};
+static const char *const precut_labels[] = {"Auto", "0.0 dB", "-0.1 dB"};
 const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
-    FIELD(CFW_EQ_PRECUT, "Precut", precut_labels, 1),
+    FIELD(CFW_EQ_PRECUT, "Precut", precut_labels, 3),
     FIELD(CFW_EQ_BAND1_TYPE, "Type", type_labels, 4),
     FIELD(CFW_EQ_BAND1_GAIN, "Gain", gain_labels, 49),
     FIELD(CFW_EQ_BAND1_FREQUENCY, "Frequency", frequency_labels, 32),
@@ -87,10 +89,11 @@ static void change_value(uint32_t field, uint32_t value)
     }
 }
 
-uint32_t cfw_eq_snapshot(int32_t out[CFW_EQ_BANDS][5], uint32_t *rate)
+uint32_t cfw_eq_snapshot(int32_t out[CFW_EQ_BANDS][5], uint32_t *rate, uint32_t *precut)
 {
     snapshots++;
     *rate = 44100;
+    *precut = example_response;
     if (example_response) {
         assert(cfw_eq_coefficients(out[0], CFW_EQ_LOW_SHELF, 60, 7, 75, 65, *rate));
         assert(cfw_eq_coefficients(out[1], CFW_EQ_PEAKING, 160, 12, 70, 0, *rate));
@@ -268,10 +271,15 @@ static void osos_graphics_draw_text(void *context, const char *text)
     assert(pen_y + osos_graphics_font_descent(context) <= 217);
     if (!strcmp(text, "EQ response"))
         assert(pen_x == 8);
-    if (!strcmp(text, "Precut"))
-        assert(pen_x + osos_graphics_text_width(context, text) == 312 - 36 - 6);
-    if (!strcmp(text, "0.0 dB"))
+    if (!strcmp(text, "Precut") || !strcmp(text, "Auto precut")) {
+        precut_title = text;
+        precut_title_right = pen_x + osos_graphics_text_width(context, text);
+    }
+    if (!strcmp(text, "0.0 dB") || !strcmp(text, "-0.1 dB")) {
         assert(pen_x + osos_graphics_text_width(context, text) == 312);
+        precut_value = text;
+        precut_value_left = pen_x;
+    }
     text_draws++;
 }
 
@@ -527,6 +535,14 @@ int main(void)
     assert(!memcmp(pixels[107][44 + 78], canvas_palettes[1][COLOR_ACCENT], 3));
     for (int i = 0; i <= response_extent; i++)
         assert(response_y(i) + response_y(-i) == 216);
+    /* Auto shows the applied attenuation; manual choices show their own label. */
+    assert(!strcmp(precut_title, "Auto precut") && !strcmp(precut_value, "-0.1 dB"));
+    assert(precut_title_right == precut_value_left - 6);
+    values[CFW_EQ_PRECUT] = 1;
+    version++;
+    canvas_draw(NULL, NULL, NULL);
+    assert(!strcmp(precut_title, "Precut") && !strcmp(precut_value, "0.0 dB"));
+    assert(precut_title_right == precut_value_left - 6);
     assert(rectangles > 0);
     assert(text_draws > 0);
     puts("EQ canvas: model edits, Hold response, commit boundaries and drawing passed");
