@@ -329,23 +329,39 @@ class DocumentCompiler:
         else:
             item_id, item = self.row(title)
         self.insert_settings_row(item)
-        self.add_settings_preview(title)
+        if self.main_settings():
+            self.add_settings_preview(title)
         self.bind_settings_events(item_id)
+
+    def main_settings(self):
+        resources = self.resources
+        return resources.native(self.document.settings_screen) == resources.native(
+            "SettingsMenus_Main_Screen"
+        )
 
     def toggle_row(self, title):
         resources = self.resources
         item_id = resources.allocate()
+        # Other Settings screens supply their own toggle row as the anchor.
+        anchor = (
+            "SettingsMenu_ListItem_SoundCheck"
+            if self.main_settings()
+            else self.document.after
+        )
         kind, prototype = next(
             (kind, data)
-            for kind, data in blocks(resources.stock("ITEM", "SettingsMenu_Items"))
-            if word(data, 0x30) == resources.native("SettingsMenu_ListItem_SoundCheck")
+            for kind, data in blocks(
+                resources.stock("ITEM", self.document.settings_items)
+            )
+            if word(data, 0x30) == resources.native(anchor)
         )
         row = Resource(prototype)
         name = self.document.root.name
         value = resources.allocate(name + "_Value")
         source = resources.allocate()
         bindings = blocks(resources.current("SORC", title))
-        # Sound Check's second source binds the blue inline text (destination 10).
+        # The second source of a stock toggle binds its blue inline text
+        # (destination 10).
         bindings.append((0x534F5243, struct.pack("<III", 0x8900, value, 10)))
         resources.add("SORC", source, pack_blocks(bindings))
         put(row, 0x30, item_id)
@@ -356,7 +372,7 @@ class DocumentCompiler:
     def insert_settings_row(self, item):
         document, resources = self.document, self.resources
         resources.insert_menu_item(
-            resources.native("SettingsMenu_Items"),
+            resources.native(document.settings_items),
             resources.native(document.after),
             item,
         )
@@ -435,18 +451,19 @@ class DocumentCompiler:
             chosen = menu_event(item_id, "chosen", document.root.name + "_Toggle")
         else:
             chosen = self.push(item_id, document.root.name, document.open_action)
-        events = [
-            chosen,
-            menu_event(
-                item_id,
-                "delayedselected",
-                "" if document.preview == "image" else "ShowSetting_Legal",
-                "navigator.SwitchLayout",
-                [document.root.name + "_Preview"],
-            ),
-        ]
+        events = [chosen]
+        if self.main_settings():
+            events.append(
+                menu_event(
+                    item_id,
+                    "delayedselected",
+                    "" if document.preview == "image" else "ShowSetting_Legal",
+                    "navigator.SwitchLayout",
+                    [document.root.name + "_Preview"],
+                )
+            )
         self.resources.extend_events(
-            "CEVT", self.resources.native("SettingsMenus_Main_Screen"), events
+            "CEVT", self.resources.native(document.settings_screen), events
         )
 
 

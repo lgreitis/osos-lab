@@ -1,0 +1,8 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <toggle id="CFW_VolumeWarning" title="Volume Warning"/>
+  <settings-entry menu="CFW_VolumeWarning"
+                  after="SettingsMenu_ListItem_VolumeLimitEU_Toggle"
+                  screen="SettingsMenus_VolumeLimitEU_Screen"
+                  items="SettingsMenus_VolumeLimitEU_Items"/>
+</ui>

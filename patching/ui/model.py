@@ -40,6 +40,8 @@ class Document:
     actions: list[Item]
     after: str | int = ""
     open_action: str = ""
+    settings_screen: str | int = "SettingsMenus_Main_Screen"
+    settings_items: str | int = "SettingsMenu_Items"
     strings: dict[str, str] = field(default_factory=dict)
     events: list[ScreenEvent] = field(default_factory=list)
     music_entry: dict[str, str] | None = None

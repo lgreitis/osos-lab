@@ -336,6 +336,59 @@ class UiTests(unittest.TestCase):
         self.assertIn(b"navigator.PushScreen", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
 
+    def test_settings_toggle_joins_volume_limit_eu_screen(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.read(root / "payload/volume_warning.ui")
+        compiled = compile_document(resources, document)
+        table = bindings["SettingsMenus_VolumeLimitEU_Items"]
+        anchor = bindings["SettingsMenu_ListItem_VolumeLimitEU_Toggle"]
+        rows = menu_rows(resources, table)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(word(rows[1][1], 0x30), anchor)
+        _, toggle = rows[2]
+        prototype = rows[1][1]
+        for start, end in ((0, 0x30), (0x34, 0x68), (0x6C, 0x98)):
+            self.assertEqual(toggle[start:end].data, prototype[start:end].data)
+        sources = blocks(resources.added["SORC", word(toggle, 0x68)])
+        self.assertEqual(
+            [word(sources[1][1], offset) for offset in (0, 4, 8)],
+            [0x8900, compiled.string_ids["CFW_VolumeWarning_Value"], 10],
+        )
+        self.assertFalse(
+            any(
+                target == bindings["SettingsMenu_Items"]
+                for target, *_ in resources.menu_items
+            )
+        )
+        appended = b"".join(
+            resources.event_extensions[
+                "CEVT", bindings["SettingsMenus_VolumeLimitEU_Screen"]
+            ]
+        )
+        self.assertIn(b"CFW_VolumeWarning_Toggle", appended)
+        self.assertNotIn(b"delayedselected", appended)
+        self.assertNotIn(
+            ("CEVT", bindings["SettingsMenus_Main_Screen"]), resources.event_extensions
+        )
+        self.assertFalse(any(kind == "VLyt" for kind, _ in resources.added))
+
+    def test_settings_screen_entry_requires_plain_toggle_and_items(self):
+        for entry in (
+            'screen="S"',
+            'items="I"',
+            'screen="S" items="I" preview="image"',
+            'screen="S" items="I" open="Action"',
+        ):
+            data = (
+                '<ui><toggle id="T" title="T"/>'
+                f'<settings-entry menu="T" after="1" {entry}/></ui>'
+            )
+            with self.subTest(entry=entry), self.assertRaises(ValueError):
+                parser.parse(data)
+
     def test_settings_toggle_preserves_stock_rows_and_has_no_navigation(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
