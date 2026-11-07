@@ -4,6 +4,7 @@
 #include "osos.h"
 #include "cfw.h"
 #include "preferences.h"
+#include "store.h"
 #include "patch.h"
 
 /* Native preset index 23 / saved ID 122. Reuse Flat's preview. */
@@ -22,9 +23,8 @@ PATCH_COPY(cfw_eq_preset_ids, 0, OSOS_EQ_PRESET_IDS, 23 * 4);
 static uint32_t settings[CFW_EQ_FIELDS];
 static int initialized;
 static unsigned int save_status;
-static int dirty;
-static const struct osos_path settings_path = {0, "iPod_Control\\Device\\CFWEQ"};
 
+/* Legacy import: CFWEQ file formats, versions 1-3. */
 struct eq_file {
     uint32_t magic, version;
     uint32_t values[CFW_EQ_FIELDS];
@@ -54,52 +54,57 @@ static void defaults(void)
         settings[i] = cfw_eq_fields[i].default_value;
     cfw_eq_publish(settings);
     initialized = 1;
-    dirty = 0;
+}
+
+/* Legacy import: reads the pre-store CFWEQ file. */
+static int load_legacy(uint32_t values[CFW_EQ_FIELDS])
+{
+    struct eq_file file;
+    if (!cfw_preferences_read(CFW_EQ_LEGACY_FILE, &file, 8) || file.magic != 0x51455743)
+        return 0;
+    if (file.version == 1 || file.version == 2) {
+        struct legacy_eq_file legacy;
+        if (!cfw_preferences_read(CFW_EQ_LEGACY_FILE, &legacy, sizeof(legacy)) ||
+            legacy.checksum != checksum(&legacy, sizeof(legacy)))
+            return 0;
+        if (legacy.version == 1) {
+            if (legacy.values[CFW_EQ_PRECUT] > 20)
+                return 0;
+            legacy.values[CFW_EQ_PRECUT] *= 5;
+        }
+        for (unsigned int i = 0; i < EQ_LEGACY_FIELDS; i++)
+            values[i] = legacy.values[i];
+        return 1;
+    }
+    if (file.version != 3 ||
+        !cfw_preferences_read(CFW_EQ_LEGACY_FILE, &file, sizeof(file)) ||
+        file.checksum != checksum(&file, sizeof(file)))
+        return 0;
+    for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
+        values[i] = file.values[i];
+    return 1;
 }
 
 void cfw_eq_load_preferences(void)
 {
-    struct eq_file file;
+    uint32_t values[CFW_EQ_FIELDS];
     defaults();
-    if (!cfw_preferences_read(&settings_path, &file, 8) || file.magic != 0x51455743)
+    for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
+        values[i] = settings[i];
+    /* Fields only append: a shorter record comes from an older build and the rest keep
+     * defaults; a longer one comes from a newer build and its extra fields are ignored. */
+    int stored = cfw_store_get(CFW_STORE_CUSTOM_EQ, values, sizeof(values)) != 0;
+    if (!stored && !(cfw_store_migrating() && load_legacy(values)))
         return;
-    if (file.version == 1 || file.version == 2) {
-        struct legacy_eq_file legacy;
-        if (!cfw_preferences_read(&settings_path, &legacy, sizeof(legacy)) ||
-            legacy.checksum != checksum(&legacy, sizeof(legacy)))
+    for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
+        if (values[i] >= cfw_eq_fields[i].count)
             return;
-        if (legacy.version == 1) {
-            if (legacy.values[CFW_EQ_PRECUT] > 20)
-                return;
-            legacy.values[CFW_EQ_PRECUT] *= 5;
-        }
-        for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
-            file.values[i] = i < EQ_LEGACY_FIELDS ? legacy.values[i] : settings[i];
-    } else if (file.version != 3 ||
-               !cfw_preferences_read(&settings_path, &file, sizeof(file)) ||
-               file.checksum != checksum(&file, sizeof(file))) {
-        return;
-    }
-    for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
-        if (file.values[i] >= cfw_eq_fields[i].count)
-            return;
-    if (!cfw_eq_publish(file.values))
+    if (!cfw_eq_publish(values))
         return;
     for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
-        settings[i] = file.values[i];
-}
-
-static void save_preferences(void)
-{
-    struct eq_file file;
-    file.magic = 0x51455743;
-    file.version = 3;
-    for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
-        file.values[i] = settings[i];
-    file.checksum = checksum(&file, sizeof(file));
-    save_status = !cfw_preferences_write(&settings_path, &file, sizeof(file));
-    if (!save_status)
-        dirty = 0;
+        settings[i] = values[i];
+    if (!stored)
+        cfw_store_set(CFW_STORE_CUSTOM_EQ, settings, sizeof(settings));
 }
 
 static void change_value(uint32_t field, uint32_t value)
@@ -112,23 +117,19 @@ static void change_value(uint32_t field, uint32_t value)
     uint32_t previous = settings[field];
     settings[field] = value;
     if (cfw_eq_publish(settings)) {
-        dirty = 1;
-        if (save_status == 2)
-            save_status = 0;
+        save_status = 0;
         cfw_ui_refresh(&cfw_eq_fields[field]);
     } else {
         settings[field] = previous;
-        save_status = 2;
+        save_status = 1;
     }
     cfw_ui_status(&cfw_eq_save, save_status);
 }
 
+/* The store ignores unchanged bytes, so commits need no dirty tracking. */
 static void commit_values(void)
 {
-    if (dirty) {
-        save_preferences();
-        cfw_ui_status(&cfw_eq_save, save_status);
-    }
+    cfw_store_set(CFW_STORE_CUSTOM_EQ, settings, sizeof(settings));
 }
 
 const struct cfw_ui_model cfw_eq_model = {settings, change_value, commit_values};
@@ -144,7 +145,7 @@ int cfw_eq_action(const char *action, uint32_t argument)
     if (!initialized)
         defaults();
     if (save)
-        save_preferences();
+        commit_values();
     if (open)
         for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
             cfw_ui_refresh(&cfw_eq_fields[i]);

@@ -13,9 +13,8 @@ struct osos_path {
     char text[258];
 };
 
-static unsigned char disk[128];
-static uint32_t disk_size, writes, status, refreshes;
-static int write_failure, filter_failure;
+static uint32_t status, refreshes;
+static int filter_failure;
 const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
     {.count = 101},
     {.count = 4},
@@ -41,40 +40,7 @@ const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
 };
 const struct cfw_ui_action cfw_eq_save = {.count = 3};
 
-static int osos_file_open(const struct osos_path *path, int mode, void **handle)
-{
-    assert(!strcmp(path->text, "iPod_Control\\Device\\CFWEQ"));
-    assert(mode == 1 || mode == 2);
-    *handle = disk;
-    return 0;
-}
-
-static int osos_file_read(void *handle, void *out, uint32_t size, uint32_t *count)
-{
-    assert(handle == disk);
-    *count = disk_size < size ? disk_size : size;
-    memcpy(out, disk, *count);
-    return 0;
-}
-
-static int osos_file_write(void *handle, const void *data, uint32_t size,
-                           uint32_t *count)
-{
-    assert(handle == disk);
-    writes++;
-    if (write_failure)
-        return -1;
-    assert(size <= sizeof(disk));
-    memcpy(disk, data, size);
-    disk_size = size;
-    *count = size;
-    return 0;
-}
-
-static void osos_file_close(void *handle)
-{
-    assert(handle == disk);
-}
+#include "fake_files.h"
 
 int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS])
 {
@@ -95,84 +61,146 @@ void cfw_ui_status(const struct cfw_ui_action *action, unsigned value)
     status = value;
 }
 
+#include "../../../payload/preferences.c"
+
+void cfw_store_delete_legacy(void)
+{
+    cfw_preferences_delete(CFW_EQ_LEGACY_FILE);
+}
+
+#define checksum store_checksum
+#include "../../../payload/store.c"
+#undef checksum
 #include "../../../payload/custom_eq.c"
 
-static void saved(uint32_t version, uint32_t precut)
+#define STORE_FILE "iPod_Control\\Device\\CFWPreferences"
+
+static void boot(void)
+{
+    dirty = migrating = 0;
+    cfw_store_load();
+    cfw_eq_load_preferences();
+    cfw_store_flush();
+}
+
+static void legacy(uint32_t version, uint32_t precut)
 {
     struct legacy_eq_file file = {.magic = 0x51455743, .version = version};
     file.values[0] = precut;
     file.values[4] = 24;
     file.checksum = checksum(&file, sizeof(file));
-    memcpy(disk, &file, sizeof(file));
-    disk_size = sizeof(file);
+    fake_put(CFW_EQ_LEGACY_FILE, &file, sizeof(file));
+}
+
+static void fresh_device(void)
+{
+    struct fake_file *file = fake_find(STORE_FILE, 0);
+    if (file)
+        file->exists = 0;
 }
 
 int main(void)
 {
-    saved(1, 7);
-    cfw_eq_load_preferences();
-    assert(settings[0] == 35 && settings[4] == 24 && !writes && !dirty);
-    saved(1, 21);
-    cfw_eq_load_preferences();
-    assert(settings[0] == 0);
-    saved(2, 37);
-    cfw_eq_load_preferences();
+    /* Migration: a v1 file is imported, written to the store and deleted. */
+    legacy(1, 7);
+    boot();
+    assert(settings[0] == 35 && settings[4] == 24);
+    assert(fake_writes == 1 && fake_find(STORE_FILE, 0));
+    assert(!fake_find(CFW_EQ_LEGACY_FILE, 0) && !migrating);
+    boot();
+    assert(settings[0] == 35 && fake_writes == 1);
+
+    /* With a store present legacy files are ignored and kept. */
+    legacy(2, 37);
+    boot();
+    assert(settings[0] == 35 && fake_find(CFW_EQ_LEGACY_FILE, 0));
+
+    fresh_device();
+    legacy(1, 21);
+    boot();
+    assert(settings[0] == 0 && !fake_find(CFW_EQ_LEGACY_FILE, 0));
+    fresh_device();
+    legacy(2, 37);
+    boot();
     assert(settings[0] == 37);
     assert(settings[CFW_EQ_BAND4_TYPE] == 0 && settings[CFW_EQ_BAND5_TYPE] == 0);
     assert(settings[CFW_EQ_BAND4_GAIN] == 24 && settings[CFW_EQ_BAND5_GAIN] == 24);
     assert(settings[CFW_EQ_BAND4_FREQUENCY] == 12 &&
            settings[CFW_EQ_BAND5_FREQUENCY] == 24);
+    fresh_device();
+    struct eq_file v3 = {.magic = 0x51455743, .version = 3};
+    v3.values[0] = 40;
+    v3.values[CFW_EQ_BAND5_GAIN] = 30;
+    v3.checksum = checksum(&v3, sizeof(v3));
+    fake_put(CFW_EQ_LEGACY_FILE, &v3, sizeof(v3));
+    boot();
+    assert(settings[0] == 40 && settings[CFW_EQ_BAND5_GAIN] == 30);
+    fresh_device();
+    v3.values[1] = 4;
+    v3.checksum = checksum(&v3, sizeof(v3));
+    fake_put(CFW_EQ_LEGACY_FILE, &v3, sizeof(v3));
+    boot();
+    assert(settings[0] == 0 && settings[CFW_EQ_BAND5_GAIN] == 24);
+
+    /* Edits stay in RAM until the store flushes. */
+    unsigned writes = fake_writes;
     assert(cfw_eq_action("CFW_EQ_Save", OSOS_ACTION_SUPPORT_QUERY));
-    assert(!writes);
     cfw_eq_model.change(0, 38);
-    assert(settings[0] == 38 && dirty && refreshes == 1 && !writes);
+    assert(settings[0] == 38 && refreshes == 1);
     cfw_eq_model.change(CFW_EQ_FIELDS, 0);
     cfw_eq_model.change(0, 101);
     cfw_eq_model.change(0, 38);
     assert(refreshes == 1 && settings[0] == 38);
-    write_failure = 1;
     cfw_eq_model.commit();
-    assert(dirty && status == 1 && writes == 1);
+    assert(dirty && fake_writes == writes);
     cfw_eq_action("CFW_EQ_Open", 0);
-    assert(status == 1 && dirty && writes == 1);
-    write_failure = 0;
-    cfw_eq_action("CFW_EQ_Save", 0);
-    assert(status == 0 && !dirty && writes == 2);
-    struct eq_file file;
-    memcpy(&file, disk, sizeof(file));
-    assert(file.version == 3 && file.values[0] == 38 &&
-           file.checksum == checksum(&file, sizeof(file)));
+    assert(status == 0);
+    boot();
+    assert(settings[0] == 0 && fake_writes == writes);
+    cfw_eq_model.change(0, 38);
     cfw_eq_model.commit();
-    assert(writes == 2);
-    cfw_eq_load_preferences();
+    cfw_store_flush();
+    assert(fake_writes == writes + 1);
+    boot();
     assert(settings[0] == 38);
+
+    /* Rejected filters report status 1 and keep the published values. */
     filter_failure = 1;
     cfw_eq_model.change(0, 39);
-    assert(settings[0] == 38 && status == 2 && !dirty);
+    assert(settings[0] == 38 && status == 1);
     filter_failure = 0;
     cfw_eq_model.change(0, 39);
-    cfw_eq_model.commit();
-    assert(status == 0 && !dirty && writes == 3);
-    cfw_eq_load_preferences();
+    assert(status == 0);
+    cfw_eq_action("CFW_EQ_Save", 0);
+    assert(dirty);
+    fake_fail_write = 1;
+    cfw_store_flush();
+    assert(dirty);
+    fake_fail_write = 0;
+    cfw_store_flush();
+    boot();
     assert(settings[0] == 39);
-    cfw_eq_model.change(0, 40);
-    write_failure = 1;
-    cfw_eq_model.commit();
-    assert(status == 1 && dirty);
-    write_failure = 0;
-    cfw_eq_model.commit();
-    assert(!dirty && status == 0 && writes == 5);
-    cfw_eq_model.change(CFW_EQ_BAND4_TYPE, 1);
-    cfw_eq_model.change(CFW_EQ_BAND5_GAIN, 40);
-    cfw_eq_model.commit();
-    cfw_eq_load_preferences();
-    assert(settings[CFW_EQ_BAND4_TYPE] == 1 && settings[CFW_EQ_BAND5_GAIN] == 40);
-    disk_size--;
-    cfw_eq_load_preferences();
-    assert(settings[0] == 0 && settings[CFW_EQ_BAND5_GAIN] == 24);
-    saved(2, 37);
-    disk[20] ^= 1;
-    cfw_eq_load_preferences();
-    assert(settings[0] == 0);
+
+    /* A record from a build with fewer fields keeps defaults for the rest. */
+    uint32_t short_record[EQ_LEGACY_FIELDS] = {50};
+    cfw_store_set(CFW_STORE_CUSTOM_EQ, short_record, sizeof(short_record));
+    cfw_store_flush();
+    boot();
+    assert(settings[0] == 50 && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
+
+    /* A record from a build with more fields keeps the known prefix. */
+    uint32_t long_record[CFW_EQ_FIELDS + 2] = {45};
+    for (unsigned int i = 1; i < CFW_EQ_FIELDS; i++)
+        long_record[i] = settings[i];
+    long_record[CFW_EQ_FIELDS] = 99;
+    cfw_store_set(CFW_STORE_CUSTOM_EQ, long_record, sizeof(long_record));
+    cfw_store_flush();
+    boot();
+    assert(settings[0] == 45 && settings[CFW_EQ_BAND4_FREQUENCY] == 12);
+
+    /* A corrupted store falls back to defaults. */
+    fake_find(STORE_FILE, 0)->data[20] ^= 1;
+    boot();
+    assert(settings[0] == 0 && !migrating);
     return 0;
 }

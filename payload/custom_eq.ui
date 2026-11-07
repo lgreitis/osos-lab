@@ -45,8 +45,7 @@
   <range id="cfw_eq_gain" first="-120" last="120" step="5" scale="10" suffix=" dB" signed="true"/>
   <values id="cfw_eq_save_status">
     <value number="0" label="Save settings"/>
-    <value number="1" label="Save failed - retry"/>
-    <value number="2" label="Invalid filter settings"/>
+    <value number="1" label="Invalid filter settings"/>
   </values>
 
   <!-- Slots and choice order are part of the saved EQ settings format. -->

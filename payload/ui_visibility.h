@@ -4,7 +4,7 @@
 
 struct cfw_ui_visibility {
     uint32_t key, title, items[2], anchors[2], defaults;
-    const char *filename;
+    const char *filename; /* Legacy import: pre-store CFWMenu_<key> file. */
     uint32_t *visible;
 };
 extern const struct cfw_ui_visibility cfw_ui_visibility[];
@@ -42,6 +42,7 @@ cfw_ui_visibility_extra_count(unsigned menu, const uint32_t *rows, uint32_t coun
     return extra;
 }
 
+/* Legacy import: pre-store CFWMenu_<key> file format. */
 struct cfw_ui_visibility_file {
     uint32_t magic, version, key, visible, check;
 };
@@ -60,6 +61,9 @@ static inline int cfw_ui_visibility_valid(const struct cfw_ui_visibility_file *f
            file->visible <= 3 && file->check == ~(key ^ file->visible);
 }
 
+void cfw_ui_visibility_load_preferences(void);
+/* Legacy import: deletes the CFWMenu_<key> files. */
+void cfw_ui_visibility_delete_legacy(void);
 void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property,
                                        uintptr_t *out);
 int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,

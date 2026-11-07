@@ -6,6 +6,7 @@
 #include "osos.h"
 #include "cfw.h"
 #include "preferences.h"
+#include "store.h"
 #include "patch.h"
 #include "resources.h"
 
@@ -23,26 +24,36 @@ enum {
     IMG_SUN = 0x0dad0bff, /* Settings_Brightness_Image */
 };
 
-static const struct osos_path settings_path = {0, "iPod_Control\\Device\\CFWDark"};
-
 int cfw_dark_mode_enabled(void)
 {
     return cfw_assets_enabled();
 }
 
-void cfw_dark_mode_load(void)
+/* Legacy import: reads the pre-store CFWDark file. */
+static uint32_t load_legacy(void)
 {
     uint32_t record;
-    int next = cfw_preferences_read(&settings_path, &record, sizeof(record)) &&
-               record == DARK_MODE_ON_RECORD;
+    if (!cfw_preferences_read(CFW_DARK_MODE_LEGACY_FILE, &record, sizeof(record)) ||
+        (record != DARK_MODE_ON_RECORD && record != DARK_MODE_OFF_RECORD))
+        return 0;
+    cfw_store_set(CFW_STORE_DARK, &record, sizeof(record));
+    return record;
+}
+
+void cfw_dark_mode_load(void)
+{
+    uint32_t record = 0;
+    if (cfw_store_get(CFW_STORE_DARK, &record, sizeof(record)) != sizeof(record))
+        record = cfw_store_migrating() ? load_legacy() : 0;
+    int next = record == DARK_MODE_ON_RECORD;
     if (next != cfw_assets_enabled() && cfw_assets_prepare())
         cfw_assets_set_enabled(next);
 }
 
-static int save(unsigned int value)
+static void save(unsigned int value)
 {
     uint32_t record = value ? DARK_MODE_ON_RECORD : DARK_MODE_OFF_RECORD;
-    return cfw_preferences_write(&settings_path, &record, sizeof(record));
+    cfw_store_set(CFW_STORE_DARK, &record, sizeof(record));
 }
 
 int cfw_dark_mode_property(uint32_t type, uint32_t property, uintptr_t *out)
@@ -77,22 +88,19 @@ int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument
     int next = !cfw_dark_mode_enabled();
     if (!cfw_assets_prepare())
         return 1;
-    if (save(next)) {
-        cfw_assets_set_enabled(next);
-        void *settings = osos_settings_model(controller);
-        osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_Value);
-        osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_PreviewImage);
-        osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_PreviewText);
-        void *now_playing = osos_now_playing_model();
-        if (now_playing) {
-            /* Match Apple's playback-state notifications to reload cached icons. */
-            osos_model_notify(now_playing, OSOS_RESOURCE_DRAW, 0x7f0c);
-            osos_model_notify(now_playing, OSOS_RESOURCE_DRAW, 0x7f0d);
-        }
-        osos_ui_invalidate();
-    } else {
-        cfw_assets_cancel();
+    save(next);
+    cfw_assets_set_enabled(next);
+    void *settings = osos_settings_model(controller);
+    osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_Value);
+    osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_PreviewImage);
+    osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_DarkMode_PreviewText);
+    void *now_playing = osos_now_playing_model();
+    if (now_playing) {
+        /* Match Apple's playback-state notifications to reload cached icons. */
+        osos_model_notify(now_playing, OSOS_RESOURCE_DRAW, 0x7f0c);
+        osos_model_notify(now_playing, OSOS_RESOURCE_DRAW, 0x7f0d);
     }
+    osos_ui_invalidate();
     return 1;
 }
 
