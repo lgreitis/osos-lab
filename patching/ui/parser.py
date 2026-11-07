@@ -71,6 +71,7 @@ class Parser:
                 "menu",
                 "text",
                 "canvas",
+                "list",
                 "toggle",
                 "settings-entry",
                 "string",
@@ -113,14 +114,23 @@ class Parser:
             )
             validate_values(value)
             document.values[value.name] = value
-        elif node.tag in ("menu", "text", "toggle", "canvas"):
+        elif node.tag in ("menu", "text", "toggle", "canvas", "list"):
             if document.root is not None:
                 raise ValueError("Expected one root menu or page per UI declaration")
-            if node.tag in ("toggle", "canvas"):
-                attributes(node, "id title")
+            if node.tag in ("toggle", "canvas", "list"):
+                attributes(
+                    node, "id title", "select layout" if node.tag == "list" else ""
+                )
                 document.root = Item(
                     node.tag, self.identifier(node), node.attrib["title"]
                 )
+                if node.tag == "list":
+                    document.root.select = node.get("select", "return")
+                    document.root.layout = node.get("layout", "inline")
+                    if document.root.select not in ("return", "stay"):
+                        raise ValueError("<list> select must be return or stay")
+                    if document.root.layout not in ("inline", "stacked"):
+                        raise ValueError("<list> layout must be inline or stacked")
             else:
                 document.root = (
                     self.parse_menu(node)
