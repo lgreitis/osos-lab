@@ -10,16 +10,26 @@
  * library costs more than about 24 MiB, the 14 MiB floor takes the heap that the
  * 14 MiB reserve was meant to keep free, and the UI fails its allocations.
  *
- * This keeps the native reserve and lowers the floor to a cache that still plays
- * audio. Flash storage has no spin-up cost, so it trades cache for a larger reserve
- * of free heap.
+ * The 14 MiB floor is what playback and a game need together: on first play the
+ * media player claims max(cache - 10 MiB, 6 MiB) as read-ahead and keeps it, and a
+ * game launches only if the eApp block manager gets 8 MiB beside it. Hard disks keep
+ * the native sizes, since a smaller read-ahead means more spin-ups. Flash storage
+ * refills at no spin-up cost, so it keeps a larger reserve of free heap, allows a
+ * 10 MiB cache, and shrinks the media player's read-ahead below 14 MiB so that a
+ * game still fits.
  */
 #define MIB (1024u * 1024u)
 #define NATIVE_RESERVE (14u * MIB)
+#define NATIVE_FLOOR (14u * MIB)
 #define FLASH_RESERVE (24u * MIB)
-/* Playback stalls at 6 MiB and starts at 7 MiB; the rest is margin for the other
- * block clients and high-bitrate files. */
-#define CACHE_FLOOR (10u * MIB)
+#define FLASH_FLOOR (10u * MIB)
+/* The native media-player buffer: max(cache - PLAYER_RESERVE, PLAYER_MIN). */
+#define PLAYER_RESERVE (10u * MIB)
+#define PLAYER_MIN (6u * MIB)
+/* The eApp block manager's request for a game. */
+#define GAME_BLOCKS (8u * MIB)
+/* Read-ahead that still plays ALAC at 1 Mbps with seeking and skipping. */
+#define PLAYER_FLOOR (2u * MIB)
 
 enum {
     ID_CONFIG = 0,
@@ -109,14 +119,37 @@ int cfw_storage_is_flash(const uint16_t *identify)
 uint32_t cfw_block_cache_size(uint32_t heap_total, uint32_t import_cost, int flash)
 {
     uint32_t reserve = flash ? FLASH_RESERVE : NATIVE_RESERVE;
+    uint32_t floor = flash ? FLASH_FLOOR : NATIVE_FLOOR;
     uint32_t size = heap_total > import_cost && heap_total - import_cost > reserve
                         ? heap_total - import_cost - reserve
                         : 0;
-    return size < CACHE_FLOOR ? CACHE_FLOOR : size;
+    return size < floor ? floor : size;
 }
 
 PATCH_ARM uint32_t cfw_block_cache_budget(uint32_t heap_total, uint32_t import_cost)
 {
     return cfw_block_cache_size(heap_total, import_cost,
                                 cfw_storage_is_flash(osos_ata_identify()));
+}
+
+/*
+ * The media player's read-ahead for a cache of cache_bytes. The native minimum
+ * shrinks only where a game would not fit beside it, which only the flash floor
+ * reaches.
+ */
+uint32_t cfw_media_player_buffer_size(uint32_t cache_bytes)
+{
+    uint32_t minimum = PLAYER_MIN;
+    if (cache_bytes < PLAYER_MIN + GAME_BLOCKS)
+        minimum = cache_bytes > PLAYER_FLOOR + GAME_BLOCKS ? cache_bytes - GAME_BLOCKS
+                                                           : PLAYER_FLOOR;
+    return cache_bytes > PLAYER_RESERVE + minimum ? cache_bytes - PLAYER_RESERVE
+                                                  : minimum;
+}
+
+/* Called with r0 = cache bytes - 10 MiB, as the native code computes it. */
+PATCH_ARM int32_t cfw_media_player_buffer(int32_t over_reserve)
+{
+    return (int32_t)cfw_media_player_buffer_size(
+        (uint32_t)(over_reserve + (int32_t)PLAYER_RESERVE));
 }

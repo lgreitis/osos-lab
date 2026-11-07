@@ -93,12 +93,28 @@ int main(void)
     uint32_t heap = 54169568;
     /* Small library: the native size. */
     assert(cfw_block_cache_size(heap, 2 * MIB, 0) == heap - 2 * MIB - 14 * MIB);
-    /* Large library: the floor instead of the native 14 MiB. */
-    assert(cfw_block_cache_size(heap, 30 * MIB, 0) == 10 * MIB);
-    assert(cfw_block_cache_size(heap, heap, 0) == 10 * MIB);
-    assert(cfw_block_cache_size(heap, heap + 1, 0) == 10 * MIB);
-    /* Flash keeps a larger reserve. */
+    /* Large library on a hard disk: the native 14 MiB floor. */
+    assert(cfw_block_cache_size(heap, 30 * MIB, 0) == 14 * MIB);
+    assert(cfw_block_cache_size(heap, heap, 0) == 14 * MIB);
+    assert(cfw_block_cache_size(heap, heap + 1, 0) == 14 * MIB);
+    /* Flash keeps a larger reserve and a 10 MiB floor. */
     assert(cfw_block_cache_size(heap, 2 * MIB, 1) == heap - 2 * MIB - 24 * MIB);
     assert(cfw_block_cache_size(heap, 20 * MIB, 1) == 10 * MIB);
+    assert(cfw_block_cache_size(heap, heap + 1, 1) == 10 * MIB);
+
+    /* At 14 MiB and above, the native read-ahead. */
+    assert(cfw_media_player_buffer_size(14 * MIB) == 6 * MIB);
+    assert(cfw_media_player_buffer_size(16 * MIB) == 6 * MIB);
+    assert(cfw_media_player_buffer_size(40 * MIB) == 30 * MIB);
+    /* Below 14 MiB, 8 MiB stays free for a game. */
+    assert(cfw_media_player_buffer_size(10 * MIB) == 2 * MIB);
+    assert(cfw_media_player_buffer_size(12 * MIB) == 4 * MIB);
+    /* A cache that did not grow still gets the smallest read-ahead. */
+    assert(cfw_media_player_buffer_size(8 * MIB) == 2 * MIB);
+    assert(cfw_media_player_buffer_size(0) == 2 * MIB);
+    /* The patched call receives cache - 10 MiB, which may be negative. */
+    assert(cfw_media_player_buffer((int32_t)(10 * MIB) - (int32_t)(10 * MIB)) ==
+           (int32_t)(2 * MIB));
+    assert(cfw_media_player_buffer((int32_t)(30 * MIB)) == (int32_t)(30 * MIB));
     return 0;
 }
