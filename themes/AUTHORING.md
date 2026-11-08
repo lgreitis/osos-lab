@@ -6,8 +6,8 @@ is host-only; it needs the firmware bitmap catalog (`firmware/bitmaps.json`),
 not the firmware image.
 
 ```sh
-python3 -m themes.package themes/examples/modern/theme.json \
-  --out build/themes/modern --catalog firmware/bitmaps.json
+python3 -m themes.package themes/examples/flat/theme.json \
+  --out build/themes/flat --catalog firmware/bitmaps.json
 ```
 
 The compiler checks the whole theme and builds every output in memory before
@@ -53,8 +53,11 @@ fail validation. Stored color roles and their current consumers are listed below
 The format is internal. New resource types require
 verified native hooks and a new binary format version; existing magic values and
 role order must not be reinterpreted. Source manifests remain the authoring
-interface and must be recompiled for the target firmware catalog. The modern
-example demonstrates color data only.
+interface and must be recompiled for the target firmware catalog. The flat
+example replaces most of the stock artwork; its `render.py` draws the art with
+ImageMagick from Cupertino Icons and the Inter Medium font, which are not part
+of the repository: pass them with `--font` (or `CUPERTINO_ICONS`) and
+`--text-font` (or `INTER_FONT`).
 
 `report.json` lists the capabilities this format supports and gives memory
 *estimates* derived from file sizes. They are not measurements of RAM use on

@@ -601,7 +601,7 @@ class PackageTests(unittest.TestCase):
 
     def test_example_compiles_against_firmware_catalog(self):
         firmware = json.loads((ROOT / "firmware/bitmaps.json").read_text())
-        files = compile_package(firmware, ROOT / "themes/examples/modern/theme.json")
+        files = compile_package(firmware, ROOT / "themes/examples/flat/theme.json")
         result = validate_package(files, firmware)
         self.assertEqual(result["metadata"]["appearances"], ["light", "dark"])
         self.assertNotEqual(

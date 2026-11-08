@@ -1,0 +1,4587 @@
+{
+  "schema": 1,
+  "id": "flat",
+  "name": "Flat",
+  "author": "RepriseOS",
+  "version": "1.0",
+  "appearances": {
+    "light": {
+      "colors": {
+        "background": "#ffffff",
+        "text": "#000000",
+        "accent_fill": "#ff2d55",
+        "accent_text": "#ff2d55",
+        "on_accent": "#ffffff",
+        "selection": "#ff2d55",
+        "cover_border": "#c7c7cc",
+        "icon_tint": "#ff2d55"
+      },
+      "accents": {
+        "blue": {
+          "accent_fill": "#007aff",
+          "accent_text": "#007aff",
+          "selection": "#007aff",
+          "icon_tint": "#007aff",
+          "on_accent": "#ffffff"
+        },
+        "graphite": {
+          "accent_fill": "#8e8e93",
+          "accent_text": "#8e8e93",
+          "selection": "#8e8e93",
+          "icon_tint": "#8e8e93",
+          "on_accent": "#ffffff"
+        },
+        "green": {
+          "accent_fill": "#34c759",
+          "accent_text": "#34c759",
+          "selection": "#34c759",
+          "icon_tint": "#34c759",
+          "on_accent": "#ffffff"
+        },
+        "orange": {
+          "accent_fill": "#ff9500",
+          "accent_text": "#ff9500",
+          "selection": "#ff9500",
+          "icon_tint": "#ff9500",
+          "on_accent": "#ffffff"
+        },
+        "pink": {
+          "accent_fill": "#ff2d55",
+          "accent_text": "#ff2d55",
+          "selection": "#ff2d55",
+          "icon_tint": "#ff2d55",
+          "on_accent": "#ffffff"
+        },
+        "purple": {
+          "accent_fill": "#af52de",
+          "accent_text": "#af52de",
+          "selection": "#af52de",
+          "icon_tint": "#af52de",
+          "on_accent": "#ffffff"
+        },
+        "red": {
+          "accent_fill": "#ff3b30",
+          "accent_text": "#ff3b30",
+          "selection": "#ff3b30",
+          "icon_tint": "#ff3b30",
+          "on_accent": "#ffffff"
+        },
+        "teal": {
+          "accent_fill": "#5ac8fa",
+          "accent_text": "#5ac8fa",
+          "selection": "#5ac8fa",
+          "icon_tint": "#5ac8fa",
+          "on_accent": "#ffffff"
+        },
+        "yellow": {
+          "accent_fill": "#ffcc00",
+          "accent_text": "#ffcc00",
+          "selection": "#ffcc00",
+          "icon_tint": "#ffcc00",
+          "on_accent": "#000000"
+        }
+      },
+      "rendering": {
+        "selection": "flat",
+        "menu_covers": "off",
+        "now_playing_art": "flat"
+      },
+      "bitmaps": [
+        {
+          "name": "AddressViewer_NoContactPict_Image",
+          "file": "art/light/AddressViewer_NoContactPict_Image.png"
+        },
+        {
+          "name": "AddressViewer_NoGroupPict_Image",
+          "file": "art/light/AddressViewer_NoGroupPict_Image.png"
+        },
+        {
+          "name": "AddressViewer_Preview_Image",
+          "file": "art/tint/AddressViewer_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Alarms_Clock_Static_Image",
+          "file": "art/tint/Alarms_Clock_Static_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Alarms_Timer_Time_Panel",
+          "file": "art/light/Alarms_Timer_Time_Panel.png"
+        },
+        {
+          "name": "Alarms_Timer_Time_Panel_Focus",
+          "file": "art/tint/Alarms_Timer_Time_Panel_Focus.png",
+          "tint": "selection"
+        },
+        {
+          "name": "Background_LightBlue_Image",
+          "file": "art/tint/Background_LightBlue_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "BigDaisyPetal0",
+          "file": "art/mask/BigDaisyPetal0.png"
+        },
+        {
+          "name": "BigDaisyPetal1",
+          "file": "art/mask/BigDaisyPetal1.png"
+        },
+        {
+          "name": "BigDaisyPetal2",
+          "file": "art/mask/BigDaisyPetal2.png"
+        },
+        {
+          "name": "BigDaisyPetal3",
+          "file": "art/mask/BigDaisyPetal3.png"
+        },
+        {
+          "name": "BigDaisyPetal4",
+          "file": "art/mask/BigDaisyPetal4.png"
+        },
+        {
+          "name": "BigDaisyPetal5",
+          "file": "art/mask/BigDaisyPetal5.png"
+        },
+        {
+          "name": "CFW_Accent_Icon",
+          "file": "art/mask/CFW_Accent_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_DarkMode_Moon",
+          "file": "art/mask/CFW_DarkMode_Moon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_EQ_Icon",
+          "file": "art/mask/CFW_EQ_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_Info_Icon",
+          "file": "art/mask/CFW_Info_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_MenuCovers_Icon",
+          "file": "art/mask/CFW_MenuCovers_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_Theme_Icon",
+          "file": "art/mask/CFW_Theme_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Calendar_Active_Cell",
+          "file": "art/light/Calendar_Active_Cell.png"
+        },
+        {
+          "name": "Calendar_Alarm",
+          "file": "art/tint/Calendar_Alarm.png",
+          "tint": "text"
+        },
+        {
+          "name": "Calendar_Flag",
+          "file": "art/tint/Calendar_Flag.png",
+          "tint": "text"
+        },
+        {
+          "name": "Calendar_Hilite_Cell",
+          "file": "art/tint/Calendar_Hilite_Cell.png",
+          "tint": "selection"
+        },
+        {
+          "name": "Calendar_Inactive_Cell",
+          "file": "art/light/Calendar_Inactive_Cell.png"
+        },
+        {
+          "name": "Calendar_Small_Alarm",
+          "file": "art/tint/Calendar_Small_Alarm.png",
+          "tint": "text"
+        },
+        {
+          "name": "CapacityView_Detailed_AudioCenter_Image",
+          "file": "art/light/CapacityView_Detailed_AudioCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_AudioLeft_Image",
+          "file": "art/light/CapacityView_Detailed_AudioLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_AudioRight_Image",
+          "file": "art/light/CapacityView_Detailed_AudioRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_Edge_Image",
+          "file": "art/light/CapacityView_Detailed_Edge_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_EmptyCenter_Image",
+          "file": "art/light/CapacityView_Detailed_EmptyCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_EmptyLeft_Image",
+          "file": "art/light/CapacityView_Detailed_EmptyLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_EmptyRight_Image",
+          "file": "art/light/CapacityView_Detailed_EmptyRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_OtherCenter_Image",
+          "file": "art/light/CapacityView_Detailed_OtherCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_OtherLeft_Image",
+          "file": "art/light/CapacityView_Detailed_OtherLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_OtherRight_Image",
+          "file": "art/light/CapacityView_Detailed_OtherRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_PhotosCenter_Image",
+          "file": "art/light/CapacityView_Detailed_PhotosCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_PhotosLeft_Image",
+          "file": "art/light/CapacityView_Detailed_PhotosLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_PhotosRight_Image",
+          "file": "art/light/CapacityView_Detailed_PhotosRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_VideoCenter_Image",
+          "file": "art/light/CapacityView_Detailed_VideoCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_VideoLeft_Image",
+          "file": "art/light/CapacityView_Detailed_VideoLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_VideoRight_Image",
+          "file": "art/light/CapacityView_Detailed_VideoRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Simple_EmptyCenter_Image",
+          "file": "art/light/CapacityView_Simple_EmptyCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Simple_EmptyLeft_Image",
+          "file": "art/light/CapacityView_Simple_EmptyLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Simple_EmptyRight_Image",
+          "file": "art/light/CapacityView_Simple_EmptyRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Simple_FillCenter_Image",
+          "file": "art/tint/CapacityView_Simple_FillCenter_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "CapacityView_Simple_FillLeft_Image",
+          "file": "art/tint/CapacityView_Simple_FillLeft_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "CapacityView_Simple_FillRight_Image",
+          "file": "art/tint/CapacityView_Simple_FillRight_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Caption_LeftEndcapBottom_Image",
+          "file": "art/mask/Caption_LeftEndcapBottom_Image.png"
+        },
+        {
+          "name": "Caption_LeftEndcapTop_Image",
+          "file": "art/mask/Caption_LeftEndcapTop_Image.png"
+        },
+        {
+          "name": "Caption_RightEndcapBottom_Image",
+          "file": "art/mask/Caption_RightEndcapBottom_Image.png"
+        },
+        {
+          "name": "Caption_RightEndcapTop_Image",
+          "file": "art/mask/Caption_RightEndcapTop_Image.png"
+        },
+        {
+          "name": "ChargingMode_Image_Empty_CapLeft",
+          "file": "art/light/ChargingMode_Image_Empty_CapLeft.png"
+        },
+        {
+          "name": "ChargingMode_Image_Empty_CapRight",
+          "file": "art/light/ChargingMode_Image_Empty_CapRight.png"
+        },
+        {
+          "name": "ChargingMode_Image_Empty_Middle",
+          "file": "art/light/ChargingMode_Image_Empty_Middle.png"
+        },
+        {
+          "name": "ChargingMode_Image_Green_CapLeft",
+          "file": "art/light/ChargingMode_Image_Green_CapLeft.png"
+        },
+        {
+          "name": "ChargingMode_Image_Green_CapRight",
+          "file": "art/light/ChargingMode_Image_Green_CapRight.png"
+        },
+        {
+          "name": "ChargingMode_Image_Green_Middle",
+          "file": "art/light/ChargingMode_Image_Green_Middle.png"
+        },
+        {
+          "name": "ChargingMode_Image_Green_Middle_Cap",
+          "file": "art/light/ChargingMode_Image_Green_Middle_Cap.png"
+        },
+        {
+          "name": "ChargingMode_Image_ToggleCharged",
+          "file": "art/mask/ChargingMode_Image_ToggleCharged.png",
+          "tint": "text"
+        },
+        {
+          "name": "ChargingMode_Image_ToggleCharging",
+          "file": "art/mask/ChargingMode_Image_ToggleCharging.png",
+          "tint": "text"
+        },
+        {
+          "name": "Clock_CenterCap_Image",
+          "file": "art/tint/Clock_CenterCap_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Clock_Hours_Image_0",
+          "file": "art/mask/Clock_Hours_Image_0.png"
+        },
+        {
+          "name": "Clock_Hours_Image_1",
+          "file": "art/mask/Clock_Hours_Image_1.png"
+        },
+        {
+          "name": "Clock_Hours_Image_10",
+          "file": "art/mask/Clock_Hours_Image_10.png"
+        },
+        {
+          "name": "Clock_Hours_Image_11",
+          "file": "art/mask/Clock_Hours_Image_11.png"
+        },
+        {
+          "name": "Clock_Hours_Image_12",
+          "file": "art/mask/Clock_Hours_Image_12.png"
+        },
+        {
+          "name": "Clock_Hours_Image_13",
+          "file": "art/mask/Clock_Hours_Image_13.png"
+        },
+        {
+          "name": "Clock_Hours_Image_14",
+          "file": "art/mask/Clock_Hours_Image_14.png"
+        },
+        {
+          "name": "Clock_Hours_Image_15",
+          "file": "art/mask/Clock_Hours_Image_15.png"
+        },
+        {
+          "name": "Clock_Hours_Image_16",
+          "file": "art/mask/Clock_Hours_Image_16.png"
+        },
+        {
+          "name": "Clock_Hours_Image_17",
+          "file": "art/mask/Clock_Hours_Image_17.png"
+        },
+        {
+          "name": "Clock_Hours_Image_18",
+          "file": "art/mask/Clock_Hours_Image_18.png"
+        },
+        {
+          "name": "Clock_Hours_Image_19",
+          "file": "art/mask/Clock_Hours_Image_19.png"
+        },
+        {
+          "name": "Clock_Hours_Image_2",
+          "file": "art/mask/Clock_Hours_Image_2.png"
+        },
+        {
+          "name": "Clock_Hours_Image_20",
+          "file": "art/mask/Clock_Hours_Image_20.png"
+        },
+        {
+          "name": "Clock_Hours_Image_21",
+          "file": "art/mask/Clock_Hours_Image_21.png"
+        },
+        {
+          "name": "Clock_Hours_Image_22",
+          "file": "art/mask/Clock_Hours_Image_22.png"
+        },
+        {
+          "name": "Clock_Hours_Image_23",
+          "file": "art/mask/Clock_Hours_Image_23.png"
+        },
+        {
+          "name": "Clock_Hours_Image_24",
+          "file": "art/mask/Clock_Hours_Image_24.png"
+        },
+        {
+          "name": "Clock_Hours_Image_25",
+          "file": "art/mask/Clock_Hours_Image_25.png"
+        },
+        {
+          "name": "Clock_Hours_Image_26",
+          "file": "art/mask/Clock_Hours_Image_26.png"
+        },
+        {
+          "name": "Clock_Hours_Image_27",
+          "file": "art/mask/Clock_Hours_Image_27.png"
+        },
+        {
+          "name": "Clock_Hours_Image_28",
+          "file": "art/mask/Clock_Hours_Image_28.png"
+        },
+        {
+          "name": "Clock_Hours_Image_29",
+          "file": "art/mask/Clock_Hours_Image_29.png"
+        },
+        {
+          "name": "Clock_Hours_Image_3",
+          "file": "art/mask/Clock_Hours_Image_3.png"
+        },
+        {
+          "name": "Clock_Hours_Image_4",
+          "file": "art/mask/Clock_Hours_Image_4.png"
+        },
+        {
+          "name": "Clock_Hours_Image_5",
+          "file": "art/mask/Clock_Hours_Image_5.png"
+        },
+        {
+          "name": "Clock_Hours_Image_6",
+          "file": "art/mask/Clock_Hours_Image_6.png"
+        },
+        {
+          "name": "Clock_Hours_Image_7",
+          "file": "art/mask/Clock_Hours_Image_7.png"
+        },
+        {
+          "name": "Clock_Hours_Image_8",
+          "file": "art/mask/Clock_Hours_Image_8.png"
+        },
+        {
+          "name": "Clock_Hours_Image_9",
+          "file": "art/mask/Clock_Hours_Image_9.png"
+        },
+        {
+          "name": "Clock_Large_Image",
+          "file": "art/light/Clock_Large_Image.png"
+        },
+        {
+          "name": "Clock_Mins_Image_0",
+          "file": "art/mask/Clock_Mins_Image_0.png"
+        },
+        {
+          "name": "Clock_Mins_Image_1",
+          "file": "art/mask/Clock_Mins_Image_1.png"
+        },
+        {
+          "name": "Clock_Mins_Image_10",
+          "file": "art/mask/Clock_Mins_Image_10.png"
+        },
+        {
+          "name": "Clock_Mins_Image_11",
+          "file": "art/mask/Clock_Mins_Image_11.png"
+        },
+        {
+          "name": "Clock_Mins_Image_12",
+          "file": "art/mask/Clock_Mins_Image_12.png"
+        },
+        {
+          "name": "Clock_Mins_Image_13",
+          "file": "art/mask/Clock_Mins_Image_13.png"
+        },
+        {
+          "name": "Clock_Mins_Image_14",
+          "file": "art/mask/Clock_Mins_Image_14.png"
+        },
+        {
+          "name": "Clock_Mins_Image_15",
+          "file": "art/mask/Clock_Mins_Image_15.png"
+        },
+        {
+          "name": "Clock_Mins_Image_2",
+          "file": "art/mask/Clock_Mins_Image_2.png"
+        },
+        {
+          "name": "Clock_Mins_Image_3",
+          "file": "art/mask/Clock_Mins_Image_3.png"
+        },
+        {
+          "name": "Clock_Mins_Image_4",
+          "file": "art/mask/Clock_Mins_Image_4.png"
+        },
+        {
+          "name": "Clock_Mins_Image_5",
+          "file": "art/mask/Clock_Mins_Image_5.png"
+        },
+        {
+          "name": "Clock_Mins_Image_6",
+          "file": "art/mask/Clock_Mins_Image_6.png"
+        },
+        {
+          "name": "Clock_Mins_Image_7",
+          "file": "art/mask/Clock_Mins_Image_7.png"
+        },
+        {
+          "name": "Clock_Mins_Image_8",
+          "file": "art/mask/Clock_Mins_Image_8.png"
+        },
+        {
+          "name": "Clock_Mins_Image_9",
+          "file": "art/mask/Clock_Mins_Image_9.png"
+        },
+        {
+          "name": "Clock_Secs_Image_0",
+          "file": "art/mask/Clock_Secs_Image_0.png"
+        },
+        {
+          "name": "Clock_Secs_Image_1",
+          "file": "art/mask/Clock_Secs_Image_1.png"
+        },
+        {
+          "name": "Clock_Secs_Image_10",
+          "file": "art/mask/Clock_Secs_Image_10.png"
+        },
+        {
+          "name": "Clock_Secs_Image_11",
+          "file": "art/mask/Clock_Secs_Image_11.png"
+        },
+        {
+          "name": "Clock_Secs_Image_12",
+          "file": "art/mask/Clock_Secs_Image_12.png"
+        },
+        {
+          "name": "Clock_Secs_Image_13",
+          "file": "art/mask/Clock_Secs_Image_13.png"
+        },
+        {
+          "name": "Clock_Secs_Image_14",
+          "file": "art/mask/Clock_Secs_Image_14.png"
+        },
+        {
+          "name": "Clock_Secs_Image_15",
+          "file": "art/mask/Clock_Secs_Image_15.png"
+        },
+        {
+          "name": "Clock_Secs_Image_2",
+          "file": "art/mask/Clock_Secs_Image_2.png"
+        },
+        {
+          "name": "Clock_Secs_Image_3",
+          "file": "art/mask/Clock_Secs_Image_3.png"
+        },
+        {
+          "name": "Clock_Secs_Image_4",
+          "file": "art/mask/Clock_Secs_Image_4.png"
+        },
+        {
+          "name": "Clock_Secs_Image_5",
+          "file": "art/mask/Clock_Secs_Image_5.png"
+        },
+        {
+          "name": "Clock_Secs_Image_6",
+          "file": "art/mask/Clock_Secs_Image_6.png"
+        },
+        {
+          "name": "Clock_Secs_Image_7",
+          "file": "art/mask/Clock_Secs_Image_7.png"
+        },
+        {
+          "name": "Clock_Secs_Image_8",
+          "file": "art/mask/Clock_Secs_Image_8.png"
+        },
+        {
+          "name": "Clock_Secs_Image_9",
+          "file": "art/mask/Clock_Secs_Image_9.png"
+        },
+        {
+          "name": "Clock_Shadow_Image",
+          "file": "art/light/Clock_Shadow_Image.png"
+        },
+        {
+          "name": "Clock_Small_Image",
+          "file": "art/light/Clock_Small_Image.png"
+        },
+        {
+          "name": "Clock_Small_Night_Image",
+          "file": "art/light/Clock_Small_Night_Image.png"
+        },
+        {
+          "name": "CoverFlow_Backside_Top_Image",
+          "file": "art/light/CoverFlow_Backside_Top_Image.png"
+        },
+        {
+          "name": "CoverFlow_Proxy_Image",
+          "file": "art/light/CoverFlow_Proxy_Image.png"
+        },
+        {
+          "name": "CoverFlow_Proxy_Image_iTunesU",
+          "file": "art/light/CoverFlow_Proxy_Image_iTunesU.png"
+        },
+        {
+          "name": "DateTimePicker_Bar",
+          "file": "art/light/DateTimePicker_Bar.png"
+        },
+        {
+          "name": "DateTimePicker_Selection",
+          "file": "art/tint/DateTimePicker_Selection.png",
+          "tint": "selection"
+        },
+        {
+          "name": "DateTimePicker_Well",
+          "file": "art/light/DateTimePicker_Well.png"
+        },
+        {
+          "name": "Extras_Games_Preview_Image",
+          "file": "art/tint/Extras_Games_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Games_Proxy_Image",
+          "file": "art/tint/Games_Proxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "GeniusMixes_Background_Image",
+          "file": "art/light/GeniusMixes_Background_Image.png"
+        },
+        {
+          "name": "Genius_Slider_Endcap_Image",
+          "file": "art/tint/Genius_Slider_Endcap_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Genius_Slider_Fill_Image",
+          "file": "art/tint/Genius_Slider_Fill_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Genius_Slider_Icon_Image",
+          "file": "art/tint/Genius_Slider_Icon_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Genius_Slider_Image",
+          "file": "art/light/Genius_Slider_Image.png"
+        },
+        {
+          "name": "LockScreen_Padlock_Image",
+          "file": "art/tint/LockScreen_Padlock_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "LockScreen_TumblerBgnd_Image",
+          "file": "art/light/LockScreen_TumblerBgnd_Image.png"
+        },
+        {
+          "name": "LockScreen_TumblerFocus_Image",
+          "file": "art/tint/LockScreen_TumblerFocus_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "Lozenge_Left_White_Image",
+          "file": "art/light/Lozenge_Left_White_Image.png"
+        },
+        {
+          "name": "Lozenge_Middle_White_Image",
+          "file": "art/light/Lozenge_Middle_White_Image.png"
+        },
+        {
+          "name": "Lozenge_Right_White_Image",
+          "file": "art/light/Lozenge_Right_White_Image.png"
+        },
+        {
+          "name": "MainMenu_Backlight_Image",
+          "file": "art/mask/MainMenu_Backlight_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "MainMenu_Shuffle_Image",
+          "file": "art/mask/MainMenu_Shuffle_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "MainMenu_Sleep_Image",
+          "file": "art/mask/MainMenu_Sleep_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_AlbumsProxy_Image",
+          "file": "art/tint/Media_AlbumsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_AllAlbumsProxy_Image",
+          "file": "art/tint/Media_AllAlbumsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_ArtistsProxy_Image",
+          "file": "art/tint/Media_ArtistsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_AudioBooksProxy_Image",
+          "file": "art/tint/Media_AudioBooksProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_AudioProxy_Image",
+          "file": "art/tint/Media_AudioProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_DocumentsProxy_Image",
+          "file": "art/tint/Media_DocumentsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_Genius_Large_Image",
+          "file": "art/tint/Media_Genius_Large_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_Genius_Normal_Image",
+          "file": "art/tint/Media_Genius_Normal_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Media_Genius_Refresh_Hi_Image",
+          "file": "art/tint/Media_Genius_Refresh_Hi_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_Genius_Refresh_Image",
+          "file": "art/tint/Media_Genius_Refresh_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Media_Genius_Selected_Image",
+          "file": "art/tint/Media_Genius_Selected_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_MusicVideosProxy_Image",
+          "file": "art/tint/Media_MusicVideosProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_NowPlayingIcon_Black_Image",
+          "file": "art/tint/Media_NowPlayingIcon_Black_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_NowPlayingIcon_Playlist_Black_Image",
+          "file": "art/tint/Media_NowPlayingIcon_Playlist_Black_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_NowPlayingIcon_Playlist_White_Image",
+          "file": "art/tint/Media_NowPlayingIcon_Playlist_White_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_NowPlayingIcon_White_Image",
+          "file": "art/tint/Media_NowPlayingIcon_White_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_OTGPlaylist_Image",
+          "file": "art/tint/Media_OTGPlaylist_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_PhotosProxy_Image",
+          "file": "art/tint/Media_PhotosProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_PlaylistsProxy_Image",
+          "file": "art/tint/Media_PlaylistsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_PodcastsProxy_Image",
+          "file": "art/tint/Media_PodcastsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_SearchProxy_Image",
+          "file": "art/tint/Media_SearchProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_TVShowsProxy_Image",
+          "file": "art/tint/Media_TVShowsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_VideoStatusIcon_Image",
+          "file": "art/light/Media_VideoStatusIcon_Image.png"
+        },
+        {
+          "name": "Media_VideoStatusIcon_White_Image",
+          "file": "art/tint/Media_VideoStatusIcon_White_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_VideosProxy_Image",
+          "file": "art/tint/Media_VideosProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Albums_Small_Image",
+          "file": "art/light/No_Content_Albums_Small_Image.png"
+        },
+        {
+          "name": "No_Content_AudioBooks_Small_Image",
+          "file": "art/light/No_Content_AudioBooks_Small_Image.png"
+        },
+        {
+          "name": "No_Content_Audiobooks_Preview_Image",
+          "file": "art/mask/No_Content_Audiobooks_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Contacts_Preview_Image",
+          "file": "art/mask/No_Content_Contacts_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Movies_Preview_Image",
+          "file": "art/mask/No_Content_Movies_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_MusicVideos_Small_Image",
+          "file": "art/light/No_Content_MusicVideos_Small_Image.png"
+        },
+        {
+          "name": "No_Content_Music_Preview_Image",
+          "file": "art/mask/No_Content_Music_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Music_Video_Preview_Image",
+          "file": "art/mask/No_Content_Music_Video_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Notes_Preview_Image",
+          "file": "art/mask/No_Content_Notes_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Photo_Preview_Image",
+          "file": "art/mask/No_Content_Photo_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Playlist_Preview_Image",
+          "file": "art/mask/No_Content_Playlist_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Podcast_Preview_Image",
+          "file": "art/mask/No_Content_Podcast_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Podcasts_Small_Image",
+          "file": "art/light/No_Content_Podcasts_Small_Image.png"
+        },
+        {
+          "name": "No_Content_TVShow_Preview_Image",
+          "file": "art/mask/No_Content_TVShow_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_TVShows_Small_Image",
+          "file": "art/light/No_Content_TVShows_Small_Image.png"
+        },
+        {
+          "name": "No_Content_Videos_Small_Image",
+          "file": "art/light/No_Content_Videos_Small_Image.png"
+        },
+        {
+          "name": "No_Content_iTunesU_Preview_Image",
+          "file": "art/mask/No_Content_iTunesU_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_iTunesU_Small_Image",
+          "file": "art/light/No_Content_iTunesU_Small_Image.png"
+        },
+        {
+          "name": "Notes_Preview_Image",
+          "file": "art/tint/Notes_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Black_FF_Image",
+          "file": "art/tint/NowPlaying_Black_FF_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Black_Pause_Image",
+          "file": "art/tint/NowPlaying_Black_Pause_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Black_Play_Image",
+          "file": "art/tint/NowPlaying_Black_Play_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Black_Record_Image",
+          "file": "art/light/NowPlaying_Black_Record_Image.png"
+        },
+        {
+          "name": "NowPlaying_Black_Rew_Image",
+          "file": "art/tint/NowPlaying_Black_Rew_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Black_Volume_Locked_Image",
+          "file": "art/light/NowPlaying_Black_Volume_Locked_Image.png"
+        },
+        {
+          "name": "NowPlaying_Blue_Dot_Image",
+          "file": "art/tint/NowPlaying_Blue_Dot_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_Blue_Star_Image",
+          "file": "art/tint/NowPlaying_Blue_Star_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_Chaptermark_Image",
+          "file": "art/tint/NowPlaying_Chaptermark_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "NowPlaying_Classic_Repeat_Image",
+          "file": "art/tint/NowPlaying_Classic_Repeat_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Classic_Repeat_Once_Image",
+          "file": "art/tint/NowPlaying_Classic_Repeat_Once_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Classic_Shuffle_Image",
+          "file": "art/tint/NowPlaying_Classic_Shuffle_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Dot_Image",
+          "file": "art/light/NowPlaying_Dot_Image.png"
+        },
+        {
+          "name": "NowPlaying_Genius_Icon",
+          "file": "art/tint/NowPlaying_Genius_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_0_Image",
+          "file": "art/light/NowPlaying_Idle_Battery_0_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_1_Image",
+          "file": "art/light/NowPlaying_Idle_Battery_1_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_2_Image",
+          "file": "art/light/NowPlaying_Idle_Battery_2_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_3_Image",
+          "file": "art/light/NowPlaying_Idle_Battery_3_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_4_Image",
+          "file": "art/light/NowPlaying_Idle_Battery_4_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_5_Image",
+          "file": "art/light/NowPlaying_Idle_Battery_5_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_6_Image",
+          "file": "art/light/NowPlaying_Idle_Battery_6_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_7_Image",
+          "file": "art/light/NowPlaying_Idle_Battery_7_Image.png"
+        },
+        {
+          "name": "NowPlaying_Large_Blue_Star_Image",
+          "file": "art/tint/NowPlaying_Large_Blue_Star_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_Large_Shuffle_Image",
+          "file": "art/tint/NowPlaying_Large_Shuffle_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Overlay_Image",
+          "file": "art/light/NowPlaying_Overlay_Image.png"
+        },
+        {
+          "name": "NowPlaying_Paused_Image",
+          "file": "art/light/NowPlaying_Paused_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Active_Background_Image",
+          "file": "art/light/NowPlaying_ProgressBar_Active_Background_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Active_Fill_Image",
+          "file": "art/tint/NowPlaying_ProgressBar_Active_Fill_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Active_Fill_Orange_Image",
+          "file": "art/light/NowPlaying_ProgressBar_Active_Fill_Orange_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Growth_Image",
+          "file": "art/light/NowPlaying_ProgressBar_Growth_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Inactive_Background_Image",
+          "file": "art/light/NowPlaying_ProgressBar_Inactive_Background_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Inactive_Fill_Image",
+          "file": "art/tint/NowPlaying_ProgressBar_Inactive_Fill_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_LeftEndcap_Image",
+          "file": "art/light/NowPlaying_ProgressBar_LeftEndcap_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_RightEndcap_Image",
+          "file": "art/light/NowPlaying_ProgressBar_RightEndcap_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Scrub_Image",
+          "file": "art/tint/NowPlaying_ProgressBar_Scrub_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressFill_Growth_Image",
+          "file": "art/tint/NowPlaying_ProgressFill_Growth_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressFill_LeftEndcap_Image",
+          "file": "art/tint/NowPlaying_ProgressFill_LeftEndcap_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressFill_RightEndcap_Image",
+          "file": "art/tint/NowPlaying_ProgressFill_RightEndcap_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_Rental_Warning_Overlay_Fill",
+          "file": "art/light/NowPlaying_Rental_Warning_Overlay_Fill.png"
+        },
+        {
+          "name": "NowPlaying_Rental_Warning_Overlay_Left",
+          "file": "art/light/NowPlaying_Rental_Warning_Overlay_Left.png"
+        },
+        {
+          "name": "NowPlaying_Rental_Warning_Overlay_Right",
+          "file": "art/light/NowPlaying_Rental_Warning_Overlay_Right.png"
+        },
+        {
+          "name": "NowPlaying_Repeat_Image",
+          "file": "art/tint/NowPlaying_Repeat_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Repeat_Once_Image",
+          "file": "art/tint/NowPlaying_Repeat_Once_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Scrub_Image",
+          "file": "art/light/NowPlaying_Scrub_Image.png"
+        },
+        {
+          "name": "NowPlaying_Shuffle_Image",
+          "file": "art/tint/NowPlaying_Shuffle_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Small_Grey_Star_Image",
+          "file": "art/light/NowPlaying_Small_Grey_Star_Image.png"
+        },
+        {
+          "name": "NowPlaying_Small_White_Star_Image",
+          "file": "art/tint/NowPlaying_Small_White_Star_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Star_Image",
+          "file": "art/tint/NowPlaying_Star_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_StatusBar_Image",
+          "file": "art/tint/NowPlaying_StatusBar_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "NowPlaying_White_FF_Image",
+          "file": "art/tint/NowPlaying_White_FF_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Pause_Image",
+          "file": "art/tint/NowPlaying_White_Pause_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Play_Image",
+          "file": "art/tint/NowPlaying_White_Play_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Rew_Image",
+          "file": "art/tint/NowPlaying_White_Rew_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Volume_High_Image",
+          "file": "art/tint/NowPlaying_White_Volume_High_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Volume_Locked_Image",
+          "file": "art/tint/NowPlaying_White_Volume_Locked_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Volume_Low_Image",
+          "file": "art/tint/NowPlaying_White_Volume_Low_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "OptionBar_Black_Thumb_Center_Image",
+          "file": "art/tint/OptionBar_Black_Thumb_Center_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_Black_Thumb_LeftCap_Image",
+          "file": "art/tint/OptionBar_Black_Thumb_LeftCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_Black_Thumb_RightCap_Image",
+          "file": "art/tint/OptionBar_Black_Thumb_RightCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_Black_Well_Center_Image",
+          "file": "art/light/OptionBar_Black_Well_Center_Image.png"
+        },
+        {
+          "name": "OptionBar_Black_Well_LeftCap_Image",
+          "file": "art/light/OptionBar_Black_Well_LeftCap_Image.png"
+        },
+        {
+          "name": "OptionBar_Black_Well_RightCap_Image",
+          "file": "art/light/OptionBar_Black_Well_RightCap_Image.png"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Thumb_Center_Image",
+          "file": "art/tint/OptionBar_NowPlaying_Thumb_Center_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Thumb_LeftCap_Image",
+          "file": "art/tint/OptionBar_NowPlaying_Thumb_LeftCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Thumb_RightCap_Image",
+          "file": "art/tint/OptionBar_NowPlaying_Thumb_RightCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Well_Center_Image",
+          "file": "art/light/OptionBar_NowPlaying_Well_Center_Image.png"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Well_LeftCap_Image",
+          "file": "art/light/OptionBar_NowPlaying_Well_LeftCap_Image.png"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Well_RightCap_Image",
+          "file": "art/light/OptionBar_NowPlaying_Well_RightCap_Image.png"
+        },
+        {
+          "name": "OptionBar_White_Thumb_Center_Image",
+          "file": "art/tint/OptionBar_White_Thumb_Center_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_White_Thumb_LeftCap_Image",
+          "file": "art/tint/OptionBar_White_Thumb_LeftCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_White_Thumb_RightCap_Image",
+          "file": "art/tint/OptionBar_White_Thumb_RightCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_White_Well_Center_Image",
+          "file": "art/light/OptionBar_White_Well_Center_Image.png"
+        },
+        {
+          "name": "OptionBar_White_Well_LeftCap_Image",
+          "file": "art/light/OptionBar_White_Well_LeftCap_Image.png"
+        },
+        {
+          "name": "OptionBar_White_Well_RightCap_Image",
+          "file": "art/light/OptionBar_White_Well_RightCap_Image.png"
+        },
+        {
+          "name": "Page_White_Active_Image",
+          "file": "art/tint/Page_White_Active_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Page_White_Inactive_Image",
+          "file": "art/light/Page_White_Inactive_Image.png"
+        },
+        {
+          "name": "Photos_Slideshow_Top_Strip",
+          "file": "art/light/Photos_Slideshow_Top_Strip.png"
+        },
+        {
+          "name": "Playlist_Folder_Icon",
+          "file": "art/tint/Playlist_Folder_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Playlist_Genius_Icon",
+          "file": "art/tint/Playlist_Genius_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Playlist_Genius_Icon_Hi",
+          "file": "art/tint/Playlist_Genius_Icon_Hi.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Playlist_Regular_Icon",
+          "file": "art/tint/Playlist_Regular_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Playlist_Saved_Genius_Icon",
+          "file": "art/tint/Playlist_Saved_Genius_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Playlist_Smart_Icon",
+          "file": "art/tint/Playlist_Smart_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Podcasts_new_item_Image",
+          "file": "art/tint/Podcasts_new_item_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Podcasts_new_item_video_Image",
+          "file": "art/tint/Podcasts_new_item_video_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Podcasts_new_item_video_white_Image",
+          "file": "art/tint/Podcasts_new_item_video_white_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Podcasts_new_item_white_Image",
+          "file": "art/tint/Podcasts_new_item_white_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Podcasts_spacer_Image",
+          "file": "art/light/Podcasts_spacer_Image.png"
+        },
+        {
+          "name": "Podcasts_video_solo_Image",
+          "file": "art/light/Podcasts_video_solo_Image.png"
+        },
+        {
+          "name": "Podcasts_video_white_solo_Image",
+          "file": "art/tint/Podcasts_video_white_solo_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "PreviewArea_Shadow_Image",
+          "file": "art/light/PreviewArea_Shadow_Image.png"
+        },
+        {
+          "name": "Settings_About_Band_Image",
+          "file": "art/tint/Settings_About_Band_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "Settings_About_Bubble_Deselected_Image",
+          "file": "art/light/Settings_About_Bubble_Deselected_Image.png"
+        },
+        {
+          "name": "Settings_About_Bubble_Selected_Image",
+          "file": "art/tint/Settings_About_Bubble_Selected_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Settings_About_Capacity_AudioLegend_Image",
+          "file": "art/light/Settings_About_Capacity_AudioLegend_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_Fill_Image",
+          "file": "art/light/Settings_About_Capacity_Fill_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_LeftCap_Image",
+          "file": "art/light/Settings_About_Capacity_LeftCap_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_OtherLegend_Image",
+          "file": "art/light/Settings_About_Capacity_OtherLegend_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_PhotosLegend_Image",
+          "file": "art/light/Settings_About_Capacity_PhotosLegend_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_RightCap_Image",
+          "file": "art/light/Settings_About_Capacity_RightCap_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_VideoLegend_Image",
+          "file": "art/light/Settings_About_Capacity_VideoLegend_Image.png"
+        },
+        {
+          "name": "Settings_About_Logo_Image",
+          "file": "art/tint/Settings_About_Logo_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_AppleLogoPreview_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_AppleLogo_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Audiobooks_Image",
+          "file": "art/mask/Settings_Audiobooks_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_10s_Image",
+          "file": "art/mask/Settings_Backlight_10s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_20s_Image",
+          "file": "art/mask/Settings_Backlight_20s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_2s_Image",
+          "file": "art/mask/Settings_Backlight_2s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_30s_Image",
+          "file": "art/mask/Settings_Backlight_30s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_5s_Image",
+          "file": "art/mask/Settings_Backlight_5s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_Image",
+          "file": "art/mask/Settings_Backlight_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_off_Image",
+          "file": "art/mask/Settings_Backlight_off_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_on_Image",
+          "file": "art/mask/Settings_Backlight_on_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_BasePanelWide_Image",
+          "file": "art/light/Settings_BasePanelWide_Image.png"
+        },
+        {
+          "name": "Settings_BasePanel_Image",
+          "file": "art/light/Settings_BasePanel_Image.png"
+        },
+        {
+          "name": "Settings_Brightness_Image",
+          "file": "art/mask/Settings_Brightness_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_ClickerOff_Image",
+          "file": "art/mask/Settings_ClickerOff_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_ClickerOn_Image",
+          "file": "art/mask/Settings_ClickerOn_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_DateTime_Calendar_Image",
+          "file": "art/light/Settings_DateTime_Calendar_Image.png"
+        },
+        {
+          "name": "Settings_DateTime_Capsule_Hilite",
+          "file": "art/tint/Settings_DateTime_Capsule_Hilite.png",
+          "tint": "selection"
+        },
+        {
+          "name": "Settings_DateTime_Capsule_Image",
+          "file": "art/light/Settings_DateTime_Capsule_Image.png"
+        },
+        {
+          "name": "Settings_DateTime_TimeZonePin_Image",
+          "file": "art/light/Settings_DateTime_TimeZonePin_Image.png"
+        },
+        {
+          "name": "Settings_EQ_Acoustic_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_BassBooster_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_BassReducer_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Classical_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Dance_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Deep_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Electronic_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Flat_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_HipHop_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Jazz_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Latin_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Loudness_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Lounge_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Piano_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Pop_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_RandB_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Rock_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_SmallSpeakers_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_SpokenWord_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_TrebleBooster_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_TrebleReducer_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_VocalBooster_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Language_Image",
+          "file": "art/tint/Settings_Language_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Settings_Legal_Image",
+          "file": "art/tint/Settings_Legal_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_MainMenu_CheckmarkBlack_Image",
+          "file": "art/tint/Settings_MainMenu_CheckmarkBlack_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_MainMenu_CheckmarkWhite_Image",
+          "file": "art/tint/Settings_MainMenu_CheckmarkWhite_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Settings_MainMenu_Image",
+          "file": "art/mask/Settings_MainMenu_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Radio_Image",
+          "file": "art/mask/Settings_Radio_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_RepeatAll_Image",
+          "file": "art/mask/Settings_RepeatAll_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_RepeatOff_Image",
+          "file": "art/mask/Settings_RepeatOff_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_RepeatOne_Image",
+          "file": "art/mask/Settings_RepeatOne_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Reset_Image",
+          "file": "art/mask/Settings_Reset_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_ShuffleOff_Image",
+          "file": "art/mask/Settings_ShuffleOff_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_ShuffleSongs_Image",
+          "file": "art/mask/Settings_ShuffleSongs_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_SortBy_Image",
+          "file": "art/mask/Settings_SortBy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_SoundCheckOff_Image",
+          "file": "art/mask/Settings_SoundCheckOff_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_SoundCheckOn_Image",
+          "file": "art/mask/Settings_SoundCheckOn_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_VolumeLimitArrow_Image",
+          "file": "art/tint/Settings_VolumeLimitArrow_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Settings_VolumeLimit_Image",
+          "file": "art/mask/Settings_VolumeLimit_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Speakers_Icon_Image",
+          "file": "art/tint/Speakers_Icon_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "StatusBarBlack_Background_Image",
+          "file": "art/light/StatusBarBlack_Background_Image.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_0",
+          "file": "art/light/StatusBarBlack_Battery_Image_0.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_1",
+          "file": "art/light/StatusBarBlack_Battery_Image_1.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_10",
+          "file": "art/tint/StatusBarBlack_Battery_Image_10.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_11",
+          "file": "art/tint/StatusBarBlack_Battery_Image_11.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_12",
+          "file": "art/tint/StatusBarBlack_Battery_Image_12.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_13",
+          "file": "art/tint/StatusBarBlack_Battery_Image_13.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_14",
+          "file": "art/tint/StatusBarBlack_Battery_Image_14.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_15",
+          "file": "art/tint/StatusBarBlack_Battery_Image_15.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_16",
+          "file": "art/tint/StatusBarBlack_Battery_Image_16.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_17",
+          "file": "art/tint/StatusBarBlack_Battery_Image_17.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_18",
+          "file": "art/tint/StatusBarBlack_Battery_Image_18.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_19",
+          "file": "art/tint/StatusBarBlack_Battery_Image_19.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_2",
+          "file": "art/light/StatusBarBlack_Battery_Image_2.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_20",
+          "file": "art/tint/StatusBarBlack_Battery_Image_20.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_21",
+          "file": "art/tint/StatusBarBlack_Battery_Image_21.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_22",
+          "file": "art/tint/StatusBarBlack_Battery_Image_22.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_3",
+          "file": "art/tint/StatusBarBlack_Battery_Image_3.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_4",
+          "file": "art/tint/StatusBarBlack_Battery_Image_4.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_5",
+          "file": "art/tint/StatusBarBlack_Battery_Image_5.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_6",
+          "file": "art/tint/StatusBarBlack_Battery_Image_6.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_7",
+          "file": "art/tint/StatusBarBlack_Battery_Image_7.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_8",
+          "file": "art/tint/StatusBarBlack_Battery_Image_8.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_9",
+          "file": "art/tint/StatusBarBlack_Battery_Image_9.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_Charge",
+          "file": "art/light/StatusBarBlack_Battery_Image_Charge.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_Plug",
+          "file": "art/light/StatusBarBlack_Battery_Image_Plug.png"
+        },
+        {
+          "name": "StatusBarBlack_Lock_Image",
+          "file": "art/tint/StatusBarBlack_Lock_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Background_Image",
+          "file": "art/tint/StatusBarWhite_Background_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_0",
+          "file": "art/light/StatusBarWhite_Battery_Image_0.png"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_1",
+          "file": "art/light/StatusBarWhite_Battery_Image_1.png"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_10",
+          "file": "art/tint/StatusBarWhite_Battery_Image_10.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_11",
+          "file": "art/tint/StatusBarWhite_Battery_Image_11.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_12",
+          "file": "art/tint/StatusBarWhite_Battery_Image_12.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_13",
+          "file": "art/tint/StatusBarWhite_Battery_Image_13.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_14",
+          "file": "art/tint/StatusBarWhite_Battery_Image_14.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_15",
+          "file": "art/tint/StatusBarWhite_Battery_Image_15.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_16",
+          "file": "art/tint/StatusBarWhite_Battery_Image_16.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_17",
+          "file": "art/tint/StatusBarWhite_Battery_Image_17.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_18",
+          "file": "art/tint/StatusBarWhite_Battery_Image_18.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_19",
+          "file": "art/tint/StatusBarWhite_Battery_Image_19.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_2",
+          "file": "art/light/StatusBarWhite_Battery_Image_2.png"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_20",
+          "file": "art/tint/StatusBarWhite_Battery_Image_20.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_21",
+          "file": "art/tint/StatusBarWhite_Battery_Image_21.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_22",
+          "file": "art/tint/StatusBarWhite_Battery_Image_22.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_3",
+          "file": "art/tint/StatusBarWhite_Battery_Image_3.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_4",
+          "file": "art/tint/StatusBarWhite_Battery_Image_4.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_5",
+          "file": "art/tint/StatusBarWhite_Battery_Image_5.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_6",
+          "file": "art/tint/StatusBarWhite_Battery_Image_6.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_7",
+          "file": "art/tint/StatusBarWhite_Battery_Image_7.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_8",
+          "file": "art/tint/StatusBarWhite_Battery_Image_8.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_9",
+          "file": "art/tint/StatusBarWhite_Battery_Image_9.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_Charge",
+          "file": "art/light/StatusBarWhite_Battery_Image_Charge.png"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_Plug",
+          "file": "art/light/StatusBarWhite_Battery_Image_Plug.png"
+        },
+        {
+          "name": "StatusBarWhite_Lock_Image",
+          "file": "art/tint/StatusBarWhite_Lock_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_PlayStatus_Image",
+          "file": "art/tint/StatusBarWhite_PlayStatus_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Stopwatch_Caps_Image",
+          "file": "art/light/Stopwatch_Caps_Image.png"
+        },
+        {
+          "name": "Stopwatch_Clock_Image",
+          "file": "art/light/Stopwatch_Clock_Image.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_0",
+          "file": "art/mask/Stopwatch_Mins_Image_0.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_1",
+          "file": "art/mask/Stopwatch_Mins_Image_1.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_10",
+          "file": "art/mask/Stopwatch_Mins_Image_10.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_11",
+          "file": "art/mask/Stopwatch_Mins_Image_11.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_12",
+          "file": "art/mask/Stopwatch_Mins_Image_12.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_13",
+          "file": "art/mask/Stopwatch_Mins_Image_13.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_14",
+          "file": "art/mask/Stopwatch_Mins_Image_14.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_15",
+          "file": "art/mask/Stopwatch_Mins_Image_15.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_16",
+          "file": "art/mask/Stopwatch_Mins_Image_16.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_17",
+          "file": "art/mask/Stopwatch_Mins_Image_17.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_18",
+          "file": "art/mask/Stopwatch_Mins_Image_18.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_19",
+          "file": "art/mask/Stopwatch_Mins_Image_19.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_2",
+          "file": "art/mask/Stopwatch_Mins_Image_2.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_20",
+          "file": "art/mask/Stopwatch_Mins_Image_20.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_21",
+          "file": "art/mask/Stopwatch_Mins_Image_21.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_22",
+          "file": "art/mask/Stopwatch_Mins_Image_22.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_23",
+          "file": "art/mask/Stopwatch_Mins_Image_23.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_24",
+          "file": "art/mask/Stopwatch_Mins_Image_24.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_25",
+          "file": "art/mask/Stopwatch_Mins_Image_25.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_26",
+          "file": "art/mask/Stopwatch_Mins_Image_26.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_27",
+          "file": "art/mask/Stopwatch_Mins_Image_27.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_28",
+          "file": "art/mask/Stopwatch_Mins_Image_28.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_29",
+          "file": "art/mask/Stopwatch_Mins_Image_29.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_3",
+          "file": "art/mask/Stopwatch_Mins_Image_3.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_4",
+          "file": "art/mask/Stopwatch_Mins_Image_4.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_5",
+          "file": "art/mask/Stopwatch_Mins_Image_5.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_6",
+          "file": "art/mask/Stopwatch_Mins_Image_6.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_7",
+          "file": "art/mask/Stopwatch_Mins_Image_7.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_8",
+          "file": "art/mask/Stopwatch_Mins_Image_8.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_9",
+          "file": "art/mask/Stopwatch_Mins_Image_9.png"
+        },
+        {
+          "name": "Stopwatch_PlayPause_Image",
+          "file": "art/light/Stopwatch_PlayPause_Image.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_0",
+          "file": "art/mask/Stopwatch_Secs_Image_0.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_1",
+          "file": "art/mask/Stopwatch_Secs_Image_1.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_10",
+          "file": "art/mask/Stopwatch_Secs_Image_10.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_11",
+          "file": "art/mask/Stopwatch_Secs_Image_11.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_12",
+          "file": "art/mask/Stopwatch_Secs_Image_12.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_13",
+          "file": "art/mask/Stopwatch_Secs_Image_13.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_14",
+          "file": "art/mask/Stopwatch_Secs_Image_14.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_15",
+          "file": "art/mask/Stopwatch_Secs_Image_15.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_16",
+          "file": "art/mask/Stopwatch_Secs_Image_16.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_17",
+          "file": "art/mask/Stopwatch_Secs_Image_17.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_18",
+          "file": "art/mask/Stopwatch_Secs_Image_18.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_19",
+          "file": "art/mask/Stopwatch_Secs_Image_19.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_2",
+          "file": "art/mask/Stopwatch_Secs_Image_2.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_20",
+          "file": "art/mask/Stopwatch_Secs_Image_20.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_21",
+          "file": "art/mask/Stopwatch_Secs_Image_21.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_22",
+          "file": "art/mask/Stopwatch_Secs_Image_22.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_23",
+          "file": "art/mask/Stopwatch_Secs_Image_23.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_24",
+          "file": "art/mask/Stopwatch_Secs_Image_24.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_25",
+          "file": "art/mask/Stopwatch_Secs_Image_25.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_26",
+          "file": "art/mask/Stopwatch_Secs_Image_26.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_27",
+          "file": "art/mask/Stopwatch_Secs_Image_27.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_28",
+          "file": "art/mask/Stopwatch_Secs_Image_28.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_29",
+          "file": "art/mask/Stopwatch_Secs_Image_29.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_3",
+          "file": "art/mask/Stopwatch_Secs_Image_3.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_4",
+          "file": "art/mask/Stopwatch_Secs_Image_4.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_5",
+          "file": "art/mask/Stopwatch_Secs_Image_5.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_6",
+          "file": "art/mask/Stopwatch_Secs_Image_6.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_7",
+          "file": "art/mask/Stopwatch_Secs_Image_7.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_8",
+          "file": "art/mask/Stopwatch_Secs_Image_8.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_9",
+          "file": "art/mask/Stopwatch_Secs_Image_9.png"
+        },
+        {
+          "name": "Stopwatch_SmallPause_Image",
+          "file": "art/tint/Stopwatch_SmallPause_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Stopwatch_SmallPlay_Image",
+          "file": "art/tint/Stopwatch_SmallPlay_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_ActiveButtonFill_Image",
+          "file": "art/tint/System_ActiveButtonFill_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "System_ActiveButtonLeftCap_Image",
+          "file": "art/tint/System_ActiveButtonLeftCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "System_ActiveButtonRightCap_Image",
+          "file": "art/tint/System_ActiveButtonRightCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "System_Input_Field_Left_Image",
+          "file": "art/light/System_Input_Field_Left_Image.png"
+        },
+        {
+          "name": "System_Input_Field_Middle_Image",
+          "file": "art/light/System_Input_Field_Middle_Image.png"
+        },
+        {
+          "name": "System_Input_Field_Right_Image",
+          "file": "art/light/System_Input_Field_Right_Image.png"
+        },
+        {
+          "name": "System_NormalButtonFill_Image",
+          "file": "art/light/System_NormalButtonFill_Image.png"
+        },
+        {
+          "name": "System_NormalButtonLeftCap_Image",
+          "file": "art/light/System_NormalButtonLeftCap_Image.png"
+        },
+        {
+          "name": "System_NormalButtonRightCap_Image",
+          "file": "art/light/System_NormalButtonRightCap_Image.png"
+        },
+        {
+          "name": "System_Overlay_BrightnessLess_Image",
+          "file": "art/tint/System_Overlay_BrightnessLess_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_Overlay_BrightnessMore_Image",
+          "file": "art/tint/System_Overlay_BrightnessMore_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_Overlay_Left_Image",
+          "file": "art/light/System_Overlay_Left_Image.png"
+        },
+        {
+          "name": "System_Overlay_Middle_Image",
+          "file": "art/light/System_Overlay_Middle_Image.png"
+        },
+        {
+          "name": "System_Overlay_Right_Image",
+          "file": "art/light/System_Overlay_Right_Image.png"
+        },
+        {
+          "name": "System_Overlay_VolumeLeft_Image",
+          "file": "art/tint/System_Overlay_VolumeLeft_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_Overlay_VolumeRight_Image",
+          "file": "art/tint/System_Overlay_VolumeRight_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_QuickScroll_123_Image",
+          "file": "art/mask/System_QuickScroll_123_Image.png"
+        },
+        {
+          "name": "System_QuickScroll_Image",
+          "file": "art/light/System_QuickScroll_Image.png"
+        },
+        {
+          "name": "System_ScrollbarBottom_Image",
+          "file": "art/light/System_ScrollbarBottom_Image.png"
+        },
+        {
+          "name": "System_ScrollbarCenter_Image",
+          "file": "art/light/System_ScrollbarCenter_Image.png"
+        },
+        {
+          "name": "System_ScrollbarTop_Image",
+          "file": "art/light/System_ScrollbarTop_Image.png"
+        },
+        {
+          "name": "System_Submenu_Image",
+          "file": "art/tint/System_Submenu_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "WorldClock_Graybar_Image",
+          "file": "art/light/WorldClock_Graybar_Image.png"
+        },
+        {
+          "name": "WorldClock_Map_Image",
+          "file": "art/tint/WorldClock_Map_Image.png",
+          "tint": "text"
+        }
+      ]
+    },
+    "dark": {
+      "colors": {
+        "background": "#1c1c1e",
+        "text": "#ffffff",
+        "accent_fill": "#ff375f",
+        "accent_text": "#ff375f",
+        "on_accent": "#ffffff",
+        "selection": "#ff375f",
+        "cover_border": "#3a3a3c",
+        "icon_tint": "#ff375f"
+      },
+      "accents": {
+        "blue": {
+          "accent_fill": "#0a84ff",
+          "accent_text": "#0a84ff",
+          "selection": "#0a84ff",
+          "icon_tint": "#0a84ff",
+          "on_accent": "#ffffff"
+        },
+        "graphite": {
+          "accent_fill": "#98989d",
+          "accent_text": "#98989d",
+          "selection": "#98989d",
+          "icon_tint": "#98989d",
+          "on_accent": "#ffffff"
+        },
+        "green": {
+          "accent_fill": "#30d158",
+          "accent_text": "#30d158",
+          "selection": "#30d158",
+          "icon_tint": "#30d158",
+          "on_accent": "#ffffff"
+        },
+        "orange": {
+          "accent_fill": "#ff9f0a",
+          "accent_text": "#ff9f0a",
+          "selection": "#ff9f0a",
+          "icon_tint": "#ff9f0a",
+          "on_accent": "#ffffff"
+        },
+        "pink": {
+          "accent_fill": "#ff375f",
+          "accent_text": "#ff375f",
+          "selection": "#ff375f",
+          "icon_tint": "#ff375f",
+          "on_accent": "#ffffff"
+        },
+        "purple": {
+          "accent_fill": "#bf5af2",
+          "accent_text": "#bf5af2",
+          "selection": "#bf5af2",
+          "icon_tint": "#bf5af2",
+          "on_accent": "#ffffff"
+        },
+        "red": {
+          "accent_fill": "#ff453a",
+          "accent_text": "#ff453a",
+          "selection": "#ff453a",
+          "icon_tint": "#ff453a",
+          "on_accent": "#ffffff"
+        },
+        "teal": {
+          "accent_fill": "#64d2ff",
+          "accent_text": "#64d2ff",
+          "selection": "#64d2ff",
+          "icon_tint": "#64d2ff",
+          "on_accent": "#ffffff"
+        },
+        "yellow": {
+          "accent_fill": "#ffd60a",
+          "accent_text": "#ffd60a",
+          "selection": "#ffd60a",
+          "icon_tint": "#ffd60a",
+          "on_accent": "#000000"
+        }
+      },
+      "rendering": {
+        "selection": "flat",
+        "menu_covers": "off",
+        "now_playing_art": "flat"
+      },
+      "bitmaps": [
+        {
+          "name": "AddressViewer_NoContactPict_Image",
+          "file": "art/dark/AddressViewer_NoContactPict_Image.png"
+        },
+        {
+          "name": "AddressViewer_NoGroupPict_Image",
+          "file": "art/dark/AddressViewer_NoGroupPict_Image.png"
+        },
+        {
+          "name": "AddressViewer_Preview_Image",
+          "file": "art/tint/AddressViewer_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Alarms_Clock_Static_Image",
+          "file": "art/tint/Alarms_Clock_Static_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Alarms_Timer_Time_Panel",
+          "file": "art/dark/Alarms_Timer_Time_Panel.png"
+        },
+        {
+          "name": "Alarms_Timer_Time_Panel_Focus",
+          "file": "art/tint/Alarms_Timer_Time_Panel_Focus.png",
+          "tint": "selection"
+        },
+        {
+          "name": "Background_LightBlue_Image",
+          "file": "art/tint/Background_LightBlue_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "BigDaisyPetal0",
+          "file": "art/mask/BigDaisyPetal0.png"
+        },
+        {
+          "name": "BigDaisyPetal1",
+          "file": "art/mask/BigDaisyPetal1.png"
+        },
+        {
+          "name": "BigDaisyPetal2",
+          "file": "art/mask/BigDaisyPetal2.png"
+        },
+        {
+          "name": "BigDaisyPetal3",
+          "file": "art/mask/BigDaisyPetal3.png"
+        },
+        {
+          "name": "BigDaisyPetal4",
+          "file": "art/mask/BigDaisyPetal4.png"
+        },
+        {
+          "name": "BigDaisyPetal5",
+          "file": "art/mask/BigDaisyPetal5.png"
+        },
+        {
+          "name": "CFW_Accent_Icon",
+          "file": "art/mask/CFW_Accent_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_DarkMode_Moon",
+          "file": "art/mask/CFW_DarkMode_Moon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_EQ_Icon",
+          "file": "art/mask/CFW_EQ_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_Info_Icon",
+          "file": "art/mask/CFW_Info_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_MenuCovers_Icon",
+          "file": "art/mask/CFW_MenuCovers_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "CFW_Theme_Icon",
+          "file": "art/mask/CFW_Theme_Icon.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Calendar_Active_Cell",
+          "file": "art/dark/Calendar_Active_Cell.png"
+        },
+        {
+          "name": "Calendar_Alarm",
+          "file": "art/tint/Calendar_Alarm.png",
+          "tint": "text"
+        },
+        {
+          "name": "Calendar_Flag",
+          "file": "art/tint/Calendar_Flag.png",
+          "tint": "text"
+        },
+        {
+          "name": "Calendar_Hilite_Cell",
+          "file": "art/tint/Calendar_Hilite_Cell.png",
+          "tint": "selection"
+        },
+        {
+          "name": "Calendar_Inactive_Cell",
+          "file": "art/dark/Calendar_Inactive_Cell.png"
+        },
+        {
+          "name": "Calendar_Small_Alarm",
+          "file": "art/tint/Calendar_Small_Alarm.png",
+          "tint": "text"
+        },
+        {
+          "name": "CapacityView_Detailed_AudioCenter_Image",
+          "file": "art/dark/CapacityView_Detailed_AudioCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_AudioLeft_Image",
+          "file": "art/dark/CapacityView_Detailed_AudioLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_AudioRight_Image",
+          "file": "art/dark/CapacityView_Detailed_AudioRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_Edge_Image",
+          "file": "art/dark/CapacityView_Detailed_Edge_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_EmptyCenter_Image",
+          "file": "art/dark/CapacityView_Detailed_EmptyCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_EmptyLeft_Image",
+          "file": "art/dark/CapacityView_Detailed_EmptyLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_EmptyRight_Image",
+          "file": "art/dark/CapacityView_Detailed_EmptyRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_OtherCenter_Image",
+          "file": "art/dark/CapacityView_Detailed_OtherCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_OtherLeft_Image",
+          "file": "art/dark/CapacityView_Detailed_OtherLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_OtherRight_Image",
+          "file": "art/dark/CapacityView_Detailed_OtherRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_PhotosCenter_Image",
+          "file": "art/dark/CapacityView_Detailed_PhotosCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_PhotosLeft_Image",
+          "file": "art/dark/CapacityView_Detailed_PhotosLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_PhotosRight_Image",
+          "file": "art/dark/CapacityView_Detailed_PhotosRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_VideoCenter_Image",
+          "file": "art/dark/CapacityView_Detailed_VideoCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_VideoLeft_Image",
+          "file": "art/dark/CapacityView_Detailed_VideoLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Detailed_VideoRight_Image",
+          "file": "art/dark/CapacityView_Detailed_VideoRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Simple_EmptyCenter_Image",
+          "file": "art/dark/CapacityView_Simple_EmptyCenter_Image.png"
+        },
+        {
+          "name": "CapacityView_Simple_EmptyLeft_Image",
+          "file": "art/dark/CapacityView_Simple_EmptyLeft_Image.png"
+        },
+        {
+          "name": "CapacityView_Simple_EmptyRight_Image",
+          "file": "art/dark/CapacityView_Simple_EmptyRight_Image.png"
+        },
+        {
+          "name": "CapacityView_Simple_FillCenter_Image",
+          "file": "art/tint/CapacityView_Simple_FillCenter_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "CapacityView_Simple_FillLeft_Image",
+          "file": "art/tint/CapacityView_Simple_FillLeft_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "CapacityView_Simple_FillRight_Image",
+          "file": "art/tint/CapacityView_Simple_FillRight_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Caption_LeftEndcapBottom_Image",
+          "file": "art/mask/Caption_LeftEndcapBottom_Image.png"
+        },
+        {
+          "name": "Caption_LeftEndcapTop_Image",
+          "file": "art/mask/Caption_LeftEndcapTop_Image.png"
+        },
+        {
+          "name": "Caption_RightEndcapBottom_Image",
+          "file": "art/mask/Caption_RightEndcapBottom_Image.png"
+        },
+        {
+          "name": "Caption_RightEndcapTop_Image",
+          "file": "art/mask/Caption_RightEndcapTop_Image.png"
+        },
+        {
+          "name": "ChargingMode_Image_Empty_CapLeft",
+          "file": "art/dark/ChargingMode_Image_Empty_CapLeft.png"
+        },
+        {
+          "name": "ChargingMode_Image_Empty_CapRight",
+          "file": "art/dark/ChargingMode_Image_Empty_CapRight.png"
+        },
+        {
+          "name": "ChargingMode_Image_Empty_Middle",
+          "file": "art/dark/ChargingMode_Image_Empty_Middle.png"
+        },
+        {
+          "name": "ChargingMode_Image_Green_CapLeft",
+          "file": "art/dark/ChargingMode_Image_Green_CapLeft.png"
+        },
+        {
+          "name": "ChargingMode_Image_Green_CapRight",
+          "file": "art/dark/ChargingMode_Image_Green_CapRight.png"
+        },
+        {
+          "name": "ChargingMode_Image_Green_Middle",
+          "file": "art/dark/ChargingMode_Image_Green_Middle.png"
+        },
+        {
+          "name": "ChargingMode_Image_Green_Middle_Cap",
+          "file": "art/dark/ChargingMode_Image_Green_Middle_Cap.png"
+        },
+        {
+          "name": "ChargingMode_Image_ToggleCharged",
+          "file": "art/mask/ChargingMode_Image_ToggleCharged.png",
+          "tint": "text"
+        },
+        {
+          "name": "ChargingMode_Image_ToggleCharging",
+          "file": "art/mask/ChargingMode_Image_ToggleCharging.png",
+          "tint": "text"
+        },
+        {
+          "name": "Clock_CenterCap_Image",
+          "file": "art/tint/Clock_CenterCap_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Clock_Hours_Image_0",
+          "file": "art/mask/Clock_Hours_Image_0.png"
+        },
+        {
+          "name": "Clock_Hours_Image_1",
+          "file": "art/mask/Clock_Hours_Image_1.png"
+        },
+        {
+          "name": "Clock_Hours_Image_10",
+          "file": "art/mask/Clock_Hours_Image_10.png"
+        },
+        {
+          "name": "Clock_Hours_Image_11",
+          "file": "art/mask/Clock_Hours_Image_11.png"
+        },
+        {
+          "name": "Clock_Hours_Image_12",
+          "file": "art/mask/Clock_Hours_Image_12.png"
+        },
+        {
+          "name": "Clock_Hours_Image_13",
+          "file": "art/mask/Clock_Hours_Image_13.png"
+        },
+        {
+          "name": "Clock_Hours_Image_14",
+          "file": "art/mask/Clock_Hours_Image_14.png"
+        },
+        {
+          "name": "Clock_Hours_Image_15",
+          "file": "art/mask/Clock_Hours_Image_15.png"
+        },
+        {
+          "name": "Clock_Hours_Image_16",
+          "file": "art/mask/Clock_Hours_Image_16.png"
+        },
+        {
+          "name": "Clock_Hours_Image_17",
+          "file": "art/mask/Clock_Hours_Image_17.png"
+        },
+        {
+          "name": "Clock_Hours_Image_18",
+          "file": "art/mask/Clock_Hours_Image_18.png"
+        },
+        {
+          "name": "Clock_Hours_Image_19",
+          "file": "art/mask/Clock_Hours_Image_19.png"
+        },
+        {
+          "name": "Clock_Hours_Image_2",
+          "file": "art/mask/Clock_Hours_Image_2.png"
+        },
+        {
+          "name": "Clock_Hours_Image_20",
+          "file": "art/mask/Clock_Hours_Image_20.png"
+        },
+        {
+          "name": "Clock_Hours_Image_21",
+          "file": "art/mask/Clock_Hours_Image_21.png"
+        },
+        {
+          "name": "Clock_Hours_Image_22",
+          "file": "art/mask/Clock_Hours_Image_22.png"
+        },
+        {
+          "name": "Clock_Hours_Image_23",
+          "file": "art/mask/Clock_Hours_Image_23.png"
+        },
+        {
+          "name": "Clock_Hours_Image_24",
+          "file": "art/mask/Clock_Hours_Image_24.png"
+        },
+        {
+          "name": "Clock_Hours_Image_25",
+          "file": "art/mask/Clock_Hours_Image_25.png"
+        },
+        {
+          "name": "Clock_Hours_Image_26",
+          "file": "art/mask/Clock_Hours_Image_26.png"
+        },
+        {
+          "name": "Clock_Hours_Image_27",
+          "file": "art/mask/Clock_Hours_Image_27.png"
+        },
+        {
+          "name": "Clock_Hours_Image_28",
+          "file": "art/mask/Clock_Hours_Image_28.png"
+        },
+        {
+          "name": "Clock_Hours_Image_29",
+          "file": "art/mask/Clock_Hours_Image_29.png"
+        },
+        {
+          "name": "Clock_Hours_Image_3",
+          "file": "art/mask/Clock_Hours_Image_3.png"
+        },
+        {
+          "name": "Clock_Hours_Image_4",
+          "file": "art/mask/Clock_Hours_Image_4.png"
+        },
+        {
+          "name": "Clock_Hours_Image_5",
+          "file": "art/mask/Clock_Hours_Image_5.png"
+        },
+        {
+          "name": "Clock_Hours_Image_6",
+          "file": "art/mask/Clock_Hours_Image_6.png"
+        },
+        {
+          "name": "Clock_Hours_Image_7",
+          "file": "art/mask/Clock_Hours_Image_7.png"
+        },
+        {
+          "name": "Clock_Hours_Image_8",
+          "file": "art/mask/Clock_Hours_Image_8.png"
+        },
+        {
+          "name": "Clock_Hours_Image_9",
+          "file": "art/mask/Clock_Hours_Image_9.png"
+        },
+        {
+          "name": "Clock_Large_Image",
+          "file": "art/dark/Clock_Large_Image.png"
+        },
+        {
+          "name": "Clock_Mins_Image_0",
+          "file": "art/mask/Clock_Mins_Image_0.png"
+        },
+        {
+          "name": "Clock_Mins_Image_1",
+          "file": "art/mask/Clock_Mins_Image_1.png"
+        },
+        {
+          "name": "Clock_Mins_Image_10",
+          "file": "art/mask/Clock_Mins_Image_10.png"
+        },
+        {
+          "name": "Clock_Mins_Image_11",
+          "file": "art/mask/Clock_Mins_Image_11.png"
+        },
+        {
+          "name": "Clock_Mins_Image_12",
+          "file": "art/mask/Clock_Mins_Image_12.png"
+        },
+        {
+          "name": "Clock_Mins_Image_13",
+          "file": "art/mask/Clock_Mins_Image_13.png"
+        },
+        {
+          "name": "Clock_Mins_Image_14",
+          "file": "art/mask/Clock_Mins_Image_14.png"
+        },
+        {
+          "name": "Clock_Mins_Image_15",
+          "file": "art/mask/Clock_Mins_Image_15.png"
+        },
+        {
+          "name": "Clock_Mins_Image_2",
+          "file": "art/mask/Clock_Mins_Image_2.png"
+        },
+        {
+          "name": "Clock_Mins_Image_3",
+          "file": "art/mask/Clock_Mins_Image_3.png"
+        },
+        {
+          "name": "Clock_Mins_Image_4",
+          "file": "art/mask/Clock_Mins_Image_4.png"
+        },
+        {
+          "name": "Clock_Mins_Image_5",
+          "file": "art/mask/Clock_Mins_Image_5.png"
+        },
+        {
+          "name": "Clock_Mins_Image_6",
+          "file": "art/mask/Clock_Mins_Image_6.png"
+        },
+        {
+          "name": "Clock_Mins_Image_7",
+          "file": "art/mask/Clock_Mins_Image_7.png"
+        },
+        {
+          "name": "Clock_Mins_Image_8",
+          "file": "art/mask/Clock_Mins_Image_8.png"
+        },
+        {
+          "name": "Clock_Mins_Image_9",
+          "file": "art/mask/Clock_Mins_Image_9.png"
+        },
+        {
+          "name": "Clock_Secs_Image_0",
+          "file": "art/mask/Clock_Secs_Image_0.png"
+        },
+        {
+          "name": "Clock_Secs_Image_1",
+          "file": "art/mask/Clock_Secs_Image_1.png"
+        },
+        {
+          "name": "Clock_Secs_Image_10",
+          "file": "art/mask/Clock_Secs_Image_10.png"
+        },
+        {
+          "name": "Clock_Secs_Image_11",
+          "file": "art/mask/Clock_Secs_Image_11.png"
+        },
+        {
+          "name": "Clock_Secs_Image_12",
+          "file": "art/mask/Clock_Secs_Image_12.png"
+        },
+        {
+          "name": "Clock_Secs_Image_13",
+          "file": "art/mask/Clock_Secs_Image_13.png"
+        },
+        {
+          "name": "Clock_Secs_Image_14",
+          "file": "art/mask/Clock_Secs_Image_14.png"
+        },
+        {
+          "name": "Clock_Secs_Image_15",
+          "file": "art/mask/Clock_Secs_Image_15.png"
+        },
+        {
+          "name": "Clock_Secs_Image_2",
+          "file": "art/mask/Clock_Secs_Image_2.png"
+        },
+        {
+          "name": "Clock_Secs_Image_3",
+          "file": "art/mask/Clock_Secs_Image_3.png"
+        },
+        {
+          "name": "Clock_Secs_Image_4",
+          "file": "art/mask/Clock_Secs_Image_4.png"
+        },
+        {
+          "name": "Clock_Secs_Image_5",
+          "file": "art/mask/Clock_Secs_Image_5.png"
+        },
+        {
+          "name": "Clock_Secs_Image_6",
+          "file": "art/mask/Clock_Secs_Image_6.png"
+        },
+        {
+          "name": "Clock_Secs_Image_7",
+          "file": "art/mask/Clock_Secs_Image_7.png"
+        },
+        {
+          "name": "Clock_Secs_Image_8",
+          "file": "art/mask/Clock_Secs_Image_8.png"
+        },
+        {
+          "name": "Clock_Secs_Image_9",
+          "file": "art/mask/Clock_Secs_Image_9.png"
+        },
+        {
+          "name": "Clock_Shadow_Image",
+          "file": "art/dark/Clock_Shadow_Image.png"
+        },
+        {
+          "name": "Clock_Small_Image",
+          "file": "art/dark/Clock_Small_Image.png"
+        },
+        {
+          "name": "Clock_Small_Night_Image",
+          "file": "art/dark/Clock_Small_Night_Image.png"
+        },
+        {
+          "name": "CoverFlow_Backside_Top_Image",
+          "file": "art/dark/CoverFlow_Backside_Top_Image.png"
+        },
+        {
+          "name": "CoverFlow_Proxy_Image",
+          "file": "art/dark/CoverFlow_Proxy_Image.png"
+        },
+        {
+          "name": "CoverFlow_Proxy_Image_iTunesU",
+          "file": "art/dark/CoverFlow_Proxy_Image_iTunesU.png"
+        },
+        {
+          "name": "DateTimePicker_Bar",
+          "file": "art/dark/DateTimePicker_Bar.png"
+        },
+        {
+          "name": "DateTimePicker_Selection",
+          "file": "art/tint/DateTimePicker_Selection.png",
+          "tint": "selection"
+        },
+        {
+          "name": "DateTimePicker_Well",
+          "file": "art/dark/DateTimePicker_Well.png"
+        },
+        {
+          "name": "Extras_Games_Preview_Image",
+          "file": "art/tint/Extras_Games_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Games_Proxy_Image",
+          "file": "art/tint/Games_Proxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "GeniusMixes_Background_Image",
+          "file": "art/dark/GeniusMixes_Background_Image.png"
+        },
+        {
+          "name": "Genius_Slider_Endcap_Image",
+          "file": "art/tint/Genius_Slider_Endcap_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Genius_Slider_Fill_Image",
+          "file": "art/tint/Genius_Slider_Fill_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Genius_Slider_Icon_Image",
+          "file": "art/tint/Genius_Slider_Icon_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Genius_Slider_Image",
+          "file": "art/dark/Genius_Slider_Image.png"
+        },
+        {
+          "name": "LockScreen_Padlock_Image",
+          "file": "art/tint/LockScreen_Padlock_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "LockScreen_TumblerBgnd_Image",
+          "file": "art/dark/LockScreen_TumblerBgnd_Image.png"
+        },
+        {
+          "name": "LockScreen_TumblerFocus_Image",
+          "file": "art/tint/LockScreen_TumblerFocus_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "Lozenge_Left_White_Image",
+          "file": "art/dark/Lozenge_Left_White_Image.png"
+        },
+        {
+          "name": "Lozenge_Middle_White_Image",
+          "file": "art/dark/Lozenge_Middle_White_Image.png"
+        },
+        {
+          "name": "Lozenge_Right_White_Image",
+          "file": "art/dark/Lozenge_Right_White_Image.png"
+        },
+        {
+          "name": "MainMenu_Backlight_Image",
+          "file": "art/mask/MainMenu_Backlight_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "MainMenu_Shuffle_Image",
+          "file": "art/mask/MainMenu_Shuffle_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "MainMenu_Sleep_Image",
+          "file": "art/mask/MainMenu_Sleep_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_AlbumsProxy_Image",
+          "file": "art/tint/Media_AlbumsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_AllAlbumsProxy_Image",
+          "file": "art/tint/Media_AllAlbumsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_ArtistsProxy_Image",
+          "file": "art/tint/Media_ArtistsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_AudioBooksProxy_Image",
+          "file": "art/tint/Media_AudioBooksProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_AudioProxy_Image",
+          "file": "art/tint/Media_AudioProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_DocumentsProxy_Image",
+          "file": "art/tint/Media_DocumentsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_Genius_Large_Image",
+          "file": "art/tint/Media_Genius_Large_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_Genius_Normal_Image",
+          "file": "art/tint/Media_Genius_Normal_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Media_Genius_Refresh_Hi_Image",
+          "file": "art/tint/Media_Genius_Refresh_Hi_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_Genius_Refresh_Image",
+          "file": "art/tint/Media_Genius_Refresh_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Media_Genius_Selected_Image",
+          "file": "art/tint/Media_Genius_Selected_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_MusicVideosProxy_Image",
+          "file": "art/tint/Media_MusicVideosProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_NowPlayingIcon_Black_Image",
+          "file": "art/tint/Media_NowPlayingIcon_Black_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_NowPlayingIcon_Playlist_Black_Image",
+          "file": "art/tint/Media_NowPlayingIcon_Playlist_Black_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_NowPlayingIcon_Playlist_White_Image",
+          "file": "art/tint/Media_NowPlayingIcon_Playlist_White_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_NowPlayingIcon_White_Image",
+          "file": "art/tint/Media_NowPlayingIcon_White_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_OTGPlaylist_Image",
+          "file": "art/tint/Media_OTGPlaylist_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_PhotosProxy_Image",
+          "file": "art/tint/Media_PhotosProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_PlaylistsProxy_Image",
+          "file": "art/tint/Media_PlaylistsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_PodcastsProxy_Image",
+          "file": "art/tint/Media_PodcastsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_SearchProxy_Image",
+          "file": "art/tint/Media_SearchProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_TVShowsProxy_Image",
+          "file": "art/tint/Media_TVShowsProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Media_VideoStatusIcon_Image",
+          "file": "art/dark/Media_VideoStatusIcon_Image.png"
+        },
+        {
+          "name": "Media_VideoStatusIcon_White_Image",
+          "file": "art/tint/Media_VideoStatusIcon_White_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Media_VideosProxy_Image",
+          "file": "art/tint/Media_VideosProxy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Albums_Small_Image",
+          "file": "art/dark/No_Content_Albums_Small_Image.png"
+        },
+        {
+          "name": "No_Content_AudioBooks_Small_Image",
+          "file": "art/dark/No_Content_AudioBooks_Small_Image.png"
+        },
+        {
+          "name": "No_Content_Audiobooks_Preview_Image",
+          "file": "art/mask/No_Content_Audiobooks_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Contacts_Preview_Image",
+          "file": "art/mask/No_Content_Contacts_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Movies_Preview_Image",
+          "file": "art/mask/No_Content_Movies_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_MusicVideos_Small_Image",
+          "file": "art/dark/No_Content_MusicVideos_Small_Image.png"
+        },
+        {
+          "name": "No_Content_Music_Preview_Image",
+          "file": "art/mask/No_Content_Music_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Music_Video_Preview_Image",
+          "file": "art/mask/No_Content_Music_Video_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Notes_Preview_Image",
+          "file": "art/mask/No_Content_Notes_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Photo_Preview_Image",
+          "file": "art/mask/No_Content_Photo_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Playlist_Preview_Image",
+          "file": "art/mask/No_Content_Playlist_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Podcast_Preview_Image",
+          "file": "art/mask/No_Content_Podcast_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_Podcasts_Small_Image",
+          "file": "art/dark/No_Content_Podcasts_Small_Image.png"
+        },
+        {
+          "name": "No_Content_TVShow_Preview_Image",
+          "file": "art/mask/No_Content_TVShow_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_TVShows_Small_Image",
+          "file": "art/dark/No_Content_TVShows_Small_Image.png"
+        },
+        {
+          "name": "No_Content_Videos_Small_Image",
+          "file": "art/dark/No_Content_Videos_Small_Image.png"
+        },
+        {
+          "name": "No_Content_iTunesU_Preview_Image",
+          "file": "art/mask/No_Content_iTunesU_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "No_Content_iTunesU_Small_Image",
+          "file": "art/dark/No_Content_iTunesU_Small_Image.png"
+        },
+        {
+          "name": "Notes_Preview_Image",
+          "file": "art/tint/Notes_Preview_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Black_FF_Image",
+          "file": "art/tint/NowPlaying_Black_FF_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Black_Pause_Image",
+          "file": "art/tint/NowPlaying_Black_Pause_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Black_Play_Image",
+          "file": "art/tint/NowPlaying_Black_Play_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Black_Record_Image",
+          "file": "art/dark/NowPlaying_Black_Record_Image.png"
+        },
+        {
+          "name": "NowPlaying_Black_Rew_Image",
+          "file": "art/tint/NowPlaying_Black_Rew_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Black_Volume_Locked_Image",
+          "file": "art/dark/NowPlaying_Black_Volume_Locked_Image.png"
+        },
+        {
+          "name": "NowPlaying_Blue_Dot_Image",
+          "file": "art/tint/NowPlaying_Blue_Dot_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_Blue_Star_Image",
+          "file": "art/tint/NowPlaying_Blue_Star_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_Chaptermark_Image",
+          "file": "art/tint/NowPlaying_Chaptermark_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "NowPlaying_Classic_Repeat_Image",
+          "file": "art/tint/NowPlaying_Classic_Repeat_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Classic_Repeat_Once_Image",
+          "file": "art/tint/NowPlaying_Classic_Repeat_Once_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Classic_Shuffle_Image",
+          "file": "art/tint/NowPlaying_Classic_Shuffle_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Dot_Image",
+          "file": "art/dark/NowPlaying_Dot_Image.png"
+        },
+        {
+          "name": "NowPlaying_Genius_Icon",
+          "file": "art/tint/NowPlaying_Genius_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_0_Image",
+          "file": "art/dark/NowPlaying_Idle_Battery_0_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_1_Image",
+          "file": "art/dark/NowPlaying_Idle_Battery_1_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_2_Image",
+          "file": "art/dark/NowPlaying_Idle_Battery_2_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_3_Image",
+          "file": "art/dark/NowPlaying_Idle_Battery_3_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_4_Image",
+          "file": "art/dark/NowPlaying_Idle_Battery_4_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_5_Image",
+          "file": "art/dark/NowPlaying_Idle_Battery_5_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_6_Image",
+          "file": "art/dark/NowPlaying_Idle_Battery_6_Image.png"
+        },
+        {
+          "name": "NowPlaying_Idle_Battery_7_Image",
+          "file": "art/dark/NowPlaying_Idle_Battery_7_Image.png"
+        },
+        {
+          "name": "NowPlaying_Large_Blue_Star_Image",
+          "file": "art/tint/NowPlaying_Large_Blue_Star_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_Large_Shuffle_Image",
+          "file": "art/tint/NowPlaying_Large_Shuffle_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "NowPlaying_Overlay_Image",
+          "file": "art/dark/NowPlaying_Overlay_Image.png"
+        },
+        {
+          "name": "NowPlaying_Paused_Image",
+          "file": "art/dark/NowPlaying_Paused_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Active_Background_Image",
+          "file": "art/dark/NowPlaying_ProgressBar_Active_Background_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Active_Fill_Image",
+          "file": "art/tint/NowPlaying_ProgressBar_Active_Fill_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Active_Fill_Orange_Image",
+          "file": "art/dark/NowPlaying_ProgressBar_Active_Fill_Orange_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Growth_Image",
+          "file": "art/dark/NowPlaying_ProgressBar_Growth_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Inactive_Background_Image",
+          "file": "art/dark/NowPlaying_ProgressBar_Inactive_Background_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Inactive_Fill_Image",
+          "file": "art/tint/NowPlaying_ProgressBar_Inactive_Fill_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_LeftEndcap_Image",
+          "file": "art/dark/NowPlaying_ProgressBar_LeftEndcap_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_RightEndcap_Image",
+          "file": "art/dark/NowPlaying_ProgressBar_RightEndcap_Image.png"
+        },
+        {
+          "name": "NowPlaying_ProgressBar_Scrub_Image",
+          "file": "art/tint/NowPlaying_ProgressBar_Scrub_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressFill_Growth_Image",
+          "file": "art/tint/NowPlaying_ProgressFill_Growth_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressFill_LeftEndcap_Image",
+          "file": "art/tint/NowPlaying_ProgressFill_LeftEndcap_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_ProgressFill_RightEndcap_Image",
+          "file": "art/tint/NowPlaying_ProgressFill_RightEndcap_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "NowPlaying_Rental_Warning_Overlay_Fill",
+          "file": "art/dark/NowPlaying_Rental_Warning_Overlay_Fill.png"
+        },
+        {
+          "name": "NowPlaying_Rental_Warning_Overlay_Left",
+          "file": "art/dark/NowPlaying_Rental_Warning_Overlay_Left.png"
+        },
+        {
+          "name": "NowPlaying_Rental_Warning_Overlay_Right",
+          "file": "art/dark/NowPlaying_Rental_Warning_Overlay_Right.png"
+        },
+        {
+          "name": "NowPlaying_Repeat_Image",
+          "file": "art/tint/NowPlaying_Repeat_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Repeat_Once_Image",
+          "file": "art/tint/NowPlaying_Repeat_Once_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Scrub_Image",
+          "file": "art/dark/NowPlaying_Scrub_Image.png"
+        },
+        {
+          "name": "NowPlaying_Shuffle_Image",
+          "file": "art/tint/NowPlaying_Shuffle_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Small_Grey_Star_Image",
+          "file": "art/dark/NowPlaying_Small_Grey_Star_Image.png"
+        },
+        {
+          "name": "NowPlaying_Small_White_Star_Image",
+          "file": "art/tint/NowPlaying_Small_White_Star_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_Star_Image",
+          "file": "art/tint/NowPlaying_Star_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_StatusBar_Image",
+          "file": "art/tint/NowPlaying_StatusBar_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "NowPlaying_White_FF_Image",
+          "file": "art/tint/NowPlaying_White_FF_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Pause_Image",
+          "file": "art/tint/NowPlaying_White_Pause_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Play_Image",
+          "file": "art/tint/NowPlaying_White_Play_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Rew_Image",
+          "file": "art/tint/NowPlaying_White_Rew_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Volume_High_Image",
+          "file": "art/tint/NowPlaying_White_Volume_High_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Volume_Locked_Image",
+          "file": "art/tint/NowPlaying_White_Volume_Locked_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "NowPlaying_White_Volume_Low_Image",
+          "file": "art/tint/NowPlaying_White_Volume_Low_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "OptionBar_Black_Thumb_Center_Image",
+          "file": "art/tint/OptionBar_Black_Thumb_Center_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_Black_Thumb_LeftCap_Image",
+          "file": "art/tint/OptionBar_Black_Thumb_LeftCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_Black_Thumb_RightCap_Image",
+          "file": "art/tint/OptionBar_Black_Thumb_RightCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_Black_Well_Center_Image",
+          "file": "art/dark/OptionBar_Black_Well_Center_Image.png"
+        },
+        {
+          "name": "OptionBar_Black_Well_LeftCap_Image",
+          "file": "art/dark/OptionBar_Black_Well_LeftCap_Image.png"
+        },
+        {
+          "name": "OptionBar_Black_Well_RightCap_Image",
+          "file": "art/dark/OptionBar_Black_Well_RightCap_Image.png"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Thumb_Center_Image",
+          "file": "art/tint/OptionBar_NowPlaying_Thumb_Center_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Thumb_LeftCap_Image",
+          "file": "art/tint/OptionBar_NowPlaying_Thumb_LeftCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Thumb_RightCap_Image",
+          "file": "art/tint/OptionBar_NowPlaying_Thumb_RightCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Well_Center_Image",
+          "file": "art/dark/OptionBar_NowPlaying_Well_Center_Image.png"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Well_LeftCap_Image",
+          "file": "art/dark/OptionBar_NowPlaying_Well_LeftCap_Image.png"
+        },
+        {
+          "name": "OptionBar_NowPlaying_Well_RightCap_Image",
+          "file": "art/dark/OptionBar_NowPlaying_Well_RightCap_Image.png"
+        },
+        {
+          "name": "OptionBar_White_Thumb_Center_Image",
+          "file": "art/tint/OptionBar_White_Thumb_Center_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_White_Thumb_LeftCap_Image",
+          "file": "art/tint/OptionBar_White_Thumb_LeftCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_White_Thumb_RightCap_Image",
+          "file": "art/tint/OptionBar_White_Thumb_RightCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "OptionBar_White_Well_Center_Image",
+          "file": "art/dark/OptionBar_White_Well_Center_Image.png"
+        },
+        {
+          "name": "OptionBar_White_Well_LeftCap_Image",
+          "file": "art/dark/OptionBar_White_Well_LeftCap_Image.png"
+        },
+        {
+          "name": "OptionBar_White_Well_RightCap_Image",
+          "file": "art/dark/OptionBar_White_Well_RightCap_Image.png"
+        },
+        {
+          "name": "Page_White_Active_Image",
+          "file": "art/tint/Page_White_Active_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Page_White_Inactive_Image",
+          "file": "art/dark/Page_White_Inactive_Image.png"
+        },
+        {
+          "name": "Photos_Slideshow_Top_Strip",
+          "file": "art/dark/Photos_Slideshow_Top_Strip.png"
+        },
+        {
+          "name": "Playlist_Folder_Icon",
+          "file": "art/tint/Playlist_Folder_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Playlist_Genius_Icon",
+          "file": "art/tint/Playlist_Genius_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Playlist_Genius_Icon_Hi",
+          "file": "art/tint/Playlist_Genius_Icon_Hi.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Playlist_Regular_Icon",
+          "file": "art/tint/Playlist_Regular_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Playlist_Saved_Genius_Icon",
+          "file": "art/tint/Playlist_Saved_Genius_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Playlist_Smart_Icon",
+          "file": "art/tint/Playlist_Smart_Icon.png",
+          "tint": "text"
+        },
+        {
+          "name": "Podcasts_new_item_Image",
+          "file": "art/tint/Podcasts_new_item_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Podcasts_new_item_video_Image",
+          "file": "art/tint/Podcasts_new_item_video_Image.png",
+          "tint": "accent_fill"
+        },
+        {
+          "name": "Podcasts_new_item_video_white_Image",
+          "file": "art/tint/Podcasts_new_item_video_white_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Podcasts_new_item_white_Image",
+          "file": "art/tint/Podcasts_new_item_white_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Podcasts_spacer_Image",
+          "file": "art/dark/Podcasts_spacer_Image.png"
+        },
+        {
+          "name": "Podcasts_video_solo_Image",
+          "file": "art/dark/Podcasts_video_solo_Image.png"
+        },
+        {
+          "name": "Podcasts_video_white_solo_Image",
+          "file": "art/tint/Podcasts_video_white_solo_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "PreviewArea_Shadow_Image",
+          "file": "art/dark/PreviewArea_Shadow_Image.png"
+        },
+        {
+          "name": "Settings_About_Band_Image",
+          "file": "art/tint/Settings_About_Band_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "Settings_About_Bubble_Deselected_Image",
+          "file": "art/dark/Settings_About_Bubble_Deselected_Image.png"
+        },
+        {
+          "name": "Settings_About_Bubble_Selected_Image",
+          "file": "art/tint/Settings_About_Bubble_Selected_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Settings_About_Capacity_AudioLegend_Image",
+          "file": "art/dark/Settings_About_Capacity_AudioLegend_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_Fill_Image",
+          "file": "art/dark/Settings_About_Capacity_Fill_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_LeftCap_Image",
+          "file": "art/dark/Settings_About_Capacity_LeftCap_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_OtherLegend_Image",
+          "file": "art/dark/Settings_About_Capacity_OtherLegend_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_PhotosLegend_Image",
+          "file": "art/dark/Settings_About_Capacity_PhotosLegend_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_RightCap_Image",
+          "file": "art/dark/Settings_About_Capacity_RightCap_Image.png"
+        },
+        {
+          "name": "Settings_About_Capacity_VideoLegend_Image",
+          "file": "art/dark/Settings_About_Capacity_VideoLegend_Image.png"
+        },
+        {
+          "name": "Settings_About_Logo_Image",
+          "file": "art/tint/Settings_About_Logo_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_AppleLogoPreview_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_AppleLogo_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Audiobooks_Image",
+          "file": "art/mask/Settings_Audiobooks_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_10s_Image",
+          "file": "art/mask/Settings_Backlight_10s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_20s_Image",
+          "file": "art/mask/Settings_Backlight_20s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_2s_Image",
+          "file": "art/mask/Settings_Backlight_2s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_30s_Image",
+          "file": "art/mask/Settings_Backlight_30s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_5s_Image",
+          "file": "art/mask/Settings_Backlight_5s_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_Image",
+          "file": "art/mask/Settings_Backlight_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_off_Image",
+          "file": "art/mask/Settings_Backlight_off_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Backlight_on_Image",
+          "file": "art/mask/Settings_Backlight_on_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_BasePanelWide_Image",
+          "file": "art/dark/Settings_BasePanelWide_Image.png"
+        },
+        {
+          "name": "Settings_BasePanel_Image",
+          "file": "art/dark/Settings_BasePanel_Image.png"
+        },
+        {
+          "name": "Settings_Brightness_Image",
+          "file": "art/mask/Settings_Brightness_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_ClickerOff_Image",
+          "file": "art/mask/Settings_ClickerOff_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_ClickerOn_Image",
+          "file": "art/mask/Settings_ClickerOn_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_DateTime_Calendar_Image",
+          "file": "art/dark/Settings_DateTime_Calendar_Image.png"
+        },
+        {
+          "name": "Settings_DateTime_Capsule_Hilite",
+          "file": "art/tint/Settings_DateTime_Capsule_Hilite.png",
+          "tint": "selection"
+        },
+        {
+          "name": "Settings_DateTime_Capsule_Image",
+          "file": "art/dark/Settings_DateTime_Capsule_Image.png"
+        },
+        {
+          "name": "Settings_DateTime_TimeZonePin_Image",
+          "file": "art/dark/Settings_DateTime_TimeZonePin_Image.png"
+        },
+        {
+          "name": "Settings_EQ_Acoustic_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_BassBooster_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_BassReducer_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Classical_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Dance_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Deep_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Electronic_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Flat_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_HipHop_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Jazz_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Latin_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Loudness_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Lounge_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Piano_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Pop_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_RandB_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_Rock_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_SmallSpeakers_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_SpokenWord_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_TrebleBooster_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_TrebleReducer_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_EQ_VocalBooster_Image",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Language_Image",
+          "file": "art/tint/Settings_Language_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Settings_Legal_Image",
+          "file": "art/tint/Settings_Legal_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_MainMenu_CheckmarkBlack_Image",
+          "file": "art/tint/Settings_MainMenu_CheckmarkBlack_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_MainMenu_CheckmarkWhite_Image",
+          "file": "art/tint/Settings_MainMenu_CheckmarkWhite_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "Settings_MainMenu_Image",
+          "file": "art/mask/Settings_MainMenu_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Radio_Image",
+          "file": "art/mask/Settings_Radio_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_RepeatAll_Image",
+          "file": "art/mask/Settings_RepeatAll_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_RepeatOff_Image",
+          "file": "art/mask/Settings_RepeatOff_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_RepeatOne_Image",
+          "file": "art/mask/Settings_RepeatOne_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_Reset_Image",
+          "file": "art/mask/Settings_Reset_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_ShuffleOff_Image",
+          "file": "art/mask/Settings_ShuffleOff_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_ShuffleSongs_Image",
+          "file": "art/mask/Settings_ShuffleSongs_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_SortBy_Image",
+          "file": "art/mask/Settings_SortBy_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_SoundCheckOff_Image",
+          "file": "art/mask/Settings_SoundCheckOff_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_SoundCheckOn_Image",
+          "file": "art/mask/Settings_SoundCheckOn_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Settings_VolumeLimitArrow_Image",
+          "file": "art/tint/Settings_VolumeLimitArrow_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Settings_VolumeLimit_Image",
+          "file": "art/mask/Settings_VolumeLimit_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "Speakers_Icon_Image",
+          "file": "art/tint/Speakers_Icon_Image.png",
+          "tint": "icon_tint"
+        },
+        {
+          "name": "StatusBarBlack_Background_Image",
+          "file": "art/dark/StatusBarBlack_Background_Image.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_0",
+          "file": "art/dark/StatusBarBlack_Battery_Image_0.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_1",
+          "file": "art/dark/StatusBarBlack_Battery_Image_1.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_10",
+          "file": "art/tint/StatusBarBlack_Battery_Image_10.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_11",
+          "file": "art/tint/StatusBarBlack_Battery_Image_11.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_12",
+          "file": "art/tint/StatusBarBlack_Battery_Image_12.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_13",
+          "file": "art/tint/StatusBarBlack_Battery_Image_13.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_14",
+          "file": "art/tint/StatusBarBlack_Battery_Image_14.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_15",
+          "file": "art/tint/StatusBarBlack_Battery_Image_15.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_16",
+          "file": "art/tint/StatusBarBlack_Battery_Image_16.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_17",
+          "file": "art/tint/StatusBarBlack_Battery_Image_17.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_18",
+          "file": "art/tint/StatusBarBlack_Battery_Image_18.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_19",
+          "file": "art/tint/StatusBarBlack_Battery_Image_19.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_2",
+          "file": "art/dark/StatusBarBlack_Battery_Image_2.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_20",
+          "file": "art/tint/StatusBarBlack_Battery_Image_20.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_21",
+          "file": "art/tint/StatusBarBlack_Battery_Image_21.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_22",
+          "file": "art/tint/StatusBarBlack_Battery_Image_22.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_3",
+          "file": "art/tint/StatusBarBlack_Battery_Image_3.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_4",
+          "file": "art/tint/StatusBarBlack_Battery_Image_4.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_5",
+          "file": "art/tint/StatusBarBlack_Battery_Image_5.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_6",
+          "file": "art/tint/StatusBarBlack_Battery_Image_6.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_7",
+          "file": "art/tint/StatusBarBlack_Battery_Image_7.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_8",
+          "file": "art/tint/StatusBarBlack_Battery_Image_8.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_9",
+          "file": "art/tint/StatusBarBlack_Battery_Image_9.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_Charge",
+          "file": "art/dark/StatusBarBlack_Battery_Image_Charge.png"
+        },
+        {
+          "name": "StatusBarBlack_Battery_Image_Plug",
+          "file": "art/dark/StatusBarBlack_Battery_Image_Plug.png"
+        },
+        {
+          "name": "StatusBarBlack_Lock_Image",
+          "file": "art/tint/StatusBarBlack_Lock_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Background_Image",
+          "file": "art/tint/StatusBarWhite_Background_Image.png",
+          "tint": "background"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_0",
+          "file": "art/dark/StatusBarWhite_Battery_Image_0.png"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_1",
+          "file": "art/dark/StatusBarWhite_Battery_Image_1.png"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_10",
+          "file": "art/tint/StatusBarWhite_Battery_Image_10.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_11",
+          "file": "art/tint/StatusBarWhite_Battery_Image_11.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_12",
+          "file": "art/tint/StatusBarWhite_Battery_Image_12.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_13",
+          "file": "art/tint/StatusBarWhite_Battery_Image_13.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_14",
+          "file": "art/tint/StatusBarWhite_Battery_Image_14.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_15",
+          "file": "art/tint/StatusBarWhite_Battery_Image_15.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_16",
+          "file": "art/tint/StatusBarWhite_Battery_Image_16.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_17",
+          "file": "art/tint/StatusBarWhite_Battery_Image_17.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_18",
+          "file": "art/tint/StatusBarWhite_Battery_Image_18.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_19",
+          "file": "art/tint/StatusBarWhite_Battery_Image_19.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_2",
+          "file": "art/dark/StatusBarWhite_Battery_Image_2.png"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_20",
+          "file": "art/tint/StatusBarWhite_Battery_Image_20.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_21",
+          "file": "art/tint/StatusBarWhite_Battery_Image_21.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_22",
+          "file": "art/tint/StatusBarWhite_Battery_Image_22.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_3",
+          "file": "art/tint/StatusBarWhite_Battery_Image_3.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_4",
+          "file": "art/tint/StatusBarWhite_Battery_Image_4.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_5",
+          "file": "art/tint/StatusBarWhite_Battery_Image_5.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_6",
+          "file": "art/tint/StatusBarWhite_Battery_Image_6.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_7",
+          "file": "art/tint/StatusBarWhite_Battery_Image_7.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_8",
+          "file": "art/tint/StatusBarWhite_Battery_Image_8.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_9",
+          "file": "art/tint/StatusBarWhite_Battery_Image_9.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_Charge",
+          "file": "art/dark/StatusBarWhite_Battery_Image_Charge.png"
+        },
+        {
+          "name": "StatusBarWhite_Battery_Image_Plug",
+          "file": "art/dark/StatusBarWhite_Battery_Image_Plug.png"
+        },
+        {
+          "name": "StatusBarWhite_Lock_Image",
+          "file": "art/tint/StatusBarWhite_Lock_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "StatusBarWhite_PlayStatus_Image",
+          "file": "art/tint/StatusBarWhite_PlayStatus_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Stopwatch_Caps_Image",
+          "file": "art/dark/Stopwatch_Caps_Image.png"
+        },
+        {
+          "name": "Stopwatch_Clock_Image",
+          "file": "art/dark/Stopwatch_Clock_Image.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_0",
+          "file": "art/mask/Stopwatch_Mins_Image_0.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_1",
+          "file": "art/mask/Stopwatch_Mins_Image_1.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_10",
+          "file": "art/mask/Stopwatch_Mins_Image_10.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_11",
+          "file": "art/mask/Stopwatch_Mins_Image_11.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_12",
+          "file": "art/mask/Stopwatch_Mins_Image_12.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_13",
+          "file": "art/mask/Stopwatch_Mins_Image_13.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_14",
+          "file": "art/mask/Stopwatch_Mins_Image_14.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_15",
+          "file": "art/mask/Stopwatch_Mins_Image_15.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_16",
+          "file": "art/mask/Stopwatch_Mins_Image_16.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_17",
+          "file": "art/mask/Stopwatch_Mins_Image_17.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_18",
+          "file": "art/mask/Stopwatch_Mins_Image_18.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_19",
+          "file": "art/mask/Stopwatch_Mins_Image_19.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_2",
+          "file": "art/mask/Stopwatch_Mins_Image_2.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_20",
+          "file": "art/mask/Stopwatch_Mins_Image_20.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_21",
+          "file": "art/mask/Stopwatch_Mins_Image_21.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_22",
+          "file": "art/mask/Stopwatch_Mins_Image_22.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_23",
+          "file": "art/mask/Stopwatch_Mins_Image_23.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_24",
+          "file": "art/mask/Stopwatch_Mins_Image_24.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_25",
+          "file": "art/mask/Stopwatch_Mins_Image_25.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_26",
+          "file": "art/mask/Stopwatch_Mins_Image_26.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_27",
+          "file": "art/mask/Stopwatch_Mins_Image_27.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_28",
+          "file": "art/mask/Stopwatch_Mins_Image_28.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_29",
+          "file": "art/mask/Stopwatch_Mins_Image_29.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_3",
+          "file": "art/mask/Stopwatch_Mins_Image_3.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_4",
+          "file": "art/mask/Stopwatch_Mins_Image_4.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_5",
+          "file": "art/mask/Stopwatch_Mins_Image_5.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_6",
+          "file": "art/mask/Stopwatch_Mins_Image_6.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_7",
+          "file": "art/mask/Stopwatch_Mins_Image_7.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_8",
+          "file": "art/mask/Stopwatch_Mins_Image_8.png"
+        },
+        {
+          "name": "Stopwatch_Mins_Image_9",
+          "file": "art/mask/Stopwatch_Mins_Image_9.png"
+        },
+        {
+          "name": "Stopwatch_PlayPause_Image",
+          "file": "art/dark/Stopwatch_PlayPause_Image.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_0",
+          "file": "art/mask/Stopwatch_Secs_Image_0.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_1",
+          "file": "art/mask/Stopwatch_Secs_Image_1.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_10",
+          "file": "art/mask/Stopwatch_Secs_Image_10.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_11",
+          "file": "art/mask/Stopwatch_Secs_Image_11.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_12",
+          "file": "art/mask/Stopwatch_Secs_Image_12.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_13",
+          "file": "art/mask/Stopwatch_Secs_Image_13.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_14",
+          "file": "art/mask/Stopwatch_Secs_Image_14.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_15",
+          "file": "art/mask/Stopwatch_Secs_Image_15.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_16",
+          "file": "art/mask/Stopwatch_Secs_Image_16.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_17",
+          "file": "art/mask/Stopwatch_Secs_Image_17.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_18",
+          "file": "art/mask/Stopwatch_Secs_Image_18.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_19",
+          "file": "art/mask/Stopwatch_Secs_Image_19.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_2",
+          "file": "art/mask/Stopwatch_Secs_Image_2.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_20",
+          "file": "art/mask/Stopwatch_Secs_Image_20.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_21",
+          "file": "art/mask/Stopwatch_Secs_Image_21.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_22",
+          "file": "art/mask/Stopwatch_Secs_Image_22.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_23",
+          "file": "art/mask/Stopwatch_Secs_Image_23.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_24",
+          "file": "art/mask/Stopwatch_Secs_Image_24.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_25",
+          "file": "art/mask/Stopwatch_Secs_Image_25.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_26",
+          "file": "art/mask/Stopwatch_Secs_Image_26.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_27",
+          "file": "art/mask/Stopwatch_Secs_Image_27.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_28",
+          "file": "art/mask/Stopwatch_Secs_Image_28.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_29",
+          "file": "art/mask/Stopwatch_Secs_Image_29.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_3",
+          "file": "art/mask/Stopwatch_Secs_Image_3.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_4",
+          "file": "art/mask/Stopwatch_Secs_Image_4.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_5",
+          "file": "art/mask/Stopwatch_Secs_Image_5.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_6",
+          "file": "art/mask/Stopwatch_Secs_Image_6.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_7",
+          "file": "art/mask/Stopwatch_Secs_Image_7.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_8",
+          "file": "art/mask/Stopwatch_Secs_Image_8.png"
+        },
+        {
+          "name": "Stopwatch_Secs_Image_9",
+          "file": "art/mask/Stopwatch_Secs_Image_9.png"
+        },
+        {
+          "name": "Stopwatch_SmallPause_Image",
+          "file": "art/tint/Stopwatch_SmallPause_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "Stopwatch_SmallPlay_Image",
+          "file": "art/tint/Stopwatch_SmallPlay_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_ActiveButtonFill_Image",
+          "file": "art/tint/System_ActiveButtonFill_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "System_ActiveButtonLeftCap_Image",
+          "file": "art/tint/System_ActiveButtonLeftCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "System_ActiveButtonRightCap_Image",
+          "file": "art/tint/System_ActiveButtonRightCap_Image.png",
+          "tint": "selection"
+        },
+        {
+          "name": "System_Input_Field_Left_Image",
+          "file": "art/dark/System_Input_Field_Left_Image.png"
+        },
+        {
+          "name": "System_Input_Field_Middle_Image",
+          "file": "art/dark/System_Input_Field_Middle_Image.png"
+        },
+        {
+          "name": "System_Input_Field_Right_Image",
+          "file": "art/dark/System_Input_Field_Right_Image.png"
+        },
+        {
+          "name": "System_NormalButtonFill_Image",
+          "file": "art/dark/System_NormalButtonFill_Image.png"
+        },
+        {
+          "name": "System_NormalButtonLeftCap_Image",
+          "file": "art/dark/System_NormalButtonLeftCap_Image.png"
+        },
+        {
+          "name": "System_NormalButtonRightCap_Image",
+          "file": "art/dark/System_NormalButtonRightCap_Image.png"
+        },
+        {
+          "name": "System_Overlay_BrightnessLess_Image",
+          "file": "art/tint/System_Overlay_BrightnessLess_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_Overlay_BrightnessMore_Image",
+          "file": "art/tint/System_Overlay_BrightnessMore_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_Overlay_Left_Image",
+          "file": "art/dark/System_Overlay_Left_Image.png"
+        },
+        {
+          "name": "System_Overlay_Middle_Image",
+          "file": "art/dark/System_Overlay_Middle_Image.png"
+        },
+        {
+          "name": "System_Overlay_Right_Image",
+          "file": "art/dark/System_Overlay_Right_Image.png"
+        },
+        {
+          "name": "System_Overlay_VolumeLeft_Image",
+          "file": "art/tint/System_Overlay_VolumeLeft_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_Overlay_VolumeRight_Image",
+          "file": "art/tint/System_Overlay_VolumeRight_Image.png",
+          "tint": "text"
+        },
+        {
+          "name": "System_QuickScroll_123_Image",
+          "file": "art/mask/System_QuickScroll_123_Image.png"
+        },
+        {
+          "name": "System_QuickScroll_Image",
+          "file": "art/dark/System_QuickScroll_Image.png"
+        },
+        {
+          "name": "System_ScrollbarBottom_Image",
+          "file": "art/dark/System_ScrollbarBottom_Image.png"
+        },
+        {
+          "name": "System_ScrollbarCenter_Image",
+          "file": "art/dark/System_ScrollbarCenter_Image.png"
+        },
+        {
+          "name": "System_ScrollbarTop_Image",
+          "file": "art/dark/System_ScrollbarTop_Image.png"
+        },
+        {
+          "name": "System_Submenu_Image",
+          "file": "art/tint/System_Submenu_Image.png",
+          "tint": "on_accent"
+        },
+        {
+          "name": "WorldClock_Graybar_Image",
+          "file": "art/dark/WorldClock_Graybar_Image.png"
+        },
+        {
+          "name": "WorldClock_Map_Image",
+          "file": "art/tint/WorldClock_Map_Image.png",
+          "tint": "text"
+        }
+      ]
+    }
+  }
+}

@@ -136,7 +136,15 @@ annotation directory. Logs are in `.build/ghidra-*.log`; all tools expose `--hel
 - [Cupertino Icons](https://github.com/flutter/packages/tree/main/third_party/packages/cupertino_icons)
   (Framework7 Icons) by Vladimir Kharlampidi, MIT License: the Dark Mode, Menu
   Covers, Theme, Accent Color, Custom EQ and CFW Info preview glyphs in
-  `payload/assets/`. See `payload/assets/LICENSE.cupertino-icons`.
+  `payload/assets/` and the Flat theme artwork in `themes/examples/flat/art/`.
+  See `payload/assets/LICENSE.cupertino-icons` and
+  `themes/examples/flat/LICENSE.cupertino-icons`.
+- [Inter](https://github.com/rsms/inter) by The Inter Project Authors, SIL Open
+  Font License 1.1: the clock numerals and the Language preview text in the
+  Flat theme artwork. See `themes/examples/flat/LICENSE.inter`.
+- [My own iPodOS edits](https://www.reddit.com/r/IpodClassic/comments/1x2856t/my_own_ipodos_edits/)
+  by u/DrawingCompetitive76 on r/IpodClassic: the design inspiration for the
+  Flat theme.
 
 ## Support
 
