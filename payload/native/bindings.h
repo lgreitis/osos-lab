@@ -120,6 +120,24 @@
 #define OSOS_NOW_PLAYING_ACTION 0x08212dbc
 #define OSOS_PLAYER_CURRENT_ITEM_SLOT 0x0000015c
 
+/* IDENTIFY words of the boot disk, filled by the native ATA open (0x08362d18). */
+#define OSOS_ATA_IDENTIFY 0x08ae087c
+
+/* The shared block cache (pointer) and the main heap (pointer; +0 = free bytes). */
+#define OSOS_BLOCK_CACHE 0x089d380c
+#define OSOS_MAIN_HEAP 0x089d2c78
+/* Grow the block cache to at least r0 bytes. */
+#define OSOS_BLOCK_CACHE_GROW 0x080ca238
+/* Rebalance the cache's clients (called with the cache lock held). */
+#define OSOS_BLOCK_CACHE_REBALANCE 0x0817fd68
+/* Erase a node from a block list, destroying its block: (next out, list, node in). */
+#define OSOS_BLOCK_LIST_ERASE 0x083cc960
+/* eApp block manager: claim and return the blocks a game runs in. */
+#define OSOS_EAPP_BLOCKS_ACQUIRE 0x0819d870
+#define OSOS_EAPP_BLOCKS_RELEASE 0x0819d40c
+#define OSOS_MUTEX_LOCK 0x08258b34
+#define OSOS_MUTEX_UNLOCK 0x08258b38
+
 /* Shared CFW metadata retained during stock track import. */
 #define OSOS_ITUNES_IMPORT_TRACKS 0x0808a488
 #define OSOS_ITUNES_IMPORT_STRING 0x080cdee0
@@ -135,6 +153,26 @@
 
 #define OSOS_TRACKDATA_ARTIST_CACHE_OFFSET 0x00000118
 #define OSOS_TRACKDATA_DESTROY_STORAGE 0x080cfaf4
+
+/* ArtworkDB import: database load, per-image thumbnail parse, and thumbnail records. */
+#define OSOS_ARTWORK_IMPORT 0x08059000
+#define OSOS_ARTWORK_IMAGE_THUMBS 0x0808b578
+#define OSOS_ARTWORK_THUMB_DESTROY 0x0803e16c
+#define OSOS_ARTWORK_THUMB_NAME_CACHE 0x080475cc
+#define OSOS_ARTWORK_READER_DB_OFFSET 0x00000010
+#define OSOS_ARTWORK_IMAGE_THUMB_COUNT_OFFSET 0x00000022
+#define OSOS_ARTWORK_IMAGE_THUMBS_OFFSET 0x00000024
+#define OSOS_ARTWORK_IMAGE_ID_OFFSET 0x0000000c
+#define OSOS_ARTWORK_IMAGE_DBID_OFFSET 0x00000010
+#define OSOS_ARTWORK_DB_IMAGE_COUNT_OFFSET 0x00000008
+#define OSOS_ARTWORK_DB_LAST_IMAGE_OFFSET 0x00000010
+#define OSOS_ARTWORK_DB_IMAGE_POOL_OFFSET 0x0000002c
+/* Image lookups by ArtworkDB ID and by track DBID. */
+#define OSOS_ARTWORK_FIND_IMAGE 0x08045534
+#define OSOS_ARTWORK_FIND_IMAGE_BY_DBID 0x08045668
+/* Track fields: ArtworkDB image ID and DBID. */
+#define OSOS_TRACK_ARTWORK_ID_OFFSET 0x000000f0
+#define OSOS_TRACK_DBID_OFFSET 0x00000110
 
 #define OSOS_BROWSER_OWNER 0x08046ee0
 #define OSOS_BROWSER_CURRENT_LIST 0x08046e00

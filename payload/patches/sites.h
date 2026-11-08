@@ -51,7 +51,31 @@
 #define OSOS_RESOURCE_NEXT_TEMPLATE_CALL 0x081af75c
 #define OSOS_REGIONAL_VOLUME_RESULT_WORD 0x0804b188
 #define OSOS_NATIVE_HEAP_BASE 0x08b3b1b0
+/* Block-cache size after the library import: r0 = heap total, r1 = import cost. */
+#define OSOS_BLOCK_CACHE_IMPORT_COST_WORD 0x0805ddd4
+#define OSOS_BLOCK_CACHE_RESERVE_NATIVE_WORD 0x0805ddd8
+#define OSOS_BLOCK_CACHE_FLOOR_TEST_WORD 0x0805dddc
+#define OSOS_BLOCK_CACHE_FLOOR_SET_WORD 0x0805dde0
+/* Media-player read-ahead request: r0 = cache bytes - 10 MiB. */
+#define OSOS_MEDIA_PLAYER_BUFFER_MIN_TEST_WORD 0x0822c944
+#define OSOS_MEDIA_PLAYER_BUFFER_MIN_SET_WORD 0x0822c948
+/* eApp block manager message handler: acquire (0xeab0) and release (0xeab1) calls. */
+#define OSOS_EAPP_BLOCKS_ACQUIRE_CALL 0x0819d6d0
+#define OSOS_EAPP_BLOCKS_RELEASE_CALL 0x0819d6d8
 #define OSOS_ITUNES_IMPORT_TRACKS_CALL 0x08058f1c
+/* Fixed-size pool setup: slot size = (size + 15) & ~15. */
+#define OSOS_POOL_SLOT_ROUND_ADD_WORD 0x080530b4
+#define OSOS_POOL_SLOT_ROUND_MASK_WORD 0x080530b8
+/* UI task creation: stack bytes = *0x089d2eac (0x2000) << 4. */
+#define OSOS_UI_TASK_STACK_SHIFT_WORD 0x081391dc
+/* The ArtworkDB load in the boot import; photo databases load elsewhere. */
+#define OSOS_ARTWORK_IMPORT_CALL 0x0804d458
+#define OSOS_ARTWORK_IMAGE_THUMBS_CALL 0x08074f34
+#define OSOS_ARTWORK_ALBUM_IMAGE_CALL 0x08074d44
+#define OSOS_ARTWORK_TRACK_DBID_CALL 0x0804581c
+#define OSOS_ARTWORK_PLAYING_DBID_CALL 0x08046494
+/* `str r0, [r4, #0xf0]`: the track's ArtworkDB image ID in the mhit parser. */
+#define OSOS_ITUNES_TRACK_ARTWORK_ID_WORD 0x0808a868
 #define OSOS_ITUNES_ALBUM_ARTIST_SLOT 0x0808adcc
 #define OSOS_ITUNES_ALBUM_ARTIST_DISCARD_WORD 0xea0000ec
 #define OSOS_ITUNES_SORT_ARTIST_SLOT 0x0808add0

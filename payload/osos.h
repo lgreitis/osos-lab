@@ -37,6 +37,63 @@ static inline void osos_string_destroy(struct osos_string *string)
     ((fn)OSOS_STRING_DESTROY)(string);
 }
 
+/* The boot disk's ATA IDENTIFY words, read by the native ATA driver when it opens. */
+static inline const uint16_t *osos_ata_identify(void)
+{
+    return (const uint16_t *)OSOS_ATA_IDENTIFY;
+}
+
+static inline void osos_mutex_lock(void *mutex)
+{
+    ((void (*)(void *))OSOS_MUTEX_LOCK)(mutex);
+}
+
+static inline void osos_mutex_unlock(void *mutex)
+{
+    ((void (*)(void *))OSOS_MUTEX_UNLOCK)(mutex);
+}
+
+static inline uint32_t osos_heap_free_bytes(void)
+{
+    const uint32_t *heap = *(uint32_t *const *)OSOS_MAIN_HEAP;
+    return heap ? heap[0] : 0;
+}
+
+static inline void *osos_block_cache(void)
+{
+    return *(void **)OSOS_BLOCK_CACHE;
+}
+
+static inline int osos_block_cache_grow(uint32_t bytes)
+{
+    typedef int (*fn)(uint32_t);
+    return ((fn)OSOS_BLOCK_CACHE_GROW)(bytes);
+}
+
+static inline void osos_block_cache_rebalance(void *cache)
+{
+    typedef void (*fn)(void *, uint32_t);
+    ((fn)OSOS_BLOCK_CACHE_REBALANCE)(cache, 0);
+}
+
+static inline void *osos_block_list_erase(void *list, void *node)
+{
+    typedef void (*fn)(void **, void *, void **);
+    void *next;
+    ((fn)OSOS_BLOCK_LIST_ERASE)(&next, list, &node);
+    return next;
+}
+
+static inline void osos_eapp_blocks_acquire(void *manager)
+{
+    ((void (*)(void *))OSOS_EAPP_BLOCKS_ACQUIRE)(manager);
+}
+
+static inline void osos_eapp_blocks_release(void *manager)
+{
+    ((void (*)(void *))OSOS_EAPP_BLOCKS_RELEASE)(manager);
+}
+
 /* Find or insert a name in the global resource-name map and return its ID slot. */
 static inline uint32_t *osos_resource_name_slot(const struct osos_string *name)
 {
@@ -604,6 +661,46 @@ static inline int osos_import_file_position(void *file, uint64_t *position)
 {
     typedef int (*fn)(void *, uint64_t *);
     return ((fn)OSOS_IMPORT_FILE_POSITION)(file, position);
+}
+
+static inline int osos_artwork_import(void *db, uint32_t owner, const void *path,
+                                      uint32_t a3, uint32_t a4, uint32_t a5)
+{
+    typedef int (*fn)(void *, uint32_t, const void *, uint32_t, uint32_t, uint32_t);
+    return ((fn)OSOS_ARTWORK_IMPORT)(db, owner, path, a3, a4, a5);
+}
+
+static inline int osos_artwork_image_thumbs(void *reader, void *image, uint32_t count,
+                                            uint32_t flags)
+{
+    typedef int (*fn)(void *, void *, uint32_t, uint32_t);
+    return ((fn)OSOS_ARTWORK_IMAGE_THUMBS)(reader, image, count, flags);
+}
+
+static inline void osos_artwork_thumb_destroy(void *thumb)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_ARTWORK_THUMB_DESTROY)(thumb);
+}
+
+static inline void *osos_artwork_thumb_name_cache(void *thumb)
+{
+    typedef void *(*fn)(void *);
+    return ((fn)OSOS_ARTWORK_THUMB_NAME_CACHE)(thumb);
+}
+
+static inline void *osos_artwork_find_image(void *db, uint32_t id)
+{
+    typedef void *(*fn)(void *, uint32_t);
+    return ((fn)OSOS_ARTWORK_FIND_IMAGE)(db, id);
+}
+
+static inline void *osos_artwork_find_image_by_dbid(void *db, uint32_t a1,
+                                                    uint32_t dbid_low,
+                                                    uint32_t dbid_high, uint32_t sorted)
+{
+    typedef void *(*fn)(void *, uint32_t, uint32_t, uint32_t, uint32_t);
+    return ((fn)OSOS_ARTWORK_FIND_IMAGE_BY_DBID)(db, a1, dbid_low, dbid_high, sorted);
 }
 
 static inline int osos_itunes_import_tracks(void *reader)

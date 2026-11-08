@@ -68,6 +68,7 @@ class PayloadTests(unittest.TestCase):
                 "song_actions",
                 "song_info",
                 "album_artist",
+                "block_cache",
                 "album_artists_index",
                 "album_artists",
                 "ui_visibility",
@@ -79,6 +80,7 @@ class PayloadTests(unittest.TestCase):
                 "bitmap_assets",
                 "dark_mode",
                 "osos_handoff",
+                "artwork_thumbs",
             ):
                 with self.subTest(fixture=name):
                     executable = directory / name
