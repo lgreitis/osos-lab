@@ -33,5 +33,8 @@ https://github.com/freemyipod/wInd3x
 giek2000 - iPod firmware research and inspiration for RepriseOS.
 https://github.com/giek2000/ipod-classic-firmware-research
 
+u/DrawingCompetitive76 - "My own iPodOS edits" on r/IpodClassic, design inspiration for the Flat theme.
+https://www.reddit.com/r/IpodClassic/comments/1x2856t/my_own_ipodos_edits/
+
 Cupertino Icons (Framework7 Icons) by Vladimir Kharlampidi - Dark Mode, Menu Covers, Theme, Accent Color, Custom EQ and CFW Info preview glyphs. MIT License.
 https://github.com/flutter/packages/tree/main/third_party/packages/cupertino_icons
