@@ -558,6 +558,27 @@ static inline void osos_file_close(void *handle)
     ((fn)OSOS_FILE_CLOSE)(handle);
 }
 
+/* Deletes a file (or empty directory); returns 0, or -43 when it does not exist. */
+static inline int osos_file_delete(const struct osos_path *path)
+{
+    typedef int (*fn)(const struct osos_path *);
+    return ((fn)OSOS_FILE_DELETE)(path);
+}
+
+/* Writes the native Preferences file only when a native setter marked it dirty. */
+static inline void osos_preferences_flush(void *preferences)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_PREFERENCES_FLUSH)(preferences);
+}
+
+/* Takes the settings model; also resets the main and music menus. */
+static inline void osos_reset_all_settings(void *model)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_RESET_ALL_SETTINGS)(model);
+}
+
 /* Resource-screen factories receive name, screen, layout and transition. */
 typedef void *(*osos_controller_factory)(const char *, uint32_t, uint32_t, uint32_t);
 

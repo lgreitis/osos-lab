@@ -39,8 +39,9 @@ int cfw_assets_enabled(void)
     return assets_active;
 }
 
-static uint32_t disk_record, disk_size = 4;
-static int missing = 1, fail_write, writes, closes, redraws, notifications;
+static uint32_t disk_record, disk_size = 4, stored_record;
+static int missing = 1, legacy_reads, stored, migrating, store_sets, redraws,
+           notifications;
 static int controller, surface;
 
 static struct {
@@ -57,39 +58,39 @@ static unsigned char *drawing_context;
 static unsigned char bitmap[32];
 static uint32_t ordinary_view[0xa4 / 4];
 
-static int file_open(const struct osos_path *path, int mode, void **handle)
+#include "../../../payload/store.h"
+#include "../../../payload/preferences.h"
+
+uint32_t cfw_store_get(uint32_t key, void *data, uint32_t capacity)
 {
-    assert(!strcmp(path->text, "iPod_Control\\Device\\CFWDark"));
-    if (mode == 1 && missing)
-        return -1;
-    *handle = &disk_record;
-    return 0;
+    assert(key == CFW_STORE_DARK && capacity == 4);
+    if (!stored)
+        return 0;
+    memcpy(data, &stored_record, 4);
+    return 4;
 }
 
-static int file_read(void *handle, void *out, uint32_t size, uint32_t *count)
+void cfw_store_set(uint32_t key, const void *data, uint32_t size)
 {
-    assert(handle == &disk_record && size == 4);
-    memcpy(out, &disk_record, 4);
-    *count = disk_size;
-    return 0;
+    assert(key == CFW_STORE_DARK && size == 4);
+    memcpy(&stored_record, data, 4);
+    stored = 1;
+    store_sets++;
 }
 
-static int file_write(void *handle, const void *record, uint32_t size, uint32_t *count)
+int cfw_store_migrating(void)
 {
-    assert(handle == &disk_record && size == 4);
-    writes++;
-    *count = fail_write ? 0 : size;
-    if (!fail_write) {
-        memcpy(&disk_record, record, size);
-        missing = 0;
-    }
-    return 0;
+    return migrating;
 }
 
-static void file_close(void *handle)
+int cfw_preferences_read(const char *name, void *record, uint32_t size)
 {
-    assert(handle == &disk_record);
-    closes++;
+    assert(!strcmp(name, "iPod_Control\\Device\\CFWDark") && size == 4);
+    legacy_reads++;
+    if (missing)
+        return 0;
+    memcpy(record, &disk_record, 4);
+    return disk_size == 4;
 }
 
 static void *settings_model(void *value)
@@ -108,10 +109,13 @@ static void *now_playing_model(void)
     return now_playing_available ? &now_playing : NULL;
 }
 
+static int resetting;
+
 static void invalidate(void)
 {
     assert(icon_invalidations == (now_playing_available ? 3u : 0u));
-    assert(preview_invalidations == 3);
+    /* Reset All Settings has no Settings model to notify. */
+    assert(preview_invalidations == (resetting ? 0u : 3u));
     icon_invalidations = 0;
     preview_invalidations = 0;
     redraws++;
@@ -122,7 +126,7 @@ static void notify(void *value, uint32_t type, uint32_t property)
     if (value == &now_playing) {
         assert(type == OSOS_RESOURCE_DRAW);
         assert(property == 0x7f0c || property == 0x7f0d);
-        assert(cfw_dark_mode_enabled() == (disk_record == 0x314b5244));
+        assert(cfw_dark_mode_enabled() == (stored_record == 0x314b5244));
         unsigned bit = 1u << (property - 0x7f0c);
         assert(!(icon_invalidations & bit));
         icon_invalidations |= bit;
@@ -194,10 +198,6 @@ static void graphics_fill(void *context, const int32_t *rect);
 #define osos_graphics_fill_rect graphics_fill
 #define osos_ui_string resource
 #define osos_ui_bitmap resource
-#define osos_file_open file_open
-#define osos_file_read file_read
-#define osos_file_write file_write
-#define osos_file_close file_close
 #define osos_settings_model settings_model
 #define osos_settings_on_off on_off
 #define osos_model_notify notify
@@ -350,9 +350,122 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
     return 0;
 }
 
+static char boot_calls[8];
+static unsigned boot_count, native_flushes, store_flushes;
+static const char *deleted[4];
+static unsigned delete_count;
+static int native_preferences_object;
+
+static void boot_step(char step)
+{
+    assert(boot_count < sizeof(boot_calls) - 1);
+    boot_calls[boot_count++] = step;
+}
+
+void cfw_store_load(void)
+{
+    boot_step('S');
+}
+
+void cfw_eq_load_preferences(void)
+{
+    boot_step('E');
+}
+
+void cfw_ui_visibility_load_preferences(void)
+{
+    boot_step('V');
+}
+
+void cfw_store_flush(void)
+{
+    boot_step('F');
+    store_flushes++;
+}
+
+void cfw_preferences_delete(const char *name)
+{
+    assert(delete_count < 4);
+    deleted[delete_count++] = name;
+}
+
+void cfw_ui_visibility_delete_legacy(void)
+{
+    cfw_preferences_delete("menus");
+}
+
+static int reset_model;
+
+static void native_reset(void *value)
+{
+    assert(value == &reset_model);
+    boot_step('N');
+}
+
+void cfw_eq_reset_preferences(void)
+{
+    boot_step('Q');
+}
+
+static void native_flush(void *preferences)
+{
+    assert(preferences == &native_preferences_object);
+    native_flushes++;
+}
+
 #define osos_settings_action settings_action
 #define osos_settings_property settings_property
+#define osos_preferences_flush native_flush
+#define osos_reset_all_settings native_reset
 #include "../../../payload/settings.c"
+
+static void check_settings_lifecycle(void)
+{
+    boot_count = 0;
+    cfw_settings_boot(&native_preferences_object);
+    assert(!strcmp(boot_calls, "SEVF"));
+    cfw_settings_sleep();
+    assert(native_flushes == 1 && store_flushes == 2);
+    cfw_store_delete_legacy();
+    assert(delete_count == 3 && !strcmp(deleted[0], "iPod_Control\\Device\\CFWEQ") &&
+           !strcmp(deleted[1], "iPod_Control\\Device\\CFWDark") &&
+           !strcmp(deleted[2], "menus"));
+}
+
+static void check_reset_all_settings(void)
+{
+    now_playing_available = 1;
+    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
+    assert(cfw_dark_mode_enabled());
+    resetting = 1;
+    int previous_redraws = redraws, previous_notifications = notifications;
+    int previous_icons = icon_notifications;
+    boot_count = 0;
+    memset(boot_calls, 0, sizeof(boot_calls));
+    cfw_settings_reset(&reset_model);
+    assert(!strcmp(boot_calls, "NQ"));
+    assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
+    assert(redraws == previous_redraws + 1 && notifications == previous_notifications);
+    assert(icon_notifications == previous_icons + 2);
+
+    /* Already light: only the record is written. */
+    stored = 0;
+    stored_record = DARK_MODE_ON_RECORD;
+    cfw_settings_reset(&reset_model);
+    assert(stored && stored_record == DARK_MODE_OFF_RECORD);
+    assert(redraws == previous_redraws + 1);
+
+    /* Without loadable light assets, Off is still saved for the next boot. */
+    assets_active = 1;
+    stored_record = DARK_MODE_ON_RECORD;
+    assets_ready = 0;
+    cfw_settings_reset(&reset_model);
+    assert(cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
+    assert(redraws == previous_redraws + 1);
+    assets_ready = 1;
+    assets_active = 0;
+    resetting = 0;
+}
 
 static void check_clicker(void)
 {
@@ -387,7 +500,7 @@ int main(void)
         assert(value == icons[i] && !stock_properties);
     }
     cfw_dark_mode_load();
-    assert(!cfw_dark_mode_enabled() && !closes);
+    assert(!cfw_dark_mode_enabled() && !legacy_reads);
     assert(cfw_settings_property(&model, OSOS_PROPERTY_STRING, CFW_DarkMode_Value,
                                  &value));
     assert(value == 1 && !stock_properties);
@@ -399,7 +512,7 @@ int main(void)
     assert(cfw_settings_action(&controller, "CFW_EQ_Open", 0));
     assert(cfw_settings_action(&controller, "CFW_DarkMode_Toggle",
                                OSOS_ACTION_SUPPORT_QUERY));
-    assert(stock_actions == 1 && !writes && !redraws && !icon_notifications);
+    assert(stock_actions == 1 && !store_sets && !redraws && !icon_notifications);
 
     struct color_case {
         unsigned char light[4], dark[4];
@@ -448,49 +561,58 @@ int main(void)
         cfw_dark_mode_load();
         assert(cfw_dark_mode_enabled() == dark);
     }
-    assert(writes == 2 && redraws == 2 && notifications == 2);
+    assert(store_sets == 2 && redraws == 2 && notifications == 2 && !legacy_reads);
     assert(icon_notifications == 4);
     assets_ready = 0;
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(!cfw_dark_mode_enabled() && writes == 2 && redraws == 2);
-    disk_record = DARK_MODE_ON_RECORD;
+    assert(!cfw_dark_mode_enabled() && store_sets == 2 && redraws == 2);
+    stored_record = DARK_MODE_ON_RECORD;
     cfw_dark_mode_load();
     assert(!cfw_dark_mode_enabled());
     assets_ready = 1;
-    fail_write = 1;
-    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(!cfw_dark_mode_enabled() && redraws == 2 && notifications == 2);
-    assert(icon_notifications == 4 && !icon_invalidations);
-    assert(closes == 6);
+    stored_record = DARK_MODE_OFF_RECORD;
+    cfw_dark_mode_load();
+    assert(!cfw_dark_mode_enabled() && !legacy_reads);
+
+    /* Legacy CFWDark is imported only while the store migrates. */
+    stored = 0;
+    missing = 0;
+    disk_record = DARK_MODE_ON_RECORD;
+    cfw_dark_mode_load();
+    assert(!cfw_dark_mode_enabled() && !legacy_reads && !stored);
+    migrating = 1;
+    cfw_dark_mode_load();
+    assert(cfw_dark_mode_enabled() && legacy_reads == 1 && stored);
+    assert(stored_record == DARK_MODE_ON_RECORD && store_sets == 3);
+    stored_record = DARK_MODE_OFF_RECORD;
+    cfw_dark_mode_load();
+    assert(!cfw_dark_mode_enabled() && legacy_reads == 1);
+    stored = 0;
+    disk_record = 0x12345678;
+    cfw_dark_mode_load();
+    assert(!cfw_dark_mode_enabled() && !stored);
     disk_record = DARK_MODE_ON_RECORD;
     disk_size = 2;
     cfw_dark_mode_load();
-    assert(!cfw_dark_mode_enabled());
+    assert(!cfw_dark_mode_enabled() && !stored);
     disk_size = 4;
-    disk_record = 0;
-    cfw_dark_mode_load();
-    assert(!cfw_dark_mode_enabled());
-    fail_write = 0;
+    migrating = 0;
+
     now_playing_available = 0;
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
     assert(cfw_dark_mode_enabled() && redraws == 3 && notifications == 3);
-    assert(icon_notifications == 4);
-    int previous_writes = writes;
+    assert(icon_notifications == 4 && stored_record == DARK_MODE_ON_RECORD);
+    int previous_sets = store_sets;
     assets_ready = 0;
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(cfw_dark_mode_enabled() && disk_record == DARK_MODE_ON_RECORD);
-    assert(writes == previous_writes && redraws == 3 && notifications == 3);
+    assert(cfw_dark_mode_enabled() && stored_record == DARK_MODE_ON_RECORD);
+    assert(store_sets == previous_sets && redraws == 3 && notifications == 3);
     assets_ready = 1;
-    fail_write = 1;
-    int previous_cancellations = asset_cancellations;
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(cfw_dark_mode_enabled() && disk_record == DARK_MODE_ON_RECORD);
-    assert(asset_cancellations == previous_cancellations + 1);
-    assert(redraws == 3 && notifications == 3);
-    fail_write = 0;
-    assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
-    assert(!cfw_dark_mode_enabled() && disk_record == DARK_MODE_OFF_RECORD);
-    assert(redraws == 4 && notifications == 4);
+    assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
+    assert(redraws == 4 && notifications == 4 && !asset_cancellations);
     assert(!preview_invalidations);
     check_clicker();
+    check_settings_lifecycle();
+    check_reset_all_settings();
 }

@@ -5,7 +5,48 @@
 #include "dark_mode.h"
 #include "osos.h"
 #include "patch.h"
+#include "preferences.h"
 #include "resources.h"
+#include "store.h"
+
+static void *native_preferences;
+
+/* Runs after the native Preferences load; the disk is spinning at boot, so a
+ * migrated store is written now instead of waiting for sleep. */
+void cfw_settings_boot(void *preferences)
+{
+    native_preferences = preferences;
+    cfw_store_load();
+    cfw_eq_load_preferences();
+    cfw_dark_mode_load();
+    cfw_ui_visibility_load_preferences();
+    cfw_store_flush();
+}
+
+/* Apple writes its settings only around USB disk mode; both stores are also
+ * written before every light sleep, while the disk can still spin. */
+void cfw_settings_sleep(void)
+{
+    if (native_preferences)
+        osos_preferences_flush(native_preferences);
+    cfw_store_flush();
+}
+
+/* Legacy import: removes the pre-store files once the store holds their settings. */
+void cfw_store_delete_legacy(void)
+{
+    cfw_preferences_delete(CFW_EQ_LEGACY_FILE);
+    cfw_preferences_delete(CFW_DARK_MODE_LEGACY_FILE);
+    cfw_ui_visibility_delete_legacy();
+}
+
+/* Menu visibility resets through the native menu-reset hooks. */
+PATCH_ARM void cfw_settings_reset(void *model)
+{
+    osos_reset_all_settings(model);
+    cfw_eq_reset_preferences();
+    cfw_dark_mode_reset();
+}
 
 PATCH_ARM int cfw_settings_action(void *controller, const char *action,
                                   uint32_t argument)

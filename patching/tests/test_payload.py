@@ -78,6 +78,7 @@ class PayloadTests(unittest.TestCase):
                 "menu_resources",
                 "bitmap_assets",
                 "dark_mode",
+                "store",
                 "osos_handoff",
             ):
                 with self.subTest(fixture=name):
