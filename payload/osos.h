@@ -1031,6 +1031,8 @@ static inline void osos_library_model_prepare_artists(void *model)
     ((configure_fn)osos_method(model, 0x5c))(model, 0x11, 0);
 }
 
+#include "native/context_menu.h"
+
 static inline void osos_controller_push(void *controller, void *screen)
 {
     typedef void (*fn)(void *, void *);

@@ -168,10 +168,10 @@ static void metadata(struct osos_media_item *item)
     decimal(osos_media_item_skip_count(item));
 }
 
-void cfw_song_info_show(void *controller, struct osos_media_item *item)
+int cfw_song_info_show(void *controller, struct osos_media_item *item)
 {
     if (!item || !item->record || !osos_media_item_valid(item))
-        return;
+        return 0;
     body.size = 0;
     body.resource = 0;
     body.data[0] = 0;
@@ -181,5 +181,8 @@ void cfw_song_info_show(void *controller, struct osos_media_item *item)
     void *screen =
         osos_create_screen_controller(osos_controller_registry(), CFW_SongInfo_Screen,
                                       CFW_SongInfo_Layout, 2); /* foregroundpush */
+    if (!screen)
+        return 0;
     osos_controller_push(controller, screen);
+    return 1;
 }
