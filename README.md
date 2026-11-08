@@ -112,10 +112,12 @@ python3.11 tools/ghidra.py import --target firmware-2.0.5 \
 python3.11 tools/ghidra.py export --project /path/to/new-project
 ```
 
+Import and export default to the 41 programs for 2.0.5, the only tracked analysis.
 Import restores saved annotations by default; `--fresh` creates new analysis.
 Alternatively supply `--ipsw FILE --osos DECRYPTED_FILE --aupd DECRYPTED_BODY`
-for 2.0.5. Historical 2.0.1/2.0.4 analysis remains importable from preserved
-plaintext inputs using the profiles in `ghidra/profiles/`.
+for 2.0.5. Historical 2.0.1/2.0.4 programs require an explicit `--target`;
+restore their analysis from Git history or use `--fresh` with preserved plaintext
+inputs. Local historical exports are ignored by Git.
 Preparation is offline and requires supported plaintext firmware. Import verifies
 a temporary project before publishing it and requires a new destination directory.
 Save and close Ghidra before exporting. Use `--analysis DIR` for a separate
