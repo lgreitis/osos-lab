@@ -230,14 +230,26 @@ const unsigned char *cfw_theme_field_text_color(void)
     return field_text;
 }
 
-/* So are the status bar title colors. */
-static const unsigned char *bar_text;
-static unsigned bar_asked;
+/* So are the colors of labels over listed art, and of calendar labels. */
+static const unsigned char *art_text;
+static uint32_t art_view;
+static unsigned art_asked;
 
-const unsigned char *cfw_theme_status_bar_text_color(void)
+const unsigned char *cfw_theme_contrast_text_color(uint32_t view)
 {
-    bar_asked++;
-    return bar_text;
+    art_asked++;
+    art_view = view;
+    return art_text;
+}
+
+static const unsigned char *calendar_text;
+static unsigned calendar_place;
+
+const unsigned char *cfw_theme_calendar_text_color(unsigned place, unsigned char out[4])
+{
+    (void)out;
+    calendar_place = place;
+    return calendar_text;
 }
 
 /* Both bar hooks recognize the view's own label colors by pointer. */
@@ -782,6 +794,8 @@ static void check_search_key_hook(void)
     check_search_key(1, native_white);
     check_search_key(0, native_white);
     check_option_bar(1, 1, native_white);
+    /* The Now Playing style keeps its native colors on the stock slices. */
+    check_option_bar(2, 1, native_white);
     assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
 
     struct cfw_theme_style style = {{{0}}};
@@ -800,8 +814,9 @@ static void check_search_key_hook(void)
     check_option_bar(0, 0, well_color);
     check_option_bar(1, 0, well_color);
     assert(well_styles_asked == 3);
-    check_option_bar(2, 1, native_white);
-    check_option_bar(2, 0, native_white);
+    check_option_bar(2, 1, sepia_on_accent);
+    check_option_bar(2, 0, well_color);
+    assert(well_styles_asked == 7);
     /* A color that is neither letter slot is passed through untouched. */
     cfw_theme_search_key_color(&surface, white, ordinary_view);
     assert(!memcmp(drawn, white, 4));
@@ -850,11 +865,11 @@ static void check_search_input_hook(void)
     assert(field_asked == 0);
 }
 
-/* The status bar title takes the color derived from the bar art under a
- * custom style and keeps its native light gray otherwise. */
-static void check_status_bar_title_hook(void)
+/* Labels over listed art take the color derived from that art under a custom
+ * style and keep their native color otherwise. */
+static void check_contrast_text_hook(void)
 {
-    static const unsigned char native[] = {0xd3, 0xd3, 0xd3, 255}, on_bar[] = {7, 8, 9};
+    static const unsigned char native[] = {0xd3, 0xd3, 0xd3, 255}, on_art[] = {7, 8, 9};
     uint32_t view[0xa4 / 4] = {0};
     view[0x4c / 4] = 0x0dad020e; /* NowPlaying_StatusBar_Text_View */
     struct cfw_theme_style style = {{{0}}};
@@ -863,18 +878,52 @@ static void check_status_bar_title_hook(void)
     struct cfw_theme_options options = {0};
     cfw_theme_style_set(&style, &options);
     cfw_theme_appearance_set(1);
-    bar_text = on_bar;
-    bar_asked = 0;
+    art_text = on_art;
+    art_asked = 0;
     check_text(view, native, 7, 8, 9);
-    assert(bar_asked == 1);
-    bar_text = NULL;
+    assert(art_asked == 1 && art_view == 0x0dad020e);
+    /* It also wins over the white-text mapping (tumbler and picker digits). */
+    check_text(view, white, 7, 8, 9);
+    art_text = NULL;
     check_text(view, native, 0xd3, 0xd3, 0xd3);
-    /* Other views never ask for the bar color. */
-    bar_asked = 0;
-    check_text(ordinary_view, native, 0xd3, 0xd3, 0xd3);
-    assert(bar_asked == 0);
     cfw_theme_style_reset();
     cfw_theme_appearance_set(0);
+}
+
+static void check_calendar(void (*hook)(void *, const unsigned char *),
+                           const unsigned char *native, unsigned char red,
+                           unsigned char green, unsigned char blue)
+{
+    hook(&surface, native);
+    const unsigned char expected[] = {red, green, blue, native[3]};
+    assert(!memcmp(drawn, expected, 4));
+}
+
+/* Calendar days ask for the color of their cell, weekday names for the page
+ * color; the selected day takes on_accent; Classic keeps every native color. */
+static void check_calendar_hooks(void)
+{
+    static const unsigned char inactive[] = {0x66, 0x66, 0x66, 255}, themed[] = {7, 8, 9};
+    calendar_text = NULL;
+    check_calendar(cfw_theme_calendar_color, black, 0, 0, 0);
+    check_calendar(cfw_theme_calendar_color, white, 255, 255, 255);
+    check_calendar(cfw_theme_calendar_header_color, inactive, 0x66, 0x66, 0x66);
+    struct cfw_theme_style style = {{{0}}};
+    for (unsigned role = 0; role < CFW_THEME_COLOR_COUNT; role++)
+        style.colors[role][3] = 255;
+    style.colors[CFW_THEME_ON_ACCENT][0] = 11;
+    struct cfw_theme_options options = {0};
+    cfw_theme_style_set(&style, &options);
+    calendar_text = themed;
+    check_calendar(cfw_theme_calendar_color, black, 7, 8, 9);
+    assert(calendar_place == CFW_CALENDAR_ACTIVE);
+    check_calendar(cfw_theme_calendar_color, inactive, 7, 8, 9);
+    assert(calendar_place == CFW_CALENDAR_INACTIVE);
+    check_calendar(cfw_theme_calendar_header_color, inactive, 7, 8, 9);
+    assert(calendar_place == CFW_CALENDAR_HEADER);
+    check_calendar(cfw_theme_calendar_color, white, 11, 0, 0);
+    calendar_text = NULL;
+    cfw_theme_style_reset();
 }
 
 static void check_theme(void)
@@ -885,7 +934,8 @@ static void check_theme(void)
     check_custom_theme();
     check_search_key_hook();
     check_search_input_hook();
-    check_status_bar_title_hook();
+    check_contrast_text_hook();
+    check_calendar_hooks();
     check_classic_theme();
     assert(cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT));
     cfw_theme_appearance_set(was_active);

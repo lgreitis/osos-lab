@@ -31,6 +31,9 @@ enum {
     OPTION_BAR_WELL_LETTER = 0x1cc,
     OPTION_BAR_LETTER = 0x1d0,
     OPTION_BAR_THEMED_STYLES = 2,
+    /* The Now Playing shuffle selector: a blue label on the stock light thumb,
+     * so only a custom theme recolors it. */
+    OPTION_BAR_NOW_PLAYING = 2,
 };
 
 enum { WELL_WHITE, WELL_BLACK };
@@ -40,11 +43,6 @@ enum { WELL_WHITE, WELL_BLACK };
  * stays native there; a custom theme may paint the field light or dark, and the
  * text then follows whatever contrasts with the field art. */
 enum { SEARCH_INPUT_TEXT = 0x0dad0ddc };
-
-/* The NowPlaying_StatusBar_Image header (Stopwatch, Charging) draws its title in
- * a fixed light gray that no role mapping covers. A custom theme may paint the
- * bar light or dark, so the title follows whatever contrasts with the bar art. */
-enum { STATUS_BAR_TITLE = 0x0dad020e };
 
 static int native_text_color(const void *view)
 {
@@ -220,6 +218,34 @@ PATCH_ARM void cfw_theme_album_art_edge_lines(const void *bitmap)
         osos_artwork_edge_lines(bitmap);
 }
 
+/* The calendar month view draws day numbers (0x081bff58) and weekday names
+ * (0x081363fc) in fixed colors outside the text views: shown-month days black on
+ * Calendar_Active_Cell, neighboring-month days and weekday names #666666, the
+ * selected day white on the selection-tinted Calendar_Hilite_Cell. */
+PATCH_ARM void cfw_theme_calendar_color(void *context, const unsigned char *color)
+{
+    unsigned char mapped[4];
+    const unsigned char *themed_color;
+    if (rgb(color) == 0xffffff)
+        themed_color = cfw_theme_style_custom() ? role(CFW_THEME_ON_ACCENT) : 0;
+    else
+        themed_color = cfw_theme_calendar_text_color(
+            rgb(color) ? CFW_CALENDAR_INACTIVE : CFW_CALENDAR_ACTIVE, mapped);
+    if (themed_color)
+        color = recolor(color, themed_color, mapped);
+    osos_graphics_set_color(context, color);
+}
+
+PATCH_ARM void cfw_theme_calendar_header_color(void *context, const unsigned char *color)
+{
+    unsigned char mapped[4];
+    const unsigned char *themed_color =
+        cfw_theme_calendar_text_color(CFW_CALENDAR_HEADER, mapped);
+    if (themed_color)
+        color = recolor(color, themed_color, mapped);
+    osos_graphics_set_color(context, color);
+}
+
 /* Native white text sits on the stock blue-gray preview pane and on dark art. A
  * custom light background would hide it, so it takes the text role there. */
 PATCH_ARM void cfw_theme_text_color(void *context, const unsigned char *color,
@@ -230,10 +256,11 @@ PATCH_ARM void cfw_theme_text_color(void *context, const unsigned char *color,
         const unsigned char *text = role(CFW_THEME_TEXT);
         const unsigned char *field =
             osos_view_id(view) == SEARCH_INPUT_TEXT ? cfw_theme_field_text_color() : 0;
-        const unsigned char *bar =
-            osos_view_id(view) == STATUS_BAR_TITLE ? cfw_theme_status_bar_text_color() : 0;
-        if (bar)
-            color = recolor(color, bar, mapped);
+        /* Labels drawn in a fixed color over theme art (CONTRAST_TEXT in
+         * patching/assets.py) follow whatever contrasts with that art. */
+        const unsigned char *art = cfw_theme_contrast_text_color(osos_view_id(view));
+        if (art)
+            color = recolor(color, art, mapped);
         else if (field && gray(color) && color[0] <= TEXT_DARK_MAX)
             color = recolor(color, field, mapped);
         else if (color == (const unsigned char *)OSOS_PALETTE_WHITE)
@@ -287,9 +314,11 @@ PATCH_ARM void cfw_theme_option_bar_color(void *context, const unsigned char *co
 {
     unsigned char mapped[4];
     const unsigned char *bytes = view;
-    if (bytes[OPTION_BAR_STYLE] < OPTION_BAR_THEMED_STYLES)
+    unsigned style = bytes[OPTION_BAR_STYLE];
+    if (style < OPTION_BAR_THEMED_STYLES ||
+        (style == OPTION_BAR_NOW_PLAYING && cfw_theme_style_custom()))
         color = bar_label_color(color, bytes, OPTION_BAR_LETTER, OPTION_BAR_WELL_LETTER,
-                                bytes[OPTION_BAR_STYLE], mapped);
+                                style, mapped);
     osos_graphics_set_color(context, color);
 }
 

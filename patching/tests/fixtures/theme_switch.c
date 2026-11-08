@@ -320,6 +320,22 @@ static void tinting(void)
     cfw_theme_bitmap_blit_end();
     cfw_theme_bitmap_blit_begin(&mask, &mask);
     cfw_theme_bitmap_blit_end();
+    /* A calendar marker turns on_accent only over the selected day's cell art
+     * (asset 0 in the fixture); other cells keep the tint. */
+    {
+        unsigned char cell[0x1b4 + sizeof(void *)];
+        const void *art = &plain;
+        memcpy(cell + 0x1b4, &art, sizeof(art));
+        cfw_theme_calendar_marker_begin(cell, &plain);
+        assert(pixels[0][32 + 2] == 88);
+        cfw_theme_bitmap_blit_end();
+        assert(pixels[0][32 + 2] == 77);
+        art = &other;
+        memcpy(cell + 0x1b4, &art, sizeof(art));
+        cfw_theme_calendar_marker_begin(cell, &plain);
+        assert(pixels[0][32 + 2] == 77);
+        cfw_theme_bitmap_blit_end();
+    }
     assert(accent_recolored() &&
            !memcmp(pixels[MASK_ASSET], original[MASK_ASSET], 42));
     cfw_theme_input_drained();
@@ -371,11 +387,11 @@ static void tinting(void)
         int text_gap = abs(cfw_theme_brightness(text) - cfw_theme_brightness(well));
         int background_gap =
             abs(cfw_theme_brightness(background) - cfw_theme_brightness(well));
-        for (unsigned style = 0; style < 2; style++)
+        for (unsigned style = 0; style < 3; style++)
             assert(cfw_theme_well_letter_color(style) ==
                    (text_gap >= background_gap ? text : background));
     }
-    assert(!cfw_theme_well_letter_color(2));
+    assert(!cfw_theme_well_letter_color(3));
     pixels[ARGB_ASSET][31] = 0; /* transparent center keeps the native color */
     assert(!cfw_theme_well_letter_color(0));
     pixels[ARGB_ASSET][31] = 255;
@@ -391,19 +407,42 @@ static void tinting(void)
             abs(cfw_theme_brightness(background) - cfw_theme_brightness(field));
         assert(cfw_theme_field_text_color() ==
                (text_gap >= background_gap ? text : background));
-        /* The fixture's status bar is the same paletted asset. */
-        assert(cfw_theme_status_bar_text_color() == cfw_theme_field_text_color());
+        /* The fixture's status bar and active calendar cell are the same
+         * paletted asset; listed views and active days follow it too. */
+        unsigned char out[4];
+        assert(cfw_theme_contrast_text_color(0x0dad020e) == cfw_theme_field_text_color());
+        assert(cfw_theme_calendar_text_color(CFW_CALENDAR_ACTIVE, out) ==
+               cfw_theme_field_text_color());
+        assert(!cfw_theme_contrast_text_color(0x0dad020f));
     }
     pixels[0][35] = 0; /* transparent field art keeps the native color */
     assert(!cfw_theme_field_text_color());
-    assert(!cfw_theme_status_bar_text_color());
+    assert(!cfw_theme_contrast_text_color(0x0dad020e));
+    /* A clear cell center counts as the page: the role that contrasts with the
+     * background, mixed halfway toward it for days of other months. */
+    {
+        unsigned char out[4], half[4];
+        const unsigned char *background = cfw_theme_color(CFW_THEME_BACKGROUND, 1);
+        const unsigned char *active = cfw_theme_calendar_text_color(CFW_CALENDAR_ACTIVE, out);
+        assert(active == cfw_theme_color(CFW_THEME_TEXT, 1));
+        cfw_theme_mix(half, active, background, 128);
+        assert(cfw_theme_calendar_text_color(CFW_CALENDAR_INACTIVE, out) == out &&
+               !memcmp(out, half, 4));
+        assert(cfw_theme_calendar_text_color(CFW_CALENDAR_HEADER, out) == out &&
+               !memcmp(out, half, 4));
+        assert(!cfw_theme_calendar_text_color(CFW_CALENDAR_HEADER + 1, out));
+    }
     memcpy(pixels[0] + 32, original[0] + 32, 4);
     cfw_theme_input_drained();
     assert(apply(&stock));
     check_stock();
     assert(!cfw_theme_well_letter_color(1));
     assert(!cfw_theme_field_text_color()); /* Classic keeps the native colors */
-    assert(!cfw_theme_status_bar_text_color());
+    assert(!cfw_theme_contrast_text_color(0x0dad020e));
+    {
+        unsigned char out[4];
+        assert(!cfw_theme_calendar_text_color(CFW_CALENDAR_ACTIVE, out));
+    }
     cfw_theme_accent_set(CFW_THEME_ACCENT_DEFAULT);
 }
 

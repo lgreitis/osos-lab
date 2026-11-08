@@ -16,5 +16,7 @@ void cfw_theme_search_key_color(void *context, const unsigned char *color,
                                 const void *view);
 void cfw_theme_option_bar_color(void *context, const unsigned char *color,
                                 const void *view);
+void cfw_theme_calendar_color(void *context, const unsigned char *color);
+void cfw_theme_calendar_header_color(void *context, const unsigned char *color);
 void cfw_theme_background_fill(void *context, const int32_t *rect, const void *view);
 int cfw_theme_selection_bar_prepare(int native_ram);

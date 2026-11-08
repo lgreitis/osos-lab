@@ -16,6 +16,14 @@ PATCH_CALL(OSOS_SEARCH_KEY_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
            cfw_theme_search_key_color_hook);
 PATCH_CALL(OSOS_OPTION_BAR_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
            cfw_theme_option_bar_color_hook);
+PATCH_CALL(OSOS_CALENDAR_DAY_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_calendar_color);
+PATCH_CALL(OSOS_CALENDAR_HEADER_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_theme_calendar_header_color);
+PATCH_CALL(OSOS_CALENDAR_ALARM_BLIT_CALL, OSOS_BITMAP_BLIT,
+           cfw_theme_calendar_marker_blit_hook);
+PATCH_CALL(OSOS_CALENDAR_FLAG_BLIT_CALL, OSOS_BITMAP_BLIT,
+           cfw_theme_calendar_marker_blit_hook);
 PATCH_CALL(OSOS_BITMAP_VIEW_BLIT_CALL, OSOS_BITMAP_BLIT, cfw_theme_bitmap_blit_hook);
 PATCH_CALL(OSOS_BITMAP_VIEW_TILE_BLIT_CALL, OSOS_BITMAP_BLIT,
            cfw_theme_bitmap_blit_hook);

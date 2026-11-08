@@ -52,6 +52,17 @@ ACCENT_ART = (
 )
 RECOLORABLE_FORMATS = (0x64, 0x65, 0x1888)
 
+# Native text views drawn in a fixed color over theme art, by first view ID,
+# view count and the asset behind them. A custom theme gives them the text or
+# background role, whichever contrasts more with that art.
+CONTRAST_TEXT = (
+    (0x0DAD020E, 1, "NowPlaying_StatusBar_Image"),  # NowPlaying_StatusBar_Text_View
+    (0x0DAD0688, 4, "LockScreen_TumblerBgnd_Image"),  # LockScreen_TumblerDigit0-3
+    (0x0DAD0698, 4, "LockScreen_TumblerBgnd_Image"),  # VolumeLimitLockScreen_...
+    (0x0DAD0264, 3, "DateTimePicker_Well"),  # DateTimePicker_Value1-3
+    (0x0DAD05E6, 2, "CoverFlow_Backside_Top_Image"),  # Backside album title, artist
+)
+
 
 def unique_index(bitmaps, name):
     matches = [i for i, a in enumerate(bitmaps) if a["name"] == name]
@@ -91,10 +102,22 @@ def generate(catalog, directory):
         for name in (
             "OptionBar_White_Well_Center_Image",
             "OptionBar_Black_Well_Center_Image",
+            "OptionBar_NowPlaying_Well_Center_Image",
         )
     ]
     field = unique_index(bitmaps, "System_Input_Field_Middle_Image")
-    status_bar = unique_index(bitmaps, "NowPlaying_StatusBar_Image")
+    contrast_text = [
+        f"    {{{first:#x}u, {count}u, {unique_index(bitmaps, name)}u}},"
+        for first, count, name in CONTRAST_TEXT
+    ]
+    cells = [
+        unique_index(bitmaps, name)
+        for name in (
+            "Calendar_Active_Cell",
+            "Calendar_Inactive_Cell",
+            "Calendar_Hilite_Cell",
+        )
+    ]
     accent_art = []
     for role, names in ACCENT_ART:
         for name in names:
@@ -104,9 +127,17 @@ def generate(catalog, directory):
             accent_art.append(f"    {{{index}u, {role}}},")
     lines += [
         "};",
-        f"const uint32_t cfw_bitmap_well_centers[2] = {{{wells[0]}u, {wells[1]}u}};",
+        "const uint32_t cfw_bitmap_well_centers[3] = {"
+        + ", ".join(f"{index}u" for index in wells)
+        + "};",
         f"const uint32_t cfw_bitmap_field_center = {field}u;",
-        f"const uint32_t cfw_bitmap_status_bar = {status_bar}u;",
+        "const struct cfw_contrast_text cfw_bitmap_contrast_text[] = {",
+        *contrast_text,
+        "};",
+        f"const uint32_t cfw_bitmap_contrast_text_count = {len(contrast_text)};",
+        "const uint32_t cfw_bitmap_calendar_cells[3] = {"
+        + ", ".join(f"{index}u" for index in cells)
+        + "};",
         "const struct cfw_accent_art cfw_bitmap_accent_art[] = {",
         *accent_art,
         "};",

@@ -53,6 +53,7 @@ cfw_theme_bitmap_blit_hook:
     push {r0, r1, r2, r3, lr}
     mov r0, r4
     bl cfw_theme_bitmap_blit_begin
+.Lblit:
     pop {r0, r1, r2, r3, lr}
     push {r4, lr}
     ldr r4, [sp, #8]
@@ -63,6 +64,16 @@ cfw_theme_bitmap_blit_hook:
     add sp, sp, #8
     pop {r4, lr}
     b cfw_theme_bitmap_blit_end
+
+/* Replaces the calendar cell drawer's alarm and event marker blits (cell in r4,
+ * marker bitmap context in r1), with the same contract as above. */
+.global cfw_theme_calendar_marker_blit_hook
+.type cfw_theme_calendar_marker_blit_hook,%function
+cfw_theme_calendar_marker_blit_hook:
+    push {r0, r1, r2, r3, lr}
+    mov r0, r4
+    bl cfw_theme_calendar_marker_begin
+    b .Lblit
 
 .global cfw_theme_background_fill_hook
 .type cfw_theme_background_fill_hook,%function

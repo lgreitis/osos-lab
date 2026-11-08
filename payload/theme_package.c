@@ -583,13 +583,15 @@ int cfw_theme_asset_center_pixel(uint32_t index, unsigned char out[4])
     struct cursor c;
     struct layout b;
     cursor_init(&c);
-    if (!bitmap_layout(&c, index, &b) || b.mask || b.depth == 16)
+    if (!bitmap_layout(&c, index, &b) || b.mask || (b.depth == 16 && !b.colors))
         return 0;
     const unsigned char *data = asset_data(&c, index);
     const unsigned char *row = data + b.pixels + ((b.height - 1) / 2) * b.stride;
     const unsigned char *pixel;
     if (b.colors) {
-        uint32_t entry = row[(b.width - 1) / 2];
+        /* Paletted art indexes with 8 bits (0x64) or 16 bits (0x65). */
+        uint32_t column = (b.width - 1) / 2;
+        uint32_t entry = b.depth == 16 ? u16(row + column * 2) : row[column];
         if (entry >= b.colors)
             return 0;
         pixel = data + b.start + entry * 4;

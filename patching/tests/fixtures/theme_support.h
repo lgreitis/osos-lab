@@ -40,12 +40,14 @@ const struct cfw_bitmap_asset cfw_bitmap_assets[] = {{42, 0x25789516},
                                                      {42, 0x3c33b0ab},
                                                      {36, 0x5130d0ab},
                                                      {36, 0xc090ade8}};
-/* The ARGB asset stands in for both option bar well center slices. */
-const uint32_t cfw_bitmap_well_centers[2] = {ARGB_ASSET, ARGB_ASSET};
+/* The ARGB asset stands in for the option bar well center slices. */
+const uint32_t cfw_bitmap_well_centers[3] = {ARGB_ASSET, ARGB_ASSET, ARGB_ASSET};
 /* The first paletted asset stands in for the Search field center slice. */
 const uint32_t cfw_bitmap_field_center = 0;
-/* So does the status bar background. */
-const uint32_t cfw_bitmap_status_bar = 0;
+/* So does the art behind the status bar title, and the calendar cells. */
+const struct cfw_contrast_text cfw_bitmap_contrast_text[] = {{0x0dad020e, 1, 0}};
+const uint32_t cfw_bitmap_contrast_text_count = 1;
+const uint32_t cfw_bitmap_calendar_cells[3] = {0, 0, 0};
 /* The second paletted asset stands in for the stock accent artwork. */
 #define ACCENT_ASSET 1
 const struct cfw_accent_art cfw_bitmap_accent_art[] = {

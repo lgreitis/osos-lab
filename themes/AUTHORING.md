@@ -137,11 +137,11 @@ the device.
 
 | Role | Light | Dark | Current use |
 | --- | --- | --- | --- |
-| background | `#ffffff` | `#181818` | Native surfaces and EQ background; Search strip letters, input text and status bar title on dark well, field or bar art |
-| text | `#202020` | `#e8e8e8` | Native text shades and EQ text; Search strip letters, input text and status bar title on light well, field or bar art |
+| background | `#ffffff` | `#181818` | Native surfaces and EQ background; Search strip letters, input text and the labels listed below on dark art |
+| text | `#202020` | `#e8e8e8` | Native text shades and EQ text; Search strip letters, input text and the labels listed below on light art |
 | accent_fill | `#236cc5` | `#00a1ff` | Native accent fills and matching text; EQ field being edited; stock progress, dot, star and playback art the theme leaves stock |
 | accent_text | `#3185d0` | `#00a1ff` | Native accent text and the Search input caret; EQ response curve and selected band |
-| on_accent | `#ffffff` | `#ffffff` | Selected-row text and tinted icons; EQ text on the field being edited; the highlighted Search key letter |
+| on_accent | `#ffffff` | `#ffffff` | Selected-row text and tinted icons; EQ text on the field being edited; the highlighted Search key letter; the selected calendar day |
 | selection | `#236cc5` | `#00a1ff` | List selection bar; bitmaps tinted with `selection` (for example a Search key cursor); stock selection and focus art the theme leaves stock |
 | cover_border | `#7e8183` | `#383838` | Cover Flow border |
 
@@ -181,16 +181,36 @@ The Search letter strip draws its unhighlighted letters in `text` or
 `background`, whichever differs more in brightness from the center pixel of the
 well art (`OptionBar_*_Well_Center_Image`), so the well may be light or dark.
 The highlighted key letter uses `on_accent`; keep it readable on whatever tints
-the thumb slices.
+the thumb slices. Option bars (the Clock's Add/Edit bar and the Now Playing
+shuffle selector) label their segments the same way. Classic keeps the
+shuffle selector's native blue and gray labels.
 
 The text typed into the Search box follows the same rule against the center
 pixel of the field art (`System_Input_Field_Middle_Image`), so the field may be
 light or dark; its caret uses `accent_text`. Classic keeps the stock light field
 with native black text.
 
-The title of the Stopwatch and Charging header follows the same rule against
-the center pixel of the bar art (`NowPlaying_StatusBar_Image`), so the bar may
-be light or dark. Classic keeps the stock dark bar with its native light title.
+These labels follow the same rule against the center pixel of the art behind
+them, so that art may be light or dark:
+
+| Label | Art |
+| --- | --- |
+| Stopwatch and Charging header title | `NowPlaying_StatusBar_Image` |
+| Screen Lock and Volume Limit combination digits | `LockScreen_TumblerBgnd_Image` |
+| Date and time picker values | `DateTimePicker_Well` |
+| Cover Flow album title and artist (track list) | `CoverFlow_Backside_Top_Image` |
+| Calendar days of the shown month | `Calendar_Active_Cell` |
+
+The focused tumbler digit and the selected picker value use the same color as
+the others, so keep `LockScreen_TumblerFocus_Image` and
+`DateTimePicker_Selection` about as light or dark as the art above. Calendar
+days of the neighboring months follow the rule against
+`Calendar_Inactive_Cell`, mixed halfway toward the cell, and weekday names the
+same against `background`. A cell with a transparent center counts as
+`background`. The selected day uses `on_accent` on `Calendar_Hilite_Cell`, and
+tinted alarm and event markers (`Calendar_Small_Alarm`, `Calendar_Flag`) switch
+to `on_accent` there too.
+Classic keeps the native colors of all of these labels.
 
 The list selection bar is drawn once into a shared cached bitmap and redrawn
 when its style changes. Classic with Theme Default or Blue keeps the stock bar

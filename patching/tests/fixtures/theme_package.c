@@ -383,6 +383,20 @@ static void tinting(void)
     pixels[ARGB_ASSET][31] = 0;
     assert(!cfw_theme_asset_center_pixel(ARGB_ASSET, center));
     pixels[ARGB_ASSET][31] = 255;
+    /* As 1x1 art with 16-bit palette indices (format 0x65), the same bytes
+     * index entry 1 (RGB 4,5,6). */
+    unsigned char paletted[44];
+    memcpy(paletted, pixels[0], sizeof(paletted));
+    pixels[0][0] = 0x65;
+    pixels[0][6] = 16;
+    pixels[0][20] = 1;
+    pixels[0][40] = 1;
+    pixels[0][41] = 0;
+    assert(cfw_theme_asset_center_pixel(0, center) && center[0] == 4 &&
+           center[1] == 5 && center[2] == 6 && center[3] == 255);
+    pixels[0][40] = 2; /* past the palette */
+    assert(!cfw_theme_asset_center_pixel(0, center));
+    memcpy(pixels[0], paletted, sizeof(paletted));
     make_target(0);
 }
 

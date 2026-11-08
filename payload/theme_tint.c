@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "theme_tint.h"
 #include "assets.h"
+#include "cfw.h"
 #include "osos.h"
 #include "theme_package.h"
 #include "theme_style.h"
@@ -112,15 +113,39 @@ const unsigned char *cfw_theme_highlight_tint(const void *view)
     return color && osos_view_highlighted(view) ? highlight() : color;
 }
 
-void cfw_theme_bitmap_blit_begin(const void *view, const void *context)
+/* Draws the tinted asset of one blit with the on-accent color until
+ * cfw_theme_bitmap_blit_end. */
+static void highlight_blit(const void *context)
 {
     uint32_t index;
     const unsigned char *pixels = osos_bitmap_context_pixels(context);
-    if (!pixels || !cfw_theme_style_custom() || !osos_view_highlighted(view) ||
-        !cfw_theme_asset_from_pixels(pixels, &index) || !cfw_theme_tinted(index))
+    if (!pixels || !cfw_theme_asset_from_pixels(pixels, &index) ||
+        !cfw_theme_tinted(index))
         return;
     recolor(index, highlight());
     highlighted_asset = index;
+}
+
+void cfw_theme_bitmap_blit_begin(const void *view, const void *context)
+{
+    if (cfw_theme_style_custom() && osos_view_highlighted(view))
+        highlight_blit(context);
+}
+
+/* The calendar cell keeps the bitmap context of its cell art at +0x1b4;
+ * cfw_bitmap_calendar_cells lists the selected day's art third. */
+enum { CALENDAR_CELL_ART = 0x1b4, CALENDAR_HILITE_CELL = 2 };
+
+void cfw_theme_calendar_marker_begin(const void *cell, const void *context)
+{
+    uint32_t index;
+    const void *context_art;
+    cfw_copy(&context_art, (const unsigned char *)cell + CALENDAR_CELL_ART,
+             sizeof(context_art));
+    const unsigned char *art = osos_bitmap_context_pixels(context_art);
+    if (cfw_theme_style_custom() && art && cfw_theme_asset_from_pixels(art, &index) &&
+        index == cfw_bitmap_calendar_cells[CALENDAR_HILITE_CELL])
+        highlight_blit(context);
 }
 
 void cfw_theme_bitmap_blit_end(void)
@@ -155,13 +180,9 @@ void cfw_theme_accent_art_apply(const uint32_t *skip, uint32_t *touched)
     }
 }
 
-/* The text or background role, whichever differs more in brightness from the
- * center pixel of the resident art; NULL when the pixel is unreadable or clear. */
-static const unsigned char *contrast_color(uint32_t index)
+/* The text or background role, whichever differs more in brightness from art. */
+static const unsigned char *contrast_with(const unsigned char *art)
 {
-    unsigned char art[4];
-    if (!cfw_theme_asset_center_pixel(index, art))
-        return 0;
     int dark = cfw_theme_appearance_get(0);
     const unsigned char *text = cfw_theme_color(CFW_THEME_TEXT, dark);
     const unsigned char *background = cfw_theme_color(CFW_THEME_BACKGROUND, dark);
@@ -175,9 +196,19 @@ static const unsigned char *contrast_color(uint32_t index)
     return text_gap >= background_gap ? text : background;
 }
 
+/* contrast_with the center pixel of the resident art; NULL when the pixel is
+ * unreadable or clear. */
+static const unsigned char *contrast_color(uint32_t index)
+{
+    unsigned char art[4];
+    if (!cfw_theme_asset_center_pixel(index, art))
+        return 0;
+    return contrast_with(art);
+}
+
 const unsigned char *cfw_theme_well_letter_color(unsigned style)
 {
-    if (style > 1 || !cfw_theme_style_custom())
+    if (style > 2 || !cfw_theme_style_custom())
         return 0;
     return contrast_color(cfw_bitmap_well_centers[style]);
 }
@@ -189,9 +220,30 @@ const unsigned char *cfw_theme_field_text_color(void)
     return contrast_color(cfw_bitmap_field_center);
 }
 
-const unsigned char *cfw_theme_status_bar_text_color(void)
+const unsigned char *cfw_theme_contrast_text_color(uint32_t view)
 {
     if (!cfw_theme_style_custom())
         return 0;
-    return contrast_color(cfw_bitmap_status_bar);
+    for (uint32_t i = 0; i < cfw_bitmap_contrast_text_count; i++) {
+        const struct cfw_contrast_text *entry = &cfw_bitmap_contrast_text[i];
+        if (view - entry->first < entry->count)
+            return contrast_color(entry->index);
+    }
+    return 0;
+}
+
+const unsigned char *cfw_theme_calendar_text_color(unsigned place, unsigned char out[4])
+{
+    if (place > CFW_CALENDAR_HEADER || !cfw_theme_style_custom())
+        return 0;
+    unsigned char art[4];
+    const unsigned char *behind = art;
+    if (place == CFW_CALENDAR_HEADER ||
+        !cfw_theme_asset_center_pixel(cfw_bitmap_calendar_cells[place], art))
+        behind = cfw_theme_color(CFW_THEME_BACKGROUND, cfw_theme_appearance_get(0));
+    const unsigned char *color = contrast_with(behind);
+    if (place == CFW_CALENDAR_ACTIVE)
+        return color;
+    cfw_theme_mix(out, color, behind, 128);
+    return out;
 }

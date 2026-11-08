@@ -16,12 +16,23 @@ struct cfw_bitmap_asset {
 
 extern const struct cfw_bitmap_asset cfw_bitmap_assets[];
 /* Catalog indices of the option bar well center slices: the White style
- * (OptionBar_White_Well_Center_Image) then the Black style. */
-extern const uint32_t cfw_bitmap_well_centers[2];
+ * (OptionBar_White_Well_Center_Image), the Black style, then Now Playing. */
+extern const uint32_t cfw_bitmap_well_centers[3];
 /* Catalog index of the Search text box center slice (System_Input_Field_Middle_Image). */
 extern const uint32_t cfw_bitmap_field_center;
-/* Catalog index of the status bar background (NowPlaying_StatusBar_Image). */
-extern const uint32_t cfw_bitmap_status_bar;
+/* Native text views [first, first + count) drawn in a fixed color over the
+ * catalog asset at index (CONTRAST_TEXT in patching/assets.py). */
+struct cfw_contrast_text {
+    uint32_t first;
+    uint16_t count;
+    uint16_t index;
+};
+extern const struct cfw_contrast_text cfw_bitmap_contrast_text[];
+extern const uint32_t cfw_bitmap_contrast_text_count;
+/* Catalog indices of the calendar day cells: Calendar_Active_Cell,
+ * Calendar_Inactive_Cell (days of the neighboring months), then
+ * Calendar_Hilite_Cell (the selected day). */
+extern const uint32_t cfw_bitmap_calendar_cells[3];
 /* Stock blue artwork that follows the accent while the active theme leaves it
  * stock: a paletted or ARGB catalog bitmap and the theme color role it takes. */
 struct cfw_accent_art {
