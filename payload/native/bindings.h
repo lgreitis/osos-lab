@@ -118,6 +118,21 @@
 /* IDENTIFY words of the boot disk, filled by the native ATA open (0x08362d18). */
 #define OSOS_ATA_IDENTIFY 0x08ae087c
 
+/* The shared block cache (pointer) and the main heap (pointer; +0 = free bytes). */
+#define OSOS_BLOCK_CACHE 0x089d380c
+#define OSOS_MAIN_HEAP 0x089d2c78
+/* Grow the block cache to at least r0 bytes. */
+#define OSOS_BLOCK_CACHE_GROW 0x080ca238
+/* Rebalance the cache's clients (called with the cache lock held). */
+#define OSOS_BLOCK_CACHE_REBALANCE 0x0817fd68
+/* Erase a node from a block list, destroying its block: (next out, list, node in). */
+#define OSOS_BLOCK_LIST_ERASE 0x083cc960
+/* eApp block manager: claim and return the blocks a game runs in. */
+#define OSOS_EAPP_BLOCKS_ACQUIRE 0x0819d870
+#define OSOS_EAPP_BLOCKS_RELEASE 0x0819d40c
+#define OSOS_MUTEX_LOCK 0x08258b34
+#define OSOS_MUTEX_UNLOCK 0x08258b38
+
 /* Shared CFW metadata retained during stock track import. */
 #define OSOS_ITUNES_IMPORT_TRACKS 0x0808a488
 #define OSOS_ITUNES_IMPORT_STRING 0x080cdee0

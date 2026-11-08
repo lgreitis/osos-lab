@@ -58,6 +58,9 @@
 /* Media-player read-ahead request: r0 = cache bytes - 10 MiB. */
 #define OSOS_MEDIA_PLAYER_BUFFER_MIN_TEST_WORD 0x0822c944
 #define OSOS_MEDIA_PLAYER_BUFFER_MIN_SET_WORD 0x0822c948
+/* eApp block manager message handler: acquire (0xeab0) and release (0xeab1) calls. */
+#define OSOS_EAPP_BLOCKS_ACQUIRE_CALL 0x0819d6d0
+#define OSOS_EAPP_BLOCKS_RELEASE_CALL 0x0819d6d8
 #define OSOS_ITUNES_IMPORT_TRACKS_CALL 0x08058f1c
 /* Fixed-size pool setup: slot size = (size + 15) & ~15. */
 #define OSOS_POOL_SLOT_ROUND_ADD_WORD 0x080530b4

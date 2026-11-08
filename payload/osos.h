@@ -43,6 +43,57 @@ static inline const uint16_t *osos_ata_identify(void)
     return (const uint16_t *)OSOS_ATA_IDENTIFY;
 }
 
+static inline void osos_mutex_lock(void *mutex)
+{
+    ((void (*)(void *))OSOS_MUTEX_LOCK)(mutex);
+}
+
+static inline void osos_mutex_unlock(void *mutex)
+{
+    ((void (*)(void *))OSOS_MUTEX_UNLOCK)(mutex);
+}
+
+static inline uint32_t osos_heap_free_bytes(void)
+{
+    const uint32_t *heap = *(uint32_t *const *)OSOS_MAIN_HEAP;
+    return heap ? heap[0] : 0;
+}
+
+static inline void *osos_block_cache(void)
+{
+    return *(void **)OSOS_BLOCK_CACHE;
+}
+
+static inline int osos_block_cache_grow(uint32_t bytes)
+{
+    typedef int (*fn)(uint32_t);
+    return ((fn)OSOS_BLOCK_CACHE_GROW)(bytes);
+}
+
+static inline void osos_block_cache_rebalance(void *cache)
+{
+    typedef void (*fn)(void *, uint32_t);
+    ((fn)OSOS_BLOCK_CACHE_REBALANCE)(cache, 0);
+}
+
+static inline void *osos_block_list_erase(void *list, void *node)
+{
+    typedef void (*fn)(void **, void *, void **);
+    void *next;
+    ((fn)OSOS_BLOCK_LIST_ERASE)(&next, list, &node);
+    return next;
+}
+
+static inline void osos_eapp_blocks_acquire(void *manager)
+{
+    ((void (*)(void *))OSOS_EAPP_BLOCKS_ACQUIRE)(manager);
+}
+
+static inline void osos_eapp_blocks_release(void *manager)
+{
+    ((void (*)(void *))OSOS_EAPP_BLOCKS_RELEASE)(manager);
+}
+
 /* Find or insert a name in the global resource-name map and return its ID slot. */
 static inline uint32_t *osos_resource_name_slot(const struct osos_string *name)
 {

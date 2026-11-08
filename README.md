@@ -49,7 +49,9 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Dark Mode, with an On/Off toggle in Settings.
 - Room for larger libraries on iPods with flash storage: an extra 10 MiB of
-  memory stays free, and the disk cache can shrink to 10 MiB instead of 14 MiB.
+  memory stays free, and the disk cache can shrink to 6 MiB instead of 14 MiB.
+  A game takes the memory it needs from free memory when it starts and returns
+  it when it exits.
 
 Open **Settings → Custom EQ → Graphic EQ** to edit all five bands. Use the wheel
 to select a band, then Center to select and edit its Type, Gain, Frequency or Q.

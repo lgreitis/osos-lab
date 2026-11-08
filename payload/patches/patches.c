@@ -76,6 +76,11 @@ PATCH_WORD(OSOS_BLOCK_CACHE_FLOOR_SET_WORD, 0x33a0060e, 0xe1a00000);
 PATCH_CALL_WORD(OSOS_MEDIA_PLAYER_BUFFER_MIN_TEST_WORD, 0xe3500606,
                 cfw_media_player_buffer);
 PATCH_WORD(OSOS_MEDIA_PLAYER_BUFFER_MIN_SET_WORD, 0xb3a00606, 0xe1a00000);
+/* Grow the block cache for a game's blocks and shrink it back when the game exits. */
+PATCH_CALL(OSOS_EAPP_BLOCKS_ACQUIRE_CALL, OSOS_EAPP_BLOCKS_ACQUIRE,
+           cfw_game_blocks_acquire);
+PATCH_CALL(OSOS_EAPP_BLOCKS_RELEASE_CALL, OSOS_EAPP_BLOCKS_RELEASE,
+           cfw_game_blocks_release);
 /* Pool slots: round to 8 instead of 16 bytes (36-byte artwork thumbnails use 40). */
 /* add r0, r4, #0xf; bic r0, r0, #0xf -> add r0, r4, #7; bic r0, r0, #7 */
 PATCH_WORD(OSOS_POOL_SLOT_ROUND_ADD_WORD, 0xe284000f, 0xe2840007);
