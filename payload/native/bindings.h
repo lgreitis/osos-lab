@@ -125,6 +125,10 @@
 #define OSOS_NATIVE_STRING_ASSIGN_UTF16 0x0826cfa0
 #define OSOS_NOW_PLAYING_ACTION 0x08212dbc
 #define OSOS_PLAYER_CURRENT_ITEM_SLOT 0x0000015c
+#define OSOS_MEDIA_CHAPTER_COUNT_SLOT 0x00000138
+#define OSOS_MEDIA_CHAPTER_START_SLOT 0x0000013c
+#define OSOS_MEDIA_CHAPTER_TITLE_SLOT 0x00000140
+#define OSOS_PLAYER_SEEK_SLOT 0x00000100
 
 /* Shared CFW metadata retained during stock track import. */
 #define OSOS_ITUNES_IMPORT_TRACKS 0x0808a488
@@ -219,6 +223,17 @@
 #define OSOS_NOW_PLAYING_LAYOUT_OFFSET 0x11c
 #define OSOS_SONG_LAYOUT_OFFSET 0x108 /* Songs and Genius share this offset. */
 #define OSOS_PLAYLIST_LAYOUT_OFFSET 0x120
+#define OSOS_EPISODE_LAYOUT_OFFSET 0x100
 
 /* Resource-controller layout caches precede the stored layout ID (2.0.5). */
 #define OSOS_LAYOUT_CACHE_TO_ID 0x30
+/* Podcast episode context and native audiobook-style chapter playback (2.0.5). */
+#define OSOS_EPISODE_CONTEXT_MENU 0x082309d0
+#define OSOS_EPISODE_ACTION 0x0823077c
+#define OSOS_LIBRARY_PLAY 0x0820f358
+#define OSOS_PLAYBACK_PROPERTIES 0x08a82268
+#define OSOS_PROPERTY_SET_INTEGER 0x080f6f2c
+
+/* Player subobject and prepare slot used by native chapter playback. */
+#define OSOS_PLAYER_CHAPTER_INTERFACE_OFFSET 0x00000014
+#define OSOS_PLAYER_CHAPTER_PREPARE_SLOT 0x000000a8

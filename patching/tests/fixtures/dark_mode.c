@@ -417,6 +417,32 @@ static void native_flush(void *preferences)
 #define osos_settings_property settings_property
 #define osos_preferences_flush native_flush
 #define osos_reset_all_settings native_reset
+
+int cfw_chapters_action(void *c, const char *a, uint32_t n)
+{
+    (void)c;
+    (void)a;
+    (void)n;
+    return 0;
+}
+
+int cfw_chapters_property(uint32_t t, uint32_t p, uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)o;
+    return 0;
+}
+
+int cfw_chapters_indexed_property(uint32_t t, uint32_t p, uint32_t i, uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)i;
+    (void)o;
+    return 0;
+}
+
 #include "../../../payload/settings.c"
 
 static void check_settings_lifecycle(void)

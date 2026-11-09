@@ -61,6 +61,86 @@ def menu(rows):
 
 
 class UiTests(unittest.TestCase):
+    def test_runtime_list_uses_native_rows_and_returns_to_parent(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.parse('<ui><list id="CFW_List" title="Items"/></ui>')
+        compiled = compile_document(resources, document)
+        for suffix in ("Rows", "Detail", "Screen", "Layout"):
+            self.assertIn("CFW_List_" + suffix, compiled.string_ids)
+        rows = [
+            row
+            for (kind, _), data in resources.added.items()
+            if kind == "ITEM"
+            for _, row in blocks(data)
+        ]
+        self.assertEqual(len(rows), 1)  # One repeatable prototype, no row cap.
+        self.assertEqual(rows[0].data[0x94], 1)
+        source = word(rows[0], 0x68)
+        bindings = blocks(resources.added["SORC", source])
+        self.assertEqual(
+            [bytes(binding.data) for _, binding in bindings],
+            [
+                struct.pack("<III", 0x8900, compiled.string_ids["CFW_List_Rows"], 1),
+                struct.pack("<III", 0x8900, compiled.string_ids["CFW_List_Detail"], 10),
+            ],
+        )
+        screen = compiled.string_ids["CFW_List_Screen"]
+        events = bytes(resources.added["CEVT", screen].data)
+        self.assertIn(b"CFW_List_Select", events)
+        self.assertIn(b"navigator.PopTopScreen", events)
+        self.assertFalse(document.fields)  # Runtime rows are not preference slots.
+        self.assertFalse(document.actions)
+
+    def test_sound_check_template_is_required_for_lists_and_toggles(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        for kind in ("list", "toggle"):
+            with self.subTest(kind=kind):
+                resources = Resources(metadata["resources"], bindings)
+                table = bindings["SettingsMenu_Items"]
+                rows = [
+                    next(
+                        (row_kind, row)
+                        for row_kind, row in blocks(resources.stock("ITEM", table))
+                        if word(row, 0x30) == bindings["SettingsMenu_ListItem_Legal"]
+                    )
+                ]
+                resources.original["ITEM", table] = pack_blocks(rows)
+                document = parser.parse(
+                    f'<ui><{kind} id="TEST" title="Test"/>'
+                    '<settings-entry menu="TEST" after="SettingsMenu_ListItem_Brightness" preview="image"/>'
+                    "</ui>"
+                )
+                with self.assertRaisesRegex(ValueError, "missing the Sound Check row"):
+                    compile_document(resources, document)
+
+    def test_runtime_list_can_be_opened_from_settings(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.parse(
+            '<ui><list id="TEST" title="Test"/>'
+            '<settings-entry menu="TEST" after="SettingsMenu_ListItem_Brightness" preview="image"/>'
+            "</ui>"
+        )
+        compiled = compile_document(resources, document)
+        [(table, after, _, row)] = resources.menu_items
+        self.assertEqual(table, bindings["SettingsMenu_Items"])
+        self.assertEqual(after, bindings["SettingsMenu_ListItem_Brightness"])
+        events = b"".join(
+            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
+        )
+        self.assertIn(f"list.pid.{word(row, 0x30)}.chosen".encode(), events)
+        self.assertIn(b"navigator.PushScreen", events)
+        self.assertIn(b"TEST_Screen", events)
+        self.assertIn("TEST_Rows", compiled.string_ids)
+        self.assertFalse(document.fields)
+
     def test_hidden_action_requires_final_menu_row(self):
         action = (
             '<action id="SAVE" title="Save" values="choices" hide-when-zero="true"/>'

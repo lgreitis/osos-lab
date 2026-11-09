@@ -71,6 +71,7 @@ class Parser:
                 "menu",
                 "text",
                 "canvas",
+                "list",
                 "toggle",
                 "settings-entry",
                 "string",
@@ -113,10 +114,10 @@ class Parser:
             )
             validate_values(value)
             document.values[value.name] = value
-        elif node.tag in ("menu", "text", "toggle", "canvas"):
+        elif node.tag in ("menu", "text", "toggle", "canvas", "list"):
             if document.root is not None:
                 raise ValueError("Expected one root menu or page per UI declaration")
-            if node.tag in ("toggle", "canvas"):
+            if node.tag in ("toggle", "canvas", "list"):
                 attributes(node, "id title")
                 document.root = Item(
                     node.tag, self.identifier(node), node.attrib["title"]

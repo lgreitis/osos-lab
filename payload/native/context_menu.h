@@ -4,7 +4,7 @@
 /* Included through osos.h, after native bindings, integer types and osos_method. */
 
 /* Display the prepared source layout without resetting its controls.
- * Songs/Genius, Playlists and Now Playing activation populate this cache (2.0.5).
+ * Songs/Genius, Playlists, Episodes and Now Playing populate this cache (2.0.5).
  * The native accessor can insert on a miss, so the layout must already be cached. */
 static inline void osos_controller_restore_layout(void *controller,
                                                   unsigned layout_offset)

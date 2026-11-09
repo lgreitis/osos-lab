@@ -115,6 +115,19 @@ static void osos_controller_restore_layout(void *c, unsigned offset)
     restored_offset = offset;
 }
 
+void cfw_chapters_menu(struct osos_context_menu *menu)
+{
+    (void)menu;
+}
+
+int cfw_chapters_action(void *controller, const char *action, uint32_t argument)
+{
+    (void)controller;
+    (void)action;
+    (void)argument;
+    return 0;
+}
+
 static int osos_now_playing_action(void *, const char *, uint32_t);
 #include "../../../payload/song_actions.c"
 
