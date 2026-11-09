@@ -100,6 +100,7 @@ class PayloadTests(unittest.TestCase):
                             str(Path(__file__).parent / "fixtures" / f"{name}.c"),
                             "-o",
                             str(executable),
+                            "-lm",
                         ],
                         check=True,
                     )
