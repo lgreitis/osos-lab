@@ -228,7 +228,7 @@ class Resources:
 
     def bind_screen_event(self, binding):
         encoded = event(binding.event, handler=binding.handler)
-        self.extend_events("CEVT", self.native(binding.screen), [encoded])
+        self.extend_events(binding.kind, self.native(binding.screen), [encoded])
 
     def source(self, text, string_id=None):
         if string_id is None:

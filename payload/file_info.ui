@@ -1,0 +1,19 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <list id="CFW_FileInfo" title="File Info" select="stay" layout="stacked"/>
+  <string id="CFW_FILE_INFO_LABEL" text="File Info"/>
+  <screen-event screen="MediaLists_Songs_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="MediaLists_NestedPlaylists_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="MediaLists_Genius_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="MediaLists_GeniusPlaylist_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="NowPlaying_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="MediaLists_PodcastEpisodes_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="MediaLists_iTunesUEpisodes_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="MediaLists_Audiobooks_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="MediaLists_TVEpisodes_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="MediaLists_Movies_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <screen-event screen="MediaLists_NestedVideoPlaylists_Screen" event="contextualMenu.CFW_FileInfo" handler="CFW_FileInfo"/>
+  <!-- Movies and TV episodes have no native contextual menu binding. -->
+  <layout-event layout="MediaLists_Movies_Layout" event="button.select.pressandhold" handler="HandleShowContextualMenu"/>
+  <layout-event layout="MediaLists_TVEpisodes_Layout" event="button.select.pressandhold" handler="HandleShowContextualMenu"/>
+</ui>

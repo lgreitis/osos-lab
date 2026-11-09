@@ -516,7 +516,16 @@ OSOS_MEDIA_GETTER(track, uint16_t, 0xbc)
 OSOS_MEDIA_GETTER(disc, uint16_t, 0xc0)
 OSOS_MEDIA_GETTER(play_count, uint32_t, 0xc4)
 OSOS_MEDIA_GETTER(skip_count, uint32_t, 0xcc)
+OSOS_MEDIA_GETTER(chapter_count, uint32_t, OSOS_MEDIA_CHAPTER_COUNT_SLOT)
 #undef OSOS_MEDIA_GETTER
+
+/* Returns the file path by value: the callee constructs the string. */
+static inline void osos_media_item_path(struct osos_media_item *item,
+                                        struct osos_native_string *path)
+{
+    typedef void (*fn)(struct osos_native_string *, struct osos_media_item *);
+    ((fn)osos_method(item, OSOS_MEDIA_PATH_SLOT))(path, item);
+}
 
 static inline void osos_player_current_item(struct osos_player *player,
                                             struct osos_media_item *item)
@@ -720,6 +729,20 @@ static inline void *osos_ui_selection(void)
 {
     typedef void *(*fn)(void);
     return ((fn)OSOS_UI_SELECTION)();
+}
+
+/* Select a row of the current layout's list, as TCSettings_EQ does after layout. */
+static inline void osos_ui_list_select(uint32_t index)
+{
+    typedef void *(*view_fn)(void *);
+    typedef void *(*interface_fn)(void *, uint32_t);
+    typedef void (*select_fn)(void *, uint32_t);
+    void *selection = osos_ui_selection();
+    void *view = selection ? ((view_fn)osos_method(selection, 0xe4))(selection) : 0;
+    void *list =
+        view ? ((interface_fn)OSOS_VIEW_INTERFACE)(view, OSOS_UI_LIST_INTERFACE) : 0;
+    if (list)
+        ((select_fn)osos_method(list, 0x174))(list, index);
 }
 
 static inline int osos_menu_item_set_visible(uint32_t item, uint32_t visible)

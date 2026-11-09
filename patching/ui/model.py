@@ -22,6 +22,8 @@ class Item:
     default_index: int = 0
     text_file: str = ""
     hide_when_zero: bool = False
+    select: str = "return"
+    layout: str = "inline"
     items: list["Item"] = field(default_factory=list)
 
 
@@ -30,6 +32,7 @@ class ScreenEvent:
     screen: str | int
     event: str
     handler: str
+    kind: str = "CEVT"  # SEVT extends a layout instead of a screen.
 
 
 @dataclass

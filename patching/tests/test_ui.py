@@ -15,6 +15,7 @@ from patching.ui.codegen import emit_header, emit_visibility
 from patching.ui.compiler import DocumentCompiler, compile_document
 from patching.ui.model import ScreenEvent
 from patching.ui.resources import (
+    Resource,
     Resources,
     blocks,
     event,
@@ -61,6 +62,127 @@ def menu(rows):
 
 
 class UiTests(unittest.TestCase):
+    def test_runtime_list_uses_native_rows_and_returns_to_parent(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.parse('<ui><list id="CFW_List" title="Items"/></ui>')
+        compiled = compile_document(resources, document)
+        for suffix in ("Rows", "Detail", "Screen", "Layout"):
+            self.assertIn("CFW_List_" + suffix, compiled.string_ids)
+        rows = [
+            row
+            for (kind, _), data in resources.added.items()
+            if kind == "ITEM"
+            for _, row in blocks(data)
+        ]
+        self.assertEqual(len(rows), 1)  # One repeatable prototype, no row cap.
+        self.assertEqual(rows[0].data[0x94], 1)
+        source = word(rows[0], 0x68)
+        bindings = blocks(resources.added["SORC", source])
+        self.assertEqual(
+            [bytes(binding.data) for _, binding in bindings],
+            [
+                struct.pack("<III", 0x8900, compiled.string_ids["CFW_List_Rows"], 1),
+                struct.pack("<III", 0x8900, compiled.string_ids["CFW_List_Detail"], 10),
+            ],
+        )
+        screen = compiled.string_ids["CFW_List_Screen"]
+        events = bytes(resources.added["CEVT", screen].data)
+        self.assertIn(b"CFW_List_Select", events)
+        self.assertIn(b"navigator.PopTopScreen", events)
+        self.assertFalse(document.fields)  # Runtime rows are not preference slots.
+        self.assertFalse(document.actions)
+
+    def test_runtime_list_can_stay_open_when_a_row_is_chosen(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.parse(
+            '<ui><list id="CFW_List" title="Items" select="stay"/></ui>'
+        )
+        compiled = compile_document(resources, document)
+        events = bytes(
+            resources.added["CEVT", compiled.string_ids["CFW_List_Screen"]].data
+        )
+        self.assertIn(b"CFW_List_Select", events)
+        self.assertNotIn(b"navigator.PopTopScreen", events)
+        with self.assertRaisesRegex(ValueError, "select must be"):
+            parser.parse('<ui><list id="CFW_List" title="Items" select="push"/></ui>')
+
+    def test_runtime_list_can_stack_the_detail_below_the_row_text(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        for layout, style in (("inline", None), ("stacked", 6)):
+            with self.subTest(layout=layout):
+                resources = Resources(metadata["resources"], bindings)
+                document = parser.parse(
+                    f'<ui><list id="CFW_List" title="Items" layout="{layout}"/></ui>'
+                )
+                compile_document(resources, document)
+                [row] = [
+                    row
+                    for (kind, _), data in resources.added.items()
+                    if kind == "ITEM"
+                    for _, row in blocks(data)
+                ]
+                if style is not None:
+                    self.assertEqual(word(row, 0x60), style)
+                else:
+                    self.assertIsNotNone(row.origins[0x60])  # Native row style kept.
+        with self.assertRaisesRegex(ValueError, "layout must be"):
+            parser.parse('<ui><list id="CFW_List" title="Items" layout="grid"/></ui>')
+
+    def test_sound_check_template_is_required_for_lists_and_toggles(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        for kind in ("list", "toggle"):
+            with self.subTest(kind=kind):
+                resources = Resources(metadata["resources"], bindings)
+                table = bindings["SettingsMenu_Items"]
+                rows = [
+                    next(
+                        (row_kind, row)
+                        for row_kind, row in blocks(resources.stock("ITEM", table))
+                        if word(row, 0x30) == bindings["SettingsMenu_ListItem_Legal"]
+                    )
+                ]
+                resources.original["ITEM", table] = pack_blocks(rows)
+                document = parser.parse(
+                    f'<ui><{kind} id="TEST" title="Test"/>'
+                    '<settings-entry menu="TEST" after="SettingsMenu_ListItem_Brightness" preview="image"/>'
+                    "</ui>"
+                )
+                with self.assertRaisesRegex(ValueError, "missing the Sound Check row"):
+                    compile_document(resources, document)
+
+    def test_runtime_list_can_be_opened_from_settings(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.parse(
+            '<ui><list id="TEST" title="Test"/>'
+            '<settings-entry menu="TEST" after="SettingsMenu_ListItem_Brightness" preview="image"/>'
+            "</ui>"
+        )
+        compiled = compile_document(resources, document)
+        [(table, after, _, row)] = resources.menu_items
+        self.assertEqual(table, bindings["SettingsMenu_Items"])
+        self.assertEqual(after, bindings["SettingsMenu_ListItem_Brightness"])
+        events = b"".join(
+            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
+        )
+        self.assertIn(f"list.pid.{word(row, 0x30)}.chosen".encode(), events)
+        self.assertIn(b"navigator.PushScreen", events)
+        self.assertIn(b"TEST_Screen", events)
+        self.assertIn("TEST_Rows", compiled.string_ids)
+        self.assertFalse(document.fields)
+
     def test_hidden_action_requires_final_menu_row(self):
         action = (
             '<action id="SAVE" title="Save" values="choices" hide-when-zero="true"/>'
@@ -484,42 +606,55 @@ class UiTests(unittest.TestCase):
         header = emit_header(document, compiled.string_ids)
         self.assertIn("#define CFW_AlbumArtists_Screen ", header)
 
-    def test_song_info_rows_are_dynamic_text_without_chosen_actions(self):
+    def test_file_info_is_a_stacked_runtime_list_that_stays_open(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
         shim = root / "payload/native"
         bindings = json.loads((shim / "ui.json").read_text())["bindings"]
         resources = Resources(metadata["resources"], bindings)
-        document = parser.read(root / "payload/song_info.ui")
+        document = parser.read(root / "payload/file_info.ui")
         compiled = compile_document(resources, document)
-        screen = compiled.string_ids["CFW_SongInfo_Screen"]
-        self.assertEqual(word(resources.added["CEVT", screen], 0), 0)
-        rows = [
+        screen = compiled.string_ids["CFW_FileInfo_Screen"]
+        events = bytes(resources.added["CEVT", screen].data)
+        self.assertIn(b"CFW_FileInfo_Select", events)
+        self.assertNotIn(b"navigator.PopTopScreen", events)
+        [row] = [
             row
             for (kind, _), data in resources.added.items()
             if kind == "ITEM"
             for _, row in blocks(data)
         ]
-        self.assertEqual(len(rows), 16)
-        self.assertTrue(all(word(row, 0x60) == 2 for row in rows))
-        for item in document.root.items:
-            string_id = compiled.string_ids[item.name]
-            self.assertEqual(
-                bytes(resources.added["Str ", string_id].data),
-                (item.title + ": Unknown\0").encode(),
-            )
+        self.assertEqual(word(row, 0x60), 6)
         for item_event in document.events:
-            self.assertIn(
-                b"contextualMenu.CFW_SongInfo",
-                b"".join(
-                    resources.event_extensions[
-                        "CEVT", resources.native(item_event.screen)
-                    ]
-                ),
+            events = b"".join(
+                resources.event_extensions[
+                    item_event.kind, resources.native(item_event.screen)
+                ]
             )
+            self.assertIn(item_event.event.encode(), events)
+            self.assertIn(item_event.handler.encode(), events)
+        layouts = [item.screen for item in document.events if item.kind == "SEVT"]
+        self.assertEqual(
+            layouts, ["MediaLists_Movies_Layout", "MediaLists_TVEpisodes_Layout"]
+        )
         header = emit_header(document, compiled.string_ids)
-        self.assertIn("#define CFW_SongInfo_Screen ", header)
-        self.assertIn("#define CFW_SongInfo_Layout ", header)
+        for suffix in ("Screen", "Layout", "Rows", "Detail"):
+            self.assertIn(f"#define CFW_FileInfo_{suffix} ", header)
+
+    def test_layout_event_extends_the_native_layout_events(self):
+        document = parser.parse(
+            '<ui><layout-event layout="0x20" event="button.select.pressandhold" '
+            'handler="HandleShowContextualMenu"/></ui>'
+        )
+        resources = Resources([], {})
+        resources.original = {("SEVT", 0x20): Resource(struct.pack("<I", 0))}
+        compile_document(resources, document)
+        self.assertEqual(
+            resources.event_extensions["SEVT", 0x20],
+            [event("button.select.pressandhold", handler="HandleShowContextualMenu")],
+        )
+        with self.assertRaisesRegex(ValueError, "Layout events require"):
+            parser.parse('<ui><layout-event layout="0x20" event="" handler="X"/></ui>')
 
     def test_named_screen_uses_selected_binding_and_rejects_missing_names(self):
         document = parser.parse(

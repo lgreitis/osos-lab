@@ -95,7 +95,7 @@ int main(void)
     restore_layout();
     const char *screens[] = {
         "HandleStartGenius",
-        "CFW_SongInfo",
+        "CFW_FileInfo",
     };
     for (unsigned i = 0; i < sizeof(screens) / sizeof(*screens); i++)
         assert(cfw_context_menu_screen_action(screens[i], "HandleStartGenius") == 0);
@@ -106,7 +106,7 @@ int main(void)
         "HandleAudiobookSlower",
         "CFW_PlayNext",
         "CFW_PlayLast",
-        "CFW_SongInfoExtra",
+        "CFW_FileInfoExtra",
         "",
     };
     for (unsigned i = 0; i < sizeof(actions) / sizeof(*actions); i++)
