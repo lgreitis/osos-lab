@@ -80,6 +80,7 @@ class PayloadTests(unittest.TestCase):
                 "dark_mode",
                 "store",
                 "osos_handoff",
+                "media_progress",
             ):
                 with self.subTest(fixture=name):
                     executable = directory / name

@@ -222,3 +222,13 @@
 
 /* Resource-controller layout caches precede the stored layout ID (2.0.5). */
 #define OSOS_LAYOUT_CACHE_TO_ID 0x30
+
+/* Resumable media playback-state indicator (Apple 2.0.5). */
+#define OSOS_MEDIA_LIST_PROPERTY 0x0816a04c
+#define OSOS_BITMAP_DRAWABLE_SET 0x08103984
+#define OSOS_PLAYER_POSITION 0x0816f704
+#define OSOS_MEDIA_STATUS_BITMAP 0x0dad0714
+#define OSOS_MEDIA_LIST_SOURCE_OFFSET 0x18
+#define OSOS_MEDIA_LIST_ALL_OFFSET 0x25
+#define OSOS_MEDIA_LIST_ICON_OFFSET 0x258
+#define OSOS_MEDIA_LIST_SELECTED_ICON_OFFSET 0x310
