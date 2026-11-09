@@ -164,7 +164,6 @@ int main(void)
     (void)incoming;
     (void)fixture_baseline;
     (void)metadata;
-    (void)active_bits;
     assert(
         cfw_theme_settings_action(NULL, "CFW_Theme_Open", OSOS_ACTION_SUPPORT_QUERY));
     assert(!initialized && !scans && !stores);

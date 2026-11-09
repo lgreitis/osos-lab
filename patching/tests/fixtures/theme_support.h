@@ -216,7 +216,6 @@ static inline const unsigned char *payload_pixels(void)
 }
 static const struct osos_path incoming = {0, "0"}, baseline = {0, "1"},
                               metadata = {0, "2"};
-static uint32_t active_bits[CFW_THEME_BITMAP_WORDS];
 
 /* Palette assets replace 10 bytes from offset 32; the mask replaces 14 from 28,
  * the ARGB asset 8 from 28 and the payload mask 8 from 28. */

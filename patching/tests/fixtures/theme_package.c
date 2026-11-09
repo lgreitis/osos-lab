@@ -449,7 +449,6 @@ int main(void)
     assert(!metadata_name((const unsigned char *)"A\0B", 4));
     assert(!metadata_name((const unsigned char *)"A\xe2", 2));
     memcpy(original, pixels, sizeof(pixels));
-    (void)active_bits;
     crc();
     prefix_checks();
     streaming();
