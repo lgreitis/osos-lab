@@ -499,6 +499,16 @@ void cfw_eq_reset_preferences(void)
     boot_step('Q');
 }
 
+void cfw_theme_settings_reset(void)
+{
+    boot_step('R');
+}
+
+void cfw_menu_covers_reset(void)
+{
+    boot_step('C');
+}
+
 static void native_flush(void *preferences)
 {
     assert(preferences == &native_preferences_object);
@@ -525,7 +535,7 @@ static void check_settings_lifecycle(void)
     boot_count = 0;
     memset(boot_calls, 0, sizeof(boot_calls));
     cfw_settings_reset(&reset_model);
-    assert(!strcmp(boot_calls, "NQ"));
+    assert(!strcmp(boot_calls, "NQRC"));
 }
 
 static void check_clicker(void)

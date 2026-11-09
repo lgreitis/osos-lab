@@ -20,7 +20,7 @@ enum cfw_theme_preferences_status {
 };
 
 enum cfw_theme_store_result {
-    CFW_THEME_STORE_DURABLE,
+    CFW_THEME_STORE_SAVED,
     CFW_THEME_STORE_UNCHANGED,
     CFW_THEME_STORE_UNKNOWN
 };
@@ -38,9 +38,8 @@ enum cfw_theme_result {
 };
 
 /* Called synchronously after the pack and baseline prefixes are checked, before
- * changing artwork. A failed write leaves live artwork unchanged, even if disk
- * state is uncertain. Callers serialize UI actions; store must not reenter this
- * switcher. */
+ * changing artwork. A selection that was not saved leaves live artwork unchanged.
+ * Callers serialize UI actions; store must not reenter this switcher. */
 struct cfw_theme_switch_ops {
     enum cfw_theme_store_result (*store)(const struct cfw_theme_preferences *state);
 };

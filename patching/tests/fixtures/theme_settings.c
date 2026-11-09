@@ -87,7 +87,7 @@ cfw_theme_preferences_store(const struct cfw_theme_preferences *s)
     if (fail_store)
         return CFW_THEME_STORE_UNKNOWN;
     saved = *s;
-    return CFW_THEME_STORE_DURABLE;
+    return CFW_THEME_STORE_SAVED;
 }
 
 static int discovery_overflow, no_custom;
@@ -321,6 +321,27 @@ int main(void)
     choose(1);
     assert(!switcher.active.custom && !strcmp(error, "Could not load theme"));
     reads_fail = 0;
+    /* Reset All Settings applies and saves Classic light with the default accent. */
+    cfw_theme_input_drained();
+    choose(1);
+    assert(switcher.active.custom && !error);
+    cfw_theme_input_drained();
+    row = 2;
+    assert(cfw_theme_settings_action(NULL, "CFW_Accent_Select", 0));
+    assert(switcher.active.selection.accent == CFW_THEME_ACCENT_TEAL);
+    cfw_theme_input_drained();
+    cfw_theme_settings_reset();
+    assert(!switcher.active.custom && !switcher.active.selection.dark);
+    assert(switcher.active.selection.accent == CFW_THEME_ACCENT_DEFAULT);
+    assert(!saved.selection.id[0] && !saved.selection.dark);
+    assert(saved.selection.accent == CFW_THEME_ACCENT_DEFAULT);
+    assert(!strcmp(active_name, "Classic") && !memcmp(pixels, original, sizeof(pixels)));
+    /* Already Classic light: only the record is written. */
+    cfw_theme_input_drained();
+    accepted = stores;
+    unsigned reset_notices = notices;
+    cfw_theme_settings_reset();
+    assert(stores == accepted + 1 && notices == reset_notices);
     /* Damage found while writing returns to Classic light and saves it. */
     unsigned char *checked = files[0].data + 52 + CFW_THEME_STYLE_BYTES + 12 + 4;
     *checked ^= 1;

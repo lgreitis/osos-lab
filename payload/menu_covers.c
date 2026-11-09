@@ -5,7 +5,7 @@
 #include "osos.h"
 #include "cfw.h"
 #include "patch.h"
-#include "preferences.h"
+#include "store.h"
 #include "theme_style.h"
 
 enum {
@@ -13,8 +13,6 @@ enum {
     COVERS_ON_RECORD = 0x31525643,  /* CVR1 */
     COVERS_THEME_RECORD = 0x54525643, /* CVRT */
 };
-
-static const char settings_file[] = "iPod_Control\\Device\\CFWCovers";
 
 /* The Settings row cycles Theme, On and Off. On and Off outlive theme switches;
  * Theme, also used when nothing is saved, follows the active theme's rendering
@@ -31,22 +29,25 @@ int cfw_menu_covers_enabled(void)
 
 void cfw_menu_covers_load(void)
 {
-    uint32_t record;
-    preference = PREFERENCE_THEME;
-    if (cfw_preferences_read(settings_file, &record, sizeof(record))) {
-        if (record == COVERS_ON_RECORD)
-            preference = PREFERENCE_ON;
-        else if (record == COVERS_OFF_RECORD)
-            preference = PREFERENCE_OFF;
-    }
+    uint32_t record = 0;
+    cfw_store_get(CFW_STORE_MENU_COVERS, &record, sizeof(record));
+    preference = record == COVERS_ON_RECORD    ? PREFERENCE_ON
+                 : record == COVERS_OFF_RECORD ? PREFERENCE_OFF
+                                               : PREFERENCE_THEME;
 }
 
-static int save(int choice)
+static void save(int choice)
 {
     uint32_t record = choice == PREFERENCE_ON    ? COVERS_ON_RECORD
                       : choice == PREFERENCE_OFF ? COVERS_OFF_RECORD
                                                  : COVERS_THEME_RECORD;
-    return cfw_preferences_write(settings_file, &record, sizeof(record));
+    preference = choice;
+    cfw_store_set(CFW_STORE_MENU_COVERS, &record, sizeof(record));
+}
+
+void cfw_menu_covers_reset(void)
+{
+    save(PREFERENCE_THEME);
 }
 
 /* The main and Music menu highlight handlers ask the media artwork provider
@@ -96,12 +97,10 @@ int cfw_menu_covers_action(void *controller, const char *action, uint32_t argume
         next = PREFERENCE_THEME;
         break;
     }
-    if (save(next)) {
-        preference = next;
-        void *settings = osos_settings_model(controller);
-        osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_MenuCovers_Value);
-        osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_MenuCovers_PreviewText);
-        osos_ui_invalidate();
-    }
+    save(next);
+    void *settings = osos_settings_model(controller);
+    osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_MenuCovers_Value);
+    osos_model_notify(settings, OSOS_NOTIFY_ALL, CFW_MenuCovers_PreviewText);
+    osos_ui_invalidate();
     return 1;
 }

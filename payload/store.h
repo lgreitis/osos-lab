@@ -6,7 +6,9 @@
 enum {
     CFW_STORE_CUSTOM_EQ = 0x20514543,       /* "CEQ " */
     CFW_STORE_DARK = 0x4b524144,            /* "DARK" */
+    CFW_STORE_MENU_COVERS = 0x564f434d,     /* "MCOV" */
     CFW_STORE_MENU_VISIBILITY = 0x5349564d, /* "MVIS" */
+    CFW_STORE_THEME = 0x4d454854,           /* "THEM" */
 };
 
 /* Settings live in RAM and reach the disk only through cfw_store_flush(), which

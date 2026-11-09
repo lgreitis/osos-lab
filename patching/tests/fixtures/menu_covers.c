@@ -17,10 +17,10 @@ static struct {
     unsigned char reserved[0xb0];
     void *model;
 } controller;
-static int model, handle, provider;
+static int model, provider;
 static uint32_t stored;
-static int present, write_error;
-static int opens, writes, notifications, invalidations, queries;
+static int present;
+static int writes, notifications, invalidations, queries;
 static unsigned render_flags;
 
 unsigned cfw_theme_render_flags(void)
@@ -28,41 +28,22 @@ unsigned cfw_theme_render_flags(void)
     return render_flags;
 }
 
-static int file_open(const struct osos_path *path, uint32_t mode, void **out)
+/* The settings store with only the Menu Covers record. */
+uint32_t cfw_store_get(uint32_t key, void *data, uint32_t capacity)
 {
-    assert(path->volume == 0);
-    assert(!strcmp(path->text, "iPod_Control\\Device\\CFWCovers"));
-    assert(mode == 1 || mode == 2);
-    if (mode == 1 && !present)
-        return -43;
-    if (mode == 2 && write_error)
-        return -1;
-    opens++;
-    *out = &handle;
-    return 0;
+    assert(key == 0x564f434d && capacity == sizeof(stored));
+    if (!present)
+        return 0;
+    memcpy(data, &stored, sizeof(stored));
+    return sizeof(stored);
 }
 
-static int file_read(void *value, void *out, uint32_t size, uint32_t *count)
+void cfw_store_set(uint32_t key, const void *data, uint32_t size)
 {
-    assert(value == &handle && size == sizeof(stored));
-    memcpy(out, &stored, sizeof(stored));
-    *count = sizeof(stored);
-    return 0;
-}
-
-static int file_write(void *value, const void *data, uint32_t size, uint32_t *count)
-{
-    assert(value == &handle && size == sizeof(stored));
+    assert(key == 0x564f434d && size == sizeof(stored));
     memcpy(&stored, data, sizeof(stored));
     present = 1;
     writes++;
-    *count = sizeof(stored);
-    return 0;
-}
-
-static void file_close(void *value)
-{
-    assert(value == &handle);
 }
 
 static uintptr_t string(uint32_t id)
@@ -87,15 +68,10 @@ static void invalidate(void)
     invalidations++;
 }
 
-#define osos_file_open file_open
-#define osos_file_read file_read
-#define osos_file_write file_write
-#define osos_file_close file_close
 #define osos_ui_string string
 #define osos_settings_on_off on_off
 #define osos_model_notify notify
 #define osos_ui_invalidate invalidate
-#include "../../../payload/preferences.c"
 #include "../../../payload/menu_covers.c"
 
 int cfw_menu_covers_query_original(void *value, uint32_t flags)
@@ -126,7 +102,7 @@ int main(void)
 {
     controller.model = &model;
 
-    /* No preference file: the theme decides, and Classic shows covers. */
+    /* No stored record: the theme decides, and Classic shows covers. */
     cfw_menu_covers_load();
     check(1, 1);
     render_flags = CFW_THEME_MENU_COVERS_OFF;
@@ -175,16 +151,16 @@ int main(void)
     assert(notifications == 4 && invalidations == 2);
     check(0, 0);
 
-    /* A failed write keeps the current state. */
-    write_error = 1;
-    assert(cfw_menu_covers_action(&controller, "CFW_MenuCovers_Toggle", 0));
-    assert(stored == COVERS_OFF_RECORD && writes == 2 && notifications == 4);
-    check(0, 0);
-
-    write_error = 0;
     assert(cfw_menu_covers_action(&controller, "CFW_MenuCovers_Toggle", 0));
     assert(stored == COVERS_THEME_RECORD && writes == 3);
     assert(notifications == 6 && invalidations == 3);
+    check(0, 1);
+
+    /* Reset All Settings returns to the theme default and stores it. */
+    assert(cfw_menu_covers_action(&controller, "CFW_MenuCovers_Toggle", 0));
+    check(1, 0);
+    cfw_menu_covers_reset();
+    assert(stored == COVERS_THEME_RECORD && writes == 5);
     check(0, 1);
     return 0;
 }

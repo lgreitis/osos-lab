@@ -17,6 +17,8 @@ int cfw_theme_settings_property(uint32_t type, uint32_t property, uintptr_t *out
 int cfw_theme_settings_indexed_property(uint32_t type, uint32_t property,
                                         uint32_t index, uintptr_t *out);
 void cfw_theme_settings_toggle(void *controller);
+/* Reset All Settings: Classic light with the default accent. */
+void cfw_theme_settings_reset(void);
 const char *cfw_theme_settings_error(void);
 
 uint32_t cfw_theme_settings_selected(void);

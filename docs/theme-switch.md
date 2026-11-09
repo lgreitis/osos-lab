@@ -82,9 +82,13 @@ installer version; older bundles retain their previous installation layout.
 The firmware does not read the old `themes/default` and `themes/dark` paths.
 
 Boot restores valid saved selections through the same switcher without rewriting
-them. Invalid records or unavailable packages recover to Classic light. An absent
-`CFWTheme` record selects Classic light without writing anything; the pre-theme
-`CFWDark` record is ignored.
+them. Invalid records or unavailable packages recover to Classic light. Without a
+theme record, Dark Mode On from before themes (the store's `DARK` record, or the
+legacy `CFWDark` file while the store migrates) is saved once as Classic dark;
+otherwise Classic light is used without writing anything.
+
+Reset All Settings saves and applies Classic light with the default accent and
+returns Menu Covers to Theme.
 
 ## Tint roles
 
@@ -161,15 +165,17 @@ and is not affected.
 
 ## Preference storage
 
-`iPod_Control/Device/CFWTheme` contains a 56-byte RTP1 record: little-endian magic,
-version, pending flag, 32-byte padded theme ID, appearance, accent, and CRC32 of
-the first 52 bytes. Decode validates length, checksum, version, flags, and
-selection fields without modifying its output on failure. Pending records
-select Classic light at boot.
+The selection is the settings store's `THEM` record: a 56-byte RTP1 record with
+little-endian magic, version, pending flag, 32-byte padded theme ID, appearance,
+accent, and CRC32 of the first 52 bytes. Decode validates length, checksum,
+version, flags, and selection fields without modifying its output on failure.
+Pending records select Classic light at boot.
 
-Only native open error -43 means absent. Other errors, malformed records, and
-trailing data are invalid and recover to Classic light. Writes check transfer length, explicitly
-sync, set the length to 56 bytes, sync again, close, and verify by readback.
-The native write wrapper discards its internal sync result, so the explicit
-sync is required. Storage errors return UNKNOWN and may leave uncertain disk
-contents; invalid input returns UNCHANGED without opening the file.
+Malformed, short and longer records are invalid and recover to Classic light. A
+switch saves the selection before changing artwork and reads the record back,
+because the store drops a record that does not fit; a selection that was not kept
+returns UNKNOWN and leaves the artwork unchanged. Invalid input returns UNCHANGED
+without touching the store. Like every store record, the selection reaches the
+disk at the next store flush, so a theme that crashes before then is not restored
+at the next boot.
+

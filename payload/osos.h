@@ -562,20 +562,6 @@ static inline int osos_file_seek(void *handle, int64_t offset, uint32_t whence)
     return ((fn)OSOS_FILE_SEEK)(handle, offset, whence);
 }
 
-/* Set the buffered file and backend length. Call with clean buffered writes. */
-static inline int osos_file_set_size(void *handle, uint32_t bytes)
-{
-    typedef int (*fn)(void *, uint32_t);
-    return ((fn)OSOS_FILE_SET_SIZE)(handle, bytes);
-}
-
-/* Native buffered-file sync returns the combined buffer/backend error. */
-static inline int osos_file_sync(void *handle)
-{
-    typedef int (*fn)(void *);
-    return ((fn)OSOS_FILE_SYNC)(handle);
-}
-
 static inline void osos_file_close(void *handle)
 {
     typedef int (*fn)(void *);

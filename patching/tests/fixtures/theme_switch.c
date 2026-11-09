@@ -19,7 +19,7 @@ static enum cfw_theme_store_result store(const struct cfw_theme_preferences *sta
     assert(!state->pending);
     if (reenter)
         assert(!cfw_theme_switch_apply(&switcher, &stock, NULL, &baseline));
-    if (outcome == CFW_THEME_STORE_DURABLE)
+    if (outcome == CFW_THEME_STORE_SAVED)
         disk = *state;
     return outcome;
 }
@@ -31,7 +31,7 @@ static void reset(void)
     cfw_theme_input_drained();
     memcpy(pixels, original, sizeof(pixels));
     memset(&disk, 0, sizeof(disk));
-    outcome = CFW_THEME_STORE_DURABLE;
+    outcome = CFW_THEME_STORE_SAVED;
     stores = reenter = 0;
     fail_alloc = reads_fail = short_reads = 0;
     fail_read_at = missing_files = 0;
@@ -221,7 +221,7 @@ static void switching(void)
     assert(!apply(&stock));
     assert(!strcmp(switcher.active.selection.id, "modern"));
     cfw_theme_input_drained();
-    outcome = CFW_THEME_STORE_DURABLE;
+    outcome = CFW_THEME_STORE_SAVED;
     assert(apply(&stock));
     check_stock();
 }

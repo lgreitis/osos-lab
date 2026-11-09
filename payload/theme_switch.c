@@ -45,7 +45,7 @@ static int store_selection(struct cfw_theme_switch *c,
     cfw_zero(&state, sizeof(state));
     state.version = 1;
     cfw_copy(&state.selection, selection, sizeof(*selection));
-    return c->ops->store(&state) == CFW_THEME_STORE_DURABLE;
+    return c->ops->store(&state) == CFW_THEME_STORE_SAVED;
 }
 
 static int stock_active(const struct cfw_theme_switch *c)

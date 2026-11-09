@@ -157,16 +157,19 @@ const char *cfw_theme_settings_error(void)
     return dark_error;
 }
 
+/* controller is null when there is no Settings model to notify. */
 static void notify(void *controller, int changed)
 {
-    void *model = osos_settings_model(controller);
     const uint32_t properties[] = {
         CFW_Accent_Choices,       CFW_Accent_PreviewText,   CFW_Theme_Choices,
         CFW_Theme_PreviewText,    CFW_DarkMode_Value,       CFW_DarkMode_PreviewImage,
         CFW_DarkMode_PreviewText, CFW_MenuCovers_Value,     CFW_MenuCovers_PreviewText,
     };
-    for (unsigned i = 0; i < sizeof(properties) / sizeof(*properties); i++)
-        osos_model_notify(model, OSOS_NOTIFY_ALL, properties[i]);
+    if (controller) {
+        void *model = osos_settings_model(controller);
+        for (unsigned i = 0; i < sizeof(properties) / sizeof(*properties); i++)
+            osos_model_notify(model, OSOS_NOTIFY_ALL, properties[i]);
+    }
     if (changed) {
         void *now_playing = osos_now_playing_model();
         if (now_playing) {
@@ -232,6 +235,20 @@ static void apply(void *controller, const char *id, uint32_t dark, unsigned acce
         changed = 1;
     }
     notify(controller, changed);
+}
+
+/* Reset All Settings: saves Classic light with the default accent even when it
+ * cannot be applied now, so the next boot uses it. */
+void cfw_theme_settings_reset(void)
+{
+    cfw_theme_settings_load();
+    struct cfw_theme_preferences classic;
+    cfw_zero(&classic, sizeof(classic));
+    classic.version = 1;
+    cfw_theme_preferences_store(&classic);
+    const struct cfw_theme_selection *active = &switcher.active.selection;
+    if (active->id[0] || active->dark || active->accent != CFW_THEME_ACCENT_DEFAULT)
+        apply(0, "", 0, CFW_THEME_ACCENT_DEFAULT, 1);
 }
 
 void cfw_theme_settings_toggle(void *controller)

@@ -48,6 +48,8 @@ PATCH_ARM void cfw_settings_reset(void *model)
 {
     osos_reset_all_settings(model);
     cfw_eq_reset_preferences();
+    cfw_theme_settings_reset();
+    cfw_menu_covers_reset();
 }
 
 PATCH_ARM int cfw_settings_action(void *controller, const char *action,

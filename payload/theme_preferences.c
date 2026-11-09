@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "theme_preferences.h"
 #include "cfw.h"
-#include "osos.h"
+#include "dark_mode.h"
+#include "preferences.h"
+#include "store.h"
 
-#define PREFERENCES_FILE "iPod_Control\\Device\\CFWTheme"
-
-enum { RTP1_MAGIC = 0x31505452u };
+enum {
+    RTP1_MAGIC = 0x31505452u,
+    DARK_MODE_ON_RECORD = 0x314b5244, /* DRK1, written by Dark Mode before themes */
+};
 
 static void preference_put(unsigned char *data, uint32_t word)
 {
@@ -54,62 +57,49 @@ int cfw_theme_preferences_decode(const unsigned char *data, uint32_t size,
     return 1;
 }
 
-static enum cfw_theme_preferences_status load(const struct osos_path *path,
-                                              struct cfw_theme_preferences *out)
+/* Dark Mode from before themes: main's store record, or during the store
+ * migration its legacy file. */
+static int legacy_dark(void)
 {
-    void *handle;
-    int error = osos_file_open(path, 1, &handle);
-    if (error)
-        return error == -43 ? CFW_THEME_PREF_ABSENT : CFW_THEME_PREF_INVALID;
-    unsigned char bytes[CFW_THEME_PREFERENCE_BYTES + 1];
-    uint32_t count = 0;
-    error = osos_file_read(handle, bytes, sizeof(bytes), &count);
-    osos_file_close(handle);
-    /* Reading one extra byte detects a trailing record or unsupported format. */
-    return !error && cfw_theme_preferences_decode(bytes, count, out)
-               ? CFW_THEME_PREF_VALID
-               : CFW_THEME_PREF_INVALID;
+    uint32_t record = 0;
+    if (cfw_store_get(CFW_STORE_DARK, &record, sizeof(record)) != sizeof(record) &&
+        (!cfw_store_migrating() ||
+         !cfw_preferences_read(CFW_DARK_MODE_LEGACY_FILE, &record, sizeof(record))))
+        return 0;
+    return record == DARK_MODE_ON_RECORD;
 }
 
 enum cfw_theme_preferences_status
 cfw_theme_preferences_load(struct cfw_theme_preferences *out)
 {
-    struct osos_path path;
-    cfw_theme_path(&path, PREFERENCES_FILE);
-    return load(&path, out);
+    /* Reading one extra byte detects a longer record or unsupported format. */
+    unsigned char bytes[CFW_THEME_PREFERENCE_BYTES + 1];
+    uint32_t size = cfw_store_get(CFW_STORE_THEME, bytes, sizeof(bytes));
+    if (size)
+        return cfw_theme_preferences_decode(bytes, size, out) ? CFW_THEME_PREF_VALID
+                                                               : CFW_THEME_PREF_INVALID;
+    if (!legacy_dark())
+        return CFW_THEME_PREF_ABSENT;
+    /* Dark Mode On becomes Classic dark, saved once as the theme record. */
+    cfw_zero(out, sizeof(*out));
+    out->version = 1;
+    out->selection.dark = 1;
+    cfw_theme_preferences_store(out);
+    return CFW_THEME_PREF_VALID;
 }
 
 enum cfw_theme_store_result
 cfw_theme_preferences_store(const struct cfw_theme_preferences *state)
 {
-    unsigned char bytes[CFW_THEME_PREFERENCE_BYTES];
+    unsigned char bytes[CFW_THEME_PREFERENCE_BYTES], saved[CFW_THEME_PREFERENCE_BYTES];
     if (!cfw_theme_preferences_encode(state, bytes))
         return CFW_THEME_STORE_UNCHANGED;
-    struct osos_path path;
-    cfw_theme_path(&path, PREFERENCES_FILE);
-    void *handle;
-    if (osos_file_open(&path, 2, &handle))
-        return CFW_THEME_STORE_UNKNOWN;
-    uint32_t count = 0;
-    int error = osos_file_write(handle, bytes, sizeof(bytes), &count);
-    /* Flush before resizing: set-size does not drain the buffered writer. */
-    int sync_error = osos_file_sync(handle);
-    int size_error = 0;
-    if (!error && count == sizeof(bytes) && !sync_error) {
-        size_error = osos_file_set_size(handle, sizeof(bytes));
-        sync_error = osos_file_sync(handle);
-    }
-    osos_file_close(handle);
-    if (error || count != sizeof(bytes) || sync_error || size_error)
-        return CFW_THEME_STORE_UNKNOWN;
-    /* Verify the saved contents and exact file length after closing. */
-    struct cfw_theme_preferences saved;
-    unsigned char actual[CFW_THEME_PREFERENCE_BYTES];
-    if (load(&path, &saved) != CFW_THEME_PREF_VALID ||
-        !cfw_theme_preferences_encode(&saved, actual))
+    cfw_store_set(CFW_STORE_THEME, bytes, sizeof(bytes));
+    /* The store drops a record that does not fit; read it back to confirm. */
+    if (cfw_store_get(CFW_STORE_THEME, saved, sizeof(saved)) != sizeof(saved))
         return CFW_THEME_STORE_UNKNOWN;
     for (unsigned i = 0; i < sizeof(bytes); i++)
-        if (bytes[i] != actual[i])
+        if (bytes[i] != saved[i])
             return CFW_THEME_STORE_UNKNOWN;
-    return CFW_THEME_STORE_DURABLE;
+    return CFW_THEME_STORE_SAVED;
 }
