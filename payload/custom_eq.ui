@@ -40,52 +40,44 @@
     <value number="16000" label="16000 Hz"/>
     <value number="20000" label="20000 Hz"/>
   </values>
-  <range id="cfw_eq_precut_values" first="0" last="-100" step="-1" scale="10" suffix=" dB"/>
+  <range id="cfw_eq_precut_values" first="0" last="-100" step="-1" scale="10" suffix=" dB">
+    <value number="1" label="Auto"/>
+  </range>
   <range id="cfw_eq_q" first="3" last="40" step="1" scale="10"/>
   <range id="cfw_eq_gain" first="-120" last="120" step="5" scale="10" suffix=" dB" signed="true"/>
-  <values id="cfw_eq_save_status">
-    <value number="0" label="Save settings"/>
-    <value number="1" label="Invalid filter settings"/>
-  </values>
 
   <!-- Slots and choice order are part of the saved EQ settings format. -->
-  <menu id="CFW_EQ" title="Custom EQ">
-    <selector id="CFW_EQ_Precut" title="Precut" values="cfw_eq_precut_values" slot="0" default="0"/>
-    <canvas id="CFW_EQCanvas" title="Graphic EQ"/>
-    <menu id="CFW_EQ_Band1" title="Band 1">
-      <selector id="CFW_EQ_Band1_Type" title="Type" values="cfw_eq_types" slot="1" default="2"/>
-      <selector id="CFW_EQ_Band1_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="2" default="60"/>
-      <selector id="CFW_EQ_Band1_Q" title="Q" values="cfw_eq_q" slot="3" default="7"/>
-      <selector id="CFW_EQ_Band1_Gain" title="Gain" values="cfw_eq_gain" slot="4" default="0"/>
-    </menu>
-    <menu id="CFW_EQ_Band2" title="Band 2">
-      <selector id="CFW_EQ_Band2_Type" title="Type" values="cfw_eq_types" slot="5" default="1"/>
-      <selector id="CFW_EQ_Band2_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="6" default="1000"/>
-      <selector id="CFW_EQ_Band2_Q" title="Q" values="cfw_eq_q" slot="7" default="7"/>
-      <selector id="CFW_EQ_Band2_Gain" title="Gain" values="cfw_eq_gain" slot="8" default="0"/>
-    </menu>
-    <menu id="CFW_EQ_Band3" title="Band 3">
-      <selector id="CFW_EQ_Band3_Type" title="Type" values="cfw_eq_types" slot="9" default="3"/>
-      <selector id="CFW_EQ_Band3_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="10" default="8000"/>
-      <selector id="CFW_EQ_Band3_Q" title="Q" values="cfw_eq_q" slot="11" default="7"/>
-      <selector id="CFW_EQ_Band3_Gain" title="Gain" values="cfw_eq_gain" slot="12" default="0"/>
-    </menu>
-    <menu id="CFW_EQ_Band4" title="Band 4">
-      <selector id="CFW_EQ_Band4_Type" title="Type" values="cfw_eq_types" slot="13" default="0"/>
-      <selector id="CFW_EQ_Band4_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="14" default="250"/>
-      <selector id="CFW_EQ_Band4_Q" title="Q" values="cfw_eq_q" slot="15" default="7"/>
-      <selector id="CFW_EQ_Band4_Gain" title="Gain" values="cfw_eq_gain" slot="16" default="0"/>
-    </menu>
-    <menu id="CFW_EQ_Band5" title="Band 5">
-      <selector id="CFW_EQ_Band5_Type" title="Type" values="cfw_eq_types" slot="17" default="0"/>
-      <selector id="CFW_EQ_Band5_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="18" default="4000"/>
-      <selector id="CFW_EQ_Band5_Q" title="Q" values="cfw_eq_q" slot="19" default="7"/>
-      <selector id="CFW_EQ_Band5_Gain" title="Gain" values="cfw_eq_gain" slot="20" default="0"/>
-    </menu>
-    <action id="CFW_EQ_Save" title="Save settings" values="cfw_eq_save_status" hide-when-zero="true"/>
-  </menu>
+  <setting id="CFW_EQ_Precut" title="Precut" values="cfw_eq_precut_values" slot="0" default="1"/>
+
+  <setting id="CFW_EQ_Band1_Type" title="Type" values="cfw_eq_types" slot="1" default="2"/>
+  <setting id="CFW_EQ_Band1_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="2" default="60"/>
+  <setting id="CFW_EQ_Band1_Q" title="Q" values="cfw_eq_q" slot="3" default="7"/>
+  <setting id="CFW_EQ_Band1_Gain" title="Gain" values="cfw_eq_gain" slot="4" default="0"/>
+
+  <setting id="CFW_EQ_Band2_Type" title="Type" values="cfw_eq_types" slot="5" default="1"/>
+  <setting id="CFW_EQ_Band2_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="6" default="1000"/>
+  <setting id="CFW_EQ_Band2_Q" title="Q" values="cfw_eq_q" slot="7" default="7"/>
+  <setting id="CFW_EQ_Band2_Gain" title="Gain" values="cfw_eq_gain" slot="8" default="0"/>
+
+  <setting id="CFW_EQ_Band3_Type" title="Type" values="cfw_eq_types" slot="9" default="3"/>
+  <setting id="CFW_EQ_Band3_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="10" default="8000"/>
+  <setting id="CFW_EQ_Band3_Q" title="Q" values="cfw_eq_q" slot="11" default="7"/>
+  <setting id="CFW_EQ_Band3_Gain" title="Gain" values="cfw_eq_gain" slot="12" default="0"/>
+
+  <setting id="CFW_EQ_Band4_Type" title="Type" values="cfw_eq_types" slot="13" default="0"/>
+  <setting id="CFW_EQ_Band4_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="14" default="250"/>
+  <setting id="CFW_EQ_Band4_Q" title="Q" values="cfw_eq_q" slot="15" default="7"/>
+  <setting id="CFW_EQ_Band4_Gain" title="Gain" values="cfw_eq_gain" slot="16" default="0"/>
+
+  <setting id="CFW_EQ_Band5_Type" title="Type" values="cfw_eq_types" slot="17" default="0"/>
+  <setting id="CFW_EQ_Band5_Frequency" title="Frequency" values="cfw_eq_frequencies" slot="18" default="4000"/>
+  <setting id="CFW_EQ_Band5_Q" title="Q" values="cfw_eq_q" slot="19" default="7"/>
+  <setting id="CFW_EQ_Band5_Gain" title="Gain" values="cfw_eq_gain" slot="20" default="0"/>
+
+  <canvas id="CFW_EQ" title="Custom EQ"/>
+
   <bitmap id="CFW_EQ_Icon" file="assets/settings-eq.png" format="gray8"/>
-  <settings-entry menu="CFW_EQ" after="SettingsMenu_ListItem_EQ" open="CFW_EQ_Open"
+  <settings-entry menu="CFW_EQ" after="SettingsMenu_ListItem_EQ"
                   preview="image" image="CFW_EQ_Icon" caption="Adjust your sound"/>
   <string id="CFW_EQ_PRESET_NAME" text="Custom"/>
 </ui>

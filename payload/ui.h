@@ -23,38 +23,12 @@ struct cfw_ui_model {
     void (*commit)(void);
 };
 
-struct cfw_ui_field_state {
-    /* Native Cntl resources contain three signed words in this order. */
-    int32_t value, minimum, maximum;
-    char *summary;
-};
-
+/* One choice list from a <setting>; its slot is the index in the generated array. */
 struct cfw_ui_field {
-    uint32_t property, summary_property, screen, count, default_value, slot, numeric;
-    const char *action, *title;
+    uint32_t count, default_value;
+    const char *title;
     const char *const *labels;
-    const struct cfw_ui_model *model;
-    struct cfw_ui_field_state *state;
 };
 
-struct cfw_ui_action {
-    uint32_t property, count;
-    const char *const *labels;
-    uint32_t *status;
-    uint32_t hide_when_zero;
-};
-
-extern const struct cfw_ui_field *const cfw_ui_fields[];
-extern const uint32_t cfw_ui_field_count;
-extern const struct cfw_ui_action *const cfw_ui_actions[];
-extern const uint32_t cfw_ui_action_count;
-
-void cfw_ui_refresh(const struct cfw_ui_field *field);
-void cfw_ui_status(const struct cfw_ui_action *action, unsigned int status);
-int cfw_ui_property(uint32_t type, uint32_t property, uintptr_t *out);
-int cfw_ui_indexed_property(uint32_t type, uint32_t property, uint32_t index,
-                            uintptr_t *out);
-int cfw_ui_handle_action(const char *action, uint32_t argument);
-void cfw_ui_register_controllers(void);
 void cfw_ui_register_canvas(void);
 #endif

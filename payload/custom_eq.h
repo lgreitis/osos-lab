@@ -9,14 +9,17 @@
 #define CFW_EQ_DSP_PRESET 23
 /* Legacy import: pre-store EQ file. */
 #define CFW_EQ_LEGACY_FILE "iPod_Control\\Device\\CFWEQ"
+/* Precut choice index computed from the response; manual decibels follow it. */
+#define CFW_EQ_PRECUT_AUTO 0
 
 uint32_t cfw_irq_save(void);
 void cfw_irq_restore(uint32_t flags);
 
 extern const struct cfw_ui_model cfw_eq_model;
-uint32_t cfw_eq_snapshot(int32_t coefficients[CFW_EQ_BANDS][5], uint32_t *rate);
+/* Returns the bank version; precut is the applied attenuation in tenths of a dB. */
+uint32_t cfw_eq_snapshot(int32_t coefficients[CFW_EQ_BANDS][5], uint32_t *rate,
+                         uint32_t *precut);
 
-int cfw_eq_action(const char *action, uint32_t argument);
 void cfw_eq_load_preferences(void);
 /* Reset All Settings: restores and stores the default Custom EQ. */
 void cfw_eq_reset_preferences(void);

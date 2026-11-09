@@ -31,6 +31,8 @@ static const char *gain_labels[49], *frequency_labels[32], *q_labels[38];
 static uint32_t values[CFW_EQ_FIELDS];
 static unsigned changes, commits, snapshots, version;
 static int rejected, locked, example_response;
+static const char *precut_title, *precut_value;
+static int precut_title_right, precut_value_left;
 static unsigned native_hold_calls;
 static void change_value(uint32_t field, uint32_t value);
 
@@ -40,15 +42,11 @@ static void commit_values(void)
 }
 const struct cfw_ui_model cfw_eq_model = {values, change_value, commit_values};
 #define FIELD(slot_, title_, labels_, count_)                                          \
-    [slot_] = {.slot = slot_,                                                          \
-               .title = title_,                                                        \
-               .labels = labels_,                                                      \
-               .count = count_,                                                        \
-               .model = &cfw_eq_model}
+    [slot_] = {.title = title_, .labels = labels_, .count = count_}
 static const char *const type_labels[] = {"Off", "Peaking", "Low shelf", "High shelf"};
-static const char *const precut_labels[] = {"0.0 dB"};
+static const char *const precut_labels[] = {"Auto", "0.0 dB", "-0.1 dB"};
 const struct cfw_ui_field cfw_eq_fields[CFW_EQ_FIELDS] = {
-    FIELD(CFW_EQ_PRECUT, "Precut", precut_labels, 1),
+    FIELD(CFW_EQ_PRECUT, "Precut", precut_labels, 3),
     FIELD(CFW_EQ_BAND1_TYPE, "Type", type_labels, 4),
     FIELD(CFW_EQ_BAND1_GAIN, "Gain", gain_labels, 49),
     FIELD(CFW_EQ_BAND1_FREQUENCY, "Frequency", frequency_labels, 32),
@@ -87,10 +85,11 @@ static void change_value(uint32_t field, uint32_t value)
     }
 }
 
-uint32_t cfw_eq_snapshot(int32_t out[CFW_EQ_BANDS][5], uint32_t *rate)
+uint32_t cfw_eq_snapshot(int32_t out[CFW_EQ_BANDS][5], uint32_t *rate, uint32_t *precut)
 {
     snapshots++;
     *rate = 44100;
+    *precut = example_response;
     if (example_response) {
         assert(cfw_eq_coefficients(out[0], CFW_EQ_LOW_SHELF, 60, 7, 75, 65, *rate));
         assert(cfw_eq_coefficients(out[1], CFW_EQ_PEAKING, 160, 12, 70, 0, *rate));
@@ -268,10 +267,23 @@ static void osos_graphics_draw_text(void *context, const char *text)
     assert(pen_y + osos_graphics_font_descent(context) <= 217);
     if (!strcmp(text, "EQ response"))
         assert(pen_x == 8);
-    if (!strcmp(text, "Precut"))
-        assert(pen_x + osos_graphics_text_width(context, text) == 312 - 36 - 6);
-    if (!strcmp(text, "0.0 dB"))
+    int parameter_row = pen_y > 141 && pen_y < 168;
+    if (parameter_row) {
+        /* The Precut cell ends 12 px inside the canvas, like the Type cell. */
+        if (!strcmp(text, "Precut"))
+            assert(pen_x == 172);
+        if (!strcmp(text, "0.0 dB") || !strcmp(text, "-0.1 dB") ||
+            !strcmp(text, "Auto"))
+            assert(pen_x + osos_graphics_text_width(context, text) == 308);
+    } else if (!strcmp(text, "Precut") || !strcmp(text, "Auto precut")) {
+        precut_title = text;
+        precut_title_right = pen_x + osos_graphics_text_width(context, text);
+    }
+    if (!parameter_row && (!strcmp(text, "0.0 dB") || !strcmp(text, "-0.1 dB"))) {
         assert(pen_x + osos_graphics_text_width(context, text) == 312);
+        precut_value = text;
+        precut_value_left = pen_x;
+    }
     text_draws++;
 }
 
@@ -413,13 +425,30 @@ int main(void)
     wheel(0);
     wheel(1);
     assert(editor.parameter == 0);
-    wheel(14);
+    wheel(19);
     assert(editor.parameter == PARAM_Q && editor.band == 1);
     assert(button(0x0d, 0x6f) == 1);
     wheel(0);
     wheel(5);
     assert(values[CFW_EQ_BAND2_Q] == 5 && changes == 1 && commits == 0);
     assert(values[CFW_EQ_BAND1_Q] == 4 && values[CFW_EQ_BAND3_Q] == 4);
+    /* Precut is one global setting, whichever band is selected. */
+    assert(button(0x0d, 0x6e) == 1);
+    wheel(0);
+    wheel(-15);
+    assert(editor.parameter == PARAM_PRECUT);
+    assert(button(0x0d, 0x6f) == 1 && editor.mode == MODE_EDIT);
+    wheel(0);
+    wheel(5);
+    assert(values[CFW_EQ_PRECUT] == 1 && changes == 2 && commits == 1);
+    assert(values[CFW_EQ_BAND2_TYPE] == 0);
+    wheel(-5);
+    assert(values[CFW_EQ_PRECUT] == 0 && commits == 1);
+    assert(button(0x0d, 0x6f) == 1 && editor.mode == MODE_PARAMETER && commits == 2);
+    wheel(0);
+    wheel(15);
+    assert(editor.parameter == PARAM_Q);
+    assert(button(0x0d, 0x6f) == 1 && editor.mode == MODE_EDIT);
     assert(button(0x0d, 0x6e) == 1);
     assert(editor.mode == MODE_PARAMETER);
     assert(button(0x0d, 0x6e) == 1);
@@ -447,14 +476,15 @@ int main(void)
                     assert(editor.parameter == PARAM_COUNT - 1);
                 else
                     assert(canvas_index(band, parameter) ==
-                           canvas_field(band, parameter)->count - 1);
+                           cfw_eq_fields[canvas_slot(band, parameter)].count - 1);
                 canvas_draw(NULL, NULL, NULL);
                 if (mode != MODE_BAND) {
-                    int type = editor.parameter == PARAM_TYPE;
-                    int left = type ? 0 : (editor.parameter - 1) * 320 / 3;
-                    int right = type ? 319 : editor.parameter * 320 / 3 - 1;
-                    int top = type ? 141 : 170;
-                    int bottom = type ? 167 : 215;
+                    int inline_row = editor.parameter < PARAM_GAIN;
+                    int column = editor.parameter - PARAM_GAIN;
+                    int left = inline_row ? editor.parameter * 160 : column * 320 / 3;
+                    int right = inline_row ? left + 159 : (column + 1) * 320 / 3 - 1;
+                    int top = inline_row ? 141 : 170;
+                    int bottom = inline_row ? 167 : 215;
                     assert(!memcmp(pixels[top][left], canvas_palettes[0][COLOR_ACCENT],
                                    3));
                     assert(!memcmp(pixels[top][right], canvas_palettes[0][COLOR_ACCENT],
@@ -527,6 +557,14 @@ int main(void)
     assert(!memcmp(pixels[107][44 + 78], canvas_palettes[1][COLOR_ACCENT], 3));
     for (int i = 0; i <= response_extent; i++)
         assert(response_y(i) + response_y(-i) == 216);
+    /* Auto shows the applied attenuation; manual choices show their own label. */
+    assert(!strcmp(precut_title, "Auto precut") && !strcmp(precut_value, "-0.1 dB"));
+    assert(precut_title_right == precut_value_left - 6);
+    values[CFW_EQ_PRECUT] = 1;
+    version++;
+    canvas_draw(NULL, NULL, NULL);
+    assert(!strcmp(precut_title, "Precut") && !strcmp(precut_value, "0.0 dB"));
+    assert(precut_title_right == precut_value_left - 6);
     assert(rectangles > 0);
     assert(text_draws > 0);
     puts("EQ canvas: model edits, Hold response, commit boundaries and drawing passed");

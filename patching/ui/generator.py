@@ -7,7 +7,6 @@ from .codegen import (
     emit_events,
     emit_header,
     emit_menu_items,
-    emit_models,
     emit_resources,
     emit_visibility,
 )
@@ -33,10 +32,8 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
         '#include "osos.h"',
         "",
     ]
-    documents = []
     for source in sources:
         document = read(source)
-        documents.append(document)
         text = ""
         if document.root and document.root.kind == "text":
             text = page_text(source, document.root, revision, version)
@@ -50,14 +47,13 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
         compiled = compile_document(resources, document, text)
         compiled.string_ids.update(bitmap_ids)
         if document.root:
-            lines.extend(emit_bindings(document, compiled.fields, compiled.actions))
+            lines.extend(emit_bindings(document))
         (directory / (source.stem + "_ui.h")).write_text(
             emit_header(document, compiled.string_ids)
         )
     lines.extend(emit_resources(resources))
     lines.extend(emit_menu_items(resources))
     lines.extend(emit_events(resources))
-    lines.extend(emit_models(documents))
     lines.extend(emit_visibility(resources))
     path = directory / "ui_resources.c"
     path.write_text("\n".join(lines))
