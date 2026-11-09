@@ -10,6 +10,10 @@
 #include "custom_eq.h"
 #include "native/eq-layout.h"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 enum { BASS_PRESET = 8, FRAMES = 2048 };
 
 const int32_t cfw_eq_types[4] = {0, 1, 2, 3};
