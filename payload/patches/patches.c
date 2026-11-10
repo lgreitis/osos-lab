@@ -189,3 +189,14 @@ PATCH_CALL(OSOS_MEDIA_LIST_OTG_ADD_CALL, OSOS_OTG_ADD_BROWSER, cfw_queue_selecti
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_A, 0xe92d43f0, 0xe24dd06c, cfw_iap_auth_verify);
 /* stmdb sp!,{r2,r3,r4,lr}; cmp r1,#0 */
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_B, 0xe92d401c, 0xe3510000, cfw_iap_auth_verify);
+
+/* MP4 audio edit lists: the sample time (+0x90) is 64-bit, but these compares
+ * sign-extend its low word. Past 2^31 units (13:31:36 at 44.1 kHz) samples
+ * fall outside the edit and the track ends. Load the real high word instead
+ * (r2 already points past the time). */
+/* asr r1, r0, #31 -> ldr r1, [r2, #-0x1c] */
+PATCH_WORD(OSOS_MP4_AUDIO_EDIT_ADVANCE_WORD, 0xe1a01fc0, 0xe512101c);
+/* asr r1, r0, #31 -> ldr r1, [r2, #-0x14] */
+PATCH_WORD(OSOS_MP4_AUDIO_EDIT_START_WORD, 0xe1a01fc0, 0xe5121014);
+/* asr r1, r0, #31 -> ldr r1, [r2, #-0x1c] */
+PATCH_WORD(OSOS_MP4_AUDIO_EDIT_END_WORD, 0xe1a01fc0, 0xe512101c);
