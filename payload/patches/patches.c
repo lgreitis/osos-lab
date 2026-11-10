@@ -140,6 +140,9 @@ PATCH_JUMP(OSOS_MAIN_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a09000, cfw_ui_main_menu_
 PATCH_JUMP(OSOS_MUSIC_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a08000,
            cfw_ui_music_menu_reset);
 
+/* Seek MP4 audio by chunk instead of sample by sample (payload/mp4_seek.c). */
+PATCH_POINTER(OSOS_MP4_SEEK_SLOT, OSOS_MP4_SEEK, cfw_mp4_seek);
+
 /* Resources */
 PATCH_CALL(OSOS_RESOURCE_BLOCK_APPEND_CALL, OSOS_RESOURCE_BLOCK_APPEND,
            cfw_ui_append_resource_block);

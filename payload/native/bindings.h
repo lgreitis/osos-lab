@@ -98,6 +98,10 @@
 #define OSOS_FILE_WRITE 0x0804ff68
 #define OSOS_FILE_CLOSE 0x0804f6e4
 #define OSOS_FILE_DELETE 0x0804f99c
+#define OSOS_DIVIDE_U64 0x08024024
+#define OSOS_MP4_SEEK 0x081bd1cc
+#define OSOS_MP4_LOAD_SAMPLE_SIZES 0x081bac44
+#define OSOS_MP4_AUDIO_TRACK 0x1b8
 #define OSOS_PREFERENCES_LOAD 0x0809c69c
 #define OSOS_PREFERENCES_FLUSH 0x08063760
 /* Reset All Settings: native Preferences defaults, then both menu resets. */
