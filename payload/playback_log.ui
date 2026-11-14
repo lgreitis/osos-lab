@@ -1,0 +1,7 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <toggle id="CFW_PlaybackLog" title="Playback Log"/>
+  <bitmap id="CFW_PlaybackLog_Icon" file="assets/settings-info.png" format="gray8"/>
+  <settings-entry menu="CFW_PlaybackLog" after="SettingsMenu_ListItem_SoundCheck" preview="image"
+                  image="CFW_PlaybackLog_Icon" caption="Save Listening History"/>
+</ui>

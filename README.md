@@ -73,6 +73,12 @@ reduction after long listening.
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →
 Music Menu.
 
+**Playback Log** adds an On/Off switch in Settings. When enabled, completed,
+skipped and replaced tracks are appended to `playback.tsv`. The log includes
+track metadata, timestamps and playback position. Position is not measured
+listening time: pauses and seeks affect the estimates. See the
+[column reference](docs/playback-log.md).
+
 The game SDK and [Doom port](doom/README.md) are unfinished.
 
 ## Build

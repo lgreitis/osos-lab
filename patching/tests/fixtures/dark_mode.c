@@ -635,3 +635,27 @@ int main(void)
     check_settings_lifecycle();
     check_reset_all_settings();
 }
+
+void cfw_playback_log_load(void)
+{
+}
+
+int cfw_playback_log_action(void *c, const char *a, uint32_t v)
+{
+    (void)c;
+    (void)a;
+    (void)v;
+    return 0;
+}
+
+int cfw_playback_log_property(uint32_t t, uint32_t p, uintptr_t *o)
+{
+    (void)t;
+    (void)p;
+    (void)o;
+    return 0;
+}
+
+void cfw_playback_log_reset(void)
+{
+}

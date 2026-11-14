@@ -70,6 +70,7 @@ def build_recipe(
                 "album_artists.ui",
                 "dark_mode.ui",
                 "queue_selection.ui",
+                "playback_log.ui",
             )
         ],
         directory,

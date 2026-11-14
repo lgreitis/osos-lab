@@ -56,6 +56,7 @@ class PayloadTests(unittest.TestCase):
                 [
                     root / "payload/dark_mode.ui",
                     root / "payload/file_info.ui",
+                    root / "payload/playback_log.ui",
                     root / "payload/custom_eq.ui",
                     root / "payload/crossfeed.ui",
                     root / "payload/cfw_info.ui",
@@ -68,6 +69,7 @@ class PayloadTests(unittest.TestCase):
                 "context_menu",
                 "song_actions",
                 "file_info",
+                "playback_log",
                 "media_menus",
                 "album_artist",
                 "album_artists_index",

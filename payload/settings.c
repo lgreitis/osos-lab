@@ -4,6 +4,7 @@
 #include "custom_eq.h"
 #include "dark_mode.h"
 #include "file_info.h"
+#include "playback_log.h"
 #include "osos.h"
 #include "patch.h"
 #include "preferences.h"
@@ -19,6 +20,7 @@ void cfw_settings_boot(void *preferences)
 {
     native_preferences = preferences;
     cfw_store_load();
+    cfw_playback_log_load();
     cfw_eq_load_preferences();
     cfw_dark_mode_load();
     cfw_crossfeed_load();
@@ -50,12 +52,14 @@ PATCH_ARM void cfw_settings_reset(void *model)
     cfw_eq_reset_preferences();
     cfw_dark_mode_reset();
     cfw_crossfeed_reset();
+    cfw_playback_log_reset();
 }
 
 PATCH_ARM int cfw_settings_action(void *controller, const char *action,
                                   uint32_t argument)
 {
-    if (cfw_file_info_action(action, argument) ||
+    if (cfw_playback_log_action(controller, action, argument) ||
+        cfw_file_info_action(action, argument) ||
         cfw_clicker_action(controller, action, argument) ||
         cfw_dark_mode_action(controller, action, argument) ||
         cfw_crossfeed_action(controller, action, argument))
@@ -67,7 +71,8 @@ PATCH_ARM int cfw_settings_action(void *controller, const char *action,
 PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t property,
                                     uintptr_t *out)
 {
-    if (cfw_file_info_property(type, property, out) ||
+    if (cfw_playback_log_property(type, property, out) ||
+        cfw_file_info_property(type, property, out) ||
         cfw_dark_mode_property(type, property, out) ||
         cfw_clicker_property(model, type, property, out) ||
         cfw_crossfeed_property(type, property, out))

@@ -245,3 +245,14 @@
 /* Lists without a contextual menu share this handler, which only returns 1. */
 #define OSOS_LIST_NO_CONTEXT_MENU 0x08210674
 #define OSOS_VIDEO_PLAYLIST_ACTION 0x08254c00
+
+/* Playback logging. */
+#define OSOS_TRACK_SESSION_FINISH 0x08173ae4
+#define OSOS_CLOCK_READ 0x08083ba4
+#define OSOS_CLOCK_SECONDS 0x08088dfc
+#define OSOS_CLOCK_MAC_SECONDS 0x0809ff40
+#define OSOS_FILE_SEEK 0x0826f1b0
+#define OSOS_PLAYER_IS_SHUFFLED 0x081730d0
+#define OSOS_PLAYER_IS_REPEAT_ONE 0x08172efc
+#define OSOS_PLAYER_IS_REPEAT_ALL 0x08172ec8
+#define OSOS_PLAYER_SELECT_TRACK 0x0816f058
