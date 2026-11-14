@@ -108,6 +108,68 @@ class EqCoefficientsTests(unittest.TestCase):
                                 response(bank, hz, rate), expected, delta=0.51
                             )
 
+            self.check_peak(dll, fn, scale)
+
+    def check_peak(self, dll, fn, scale):
+        peak = dll.cfw_eq_peak
+        peak.argtypes = [
+            ctypes.POINTER(ctypes.c_int32 * 5),
+            ctypes.c_uint,
+            ctypes.c_uint,
+        ]
+        peak.restype = ctypes.c_int
+        attenuate = dll.cfw_eq_attenuate
+        attenuate.argtypes = [ctypes.POINTER(ctypes.c_int32), ctypes.c_uint]
+        attenuate.restype = None
+
+        def dense(bank, rate):
+            best = 0.0
+            for i in range(6001):
+                z = cmath.exp(-2j * math.pi * 20 * 1000 ** (i / 6000) / rate)
+                power = 1.0
+                for b0, b1, b2, a1, a2 in bank:
+                    power *= (
+                        abs((b0 + b1 * z + b2 * z * z) / (scale + a1 * z + a2 * z * z))
+                        ** 2
+                    )
+                best = max(best, power)
+            return 100 * math.log10(best)
+
+        # Narrow bells near Nyquist, overlapping peaks, resonant shelves and cuts.
+        cases = [
+            [(1, 19000, 40, 120)],
+            [(1, 16000, 40, 120), (1, 12500, 30, 60)],
+            [(1, 1000, 7, 60), (1, 1250, 40, 40), (2, 80, 7, 30)],
+            [(2, 1000, 40, 90), (3, 1000, 26, -60)],
+            [(3, 8000, 7, 75), (1, 4000, 12, 50), (2, 60, 7, 75)],
+            [(1, 250, 10, -120), (1, 4000, 10, -60)],
+        ]
+        for rate in (44100, 48000):
+            for case in cases:
+                bank = ((ctypes.c_int32 * 5) * 5)()
+                for i, (kind, hz, q, gain) in enumerate(case):
+                    self.assertEqual(fn(bank[i], kind, hz, q, gain, 0, rate), 1)
+                expected = dense([list(bank[i]) for i in range(len(case))], rate)
+                actual = peak(bank, len(case), rate)
+                with self.subTest(rate=rate, case=case):
+                    self.assertGreaterEqual(actual, expected - 0.01)
+                    self.assertLessEqual(actual, math.ceil(expected) + 1)
+                    # Precut rounds up, leaving the peak within 0.1 dB below 0 dB.
+                    if actual > 0:
+                        attenuate(bank[0], actual)
+                        self.assertLessEqual(peak(bank, len(case), rate), 0)
+                        self.assertGreater(
+                            dense([list(bank[i]) for i in range(len(case))], rate),
+                            -1.01,
+                        )
+        coefficients = (ctypes.c_int32 * 5)(scale, -scale // 2, 1000, 7, 9)
+        attenuate(coefficients, 60)
+        gain = 10 ** (-60 / 200)
+        self.assertEqual(
+            list(coefficients),
+            [round(scale * gain), round(-scale // 2 * gain), round(1000 * gain), 7, 9],
+        )
+
     @staticmethod
     def reference(kind, hz, gain, precut, rate):
         w = 2 * math.pi * hz / rate

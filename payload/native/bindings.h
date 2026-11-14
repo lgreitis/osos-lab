@@ -67,7 +67,6 @@
 #define OSOS_EQ_LOAD 0x082734c0
 #define OSOS_EQ_RESET 0x08273630
 #define OSOS_EQ_RESET_STAGE 0x08273594
-#define OSOS_EQ_PROCESS_STAGE 0x08273658
 #define OSOS_EQ_PROCESS 0x082737fc
 #define OSOS_PLAYER_GET 0x08172824
 #define OSOS_PLAYER_LOCK 0x08258b34
@@ -235,6 +234,7 @@
 
 /* Resource-controller layout caches precede the stored layout ID (2.0.5). */
 #define OSOS_LAYOUT_CACHE_TO_ID 0x30
+#define OSOS_AUDIO_OUTPUT_BEGIN 0x0802d100
 
 /* Podcast, iTunes U and audiobook list menus and actions (2.0.5). */
 #define OSOS_EPISODE_CONTEXT_MENU 0x082309d0

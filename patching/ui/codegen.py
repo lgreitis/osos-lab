@@ -30,8 +30,6 @@ def emit_header(document, string_ids=None):
     lines.extend(
         f"#define {name} {value:#x}u" for name, value in (string_ids or {}).items()
     )
-    for item in document.actions:
-        lines.append(f"extern const struct cfw_ui_action {item.name.lower()};")
     for value in document.values.values():
         lines.append(f"extern const int32_t {value.name}[{len(value.numbers)}];")
     return "\n".join([*lines, "", "#endif", ""])
@@ -51,81 +49,24 @@ def string_array(name, values):
     )
 
 
-def emit_bindings(document, fields, actions):
+def emit_bindings(document):
     lines = []
     prefix = document.root.name.lower()
     for values in document.values.values():
         lines.append(array(values.name, values.numbers, public=True, ctype="int32_t"))
         lines.append(string_array(values.name + "_labels", values.labels))
-    if fields:
-        lines.append(f"extern const struct cfw_ui_model {prefix}_model;")
-    for item in document.fields:
-        labels = document.values[item.choices].labels
-        size = (
-            len(item.title.encode()) + 3 + max(len(label.encode()) for label in labels)
-        )
-        lines += [
-            f"static char {prefix}_summary_{item.slot}[{size}];",
-            f"static struct cfw_ui_field_state {prefix}_state_{item.slot} = {{.summary = {prefix}_summary_{item.slot}}};",
-        ]
-    for item in document.actions:
-        binding = actions[item.name]
-        labels = document.values[item.choices].labels
-        name = item.name.lower()
-        lines.append(f"static uint32_t {name}_selected_status;")
+    if document.fields:
         lines.append(
-            f"const struct cfw_ui_action {name} = {{"
-            f"{binding.property:#x}, {len(labels)}, "
-            f"{item.choices}_labels, &{name}_selected_status, {int(item.hide_when_zero)}}};"
+            f"const struct cfw_ui_field {prefix}_fields[{len(document.fields)}] = {{"
         )
-    if fields:
-        lines.append(f"const struct cfw_ui_field {prefix}_fields[{len(fields)}] = {{")
         for item in document.fields:
-            binding = fields[item.slot]
             values = document.values[item.choices]
             lines.append(
-                "    {"
-                + ", ".join(
-                    [
-                        f"{binding.property:#x}",
-                        f"{binding.summary_property:#x}",
-                        f"{binding.screen:#x}",
-                        str(len(values.labels)),
-                        str(item.default_index),
-                        str(item.slot),
-                        str(int(values.numeric)),
-                        json.dumps(item.name),
-                        json.dumps(item.title),
-                        f"{item.choices}_labels",
-                        f"&{prefix}_model",
-                        f"&{prefix}_state_{item.slot}",
-                    ]
-                )
-                + "},"
+                f"    {{{len(values.labels)}, {item.default_index}, "
+                f"{json.dumps(item.title)}, {item.choices}_labels}},"
             )
         lines.append("};")
     return lines
-
-
-def emit_models(documents):
-    fields, actions = [], []
-    for document in documents:
-        if document.root:
-            fields.extend(
-                f"&{document.root.name.lower()}_fields[{item.slot}]"
-                for item in document.fields
-            )
-            actions.extend(f"&{item.name.lower()}" for item in document.actions)
-    return [
-        "const struct cfw_ui_field *const cfw_ui_fields[] = {"
-        + ", ".join(fields)
-        + "};",
-        f"const uint32_t cfw_ui_field_count = {len(fields)};",
-        "const struct cfw_ui_action *const cfw_ui_actions[] = {"
-        + ", ".join(actions)
-        + "};",
-        f"const uint32_t cfw_ui_action_count = {len(actions)};",
-    ]
 
 
 def emit_resource_data(name, data, *, mutable=False, aligned=False):
