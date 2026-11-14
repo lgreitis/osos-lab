@@ -29,6 +29,7 @@ public class ImportAnalysis extends GhidraScript {
     List<JsonObject> functions = read(directory, "functions");
     restoreFunctions(functions);
     restoreComments(read(directory, "comments"));
+    restoreFunctionComments(functions);
     verifyFunctions(functions);
     verifyCode(read(directory, "code"));
     restoreBookmarks(read(directory, "bookmarks"));
@@ -186,6 +187,17 @@ public class ImportAnalysis extends GhidraScript {
     }
   }
 
+  // Some function comments are saved only in functions.jsonl, with no plate row in comments.jsonl.
+  private void restoreFunctionComments(List<JsonObject> rows) {
+    for (JsonObject row : rows) {
+      JsonObject p = properties(row);
+      if (!p.has("comment")) continue;
+      Function function = getFunctionAt(toAddr(p.get("location").getAsString()));
+      if (function != null && function.getComment() == null)
+        function.setComment(p.get("comment").getAsString());
+    }
+  }
+
   private void verifyFunctions(List<JsonObject> rows) {
     for (JsonObject row : rows) {
       JsonObject p = properties(row);
@@ -259,11 +271,21 @@ public class ImportAnalysis extends GhidraScript {
             CommentType.EOL,
             "repeatable",
             CommentType.REPEATABLE);
+    // A multi-line comment is exported as one row per line at the same address and kind, so
+    // join them in order instead of letting each row replace the previous one.
+    Map<Address, Map<CommentType, StringBuilder>> merged = new LinkedHashMap<>();
     for (JsonObject row : rows) {
       JsonObject p = properties(row);
       CommentType kind = kinds.get(p.get("kind").getAsString());
       if (kind == null) throw new IllegalStateException("Unknown comment kind " + p.get("kind"));
-      currentProgram.getListing().setComment(location(row), kind, p.get("value").getAsString());
+      StringBuilder text =
+          merged.computeIfAbsent(location(row), a -> new LinkedHashMap<>()).get(kind);
+      if (text == null)
+        merged.get(location(row)).put(kind, new StringBuilder(p.get("value").getAsString()));
+      else text.append('\n').append(p.get("value").getAsString());
     }
+    for (Map.Entry<Address, Map<CommentType, StringBuilder>> at : merged.entrySet())
+      for (Map.Entry<CommentType, StringBuilder> c : at.getValue().entrySet())
+        currentProgram.getListing().setComment(at.getKey(), c.getKey(), c.getValue().toString());
   }
 }
