@@ -98,7 +98,8 @@ public class ImportAnalysis extends GhidraScript {
       for (JsonObject field : fields) {
         DataType member = type(field.getAsJsonObject("type"));
         int length = field.get("length").getAsInt();
-        String name = field.get("field_name").getAsString();
+        // Fields exported with noFieldName carry no field_name; keep them unnamed.
+        String name = field.has("field_name") ? field.get("field_name").getAsString() : null;
         String comment = field.has("comment") ? field.get("comment").getAsString() : null;
         if (target instanceof Structure) {
           ((Structure) target)
