@@ -15,4 +15,9 @@ int cfw_eq_coefficients(int32_t out[5], unsigned int type, unsigned int hz,
 /* Combined quantized response in tenths of a decibel, including bank precut. */
 int cfw_eq_response(const int32_t coefficients[CFW_EQ_BANDS][5], double hz,
                     unsigned int rate);
+/* Scale b0, b1, b2 by a precut of 0..100 tenths of a decibel. */
+void cfw_eq_attenuate(int32_t coefficients[3], unsigned int precut_tenths_db);
+/* Peak of a quantized cascade over 20 Hz..20 kHz in tenths of a decibel, rounded up. */
+int cfw_eq_peak(const int32_t (*coefficients)[5], unsigned int count,
+                unsigned int rate);
 #endif

@@ -9,7 +9,6 @@ class Values:
     name: str
     numbers: list[int] = field(default_factory=list)
     labels: list[str] = field(default_factory=list)
-    numeric: bool = False
 
 
 @dataclass
@@ -21,7 +20,6 @@ class Item:
     slot: int = 0
     default_index: int = 0
     text_file: str = ""
-    hide_when_zero: bool = False
     items: list["Item"] = field(default_factory=list)
 
 
@@ -37,7 +35,6 @@ class Document:
     root: Item | None
     values: dict[str, Values]
     fields: list[Item]
-    actions: list[Item]
     after: str | int = ""
     open_action: str = ""
     strings: dict[str, str] = field(default_factory=dict)
@@ -50,21 +47,5 @@ class Document:
 
 
 @dataclass
-class FieldBinding:
-    parent_item: int
-    property: int
-    summary_property: int
-    screen: int
-
-
-@dataclass
-class ActionBinding:
-    item: int
-    property: int
-
-
-@dataclass
 class CompiledDocument:
-    fields: dict[int, FieldBinding] = field(default_factory=dict)
-    actions: dict[str, ActionBinding] = field(default_factory=dict)
     string_ids: dict[str, int] = field(default_factory=dict)

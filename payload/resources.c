@@ -58,7 +58,6 @@ PATCH_ARM const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size
 
 void cfw_install_resources(void *bank)
 {
-    cfw_ui_register_controllers();
     cfw_ui_register_canvas();
     for (uint32_t i = 0; i < cfw_resource_name_count; i++) {
         struct osos_string name;

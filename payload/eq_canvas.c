@@ -22,8 +22,10 @@ enum {
     MODE_EDIT,
 };
 
+/* Wheel order follows reading order: Type | Precut, then Gain | Frequency | Q. */
 enum {
     PARAM_TYPE,
+    PARAM_PRECUT,
     PARAM_GAIN,
     PARAM_FREQUENCY,
     PARAM_Q,
@@ -52,20 +54,21 @@ static struct {
 
 static const unsigned int canvas_fields[] = {
     CFW_EQ_BAND1_TYPE,
+    CFW_EQ_PRECUT,
     CFW_EQ_BAND1_GAIN,
     CFW_EQ_BAND1_FREQUENCY,
     CFW_EQ_BAND1_Q,
 };
 
-static const struct cfw_ui_field *canvas_field(int band, int parameter)
+/* Precut applies to the whole EQ; the other parameters belong to the selected band. */
+static unsigned int canvas_slot(int band, int parameter)
 {
-    return &cfw_eq_fields[canvas_fields[parameter] + band * 4];
+    return canvas_fields[parameter] + (parameter == PARAM_PRECUT ? 0 : band * 4);
 }
 
 static uint32_t canvas_index(int band, int parameter)
 {
-    const struct cfw_ui_field *field = canvas_field(band, parameter);
-    return field->model->values[field->slot];
+    return cfw_eq_model.values[canvas_slot(band, parameter)];
 }
 
 /* The native accumulator registers itself; keep its storage for the UI lifetime. */
@@ -130,13 +133,12 @@ static PATCH_ARM int canvas_event(void *controller, void *event)
             editor.parameter =
                 canvas_clamp((int64_t)editor.parameter + delta, 0, PARAM_COUNT - 1);
         } else {
-            const struct cfw_ui_field *field =
-                canvas_field(editor.band, editor.parameter);
-            uint32_t previous = field->model->values[field->slot];
-            uint32_t value =
-                canvas_clamp((int64_t)previous + delta, 0, field->count - 1);
+            unsigned int slot = canvas_slot(editor.band, editor.parameter);
+            uint32_t previous = cfw_eq_model.values[slot];
+            uint32_t value = canvas_clamp((int64_t)previous + delta, 0,
+                                          cfw_eq_fields[slot].count - 1);
             if (value != previous)
-                field->model->change(field->slot, value);
+                cfw_eq_model.change(slot, value);
         }
     } else if (words[1] == 0x0d && osos_button_ui_key(event) == 0x6f) {
         if (editor.mode == MODE_EDIT)
@@ -218,8 +220,8 @@ static void canvas_load_fonts(void)
 
 static const char *canvas_value(int band, int parameter)
 {
-    const struct cfw_ui_field *field = canvas_field(band, parameter);
-    return field->labels[canvas_index(band, parameter)];
+    return cfw_eq_fields[canvas_slot(band, parameter)]
+        .labels[canvas_index(band, parameter)];
 }
 
 static void canvas_rect(void *context, const int32_t *bounds, int x, int y, int width,
@@ -285,8 +287,8 @@ static void canvas_response(void *context, const int32_t *bounds,
                             const unsigned char colors[COLOR_COUNT][4])
 {
     int32_t coefficients[CFW_EQ_BANDS][5];
-    uint32_t rate;
-    uint32_t version = cfw_eq_snapshot(coefficients, &rate);
+    uint32_t rate, applied_precut;
+    uint32_t version = cfw_eq_snapshot(coefficients, &rate, &applied_precut);
     if (!response_valid || version != response_version ||
         rate != response_sample_rate) {
         double hz = 20.0;
@@ -306,13 +308,19 @@ static void canvas_response(void *context, const int32_t *bounds,
                         colors[COLOR_TEXT], colors[COLOR_BACKGROUND]);
     if (canvas_fonts[0][0] & ~1u) {
         const struct cfw_ui_field *precut = &cfw_eq_fields[CFW_EQ_PRECUT];
-        const char *value = precut->labels[precut->model->values[precut->slot]];
+        uint32_t selected = cfw_eq_model.values[CFW_EQ_PRECUT];
+        const char *title = "Precut", *value = precut->labels[selected];
+        /* Show the computed attenuation using the matching manual label. */
+        if (selected == CFW_EQ_PRECUT_AUTO && applied_precut + 1 < precut->count) {
+            title = "Auto precut";
+            value = precut->labels[applied_precut + 1];
+        }
         osos_graphics_set_font(context, canvas_fonts[0]);
         int value_width = osos_graphics_text_width(context, value);
-        int label_width = osos_graphics_text_width(context, "Precut");
+        int label_width = osos_graphics_text_width(context, title);
         canvas_text_aligned(context, bounds, 312 - value_width - 6 - label_width, 3,
-                            label_width, 24, "Precut", 0, ALIGN_LEFT,
-                            colors[COLOR_MUTED], colors[COLOR_BACKGROUND]);
+                            label_width, 24, title, 0, ALIGN_LEFT, colors[COLOR_MUTED],
+                            colors[COLOR_BACKGROUND]);
         canvas_text_aligned(context, bounds, 312 - value_width, 3, value_width, 24,
                             value, 0, ALIGN_RIGHT, colors[COLOR_TEXT],
                             colors[COLOR_BACKGROUND]);
@@ -428,16 +436,20 @@ static void canvas_parameters(void *context, const int32_t *bounds,
                 colors[COLOR_BORDER]);
     canvas_rect(context, bounds, 0, PARAM_TOP - 1, CANVAS_WIDTH, 1,
                 colors[COLOR_BORDER]);
+    canvas_rect(context, bounds, CANVAS_WIDTH / 2, TYPE_TOP, 1, TYPE_HEIGHT,
+                colors[COLOR_BORDER]);
     canvas_rect(context, bounds, CANVAS_WIDTH / 3, PARAM_TOP, 1, PARAM_HEIGHT,
                 colors[COLOR_BORDER]);
     canvas_rect(context, bounds, 2 * CANVAS_WIDTH / 3, PARAM_TOP, 1, PARAM_HEIGHT,
                 colors[COLOR_BORDER]);
     for (int parameter = 0; parameter < PARAM_COUNT; parameter++) {
-        int type = parameter == PARAM_TYPE;
-        int left = type ? 0 : (parameter - 1) * CANVAS_WIDTH / 3;
-        int width = type ? CANVAS_WIDTH : parameter * CANVAS_WIDTH / 3 - left;
-        int top = type ? TYPE_TOP : PARAM_TOP;
-        int height = type ? TYPE_HEIGHT : PARAM_HEIGHT;
+        int inline_row = parameter < PARAM_GAIN;
+        int left = inline_row ? parameter * CANVAS_WIDTH / 2
+                              : (parameter - PARAM_GAIN) * CANVAS_WIDTH / 3;
+        int width = inline_row ? CANVAS_WIDTH / 2
+                               : (parameter - PARAM_GAIN + 1) * CANVAS_WIDTH / 3 - left;
+        int top = inline_row ? TYPE_TOP : PARAM_TOP;
+        int height = inline_row ? TYPE_HEIGHT : PARAM_HEIGHT;
         int active = editor.mode != MODE_BAND && parameter == editor.parameter;
         int editing = active && editor.mode == MODE_EDIT;
         const unsigned char *background = colors[editing  ? COLOR_ACCENT
@@ -455,10 +467,11 @@ static void canvas_parameters(void *context, const int32_t *bounds,
             colors[editing ? COLOR_ON_ACCENT : COLOR_MUTED];
         const unsigned char *value_color =
             colors[editing ? COLOR_ON_ACCENT : COLOR_TEXT];
-        if (type) {
-            canvas_text_aligned(context, bounds, 12, TYPE_TOP, 80, TYPE_HEIGHT, title,
-                                0, ALIGN_LEFT, label_color, background);
-            canvas_text_aligned(context, bounds, 100, TYPE_TOP, CANVAS_WIDTH - 112,
+        if (inline_row) {
+            canvas_text_aligned(context, bounds, left + 12, TYPE_TOP, width - 24,
+                                TYPE_HEIGHT, title, 0, ALIGN_LEFT, label_color,
+                                background);
+            canvas_text_aligned(context, bounds, left + 12, TYPE_TOP, width - 24,
                                 TYPE_HEIGHT, canvas_value(editor.band, parameter), 0,
                                 ALIGN_RIGHT, value_color, background);
         } else {
