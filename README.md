@@ -51,7 +51,7 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Play Next and Play Last from song, album and artist context menus.
 - Apple's EU Volume Limit setting on every European iPod, with full volume
   and no volume warning when it is Off.
-- Song Info from song and Now Playing context menus.
+- File Info from song, podcast, iTunes U, audiobook, movie, TV episode, video playlist and Now Playing context menus.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Dark Mode, with an On/Off toggle in Settings.

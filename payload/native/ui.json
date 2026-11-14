@@ -46,6 +46,14 @@
     "Settings_Brightness_Bar": 229444704,
     "Settings_Brightness_Value_Text": 229444705,
     "NowPlaying_StatusBar_Template": 229442060,
-    "NowPlaying_StatusBar_Text_View": 229442062
+    "NowPlaying_StatusBar_Text_View": 229442062,
+    "MediaLists_PodcastEpisodes_Screen": 229443576,
+    "MediaLists_iTunesUEpisodes_Screen": 229443580,
+    "MediaLists_Audiobooks_Screen": 229443553,
+    "MediaLists_TVEpisodes_Screen": 229443586,
+    "MediaLists_Movies_Screen": 229443588,
+    "MediaLists_NestedVideoPlaylists_Screen": 229443602,
+    "MediaLists_TVEpisodes_Layout": 229443587,
+    "MediaLists_Movies_Layout": 229443589
   }
 }
