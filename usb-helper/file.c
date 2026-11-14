@@ -3,6 +3,7 @@
 #include "config.h"
 #include "system.h"
 #include "file.h"
+#include "dir.h"
 #include "file_internal.h"
 #include "disk.h"
 #include "fat.h"
@@ -210,6 +211,19 @@ void upload_write(unsigned bytes)
         begin_readback();
 }
 
+static int create_parents(const char *path)
+{
+    char parent[sizeof(upload_config.path)];
+    strcpy(parent, path);
+    for (char *slash = strchr(parent + 1, '/'); slash; slash = strchr(slash + 1, '/')) {
+        *slash = 0;
+        if (!dir_exists(parent) && mkdir(parent))
+            return -1;
+        *slash = '/';
+    }
+    return 0;
+}
+
 void upload_verify_step(void)
 {
     unsigned left = upload_config.size - UPLOAD_RESULT->verified;
@@ -240,7 +254,7 @@ void upload_verify_step(void)
         return;
     }
     writes_enabled = true;
-    if (rename(temporary, UPLOAD_RESULT->path)) {
+    if (create_parents(UPLOAD_RESULT->path) || rename(temporary, UPLOAD_RESULT->path)) {
         upload_fail(-316);
         return;
     }

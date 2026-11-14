@@ -5,25 +5,29 @@
 #include "patches/sites.h"
 
 /* Dark-mode software colors and manifest-selected bitmap artwork. */
-PATCH_JUMP(OSOS_BITMAP_VIEW_LOAD_ENTRY, 0xe92d41f0, 0xe1a04000, cfw_bitmap_view_load);
-PATCH_JUMP(OSOS_RESOURCE_SERVICE_GET, 0xe92d40f8, 0xe1a05001,
-           cfw_bitmap_resource_get);
-PATCH_JUMP(OSOS_BITMAP_CACHE_LOAD, 0xe92d4070, 0xe1a04000,
-           cfw_bitmap_cache_load);
 PATCH_CALL(OSOS_GRAPHICS_FILL_RECT_CALL, OSOS_SURFACE_FILL_RECT, cfw_dark_mode_fill);
-PATCH_CALL(OSOS_TEXT_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR, cfw_dark_mode_text_color);
+PATCH_CALL(OSOS_TEXT_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
+           cfw_dark_mode_text_color_hook);
 PATCH_CALL(OSOS_MARQUEE_DRAW_COLOR_CALL, OSOS_GRAPHICS_SET_COLOR,
-           cfw_dark_mode_text_color);
+           cfw_dark_mode_marquee_color_hook);
 PATCH_CALL(OSOS_COVER_FLOW_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
            cfw_dark_mode_clear_color);
 PATCH_CALL(OSOS_ALBUM_ART_CLEAR_COLOR_CALL, OSOS_GLES_CLEAR_COLOR_X,
            cfw_dark_mode_clear_color);
 PATCH_CALL(OSOS_ARTWORK_REFLECTION_BLEND_CALL, OSOS_RGB565_BLEND_FIXED,
            cfw_dark_mode_reflection_blend);
+PATCH_CALL(OSOS_VIEW_BACKGROUND_FILL_CALL, OSOS_GRAPHICS_FILL_RECT,
+           cfw_dark_mode_background_fill_hook);
 
 /* Shared Settings hooks */
-PATCH_POINTER(OSOS_SETTINGS_PROPERTY_SLOT, OSOS_SETTINGS_PROPERTY, cfw_settings_property);
+PATCH_POINTER(OSOS_SETTINGS_PROPERTY_SLOT, OSOS_SETTINGS_PROPERTY,
+              cfw_settings_property);
 PATCH_CALL(OSOS_PREFERENCES_LOAD_CALL, OSOS_PREFERENCES_LOAD, cfw_preferences_hook);
+PATCH_CALL(OSOS_PREFERENCES_FLUSH_CALL, OSOS_PREFERENCES_FLUSH,
+           cfw_preferences_flush_hook);
+PATCH_CALL(OSOS_SLEEP_CALL, OSOS_SLEEP, cfw_sleep_hook);
+PATCH_CALL(OSOS_SLEEP_REQUEST_CALL, OSOS_SLEEP, cfw_sleep_hook);
+PATCH_CALL(OSOS_RESET_ALL_SETTINGS_CALL, OSOS_RESET_ALL_SETTINGS, cfw_settings_reset);
 PATCH_POINTER(OSOS_SETTINGS_ACTION_SLOT, OSOS_SETTINGS_ACTION, cfw_settings_action);
 PATCH_POINTER(OSOS_SETTINGS_SECONDARY_ACTION_SLOT, OSOS_SETTINGS_ACTION,
               cfw_settings_action);
@@ -53,6 +57,7 @@ PATCH_WORD(OSOS_EQ_RESOURCE_COUNT_WORD, 0xe3550017, 0xe3550018);
 PATCH_CALL(OSOS_EQ_SET_PRESET_LOAD_CALL, OSOS_EQ_LOAD, cfw_eq_load);
 PATCH_CALL(OSOS_EQ_SET_RATE_LOAD_CALL, OSOS_EQ_LOAD, cfw_eq_load);
 PATCH_POINTER(OSOS_EQ_PROCESS_SLOT, OSOS_EQ_PROCESS, cfw_eq_process);
+PATCH_POINTER(OSOS_EQ_RESET_SLOT, OSOS_EQ_RESET, cfw_eq_reset);
 /* cmp r1, #23 -> cmp r1, #24 */
 PATCH_WORD(OSOS_EQ_DSP_COUNT_WORD, 0xe3510017, 0xe3510018);
 
@@ -69,6 +74,8 @@ PATCH_JUMP(OSOS_PANIC_ENTRY, 0xe59f1010, 0xe3a00004, cfw_panic_entry);
 PATCH_JUMP(OSOS_ABORT_ENTRY, 0xe3a01000, 0xe92d4010, cfw_abort_entry);
 
 /* Song context actions */
+PATCH_CALL(OSOS_CONTEXT_MENU_SCREEN_ACTION_CALL, OSOS_STRING_COMPARE,
+           cfw_context_menu_screen_action);
 PATCH_CALL(OSOS_PLAYLIST_CANCEL_APPEND_CALL, OSOS_CONTEXT_MENU_APPEND,
            cfw_song_menu_cancel);
 PATCH_CALL(OSOS_SONG_CANCEL_APPEND_CALL, OSOS_CONTEXT_MENU_APPEND,
@@ -87,45 +94,144 @@ PATCH_POINTER(OSOS_NOW_PLAYING_SECONDARY_ACTION_SLOT, OSOS_NOW_PLAYING_ACTION,
               cfw_now_playing_action);
 PATCH_CALL(OSOS_TRACKDATA_DESTROY_STORAGE_CALL, OSOS_TRACKDATA_DESTROY_STORAGE,
            cfw_album_artist_destroy_tracks);
-/* Retain the Album Artist MHOD that the native importer discards. */
+/* Retain Album Artist and sort names that the native importer discards. */
 PATCH_CALL(OSOS_ITUNES_IMPORT_TRACKS_CALL, OSOS_ITUNES_IMPORT_TRACKS,
            cfw_album_artist_import_tracks);
 PATCH_CALL_WORD(OSOS_ITUNES_ALBUM_ARTIST_SLOT, OSOS_ITUNES_ALBUM_ARTIST_DISCARD_WORD,
                 cfw_album_artist_import_hook);
+PATCH_CALL_WORD(OSOS_ITUNES_SORT_ARTIST_SLOT, OSOS_ITUNES_SORT_ARTIST_DISCARD_WORD,
+                cfw_album_artist_import_hook);
+PATCH_CALL_WORD(OSOS_ITUNES_SORT_ALBUM_ARTIST_SLOT,
+                OSOS_ITUNES_SORT_ALBUM_ARTIST_DISCARD_WORD,
+                cfw_album_artist_import_hook);
 
 PATCH_POINTER(OSOS_MUSIC_ACTION_SLOT, OSOS_MUSIC_ACTION, cfw_album_artists_action);
-PATCH_POINTER(OSOS_MUSIC_SECONDARY_ACTION_SLOT, OSOS_MUSIC_ACTION, cfw_album_artists_action);
+PATCH_POINTER(OSOS_MUSIC_SECONDARY_ACTION_SLOT, OSOS_MUSIC_ACTION,
+              cfw_album_artists_action);
 PATCH_POINTER(OSOS_MAIN_ACTION_SLOT, OSOS_MUSIC_ACTION, cfw_album_artists_action);
-PATCH_POINTER(OSOS_MAIN_SECONDARY_ACTION_SLOT, OSOS_MUSIC_ACTION, cfw_album_artists_action);
-PATCH_JUMP(OSOS_ARTISTS_BUILD_ENTRY, 0xe92d4038, OSOS_ARTISTS_BUILD_LOAD_WORD, cfw_album_artists_build);
-PATCH_JUMP(OSOS_ARTIST_NAME_ENTRY, 0xe92d41f0, OSOS_ARTIST_NAME_SAVE_WORD, cfw_album_artist_name);
+PATCH_POINTER(OSOS_MAIN_SECONDARY_ACTION_SLOT, OSOS_MUSIC_ACTION,
+              cfw_album_artists_action);
+PATCH_JUMP(OSOS_ARTISTS_BUILD_ENTRY, 0xe92d4038, OSOS_ARTISTS_BUILD_LOAD_WORD,
+           cfw_album_artists_build);
+PATCH_JUMP(OSOS_ARTIST_NAME_ENTRY, 0xe92d41f0, OSOS_ARTIST_NAME_SAVE_WORD,
+           cfw_album_artist_name);
 PATCH_JUMP(OSOS_ARTIST_LETTER_ENTRY, 0xe92d41f0, 0xe1a07000, cfw_album_artist_letter);
-PATCH_CALL(OSOS_ARTIST_FILTER_COMPARE_CALL, OSOS_TEXT_COMPARE, cfw_album_artist_filter_hook);
-PATCH_POINTER(OSOS_ALBUM_GROUP_LITERAL, OSOS_BROWSER_ALBUM_GROUP, cfw_album_artists_album_group);
-PATCH_POINTER(OSOS_ALBUM_SUBTITLE_SLOT, OSOS_MODEL_ALBUM_SUBTITLE, cfw_album_artists_album_subtitle);
-PATCH_CALL(OSOS_SELECT_ARTWORK_SOURCE_CALL, OSOS_SELECT_ARTWORK_SOURCE, cfw_album_artists_select_artwork);
-PATCH_CALL(OSOS_ALBUM_ARTWORK_CREATE_CALL, OSOS_ALBUM_ARTWORK_CREATE, cfw_album_artists_create_artwork);
-PATCH_JUMP(OSOS_MODEL_DESTROY_ENTRY, 0xe92d4010, 0xe1a04000, cfw_album_artists_destroy_model);
+PATCH_CALL(OSOS_ARTIST_FILTER_COMPARE_CALL, OSOS_TEXT_COMPARE,
+           cfw_album_artist_filter_hook);
+PATCH_POINTER(OSOS_ALBUM_GROUP_LITERAL, OSOS_BROWSER_ALBUM_GROUP,
+              cfw_album_artists_album_group);
+PATCH_POINTER(OSOS_ALBUM_SUBTITLE_SLOT, OSOS_MODEL_ALBUM_SUBTITLE,
+              cfw_album_artists_album_subtitle);
+PATCH_CALL(OSOS_SELECT_ARTWORK_SOURCE_CALL, OSOS_SELECT_ARTWORK_SOURCE,
+           cfw_album_artists_select_artwork);
+PATCH_CALL(OSOS_ALBUM_ARTWORK_CREATE_CALL, OSOS_ALBUM_ARTWORK_CREATE,
+           cfw_album_artists_create_artwork);
+PATCH_JUMP(OSOS_MODEL_DESTROY_ENTRY, 0xe92d4010, 0xe1a04000,
+           cfw_album_artists_destroy_model);
 PATCH_POINTER(OSOS_SETTINGS_INDEXED_PROPERTY_SLOT, OSOS_SETTINGS_INDEXED_PROPERTY,
-              cfw_album_artists_menu_item);
-PATCH_CALL_WORD(OSOS_MAIN_MENU_INDEX_CALL, 0xe12fff31, cfw_album_artists_main_menu_index);
-PATCH_CALL_WORD(OSOS_MUSIC_MENU_INDEX_CALL, 0xe12fff31, cfw_album_artists_music_menu_index);
-PATCH_CALL(OSOS_MAIN_MENU_TOGGLE_CALL, OSOS_MAIN_MENU_TOGGLE, cfw_album_artists_main_menu_toggle);
-PATCH_CALL(OSOS_MUSIC_MENU_TOGGLE_CALL, OSOS_MUSIC_MENU_TOGGLE, cfw_album_artists_music_menu_toggle);
-PATCH_CALL(OSOS_MUSIC_MENU_APPLY_CALL, OSOS_MUSIC_MENU_APPLY, cfw_album_artists_menu_load);
-PATCH_JUMP(OSOS_MAIN_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a09000, cfw_album_artists_main_menu_reset);
-PATCH_JUMP(OSOS_MUSIC_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a08000, cfw_album_artists_music_menu_reset);
+              cfw_settings_indexed_property);
+PATCH_CALL_WORD(OSOS_MAIN_MENU_INDEX_CALL, 0xe12fff31, cfw_ui_main_menu_index);
+PATCH_CALL_WORD(OSOS_MUSIC_MENU_INDEX_CALL, 0xe12fff31, cfw_ui_music_menu_index);
+PATCH_CALL(OSOS_MAIN_MENU_TOGGLE_CALL, OSOS_MAIN_MENU_TOGGLE, cfw_ui_main_menu_toggle);
+PATCH_CALL(OSOS_MUSIC_MENU_TOGGLE_CALL, OSOS_MUSIC_MENU_TOGGLE,
+           cfw_ui_music_menu_toggle);
+PATCH_CALL(OSOS_MUSIC_MENU_APPLY_CALL, OSOS_MUSIC_MENU_APPLY, cfw_ui_visibility_load);
+PATCH_JUMP(OSOS_MAIN_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a09000, cfw_ui_main_menu_reset);
+PATCH_JUMP(OSOS_MUSIC_MENU_RESET_ENTRY, 0xe92d47f0, 0xe1a08000,
+           cfw_ui_music_menu_reset);
 
 /* Resources */
+PATCH_CALL(OSOS_RESOURCE_BLOCK_APPEND_CALL, OSOS_RESOURCE_BLOCK_APPEND,
+           cfw_ui_append_resource_block);
+PATCH_CALL(OSOS_UI_LOAD_EVENTS_CALL, OSOS_UI_LOAD_LAYOUT_EVENTS, cfw_ui_load_events);
+PATCH_CALL(OSOS_UI_TEMPLATE_EVENTS_GET_CALL, OSOS_RESOURCE_GET, cfw_ui_event_resource);
+PATCH_CALL(OSOS_UI_LAYOUT_EVENTS_GET_CALL, OSOS_RESOURCE_GET, cfw_ui_event_resource);
+PATCH_CALL(OSOS_UI_CONTROLLER_EVENTS_GET_CALL, OSOS_RESOURCE_GET,
+           cfw_ui_event_resource);
 PATCH_CALL(OSOS_RESOURCE_INIT_CALL, OSOS_RESOURCE_BANK_INIT_OVERRIDES,
            cfw_resource_hook);
 PATCH_CALL(OSOS_RESOURCE_NEXT_TEMPLATE_CALL, OSOS_RESOURCE_NEXT, cfw_next_template);
 
-/* Report the non-European volume policy without changing SysInfo. */
-/* and r0, r0, #1 -> mov r0, #0 */
-PATCH_WORD(OSOS_REGIONAL_VOLUME_RESULT_WORD, 0xe2000001, 0xe3a00000);
+/* EU volume policy. SysInfo+0x94 bit 0 marks European iPods; Apple's EU Settings
+ * screen and high-volume warning test only bit 7. */
+/* tst r0, #0x80 -> tst r0, #0x81 */
+PATCH_WORD(OSOS_VOLUME_POLICY_REGION_TEST_WORD, 0xe3100080, 0xe3100081);
+/* EU Volume Limit Off: moveq r0, #222 -> moveq r0, #256 */
+PATCH_WORD(OSOS_VOLUME_EU_OFF_CEILING_WORD, 0x03a000de, 0x03a00c01);
+/* Default Volume Limit and volume: mov r0, #222 -> mov r0, #256 */
+PATCH_WORD(OSOS_VOLUME_EU_DEFAULT_LIMIT_WORD, 0xe3a000de, 0xe3a00c01);
+/* EU Volume Limit is the only limit. Apple's high-volume warning and its startup
+ * cap test the region again: report a non-European iPod there, so the warning
+ * counts as acknowledged and the saved volume is kept at startup. */
+/* bl region -> mov r0, #0 */
+PATCH_WORD(OSOS_VOLUME_WARNING_REGION_CALL, 0xebfbc66e, 0xe3a00000);
+PATCH_WORD(OSOS_VOLUME_BOOT_CLAMP_REGION_CALL, 0xebffba86, 0xe3a00000);
+/* Apple also lowers an EU iPod's volume to the EU level after long listening: an
+ * 18-hour check on track changes and stops, and a 20-hour callback from the
+ * audio output's listening counter. Both are removed. */
+/* beq skip -> b skip, past the 18-hour check */
+PATCH_WORD(OSOS_VOLUME_LISTENING_CHECK_WORD, 0x0a00000f, 0xea00000f);
+/* mov r0, #5 (post the volume reduction) -> bx lr */
+PATCH_WORD(OSOS_VOLUME_LISTENING_CALLBACK_WORD, 0xe3a00005, 0xe12fff1e);
 
-/* Playback log: tracks that stop by end, next/previous, a new selection or stop */
+/* Play Next and Play Last for albums and artists */
+PATCH_CALL(OSOS_ALBUMS_CANCEL_APPEND_CALL, OSOS_CONTEXT_MENU_APPEND,
+           cfw_selection_menu_cancel);
+PATCH_CALL(OSOS_ARTISTS_CANCEL_APPEND_CALL, OSOS_CONTEXT_MENU_APPEND,
+           cfw_selection_menu_cancel);
+/* Albums, Artists and other library lists share this dispatcher. */
+PATCH_JUMP(OSOS_MEDIA_LIST_ACTION_ENTRY, 0xe92d41f0, 0xe1a07001, cfw_media_list_action);
+PATCH_CALL(OSOS_MEDIA_LIST_OTG_ADD_CALL, OSOS_OTG_ADD_BROWSER, cfw_queue_selection);
+
+/* iAP accessory authentication bypass: force both device-signature verifiers to
+ * report success so accessories authenticate without a Made-for-iPod coprocessor. */
+/* stmdb sp!,{r4-r9,lr}; sub sp,sp,#0x6c */
+PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_A, 0xe92d43f0, 0xe24dd06c, cfw_iap_auth_verify);
+/* stmdb sp!,{r2,r3,r4,lr}; cmp r1,#0 */
+PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_B, 0xe92d401c, 0xe3510000, cfw_iap_auth_verify);
+
+/* Sound effects on the native output */
+PATCH_CALL(OSOS_AUDIO_OUTPUT_BEGIN_CALL, OSOS_AUDIO_OUTPUT_BEGIN,
+           cfw_sound_output_hook);
+/* File Info in podcast, iTunes U, audiobook and video list menus. */
+PATCH_POINTER(OSOS_EPISODE_MENU_SLOT, OSOS_EPISODE_CONTEXT_MENU, cfw_episode_menu);
+PATCH_POINTER(OSOS_EPISODE_SECONDARY_MENU_SLOT, OSOS_EPISODE_CONTEXT_MENU,
+              cfw_episode_menu);
+PATCH_POINTER(OSOS_EPISODE_ACTION_SLOT, OSOS_EPISODE_ACTION, cfw_episode_action);
+PATCH_POINTER(OSOS_EPISODE_SECONDARY_ACTION_SLOT, OSOS_EPISODE_ACTION,
+              cfw_episode_action);
+PATCH_CALL(OSOS_EPISODE_CANCEL_APPEND_CALL, OSOS_CONTEXT_MENU_APPEND,
+           cfw_media_menu_cancel);
+PATCH_POINTER(OSOS_LECTURE_MENU_SLOT, OSOS_LECTURE_CONTEXT_MENU, cfw_lecture_menu);
+PATCH_POINTER(OSOS_LECTURE_SECONDARY_MENU_SLOT, OSOS_LECTURE_CONTEXT_MENU,
+              cfw_lecture_menu);
+PATCH_POINTER(OSOS_LECTURE_ACTION_SLOT, OSOS_LECTURE_ACTION, cfw_lecture_action);
+PATCH_POINTER(OSOS_LECTURE_SECONDARY_ACTION_SLOT, OSOS_LECTURE_ACTION,
+              cfw_lecture_action);
+PATCH_CALL(OSOS_LECTURE_CANCEL_APPEND_CALL, OSOS_CONTEXT_MENU_APPEND,
+           cfw_media_menu_cancel);
+PATCH_POINTER(OSOS_AUDIOBOOK_MENU_SLOT, OSOS_AUDIOBOOK_CONTEXT_MENU,
+              cfw_audiobook_menu);
+PATCH_POINTER(OSOS_AUDIOBOOK_SECONDARY_MENU_SLOT, OSOS_AUDIOBOOK_CONTEXT_MENU,
+              cfw_audiobook_menu);
+PATCH_CALL(OSOS_AUDIOBOOK_CANCEL_APPEND_CALL, OSOS_CONTEXT_MENU_APPEND,
+           cfw_media_menu_cancel);
+PATCH_POINTER(OSOS_MOVIE_MENU_SLOT, OSOS_LIST_NO_CONTEXT_MENU, cfw_movie_menu);
+PATCH_POINTER(OSOS_MOVIE_SECONDARY_MENU_SLOT, OSOS_LIST_NO_CONTEXT_MENU,
+              cfw_movie_menu);
+PATCH_POINTER(OSOS_TV_EPISODE_MENU_SLOT, OSOS_LIST_NO_CONTEXT_MENU,
+              cfw_tv_episode_menu);
+PATCH_POINTER(OSOS_TV_EPISODE_SECONDARY_MENU_SLOT, OSOS_LIST_NO_CONTEXT_MENU,
+              cfw_tv_episode_menu);
+PATCH_POINTER(OSOS_VIDEO_PLAYLIST_ACTION_SLOT, OSOS_VIDEO_PLAYLIST_ACTION,
+              cfw_video_playlist_action);
+PATCH_POINTER(OSOS_VIDEO_PLAYLIST_SECONDARY_ACTION_SLOT, OSOS_VIDEO_PLAYLIST_ACTION,
+              cfw_video_playlist_action);
+
 PATCH_CALL(OSOS_ADVANCE_FINISH_CALL, OSOS_TRACK_SESSION_FINISH, cfw_playback_log_skip);
-PATCH_CALL(OSOS_RELEASE_FINISH_CALL, OSOS_TRACK_SESSION_FINISH, cfw_playback_log_release);
-PATCH_CALL(OSOS_ADVANCE_SELECT_CALL, OSOS_PLAYER_SELECT_TRACK, cfw_playback_log_advance);
+PATCH_CALL(OSOS_RELEASE_FINISH_CALL, OSOS_TRACK_SESSION_FINISH,
+           cfw_playback_log_release);
+PATCH_CALL(OSOS_ADVANCE_SELECT_CALL, OSOS_PLAYER_SELECT_TRACK,
+           cfw_playback_log_advance);
+PATCH_JUMP(OSOS_TRACK_COMPLETE_ENTRY, 0xe92d4010, 0xe1a04000,
+           cfw_playback_log_complete);

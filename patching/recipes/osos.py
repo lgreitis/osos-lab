@@ -64,10 +64,12 @@ def build_recipe(
             for name in (
                 "cfw_info.ui",
                 "custom_eq.ui",
+                "crossfeed.ui",
                 "play_next.ui",
-                "song_info.ui",
+                "file_info.ui",
                 "album_artists.ui",
                 "dark_mode.ui",
+                "queue_selection.ui",
                 "playback_log.ui",
             )
         ],
@@ -76,9 +78,10 @@ def build_recipe(
         version,
     )
     units = payload_units(source, generated_ui)
-    generated_assets = assets.generate(
-        resources, source / "assets/manifest.json", directory
-    )
+    catalog = json.loads((source.parent / "firmware/bitmaps.json").read_text())
+    if catalog["schema"] != 1 or catalog["input"] != fingerprint:
+        raise ValueError("Bitmap metadata does not match the pinned OSOS")
+    generated_assets = assets.generate(catalog, directory)
     units.append((str(generated_assets), []))
     units.append((str(source / "patches/patches.c"), []))
     code, symbols = compile_payload(
@@ -92,7 +95,10 @@ def build_recipe(
         includes=(native, source / "patches"),
         thumb_symbols=True,
     )
-    patches = declarations.collect(directory, units, prefix)
+    for i, (kind, resource_id) in enumerate(resources.added):
+        if kind == "BMap" and require(symbols, f"resource_{i}") % 4:
+            raise ValueError(f"Embedded bitmap {resource_id:#x} is not word-aligned")
+    patches = declarations.collect(directory, "payload", prefix)
     used = symbols["__payload_end"] - symbols["__payload_start"]
     capacity = symbols["__payload_limit"] - symbols["__payload_start"]
     print(

@@ -6,18 +6,10 @@
 #include "cfw.h"
 #include "patch.h"
 
+#ifndef FIELD
 #define FIELD(type, object, offset) (*(type *)((uint8_t *)(object) + (offset)))
+#endif
 
-struct artist_group {
-    uint32_t token, display_token;
-    uint32_t *artwork;
-    uint32_t artwork_count, albums;
-};
-struct album_group {
-    uint32_t token, artist, display_artist;
-    uint32_t artwork;
-    uint32_t tracks, flags;
-};
 struct browser_context {
     void *browser, *track_data;
     /* Non-owning control block; the model destructor clears this context. */
@@ -26,16 +18,17 @@ struct browser_context {
 static struct browser_context contexts[4];
 static void *artwork_model_reference;
 static int custom_album_artwork;
+
 struct artwork_model {
     uint8_t native[0x48];
     /* The native artwork cache can outlive the screen that owns this browser. */
     void *owner_reference;
 };
+
 #define ARTWORK_MODEL_OWNERSHIP 0x80
-static const uint16_t unknown[] = {'U','n','k','n','o','w','n'};
+static const uint16_t unknown[] = {'U', 'n', 'k', 'n', 'o', 'w', 'n'};
 
 _Static_assert(sizeof(struct artist_group) == 20, "Artist group layout");
-_Static_assert(sizeof(struct album_group) == 24, "Album group layout");
 _Static_assert(sizeof(struct artwork_model) == 0x4c, "Artwork model layout");
 
 uint32_t cfw_artists_build_original(void *);
@@ -43,15 +36,10 @@ int cfw_artist_name_original(void *, int, uint16_t *);
 int cfw_artist_letter_original(void *, int, uint16_t *);
 void *cfw_browser_destroy_original(void *);
 
-static void *allocate(uint32_t bytes)
-{
-    return ((void *(*)(uint32_t))OSOS_IMPORT_ALLOC)(bytes);
-}
-
 static void release(void *allocation)
 {
     if (allocation)
-        ((void (*)(void *))OSOS_IMPORT_FREE)(allocation);
+        osos_import_free(allocation);
 }
 
 static struct browser_context *context_for(void *browser)
@@ -62,34 +50,31 @@ static struct browser_context *context_for(void *browser)
     return NULL;
 }
 
-static void *owner_of(void *browser)
-{
-    return ((void *(*)(void *))OSOS_BROWSER_OWNER)(browser);
-}
-
 static void *track_data_of(void *browser)
 {
-    return FIELD(void *, owner_of(browser), OSOS_BROWSER_TRACKDATA_OFFSET);
+    return FIELD(void *, osos_browser_owner(browser), OSOS_BROWSER_TRACKDATA_OFFSET);
 }
 
 static void cache_access(void *track_data, int acquire)
 {
-    ((void (*)(void *))(acquire ? OSOS_DATABASE_BEGIN_UPDATE :
-                                  OSOS_DATABASE_END_UPDATE))(track_data);
+    if (acquire)
+        osos_database_begin_update(track_data);
+    else
+        osos_database_end_update(track_data);
 }
 
 static uint32_t token_view(void *track_data, uint32_t token, const uint16_t **text)
 {
     uint32_t bytes = 0;
     *text = NULL;
-    typedef int (*view)(void *, uint32_t, const uint16_t **, uint32_t *);
-    if (((view)OSOS_STRING_CACHE_VIEW)((uint8_t *)track_data +
-            OSOS_TRACKDATA_ARTIST_CACHE_OFFSET, token, text, &bytes))
+    if (osos_string_cache_view((uint8_t *)track_data +
+                                   OSOS_TRACKDATA_ARTIST_CACHE_OFFSET,
+                               token, text, &bytes))
         return 0;
     return bytes / 2;
 }
 
-static uint32_t effective_token(struct osos_media_record *record)
+static uint32_t resolved_artist_token(struct osos_media_record *record)
 {
     const uint16_t *text;
     uint32_t token = cfw_album_artist_token(record);
@@ -99,7 +84,8 @@ static uint32_t effective_token(struct osos_media_record *record)
     return token && token_view(FIELD(void *, record, 0), token, &text) ? token : 0;
 }
 
-static uint32_t artist_view(void *track_data, uint32_t token, const uint16_t **text)
+static uint32_t artist_name_view(void *track_data, uint32_t token,
+                                 const uint16_t **text)
 {
     uint32_t units = token_view(track_data, token, text);
     if (!units) {
@@ -109,44 +95,90 @@ static uint32_t artist_view(void *track_data, uint32_t token, const uint16_t **t
     return units;
 }
 
-static int compare_tokens(void *track_data, uint32_t a, uint32_t b)
+static int compare_artist_names(void *track_data, uint32_t a, uint32_t b)
 {
     if (a == b)
         return 0;
     const uint16_t *left, *right;
-    uint32_t left_units = artist_view(track_data, a, &left);
-    uint32_t right_units = artist_view(track_data, b, &right);
-    typedef int (*compare)(void *, const uint16_t *, uint32_t, const uint16_t *, uint32_t);
-    return ((compare)OSOS_TEXT_COMPARE)(NULL, left, left_units, right, right_units);
+    uint32_t left_units = artist_name_view(track_data, a, &left);
+    uint32_t right_units = artist_name_view(track_data, b, &right);
+    return osos_text_compare(NULL, left, left_units, right, right_units);
 }
 
-static uint16_t artist_letter(void *track_data, uint32_t token)
+static uint32_t artist_sort_view(void *track_data, struct osos_media_record *record,
+                                 const uint16_t **text)
+{
+    uint32_t token = cfw_album_artist_token(record);
+    int has_album_artist = token && token_view(track_data, token, text);
+    uint32_t sort_token = cfw_album_artist_sort_token(record, has_album_artist);
+    uint32_t units = token_view(track_data, sort_token, text);
+    if (units)
+        return units;
+    units = artist_name_view(track_data, resolved_artist_token(record), text);
+    return album_artist_skip_article(text, units);
+}
+
+static int compare_track_artists(void *track_data, const struct album_artist_track *a,
+                                 const struct album_artist_track *b)
+{
+    return compare_artist_names(track_data, a->token, b->token);
+}
+
+struct group_sort_context {
+    void *track_data;
+    struct artist_group *rows;
+    int use_imported_order;
+};
+
+static int compare_group_order(void *opaque, const struct album_artist_track *a,
+                               const struct album_artist_track *b)
+{
+    struct group_sort_context *context = opaque;
+    if (context->use_imported_order)
+        return (a->order > b->order) - (a->order < b->order);
+    const uint16_t *left, *right;
+    uint32_t left_units =
+        artist_sort_view(context->track_data, a->entry->song.record, &left);
+    uint32_t right_units =
+        artist_sort_view(context->track_data, b->entry->song.record, &right);
+    int result = osos_text_compare(NULL, left, left_units, right, right_units);
+    return result ? result
+                  : compare_artist_names(context->track_data,
+                                         context->rows[a->group_index].token,
+                                         context->rows[b->group_index].token);
+}
+
+static uint16_t artist_letter(void *track_data, struct osos_media_record *record)
 {
     const uint16_t *text;
-    uint32_t units = artist_view(track_data, token, &text);
-    while (units && *text <= ' ') { text++; units--; }
+    uint32_t units = artist_sort_view(track_data, record, &text);
+    while (units && *text <= ' ') {
+        text++;
+        units--;
+    }
     if (!units)
         return '#';
-    typedef int (*compare)(void *, const uint16_t *, uint32_t, const uint16_t *, uint32_t);
     for (uint16_t letter = 'A'; letter <= 'Z'; letter++)
-        if (!((compare)OSOS_TEXT_COMPARE)(NULL, text, 1, &letter, 1))
+        if (!osos_text_compare(NULL, text, 1, &letter, 1))
             return letter;
     return *text < 0x80 || (*text >= 0xd800 && *text <= 0xdfff) ? '#' : *text;
 }
 
 static uint32_t group_count(void *browser)
 {
-    return (FIELD(uintptr_t, browser, OSOS_BROWSER_ARTISTS_OFFSET + 4) - FIELD(uintptr_t, browser, OSOS_BROWSER_ARTISTS_OFFSET)) /
+    return (FIELD(uintptr_t, browser, OSOS_BROWSER_ARTISTS_OFFSET + 4) -
+            FIELD(uintptr_t, browser, OSOS_BROWSER_ARTISTS_OFFSET)) /
            sizeof(struct artist_group);
 }
 
 static void clear_groups(void *browser)
 {
-    ((void (*)(void *))OSOS_BROWSER_CLEAR_ARTISTS)(browser);
-    ((void (*)(void *))OSOS_BROWSER_CLEAR_ALBUMS)(browser);
-    ((void (*)(void *))OSOS_BROWSER_CLEAR_SONGS)(browser);
+    osos_browser_clear_artists(browser);
+    osos_browser_clear_albums(browser);
+    osos_browser_clear_songs(browser);
     /* Native clear retains vector capacity; these owned browsers release it too. */
-    const uint32_t vectors[] = {OSOS_BROWSER_ARTISTS_OFFSET, OSOS_BROWSER_ALBUMS_OFFSET};
+    const uint32_t vectors[] = {OSOS_BROWSER_ARTISTS_OFFSET,
+                                OSOS_BROWSER_ALBUMS_OFFSET};
     for (unsigned i = 0; i < 2; i++) {
         release(FIELD(void *, browser, vectors[i]));
         for (unsigned j = 0; j < 3; j++)
@@ -172,19 +204,74 @@ PATCH_ARM void *cfw_album_artists_destroy_model(void *model)
 {
     if (FIELD(uint8_t, model, 0x45) == ARTWORK_MODEL_OWNERSHIP) {
         FIELD(uint8_t, model, 0x45) = 3;
-        ((void (*)(void *))OSOS_MODEL_REF_RELEASE)(
-            &((struct artwork_model *)model)->owner_reference);
+        osos_model_ref_release(&((struct artwork_model *)model)->owner_reference);
         return cfw_browser_destroy_original(model);
     }
     void *browser = FIELD(void *, model, 0x40);
     struct browser_context *context = context_for(browser);
     if (context && FIELD(uint8_t, model, 0x45) == 2) {
         if (context->track_data)
-            ((int (*)(void *))OSOS_BROWSER_INVALIDATE)(browser);
+            osos_browser_invalidate(browser);
         clear_groups(browser);
         *context = (struct browser_context){0};
     }
     return cfw_browser_destroy_original(model);
+}
+
+static void build_group_rows(void *browser, void *track_data,
+                             struct album_artist_track *tracks, uint32_t used,
+                             struct artist_group *rows)
+{
+    uint32_t group = 0, last_album = 0;
+    uint32_t previous_token = 0;
+    struct artist_group *row = NULL;
+    for (uint32_t i = 0; i < used; i++) {
+        struct album_artist_track track = tracks[i];
+        if (!i || compare_artist_names(track_data, previous_token, track.token)) {
+            row = &rows[group];
+            *row = (struct artist_group){track.token, 0, NULL, 0, 0};
+            /* Compact one representative per identity into the consumed track slots. */
+            tracks[group] = (struct album_artist_track){
+                .entry = track.entry, .group_index = group, .order = track.order};
+            group++;
+            last_album = 0;
+        }
+        previous_token = track.token;
+        struct osos_media_record *record = track.entry->song.record;
+        uint32_t album = FIELD(uint32_t, record, 0x34);
+        if (!album || album == last_album)
+            continue;
+        last_album = album;
+        row->albums++;
+        if (row->artwork_count == 10)
+            continue;
+        uint32_t artwork = osos_browser_artwork(osos_browser_owner(browser), record);
+        if (artwork && !row->artwork)
+            row->artwork = osos_import_alloc(10 * sizeof(*row->artwork));
+        if (artwork && row->artwork)
+            row->artwork[row->artwork_count++] = artwork;
+    }
+}
+
+static void build_group_jumps(void *track_data, const struct artist_group *rows,
+                              const struct album_artist_track *tracks, uint32_t groups,
+                              const uint32_t *native_jump, uint32_t *tokens,
+                              uint32_t *jump)
+{
+    jump[0] = 0;
+    for (uint32_t i = 0; i < groups; i++) {
+        tokens[i] = rows[tracks[i].group_index].token;
+        uint16_t letter = native_jump
+                              ? album_artist_jump_letter(native_jump, tracks[i].order)
+                              : artist_letter(track_data, tracks[i].entry->song.record);
+        if (!jump[0] || (uint16_t)jump[jump[0] * 2 - 1] != letter) {
+            jump[jump[0] * 2 + 1] = letter;
+            jump[jump[0] * 2 + 2] = i;
+            jump[0]++;
+        }
+    }
+    jump[jump[0] * 2 + 1] = 0;
+    jump[jump[0] * 2 + 2] = UINT32_MAX;
 }
 
 PATCH_ARM uint32_t cfw_album_artists_build(void *browser)
@@ -196,79 +283,68 @@ PATCH_ARM uint32_t cfw_album_artists_build(void *browser)
         return group_count(browser);
     void *track_data = track_data_of(browser);
     context->track_data = track_data;
-    typedef struct osos_media_list *(*current_list)(void *);
-    struct osos_media_list *list = ((current_list)OSOS_BROWSER_CURRENT_LIST)(browser);
+    struct osos_media_list *list = osos_browser_current_list(browser);
     if (!track_data || !list || !osos_list_root(list))
         return 0;
     uint32_t count = osos_list_root(list)->tracks;
     if (!count)
         return 0;
-    struct album_artist_track *tracks = allocate(count * sizeof(*tracks));
+    struct album_artist_track *tracks = osos_import_alloc(count * sizeof(*tracks));
     if (!tracks)
         return 0;
+    /* Only consume an existing index: native mode 0x2d has no rebuild comparator. */
+    struct osos_media_order *order =
+        FIELD(struct osos_media_order *, list,
+              OSOS_LIST_ORDER_INDEX_OFFSET + OSOS_ALBUM_ARTIST_ORDER * 4);
+    if (order && (order->count != count || order->capacity < count))
+        order = NULL;
+    const uint32_t *native_jump =
+        order ? FIELD(uint32_t *, list,
+                      OSOS_LIST_JUMP_INDEX_OFFSET + OSOS_ALBUM_ARTIST_ORDER * 4)
+              : NULL;
+    if (!album_artist_valid_jumps(native_jump, count))
+        native_jump = NULL;
     cache_access(track_data, 1);
     uint32_t used = 0;
     for (uint32_t i = 0; i < count; i++) {
-        typedef struct osos_media_entry *(*get_entry)(void *, int, uint32_t, uint32_t);
-        struct osos_media_entry *entry = ((get_entry)OSOS_LIST_ORDER_ENTRY)(list, 6, 0, i);
-        typedef int (*matches)(void *, struct osos_media_entry *, void *);
-        if (entry && entry->song.record &&
-                ((matches)OSOS_BROWSER_FILTER)(browser, entry, NULL))
-            tracks[used++] = (struct album_artist_track){entry,
-                effective_token(entry->song.record), i};
+        struct osos_media_entry *entry =
+            order ? order->entries[i] : osos_list_order_entry(list, 6, 0, i);
+        if (entry && entry->song.record && osos_browser_filter(browser, entry, NULL))
+            tracks[used++] = (struct album_artist_track){
+                .entry = entry,
+                .token = resolved_artist_token(entry->song.record),
+                .order = i};
     }
-    album_artist_sort(tracks, used, compare_tokens, track_data);
+    album_artist_sort(tracks, used, compare_track_artists, track_data);
     uint32_t groups = 0;
     for (uint32_t i = 0; i < used; i++)
-        if (!i || compare_tokens(track_data, tracks[i-1].token, tracks[i].token))
+        if (!i ||
+            compare_artist_names(track_data, tracks[i - 1].token, tracks[i].token))
             groups++;
-    struct artist_group *rows = groups ? allocate(groups * sizeof(*rows)) : NULL;
-    uint32_t *tokens = groups ? allocate(groups * sizeof(*tokens)) : NULL;
-    uint32_t *jump = groups ? allocate((groups * 2 + 3) * sizeof(*jump)) : NULL;
+    struct artist_group *rows =
+        groups ? osos_import_alloc(groups * sizeof(*rows)) : NULL;
+    uint32_t *tokens = groups ? osos_import_alloc(groups * sizeof(*tokens)) : NULL;
+    uint32_t *jump =
+        groups ? osos_import_alloc((groups * 2 + 3) * sizeof(*jump)) : NULL;
     if (!rows || !tokens || !jump) {
-        release(rows); release(tokens); release(jump);
+        release(rows);
+        release(tokens);
+        release(jump);
         cache_access(track_data, 0);
         release(tracks);
         return 0;
     }
-    jump[0] = 0;
-    uint32_t group = 0, last_album = 0;
-    struct artist_group *row = NULL;
-    for (uint32_t i = 0; i < used; i++) {
-        if (!i || compare_tokens(track_data, tracks[i-1].token, tracks[i].token)) {
-            row = &rows[group];
-            *row = (struct artist_group){tracks[i].token, 0, NULL, 0, 0};
-            tokens[group] = row->token;
-            uint16_t letter = artist_letter(track_data, row->token);
-            if (!jump[0] || jump[jump[0] * 2 - 1] != letter) {
-                jump[jump[0] * 2 + 1] = letter;
-                jump[jump[0] * 2 + 2] = group;
-                jump[0]++;
-            }
-            group++;
-            last_album = 0;
-        }
-        struct osos_media_record *record = tracks[i].entry->song.record;
-        uint32_t album = FIELD(uint32_t, record, 0x34);
-        if (!album || album == last_album)
-            continue;
-        last_album = album;
-        row->albums++;
-        if (row->artwork_count == 10)
-            continue;
-        typedef uint32_t (*art)(void *, void *);
-        uint32_t artwork = ((art)OSOS_BROWSER_ARTWORK)(owner_of(browser), record);
-        if (artwork && !row->artwork)
-            row->artwork = allocate(10 * sizeof(*row->artwork));
-        if (artwork && row->artwork)
-            row->artwork[row->artwork_count++] = artwork;
-    }
-    jump[jump[0] * 2 + 1] = 0;
-    jump[jump[0] * 2 + 2] = UINT32_MAX;
+    build_group_rows(browser, track_data, tracks, used, rows);
+    struct group_sort_context sort = {track_data, rows, order != NULL};
+    album_artist_sort(tracks, groups, compare_group_order, &sort);
+    build_group_jumps(track_data, rows, tracks, groups, native_jump, tokens, jump);
+    album_artist_reorder(rows, tracks, groups);
     release(FIELD(void *, browser, OSOS_BROWSER_ARTISTS_OFFSET));
     FIELD(struct artist_group *, browser, OSOS_BROWSER_ARTISTS_OFFSET) = rows;
-    FIELD(struct artist_group *, browser, OSOS_BROWSER_ARTISTS_OFFSET + 4) = rows + groups;
-    FIELD(struct artist_group *, browser, OSOS_BROWSER_ARTISTS_OFFSET + 8) = rows + groups;
+    FIELD(struct artist_group *, browser, OSOS_BROWSER_ARTISTS_OFFSET + 4) =
+        rows + groups;
+    FIELD(struct artist_group *, browser, OSOS_BROWSER_ARTISTS_OFFSET + 8) =
+        rows + groups;
     FIELD(uint32_t *, browser, OSOS_BROWSER_ARTIST_TOKENS_OFFSET) = tokens;
     FIELD(uint32_t *, browser, OSOS_BROWSER_ARTIST_JUMP_OFFSET) = jump;
     FIELD(uint32_t, browser, OSOS_BROWSER_ARTIST_COUNT_OFFSET) = groups;
@@ -284,15 +360,19 @@ PATCH_ARM int cfw_album_artist_name(void *browser, int index, uint16_t *out)
     out[0] = 0;
     if (index < 0 || (uint32_t)index >= group_count(browser))
         return -50;
-    struct artist_group *rows = FIELD(struct artist_group *, browser, OSOS_BROWSER_ARTISTS_OFFSET);
+    struct artist_group *rows =
+        FIELD(struct artist_group *, browser, OSOS_BROWSER_ARTISTS_OFFSET);
     void *track_data = track_data_of(browser);
     cache_access(track_data, 1);
     const uint16_t *text;
-    uint32_t units = artist_view(track_data, rows[index].token, &text);
-    if (units > 255) units = 255;
-    if (units && text[units-1] >= 0xd800 && text[units-1] <= 0xdbff) units--;
+    uint32_t units = artist_name_view(track_data, rows[index].token, &text);
+    if (units > 255)
+        units = 255;
+    if (units && text[units - 1] >= 0xd800 && text[units - 1] <= 0xdbff)
+        units--;
     out[0] = units;
-    for (uint32_t i = 0; i < units; i++) out[i+1] = text[i];
+    for (uint32_t i = 0; i < units; i++)
+        out[i + 1] = text[i];
     cache_access(track_data, 0);
     return 0;
 }
@@ -305,15 +385,14 @@ PATCH_ARM int cfw_album_artist_letter(void *browser, int index, uint16_t *out)
     if (index < 0 || (uint32_t)index >= group_count(browser))
         return -50;
     uint32_t *jump = FIELD(uint32_t *, browser, OSOS_BROWSER_ARTIST_JUMP_OFFSET);
-    uint32_t i = 0;
-    while (i + 1 < jump[0] && jump[i * 2 + 4] <= (uint32_t)index) i++;
     out[0] = 1;
-    out[1] = jump[i * 2 + 1];
+    out[1] = album_artist_jump_letter(jump, (uint32_t)index);
     return 0;
 }
 
 /* Called inside the native filter while TrackData cache views are pinned. */
-PATCH_ARM int cfw_album_artist_compare_filter(void *browser, struct osos_media_entry *entry)
+PATCH_ARM int cfw_album_artist_compare_filter(void *browser,
+                                              struct osos_media_entry *entry)
 {
     if (!context_for(browser))
         return 2;
@@ -322,36 +401,41 @@ PATCH_ARM int cfw_album_artist_compare_filter(void *browser, struct osos_media_e
         return 0;
     if ((uint32_t)index >= group_count(browser) || !entry->song.record)
         return 1;
-    struct artist_group *rows = FIELD(struct artist_group *, browser, OSOS_BROWSER_ARTISTS_OFFSET);
-    return compare_tokens(track_data_of(browser), rows[index].token,
-                          effective_token(entry->song.record)) != 0;
+    struct artist_group *rows =
+        FIELD(struct artist_group *, browser, OSOS_BROWSER_ARTISTS_OFFSET);
+    return compare_artist_names(track_data_of(browser), rows[index].token,
+                                resolved_artist_token(entry->song.record)) != 0;
 }
 
 PATCH_ARM int cfw_album_artists_album_group(void *browser, void *callback,
-    uint32_t field_low, uint32_t field_high, uint32_t index,
-    struct osos_media_entry *entry, struct osos_media_record *record, int first)
+                                            uint32_t field_low, uint32_t field_high,
+                                            uint32_t index,
+                                            struct osos_media_entry *entry,
+                                            struct osos_media_record *record, int first)
 {
-    typedef int (*native)(void *, void *, uint32_t, uint32_t, uint32_t,
-                         struct osos_media_entry *, struct osos_media_record *, int);
     if (!context_for(browser))
-        return ((native)OSOS_BROWSER_ALBUM_GROUP)(browser, callback, field_low,
-                                                 field_high, index, entry, record, first);
-    struct album_group *begin = FIELD(struct album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET);
-    struct album_group *end = FIELD(struct album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET + 4);
+        return osos_browser_album_group(browser, callback, field_low, field_high, index,
+                                        entry, record, first);
+    struct osos_album_group *begin =
+        FIELD(struct osos_album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET);
+    struct osos_album_group *end =
+        FIELD(struct osos_album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET + 4);
     if (first && begin != end)
         return 0;
     uint32_t album = FIELD(uint32_t, record, 0x34);
     if (!album)
         return 1;
     if (begin == end || end[-1].token != album) {
-        typedef uint32_t (*art)(void *, void *);
-        struct album_group row = {album, effective_token(record), 0,
-            ((art)OSOS_BROWSER_ARTWORK)(owner_of(browser), record), 0,
+        struct osos_album_group row = {
+            album,
+            resolved_artist_token(record),
+            0,
+            osos_browser_artwork(osos_browser_owner(browser), record),
+            0,
             ((FIELD(uint8_t, record, 0x15) & 2) >> 1) |
-            ((FIELD(uint8_t, record, 0x8f) >> 7) << 1)};
-        typedef void (*append)(void *, struct album_group *);
-        ((append)OSOS_ALBUM_VECTOR_APPEND)((uint8_t *)browser + OSOS_BROWSER_ALBUMS_OFFSET, &row);
-        end = FIELD(struct album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET + 4);
+                ((FIELD(uint8_t, record, 0x8f) >> 7) << 1)};
+        osos_album_vector_append((uint8_t *)browser + OSOS_BROWSER_ALBUMS_OFFSET, &row);
+        end = FIELD(struct osos_album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET + 4);
     }
     end[-1].tracks++;
     return 1;
@@ -360,7 +444,7 @@ PATCH_ARM int cfw_album_artists_album_group(void *browser, void *callback,
 PATCH_ARM uint32_t cfw_album_artists_select_artwork(void *selection, uint32_t category)
 {
     void *reference = (uint8_t *)selection + 0x18;
-    void *model = ((void *(*)(void *))OSOS_MODEL_REF_GET)(reference);
+    void *model = osos_model_ref_get(reference);
     int custom = category == 3 && model && context_for(FIELD(void *, model, 0x40));
     /* Recreate the provider/cache even when both screens have category Albums. */
     if (custom || custom_album_artwork)
@@ -368,55 +452,48 @@ PATCH_ARM uint32_t cfw_album_artists_select_artwork(void *selection, uint32_t ca
     custom_album_artwork = custom;
     void *previous = artwork_model_reference;
     artwork_model_reference = custom ? reference : NULL;
-    uint32_t result = ((uint32_t (*)(void *, uint32_t))OSOS_SELECT_ARTWORK_SOURCE)(
-        selection, category);
+    uint32_t result = osos_select_artwork_source(selection, category);
     artwork_model_reference = previous;
     return result;
 }
 
 PATCH_ARM void *cfw_album_artists_create_artwork(uint32_t kind, uint32_t selector)
 {
-    void *provider = ((void *(*)(uint32_t, uint32_t))OSOS_ALBUM_ARTWORK_CREATE)(kind, selector);
+    void *provider = osos_album_artwork_create(kind, selector);
     if (!provider || kind != 2 || selector != 0x2711 || !artwork_model_reference)
         return provider;
-    void *owner = ((void *(*)(void *))OSOS_MODEL_REF_GET)(artwork_model_reference);
-    struct artwork_model *model = ((void *(*)(uint32_t))OSOS_CPP_NEW)(sizeof(*model));
-    typedef void *(*borrow)(void *, uint8_t, void *);
-    ((borrow)OSOS_MODEL_INIT_BORROWED)(model, 2, FIELD(void *, owner, 0x40));
+    void *owner = osos_model_ref_get(artwork_model_reference);
+    struct artwork_model *model = osos_cpp_new(sizeof(*model));
+    osos_model_init_borrowed(model, 2, FIELD(void *, owner, 0x40));
     model->owner_reference = NULL;
-    ((void (*)(void *, void *))OSOS_MODEL_REF_ASSIGN)(
-        &model->owner_reference, artwork_model_reference);
+    osos_model_ref_assign(&model->owner_reference, artwork_model_reference);
     FIELD(uint8_t, model, 0x45) = ARTWORK_MODEL_OWNERSHIP;
     void *original = FIELD(void *, provider, 0xc);
     FIELD(void *, provider, 0xc) = model;
-    ((void (*)(void *))osos_method(original, 0x1c))(original);
+    osos_model_destroy(original);
     return provider;
 }
 
 PATCH_ARM void cfw_album_artists_album_subtitle(void *model, int index,
-                                               struct osos_native_string *out)
+                                                struct osos_native_string *out)
 {
     void *browser = FIELD(void *, model, 0x40);
-    typedef void (*native)(void *, int, struct osos_native_string *);
     if (!context_for(browser)) {
-        ((native)OSOS_MODEL_ALBUM_SUBTITLE)(model, index, out);
+        osos_model_album_subtitle(model, index, out);
         return;
     }
-    struct album_group *begin = FIELD(struct album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET);
-    struct album_group *end = FIELD(struct album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET + 4);
+    struct osos_album_group *begin =
+        FIELD(struct osos_album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET);
+    struct osos_album_group *end =
+        FIELD(struct osos_album_group *, browser, OSOS_BROWSER_ALBUMS_OFFSET + 4);
     if (index < 0 || (uint32_t)index >= (uint32_t)(end - begin))
         return;
     void *track_data = track_data_of(browser);
     cache_access(track_data, 1);
     const uint16_t *text;
-    uint32_t units = artist_view(track_data, begin[index].artist, &text);
+    uint32_t units = artist_name_view(track_data, begin[index].artist, &text);
     osos_native_string_assign_utf16(out, text, units);
     cache_access(track_data, 0);
-}
-
-static void destroy_model(void *model)
-{
-    ((void (*)(void *))osos_method(model, 0x1c))(model);
 }
 
 static void *acquire_browser(void **reference)
@@ -424,9 +501,8 @@ static void *acquire_browser(void **reference)
     /* Selection/artwork may retain the previous model after its screens close. */
     for (unsigned i = 0; i < 4; i++) {
         if (contexts[i].model_reference) {
-            ((void (*)(void *, void *))OSOS_MODEL_REF_ASSIGN)(
-                reference, &contexts[i].model_reference);
-            return ((void *(*)(void *))OSOS_MODEL_REF_GET)(reference);
+            osos_model_ref_assign(reference, &contexts[i].model_reference);
+            return osos_model_ref_get(reference);
         }
     }
     /* Reserve one browser for the whole navigation stack, including child screens. */
@@ -437,20 +513,18 @@ static void *acquire_browser(void **reference)
     /* Leave a slot for native auxiliary browsing. */
     if (available < 2)
         return NULL;
-    typedef void *(*create_model)(uint32_t);
-    void *model = ((create_model)OSOS_MODEL_CREATE)(0);
+    void *model = osos_model_create(0);
     void *browser = NULL;
-    typedef int (*create_browser)(void *, void **);
-    if (((create_browser)OSOS_BROWSER_CREATE)(FIELD(void *, model, 0x40), &browser)) {
-        destroy_model(model);
+    if (osos_browser_create(FIELD(void *, model, 0x40), &browser)) {
+        osos_model_destroy(model);
         return NULL;
     }
     FIELD(void *, model, 0x40) = browser;
     FIELD(uint8_t, model, 0x45) = 2;
-    typedef void (*ref_init)(void **, void *, int);
-    ((ref_init)OSOS_MODEL_REF_INIT)(reference, model, 0);
+    osos_model_ref_init(reference, model, 0);
     unsigned slot = FIELD(uint8_t, browser, 1);
-    contexts[slot] = (struct browser_context){browser, track_data_of(browser), *reference};
+    contexts[slot] =
+        (struct browser_context){browser, track_data_of(browser), *reference};
     return model;
 }
 
@@ -461,29 +535,26 @@ static void open_browser(void *controller)
     if (!model)
         return;
     void *browser = FIELD(void *, model, 0x40);
-    ((void (*)(void *))osos_method(model, 0x38))(model);
-    ((void (*)(void *))osos_method(model, 0xd8))(model);
-    ((void (*)(void *, uint32_t, uint32_t))osos_method(model, 0x5c))(model, 0x11, 0);
+    osos_library_model_prepare_artists(model);
     if (!cfw_album_artists_build(browser))
         goto done;
-    typedef void *(*registry_fn)(void);
-    typedef void *(*create_screen)(void *, uint32_t, uint32_t, uint32_t);
-    void *screen = ((create_screen)OSOS_CREATE_SCREEN_CONTROLLER)(
-        ((registry_fn)OSOS_CONTROLLER_REGISTRY)(), CFW_AlbumArtists_Screen,
-        CFW_AlbumArtists_Layout, 2);
+    void *screen = osos_create_screen_controller(osos_controller_registry(),
+                                                 CFW_AlbumArtists_Screen,
+                                                 CFW_AlbumArtists_Layout, 2);
     if (!screen)
         goto done;
-    ((void (*)(void *, void *))OSOS_MODEL_REF_ASSIGN)((uint8_t *)screen + 0xb4, &reference);
+    osos_model_ref_assign((uint8_t *)screen + 0xb4, &reference);
     FIELD(uint8_t, screen, 0xb2) = 0;
-    ((void (*)(void *, void *))osos_method(controller, 0xd0))(controller, screen);
+    osos_controller_push(controller, screen);
 done:
-    ((void (*)(void *))OSOS_MODEL_REF_RELEASE)(&reference);
+    osos_model_ref_release(&reference);
 }
 
-PATCH_ARM int cfw_album_artists_action(void *controller, const char *action, uint32_t argument)
+PATCH_ARM int cfw_album_artists_action(void *controller, const char *action,
+                                       uint32_t argument)
 {
     if (!cfw_string_equal(action, "CFW_AlbumArtists"))
-        return ((int (*)(void *, const char *, uint32_t))OSOS_MUSIC_ACTION)(controller, action, argument);
+        return osos_music_action(controller, action, argument);
     if (argument != OSOS_ACTION_SUPPORT_QUERY)
         open_browser(controller);
     return 1;

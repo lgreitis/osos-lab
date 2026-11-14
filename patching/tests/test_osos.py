@@ -81,6 +81,30 @@ class OsosTests(unittest.TestCase):
         )
         self.assertNotIn(b"native!!", recipe.data)
 
+    def test_dynamic_reservation_includes_bss_and_matches_heap_and_file_size(self):
+        start = self.symbols["__payload_start"]
+        self.symbols["__payload_end"] = start + 332140
+        self.symbols["__payload_limit"] = start + 328 * 1024
+        self.code = b"CFW!" + bytes(124)
+        image = self.replay(
+            self.build([word(Kind.POINTER, osos.BASE, 0, "__payload_limit")])
+        )
+        self.assertEqual(len(image), len(self.original) + 328 * 1024)
+        self.assertEqual(
+            struct.unpack_from("<I", image, self.load_offset)[0], start + 328 * 1024
+        )
+        self.assertEqual(
+            image[len(self.original) : len(self.original) + len(self.code)], self.code
+        )
+        self.assertEqual(
+            image[len(self.original) + len(self.code) :],
+            bytes(328 * 1024 - len(self.code)),
+        )
+        for offset in osos.IMAGE_SIZE_FIELDS:
+            self.assertEqual(
+                struct.unpack_from("<I", image, offset)[0], len(image) - 0x800
+            )
+
     def test_rejects_overlap_and_invalid_write_ranges(self):
         valid = word(Kind.WORD, osos.BASE, 0, value=42)
         for patches in (

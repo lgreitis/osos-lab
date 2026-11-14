@@ -15,8 +15,9 @@ own identity in its companion.
 ## Repository layout
 
 - `payload/`: OSOS features, C patch declarations, and UI definitions.
-- `game-sdk/`: deferred homebrew runtime; its old bindings are not ported to 2.0.5.
+- `game-sdk/`: deferred, incomplete homebrew runtime for the stock Games loader; it does not support sound.
 - `doom/`: deferred, incomplete Doom port.
+- `nes/`: deferred, incomplete InfoNES port built on the game SDK.
 - `patching/`: Python recipe builder, native UI generation, and framework tests.
 - `firmware/`: pinned Apple inputs, hardware eligibility and native UI metadata.
 - `loader/` and `patches/`: Apple companion loader and Rockbox bootloader patches.
@@ -40,27 +41,43 @@ RepriseOS package and builds a companion using that iPod's identity.
 
 ## Features
 
-- Three-band custom EQ with adjustable filter types, frequency, gain, Q and precut.
-- Play Next and Play Last from song context menus.
-- EU volume limit removal for European iPods.
-- Song Info from song and Now Playing context menus.
+- Five-band custom EQ with a graphical editor and adjustable filter types,
+  frequency, gain, Q and precut.
+- Clipping-free EQ: built-in presets and the custom EQ lower their gain by
+  their peak boost and keep headroom between filter stages.
+- Crossfeed for headphones: Jan Meier's crossfeed from Rockbox blends a
+  filtered part of each channel into the other, so hard-panned stereo
+  recordings sound less separated. It applies after the EQ, to all audio.
+- Play Next and Play Last from song, album and artist context menus.
+- Apple's EU Volume Limit setting on every European iPod, with full volume
+  and no volume warning when it is Off.
+- File Info from song, podcast, iTunes U, audiobook, movie, TV episode, video playlist and Now Playing context menus.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
-- Dark Mode (work in progress), with an On/Off toggle below Brightness in Settings.
-- Playback Log, with an On/Off toggle below Sound Check in Settings.
+- Clicker output options (Off, Speaker, Headphones, Both) in Settings.
+- Dark Mode, with an On/Off toggle in Settings.
+
+Open **Settings → Custom EQ** to edit all five bands. Use the wheel to select a
+band, then Center to select and edit its Type, Gain, Frequency or Q, or the
+Precut shared by all bands. Switch Hold on to view the combined EQ response and
+off to return to editing. Precut defaults to **Auto**, which attenuates by the
+response's peak between 20 Hz and 20 kHz; the response view shows the applied
+value. Choose a fixed precut from 0.0 to -10.0 dB instead to set it by hand.
+
+Every supported Classic runs Apple 2.0.5, so European iPods, older models
+included, get Apple's **Settings → Volume Limit** screen with **EU Volume Limit**.
+On limits headphone volume to the EU level. Off allows full volume without Apple's
+high-volume warning, the reduction to the EU level at startup or the automatic
+reduction after long listening.
 
 **Album Artists** groups tracks by their Album Artist tag, using Artist when that
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →
 Music Menu.
 
-**Dark Mode** is off by default. Some screens and artwork still need visual
-adjustments.
-
-**Playback Log** is off by default. When on, every track that stops playing adds
-a row to `playback.tsv` at the root of the iPod: when it played, how long you
-listened, how it ended (finished, skipped or replaced), the track's tags and its
-iTunes Persistent ID. The play counts iTunes collects only keep totals and the
-last play date; this log keeps every listen, for year-in-review statistics,
-scrobbling or rebuilding playlists. See the [column reference](docs/playback-log.md).
+**Playback Log** adds an On/Off switch in Settings. When enabled, completed,
+skipped and replaced tracks are appended to `playback.tsv`. The log includes
+track metadata, timestamps and playback position. Position is not measured
+listening time: pauses and seeks affect the estimates. See the
+[column reference](docs/playback-log.md).
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
 
@@ -116,10 +133,12 @@ python3.11 tools/ghidra.py import --target firmware-2.0.5 \
 python3.11 tools/ghidra.py export --project /path/to/new-project
 ```
 
+Import and export default to the 41 programs for 2.0.5, the only tracked analysis.
 Import restores saved annotations by default; `--fresh` creates new analysis.
 Alternatively supply `--ipsw FILE --osos DECRYPTED_FILE --aupd DECRYPTED_BODY`
-for 2.0.5. Historical 2.0.1/2.0.4 analysis remains importable from preserved
-plaintext inputs using the profiles in `ghidra/profiles/`.
+for 2.0.5. Historical 2.0.1/2.0.4 programs require an explicit `--target`;
+restore their analysis from Git history or use `--fresh` with preserved plaintext
+inputs. Local historical exports are ignored by Git.
 Preparation is offline and requires supported plaintext firmware. Import verifies
 a temporary project before publishing it and requires a new destination directory.
 Save and close Ghidra before exporting. Use `--analysis DIR` for a separate
@@ -128,7 +147,9 @@ annotation directory. Logs are in `.build/ghidra-*.log`; all tools expose `--hel
 ## Credits
 
 - [Rockbox](https://github.com/Rockbox/rockbox) contributors: the bootloader,
-  dual-boot installer, and hardware drivers used by the USB helper.
+  dual-boot installer, and hardware drivers used by the USB helper, and the
+  Meier crossfeed (Thom Johansen, Bertrik Sikken and Michael Sevakis), ported
+  to `payload/crossfeed.c` under GPL-2.0-or-later.
 - [wInd3x](https://github.com/freemyipod/wInd3x) by Serge “q3k” Bazanski:
   the BootROM exploit, DFU protocol, and payload assembler code ported from Go
   to Rust in `reprise-device`, including `payload.rs` and `dfu.rs`.

@@ -38,6 +38,8 @@ bool fat_size(sector_t *, sector_t *);
 unsigned fat_get_cluster_size(void);
 void ata_sleepnow(void);
 bool file_exists(const char *);
+bool dir_exists(const char *);
+int test_mkdir(const char *);
 int test_open(const char *, int, ...);
 int test_close(int);
 ssize_t test_read(int, void *, size_t);
@@ -53,6 +55,7 @@ int upload_write_allowed(uint64_t, int);
 #define write test_write
 #define fsync test_fsync
 #define rename test_rename
+#define mkdir test_mkdir
 #endif
 #endif
 """
@@ -75,6 +78,8 @@ bool fat_size(sector_t *s, sector_t *f) {(void)s; *f=fault==8 ? 0 : 1000000; ret
 unsigned fat_get_cluster_size(void) {return 16384;}
 void ata_sleepnow(void) {sleeps++;}
 bool file_exists(const char *p) {return access(p+1,F_OK)==0;}
+bool dir_exists(const char *p) {struct stat s; return !stat(p+1,&s) && S_ISDIR(s.st_mode);}
+int test_mkdir(const char *p) {assert(upload_write_allowed(394224,1));return mkdir(p+1,0700);}
 int test_open(const char *p,int flags,...) {opens++; return open(p+1,flags,0600);}
 int test_close(int fd) {int r=close(fd);return fault==5 ? -1 : r;}
 ssize_t test_read(int fd,void *p,size_t n) {ssize_t r=read(fd,p,n);if(fault==1 && !corrupt && r>0){((uint8_t*)p)[0]^=1;corrupt=true;}return r;}
@@ -93,10 +98,11 @@ static void close_repeatedly(void) {
 }
 int main(int argc,char **argv)
 {
-    assert(argc==5);
+    assert(argc==5 || argc==6);
+    const char *target=argc==6 ? argv[5] : "/os.bin";
     unsigned size=strtoul(argv[1],0,10); unsigned overwrite=atoi(argv[2]); bool exists=atoi(argv[3]);fault=atoi(argv[4]);
     if(exists){int f=open("os.bin",O_WRONLY|O_CREAT,0600);assert(write(f,"old",3)==3);close(f);}
-    upload_config.size=size;upload_config.overwrite=overwrite;strcpy(upload_config.path,"/os.bin");
+    upload_config.size=size;upload_config.overwrite=overwrite;strcpy(upload_config.path,target);
     struct sha256 hash;sha256_init(&hash);
     for(unsigned off=0;off<size;){unsigned n=MIN(size-off,65536);pattern(off,n);sha256_update(&hash,test_buffer,n);off+=n;}
     sha256_final(&hash,upload_config.sha256);
@@ -131,7 +137,7 @@ int main(int argc,char **argv)
     assert(!memcmp(test_result.source_sha256,upload_config.sha256,32));
     assert(!memcmp(test_result.disk_sha256,upload_config.sha256,32));
     assert(mounts==2 && sleeps==2);
-    int f=open("os.bin",O_RDONLY);assert(f>=0);assert(filesize(f)==size);
+    int f=open(target+1,O_RDONLY);assert(f>=0);assert(filesize(f)==size);
     uint8_t readback[65536];
     for(unsigned off=0;off<size;){unsigned n=MIN(size-off,65536);assert(read(f,readback,n)==n);pattern(off,n);assert(!memcmp(test_buffer,readback,n));off+=n;}
     close(f);
@@ -176,6 +182,7 @@ class HelperTests(unittest.TestCase):
             "config.h",
             "system.h",
             "file.h",
+            "dir.h",
             "file_internal.h",
             "disk.h",
             "fat.h",
@@ -248,7 +255,7 @@ extern struct storage_result test_storage;
                 self.sha.sha256_final(ctypes.byref(s), out)
                 self.assertEqual(out.raw, hashlib.sha256(data).digest(), (size, chunk))
 
-    def run_file(self, size, overwrite, exists, fault):
+    def run_file(self, size, overwrite, exists, fault, path="/os.bin"):
         with tempfile.TemporaryDirectory(dir=self.root) as directory:
             subprocess.run(
                 [
@@ -257,10 +264,14 @@ extern struct storage_result test_storage;
                     str(int(overwrite)),
                     str(int(exists)),
                     str(fault),
+                    path,
                 ],
                 cwd=directory,
                 check=True,
             )
+
+    def test_theme_upload_creates_parent_directories(self):
+        self.run_file(65537, True, False, 0, "/themes/dark/theme.bin")
 
     def test_storage_inspection_is_read_only(self):
         self.run_file(12000000, 2, True, 0)

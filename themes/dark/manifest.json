@@ -1,0 +1,434 @@
+[
+  {
+    "name": "StatusBarWhite_Background_Image",
+    "type": "BMap",
+    "id": "0x0DAD012A",
+    "file": "status-bar-background.png"
+  },
+  {
+    "name": "Background_LightBlue_Image",
+    "type": "BMap",
+    "id": "0x0DAD012D",
+    "file": "background-dark-image.png"
+  },
+  {
+    "name": "Settings_About_Band_Image",
+    "type": "BMap",
+    "id": "0x0DAD0AE0",
+    "file": "settings-about-band-image.png"
+  },
+  {
+    "name": "StatusBarWhite_Lock_Image",
+    "type": "BMap",
+    "id": "0x0DAD0142",
+    "file": "status-bar-lock-image.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_0",
+    "type": "BMap",
+    "id": "0x0DAD0143",
+    "file": "status-bar-battery-0.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_1",
+    "type": "BMap",
+    "id": "0x0DAD0144",
+    "file": "status-bar-battery-1.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_2",
+    "type": "BMap",
+    "id": "0x0DAD0145",
+    "file": "status-bar-battery-2.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_3",
+    "type": "BMap",
+    "id": "0x0DAD0146",
+    "file": "status-bar-battery-3.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_4",
+    "type": "BMap",
+    "id": "0x0DAD0147",
+    "file": "status-bar-battery-4.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_5",
+    "type": "BMap",
+    "id": "0x0DAD0148",
+    "file": "status-bar-battery-5.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_6",
+    "type": "BMap",
+    "id": "0x0DAD0149",
+    "file": "status-bar-battery-6.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_7",
+    "type": "BMap",
+    "id": "0x0DAD014A",
+    "file": "status-bar-battery-7.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_8",
+    "type": "BMap",
+    "id": "0x0DAD014B",
+    "file": "status-bar-battery-8.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_9",
+    "type": "BMap",
+    "id": "0x0DAD014C",
+    "file": "status-bar-battery-9.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_10",
+    "type": "BMap",
+    "id": "0x0DAD014D",
+    "file": "status-bar-battery-10.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_11",
+    "type": "BMap",
+    "id": "0x0DAD014E",
+    "file": "status-bar-battery-11.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_12",
+    "type": "BMap",
+    "id": "0x0DAD014F",
+    "file": "status-bar-battery-12.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_13",
+    "type": "BMap",
+    "id": "0x0DAD0150",
+    "file": "status-bar-battery-13.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_14",
+    "type": "BMap",
+    "id": "0x0DAD0151",
+    "file": "status-bar-battery-14.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_15",
+    "type": "BMap",
+    "id": "0x0DAD0152",
+    "file": "status-bar-battery-15.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_16",
+    "type": "BMap",
+    "id": "0x0DAD0153",
+    "file": "status-bar-battery-16.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_17",
+    "type": "BMap",
+    "id": "0x0DAD0154",
+    "file": "status-bar-battery-17.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_18",
+    "type": "BMap",
+    "id": "0x0DAD0155",
+    "file": "status-bar-battery-18.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_19",
+    "type": "BMap",
+    "id": "0x0DAD0156",
+    "file": "status-bar-battery-19.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_20",
+    "type": "BMap",
+    "id": "0x0DAD0157",
+    "file": "status-bar-battery-20.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_21",
+    "type": "BMap",
+    "id": "0x0DAD0158",
+    "file": "status-bar-battery-21.png"
+  },
+  {
+    "name": "StatusBarWhite_Battery_Image_22",
+    "type": "BMap",
+    "id": "0x0DAD0159",
+    "file": "status-bar-battery-22.png"
+  },
+  {
+    "name": "NowPlaying_Dot_Image",
+    "type": "BMap",
+    "id": "0x0DAD0889",
+    "file": "now-playing-dot.png"
+  },
+  {
+    "name": "NowPlaying_White_Volume_Low_Image",
+    "type": "BMap",
+    "id": "0x0DAD088A",
+    "file": "now-playing-volume-low.png"
+  },
+  {
+    "name": "NowPlaying_White_Volume_High_Image",
+    "type": "BMap",
+    "id": "0x0DAD088B",
+    "file": "now-playing-volume-high.png"
+  },
+  {
+    "name": "CoverFlow_Backside_Top_Image",
+    "type": "BMap",
+    "id": "0x0DAD05DA",
+    "file": "cover-flow-backside-top.png"
+  },
+  {
+    "name": "CoverFlow_Proxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0128",
+    "file": "cover-flow-proxy.png"
+  },
+  {
+    "name": "NowPlaying_White_Pause_Image",
+    "type": "BMap",
+    "id": "0x0DAD086E",
+    "file": "now-playing-pause.png"
+  },
+  {
+    "name": "NowPlaying_White_Play_Image",
+    "type": "BMap",
+    "id": "0x0DAD086F",
+    "file": "now-playing-play.png"
+  },
+  {
+    "name": "Media_AlbumsProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD071F",
+    "file": "media-albums-proxy.png"
+  },
+  {
+    "name": "Media_AudioProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0721",
+    "file": "media-audio-proxy.png"
+  },
+  {
+    "name": "NowPlaying_Classic_Shuffle_Image",
+    "type": "BMap",
+    "id": "0x0DAD0868",
+    "file": "now-playing-classic-shuffle.png"
+  },
+  {
+    "name": "NowPlaying_Classic_Repeat_Image",
+    "type": "BMap",
+    "id": "0x0DAD0869",
+    "file": "now-playing-classic-repeat.png"
+  },
+  {
+    "name": "NowPlaying_Classic_Repeat_Once_Image",
+    "type": "BMap",
+    "id": "0x0DAD086A",
+    "file": "now-playing-classic-repeat-once.png"
+  },
+  {
+    "name": "NowPlaying_ProgressBar_Active_Background_Image",
+    "type": "BMap",
+    "id": "0x0DAD0882",
+    "file": "now-playing-progress-bar-active-background.png"
+  },
+  {
+    "name": "No_Content_Albums_Small_Image",
+    "type": "BMap",
+    "id": "0x0DAD012F",
+    "file": "no-content-albums-small.png"
+  },
+  {
+    "name": "DiskModeImage_Progress_Empty_LeftCap",
+    "type": "BMap",
+    "id": "0x0DAD0E0F",
+    "file": "disk-mode-progress-empty-left-cap.png"
+  },
+  {
+    "name": "DiskModeImage_Progress_Empty_RightCap",
+    "type": "BMap",
+    "id": "0x0DAD0E10",
+    "file": "disk-mode-progress-empty-right-cap.png"
+  },
+  {
+    "name": "DiskModeImage_Progress_Empty_Fill",
+    "type": "BMap",
+    "id": "0x0DAD0E11",
+    "file": "disk-mode-progress-empty-fill.png"
+  },
+  {
+    "name": "System_ScrollbarTop_Image",
+    "type": "BMap",
+    "id": "0x0DAD0122",
+    "file": "system-scrollbar-top.png"
+  },
+  {
+    "name": "System_ScrollbarCenter_Image",
+    "type": "BMap",
+    "id": "0x0DAD0123",
+    "file": "system-scrollbar-center.png"
+  },
+  {
+    "name": "System_ScrollbarBottom_Image",
+    "type": "BMap",
+    "id": "0x0DAD0124",
+    "file": "system-scrollbar-bottom.png"
+  },
+  {
+    "name": "NowPlaying_Large_Shuffle_Image",
+    "type": "BMap",
+    "id": "0x0DAD087F",
+    "file": "nowplaying-large-shuffle-image.png"
+  },
+  {
+    "name": "NowPlaying_Idle_Battery_7_Image",
+    "type": "BMap",
+    "id": "0x0DAD08A0",
+    "file": "nowplaying-idle-battery-7-image.png"
+  },
+  {
+    "name": "NowPlaying_Idle_Battery_0_Image",
+    "type": "BMap",
+    "id": "0x0DAD0899",
+    "file": "nowplaying-idle-battery-0-image.png"
+  },
+  {
+    "name": "NowPlaying_Idle_Battery_1_Image",
+    "type": "BMap",
+    "id": "0x0DAD089A",
+    "file": "nowplaying-idle-battery-1-image.png"
+  },
+  {
+    "name": "NowPlaying_Idle_Battery_2_Image",
+    "type": "BMap",
+    "id": "0x0DAD089B",
+    "file": "nowplaying-idle-battery-2-image.png"
+  },
+  {
+    "name": "NowPlaying_Idle_Battery_3_Image",
+    "type": "BMap",
+    "id": "0x0DAD089C",
+    "file": "nowplaying-idle-battery-3-image.png"
+  },
+  {
+    "name": "NowPlaying_Idle_Battery_4_Image",
+    "type": "BMap",
+    "id": "0x0DAD089D",
+    "file": "nowplaying-idle-battery-4-image.png"
+  },
+  {
+    "name": "NowPlaying_Idle_Battery_5_Image",
+    "type": "BMap",
+    "id": "0x0DAD089E",
+    "file": "nowplaying-idle-battery-5-image.png"
+  },
+  {
+    "name": "NowPlaying_Idle_Battery_6_Image",
+    "type": "BMap",
+    "id": "0x0DAD089F",
+    "file": "nowplaying-idle-battery-6-image.png"
+  },
+  {
+    "name": "NowPlaying_White_Rew_Image",
+    "type": "BMap",
+    "id": "0x0DAD0873",
+    "file": "nowplaying-white-rew-image.png"
+  },
+  {
+    "name": "NowPlaying_White_FF_Image",
+    "type": "BMap",
+    "id": "0x0DAD0872",
+    "file": "nowplaying-white-ff-image.png"
+  },
+  {
+    "name": "Settings_MainMenu_CheckmarkBlack_Image",
+    "type": "BMap",
+    "id": "0x0DAD0C08",
+    "file": "settings-mainmenu-checkmarkblack-image.png"
+  },
+  {
+    "name": "Media_NowPlayingIcon_Black_Image",
+    "type": "BMap",
+    "id": "0x0DAD072C",
+    "file": "media-nowplayingicon-black-image.png"
+  },
+  {
+    "name": "Media_NowPlayingIcon_Playlist_Black_Image",
+    "type": "BMap",
+    "id": "0x0DAD072E",
+    "file": "media-nowplayingicon-playlist-black-image.png"
+  },
+  {
+    "name": "Media_ArtistsProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0720",
+    "file": "media-artists-proxy.png"
+  },
+  {
+    "name": "Media_AudioBooksProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0722",
+    "file": "media-audiobooks-proxy.png"
+  },
+  {
+    "name": "Media_DocumentsProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0723",
+    "file": "media-documents-proxy.png"
+  },
+  {
+    "name": "Media_MusicVideosProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0724",
+    "file": "media-music-videos-proxy.png"
+  },
+  {
+    "name": "Media_PhotosProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0725",
+    "file": "media-photos-proxy.png"
+  },
+  {
+    "name": "Media_PlaylistsProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0726",
+    "file": "media-playlists-proxy.png"
+  },
+  {
+    "name": "Media_PodcastsProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0727",
+    "file": "media-podcasts-proxy.png"
+  },
+  {
+    "name": "Media_SearchProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0728",
+    "file": "media-search-proxy.png"
+  },
+  {
+    "name": "Media_TVShowsProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD0729",
+    "file": "media-tv-shows-proxy.png"
+  },
+  {
+    "name": "Media_VideosProxy_Image",
+    "type": "BMap",
+    "id": "0x0DAD072A",
+    "file": "media-videos-proxy.png"
+  },
+  {
+    "name": "CoverFlow_Proxy_Image_iTunesU",
+    "type": "BMap",
+    "id": "0x0DAD0129",
+    "file": "cover-flow-proxy-itunes-u.png"
+  }
+]

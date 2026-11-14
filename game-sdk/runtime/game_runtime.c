@@ -22,6 +22,7 @@ void game_runtime_shutdown(void)
     if (game_application.shutdown)
         game_application.shutdown();
     game_files_close_all();
+    game_directories_close_all();
 }
 
 void game_runtime_frame(const struct osos_game_frame_input *input,
@@ -48,6 +49,10 @@ void game_runtime_frame(const struct osos_game_frame_input *input,
         address = native->next_address;
         if (game_application.input)
             game_application.input(&event);
+        if (exit_requested) {
+            output->state = OSOS_GAME_FRAME_DONE;
+            return;
+        }
     }
 
     struct game_frame frame = {0};

@@ -6,11 +6,29 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Recovered Classic 7G FW2.0.4 ABI; all address fields are 32-bit ARM addresses. */
+/* Recovered OSOS 2.0.5 ABI; all address fields are 32-bit ARM addresses. */
 #define OSOS_EAPP_MAGIC UINT32_C(0x70706165)
 #define OSOS_EAPP_MAX_VERSION UINT32_C(0x10001000)
 #define OSOS_EAPP_LOAD_ADDRESS UINT32_C(0x18000000)
 #define OSOS_EAPP_MAX_IMAGE_BYTES UINT32_C(0x00100000)
+
+struct osos_path {
+    uint16_t volume;
+    char text[258];
+};
+
+struct osos_native_path_string {
+    uint32_t vtable_address;
+    uint32_t data_address;
+};
+
+struct osos_directory_iterator {
+    uint32_t state[0x44 / 4];
+};
+
+_Static_assert(sizeof(struct osos_native_path_string) == 8, "native path string size");
+_Static_assert(sizeof(struct osos_directory_iterator) == 0x44,
+               "directory iterator size");
 
 enum osos_game_entry_slot {
     OSOS_GAME_ENTRY_INIT = 0,

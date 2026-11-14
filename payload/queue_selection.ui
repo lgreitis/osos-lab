@@ -1,0 +1,8 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <!-- Labels come from play_next.ui; Albums and Artists use the generic media-list dispatcher. -->
+  <screen-event screen="MediaLists_Albums_Screen" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
+  <screen-event screen="MediaLists_Artists_Screen" event="contextualMenu.CFW_PlayNext" handler="CFW_PlayNext"/>
+  <screen-event screen="MediaLists_Albums_Screen" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
+  <screen-event screen="MediaLists_Artists_Screen" event="contextualMenu.CFW_PlayLast" handler="CFW_PlayLast"/>
+</ui>

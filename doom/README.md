@@ -1,18 +1,22 @@
-# Doom for osos
+# Doom for RepriseOS
 
-For Classic 7G Rev B / FW 2.0.4 with RepriseOS's homebrew patch.
-Uses [game-sdk](../game-sdk/) and DoomGeneric. No audio, saves, or config writes.
+DoomGeneric port for the Apple 2.0.5 base. No audio, saves or config writes.
 
 ## Build and install
 
+From `osos-lab`:
+
 ```sh
-python3 doom/setup.py --cross-prefix /path/to/bin/arm-elf-eabi- --shareware
-make -C doom -j4 CROSS_COMPILE=/path/to/bin/arm-elf-eabi-
+python3 doom/setup.py --cross-prefix toolchains/rockbox-arm/bin/arm-elf-eabi- --shareware
+make -C doom -j8 CROSS_COMPILE=../toolchains/rockbox-arm/bin/arm-elf-eabi-
 ```
 
-From `osos-lab`; output: `doom/build/doom.zip` (override with `OUTPUT=...`).
-Copy its `iPod_Control/` into the iPod root, keeping the `reprise-doom` directory.
-Restart RepriseOS and open **Extras → Games → Doom**.
+Copy `iPod_Control/` from `doom/build/doom.zip` into the iPod root. The package
+includes the shareware episode. Add other Doom/Doom II IWADs to
+`iPod_Control/games_RO/reprise-doom/` or its subfolders; up to 64 `.wad` files
+are discovered automatically. Standalone add-on PWADs are not supported.
+
+Open **Extras → Games → Doom** and choose a WAD.
 
 ## Controls
 
@@ -24,4 +28,4 @@ Restart RepriseOS and open **Extras → Games → Doom**.
 | Center | Next weapon | Select / confirm |
 | Wheel | Strafe | — |
 | Hold on | Toggle menu; unlock to resume input | Toggle menu |
-| Previous + Next, 1.5 seconds | Exit to osos | Exit to osos |
+| Previous + Next, 1.5 seconds | Exit | Exit |

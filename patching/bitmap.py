@@ -88,14 +88,16 @@ def read_png(path):
     return width, height, bytes(pixels)
 
 
-def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True):
+def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True, gray8=False):
     if len(rgba) != width * height * 4:
         raise ValueError("RGBA pixel length does not match its dimensions")
     colors = list(dict.fromkeys(rgba[i : i + 4] for i in range(0, len(rgba), 4)))
+    if gray8 and (rgb565 or any(r != g or g != b or a != 255 for r, g, b, a in colors)):
+        raise ValueError("Grayscale masks require an opaque grayscale PNG")
     if rgb565 and any(color[3] != 255 for color in colors):
         raise ValueError("RGB565 textures require an opaque PNG")
-    indexed = allow_indexed and not rgb565 and len(colors) <= 256
-    depth = 16 if rgb565 else 8 if indexed else 32
+    indexed = allow_indexed and not (rgb565 or gray8) and len(colors) <= 256
+    depth = 16 if rgb565 else 8 if indexed or gray8 else 32
     stride = (width * (depth // 8) + 3) & ~3
     if not width or not height or stride > 0x7FFF:
         raise ValueError("Bitmap dimensions exceed the native row stride")
@@ -108,7 +110,9 @@ def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True):
     for y in range(height):
         for x in range(width):
             p = rgba[(y * width + x) * 4 : (y * width + x + 1) * 4]
-            if rgb565:
+            if gray8:
+                content.append(p[0])
+            elif rgb565:
                 pixel = ((p[0] >> 3) << 11) | ((p[1] >> 2) << 5) | (p[2] >> 3)
                 content.extend(struct.pack("<H", pixel))
             else:
@@ -116,7 +120,7 @@ def encode_bmap(width, height, rgba, *, rgb565=False, allow_indexed=True):
         content.extend(bytes(stride - width * (depth // 8)))
     header = struct.pack(
         "<HHHHiiiii",
-        0x565 if rgb565 else 0x64 if indexed else 0x1888,
+        8 if gray8 else 0x565 if rgb565 else 0x64 if indexed else 0x1888,
         0,
         stride,
         depth,

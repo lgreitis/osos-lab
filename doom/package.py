@@ -4,8 +4,8 @@
 
 import argparse
 import hashlib
-import plistlib
 import struct
+import sys
 import zipfile
 from pathlib import Path
 
@@ -13,8 +13,8 @@ from setup import SOURCES, WAD_SHA256, WAD_URL
 
 ROOT = Path(__file__).resolve().parent
 GAME_ID = "reprise-doom"
-LOAD_ADDRESS = 0x18000000
-MAX_IMAGE_BYTES = 0x100000
+sys.path.insert(0, str(ROOT.parent / "game-sdk"))
+from game_package import manifest, validate_image, write_entry  # noqa: E402
 
 
 def source_files():
@@ -33,26 +33,9 @@ def source_files():
             yield Path("source") / source_root.name / relative, path
 
 
-def write_entry(bundle, name, data):
-    entry = zipfile.ZipInfo(str(name), date_time=(2026, 1, 1, 0, 0, 0))
-    entry.compress_type = zipfile.ZIP_DEFLATED
-    entry.external_attr = 0o100644 << 16
-    bundle.writestr(entry, data)
-
-
 def package(image_path, output, wad_path, artwork_path):
     image = image_path.read_bytes()
-    if not 0x28 <= len(image) <= MAX_IMAGE_BYTES:
-        raise ValueError("Executable exceeds native image bounds")
-
-    magic, version, count, unknown, imports, *entries = struct.unpack_from(
-        "<10I", image
-    )
-    if (magic, version, count, unknown, imports) != (0x70706165, 0x10001000, 5, 0, 0):
-        raise ValueError("Unexpected eapp header")
-    for entry in entries:
-        if entry % 4 or not LOAD_ADDRESS + 0x28 <= entry < LOAD_ADDRESS + len(image):
-            raise ValueError("Callback is outside the ARM executable")
+    validate_image(image)
 
     wad = wad_path.read_bytes()
     if hashlib.sha256(wad).hexdigest() != WAD_SHA256:
@@ -67,6 +50,7 @@ def package(image_path, output, wad_path, artwork_path):
         "doom.eapp": image,
         "doom1.wad": wad,
         "Doom.raw.lcd5": artwork,
+        "COPYING.REPRISEOS": (ROOT.parent / "COPYING").read_bytes(),
         "COPYING.DOOM": (ROOT / "vendor/doomgeneric/LICENSE").read_bytes(),
         "COPYING.NEWLIB": (ROOT / "vendor/newlib/COPYING.NEWLIB").read_bytes(),
         "SOURCES.txt": (
@@ -78,29 +62,8 @@ def package(image_path, output, wad_path, artwork_path):
         ).encode(),
     }
 
-    manifest = {
-        "Name": "Doom",
-        "BuildIdentifier": GAME_ID,
-        "GUID": GAME_ID,
-        "Version": "0.1.0",
-        "HeapSize": 5120,
-        "UserDataPath": GAME_ID,
-        "Files": [
-            {"Path": name, "Size": len(data), "DRM": False, "Verify": False}
-            for name, data in contents.items()
-        ],
-        "Platforms": [
-            {
-                "PlatformID": 3,
-                "PlatformVersion": 1,
-                "BuildID": 1,
-                "ExecutablePath": "doom.eapp",
-                "LaunchingArtwork": "Doom.raw.lcd5",
-            }
-        ],
-    }
-    contents["Manifest.plist"] = plistlib.dumps(
-        manifest, fmt=plistlib.FMT_XML, sort_keys=False
+    contents["Manifest.plist"] = manifest(
+        "Doom", GAME_ID, "doom.eapp", "Doom.raw.lcd5", contents, 5120
     )
 
     output = output.resolve()
@@ -113,6 +76,7 @@ def package(image_path, output, wad_path, artwork_path):
     output.parent.mkdir(parents=True, exist_ok=True)
     package_root = Path("iPod_Control/games_RO") / GAME_ID
     with zipfile.ZipFile(output, "w") as bundle:
+        write_entry(bundle, "source/COPYING", (ROOT.parent / "COPYING").read_bytes())
         for name, data in contents.items():
             write_entry(bundle, (package_root / name).as_posix(), data)
         for name, path in sources:

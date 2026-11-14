@@ -2,6 +2,7 @@
 
 #include "doom_port.h"
 #include "game_libc.h"
+#include "game_ui.h"
 #include "doomgeneric.h"
 #include "doomkeys.h"
 #include "i_system.h"
@@ -24,6 +25,25 @@ static const uint8_t button_ids[BUTTONS] = {
 
 static uint8_t held[BUTTONS], active_keys[BUTTONS][2];
 static int started, failed, error_visible;
+static struct game_file_picker wad_picker;
+static const char *selected_wad;
+
+static void init(void)
+{
+    int result = game_file_picker_open(&wad_picker, "DOOM - SELECT WAD", "", ".wad");
+    if (result < 0) {
+        const char *message =
+            result == -2 ? "Too many WADs (max 64)\n" : "Cannot read WAD directory\n";
+        doom_console_write(message, strlen(message));
+        failed = 1;
+    }
+}
+
+static void shutdown(void)
+{
+    game_file_picker_close(&wad_picker);
+}
+
 static uint32_t chord_start;
 static int chord_active;
 static int hold_known, hold_locked;
@@ -62,7 +82,17 @@ static void input(const struct game_input_event *event)
             game_request_exit();
         return;
     }
-    if (!started || hold_locked)
+    if (hold_locked)
+        return;
+    if (!started && !selected_wad) {
+        enum game_menu_action action = game_menu_input(&wad_picker.menu, event);
+        if (action == GAME_MENU_BACK)
+            game_request_exit();
+        else if (action == GAME_MENU_SELECT)
+            selected_wad = wad_picker.menu.items[wad_picker.menu.selected].value;
+        return;
+    }
+    if (!started)
         return;
 
     unsigned button;
@@ -178,6 +208,16 @@ static void frame(const struct game_frame *frame)
         return;
     }
     poll_hold();
+    if (!selected_wad) {
+        struct game_wheel wheel = game_read_wheel();
+        if (!hold_locked)
+            game_menu_scroll(&wad_picker.menu, &wheel);
+        game_menu_draw(&wad_picker.menu, framebuffer);
+        if (!wad_picker.menu.count)
+            game_draw_text(framebuffer, 12, 80, "COPY IWADS INTO REPRISE-DOOM", 0x8410);
+        game_sleep_ms(16);
+        return;
+    }
 
     uint32_t now = game_ticks_ms();
     if (held[PREVIOUS] && held[NEXT]) {
@@ -206,8 +246,10 @@ static void frame(const struct game_frame *frame)
     }
 
     if (!started) {
-        static char *argv[] = {"doom",     "-iwad",    "doom1.wad", "-nogui",
-                               "-nosound", "-gfxmode", "rgb565",    NULL};
+        static char *argv[] = {"doom",     "-iwad",    NULL,     "-nogui",
+                               "-nosound", "-gfxmode", "rgb565", NULL};
+
+        argv[2] = (char *)selected_wad;
 
         setvbuf(stdout, NULL, _IONBF, 0);
         setvbuf(stderr, NULL, _IONBF, 0);
@@ -227,6 +269,8 @@ static void frame(const struct game_frame *frame)
 
 const struct game_app game_application = {
     .package_id = "reprise-doom",
+    .init = init,
+    .shutdown = shutdown,
     .input = input,
     .frame = frame,
 };

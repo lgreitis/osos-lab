@@ -12,7 +12,7 @@ GAME_RUNTIME := $(GAME_SDK_BUILD)/libgame-runtime.a
 GAME_STARTUP := $(GAME_SDK_BUILD)/startup.o
 GAME_LINKER_SCRIPT := $(GAME_SDK)/runtime/game.lds
 GAME_RUNTIME_OBJECTS := $(addprefix $(GAME_SDK_BUILD)/,\
-	game_runtime.o memory.o time.o input.o files.o display.o)
+	game_runtime.o memory.o time.o input.o files.o directory.o display.o text.o ui.o wheel.o)
 
 $(GAME_RUNTIME): $(GAME_RUNTIME_OBJECTS)
 	$(RM) $@

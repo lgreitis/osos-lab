@@ -16,7 +16,15 @@ Provided "as is", without warranty of any kind.
 
 Credits
 
-Rockbox contributors - bootloader, dual-boot installer, and hardware drivers.
+RepriseOS contributors:
+lgreitis
+alexballvideos-netizen
+RaduTek
+Swimming33
+brilliant-alien
+kayboll
+
+Rockbox contributors - bootloader, dual-boot installer, hardware drivers, and the Meier crossfeed by Thom Johansen, Bertrik Sikken and Michael Sevakis.
 https://github.com/Rockbox/rockbox
 
 wInd3x by Serge "q3k" Bazanski - BootROM exploit and DFU tooling, including code ported from Go to Rust.

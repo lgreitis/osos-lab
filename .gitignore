@@ -20,4 +20,6 @@ __pycache__/
 *.rep/
 .DS_Store
 /ghidra/project/
+/ghidra/analysis/2.0.1/
+/ghidra/analysis/2.0.4/
 *.bytes

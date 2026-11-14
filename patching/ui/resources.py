@@ -141,15 +141,25 @@ def serialized_string(value):
     return struct.pack("<I", len(data)) + data
 
 
-def menu_event(item, event, handler, action, arguments):
+def event(name, action=None, *, handler="", arguments=()):
     return (
-        serialized_string(f"list.pid.{item}.{event}")
+        serialized_string(name)
         + b"1"
         + serialized_string(handler)
-        + struct.pack("<I", 1)
-        + serialized_string(action)
-        + struct.pack("<I", len(arguments))
-        + b"".join(serialized_string(argument) for argument in arguments)
+        + struct.pack("<I", int(action is not None))
+        + (
+            serialized_string(action)
+            + struct.pack("<I", len(arguments))
+            + b"".join(serialized_string(argument) for argument in arguments)
+            if action is not None
+            else b""
+        )
+    )
+
+
+def menu_event(item, name, handler, action=None, arguments=()):
+    return event(
+        f"list.pid.{item}.{name}", action, handler=handler, arguments=arguments
     )
 
 
@@ -168,6 +178,10 @@ class Resources:
         }
         self.added = {}
         self.names = {}
+        self.event_aliases = {}
+        self.event_extensions = {}
+        self.menu_items = []
+        self.visibility = []
         self.next_id = 0x0CF00000
 
     def native(self, name):
@@ -199,25 +213,35 @@ class Resources:
             raise ValueError(f"Cannot replace missing UI resource {key}")
         self.added[key] = Resource(data)
 
+    def alias_events(self, kind, resource_id, original_id):
+        if (kind, original_id) not in self.added:
+            self.stock(kind, original_id)
+        self.event_aliases[kind, resource_id] = original_id
+
+    def set_events(self, kind, resource_id, data):
+        self.event_aliases.pop((kind, resource_id), None)
+        for (other_kind, other_id), other in self.added.items():
+            if other_kind == kind and other.data == data and not any(other.origins):
+                self.alias_events(kind, resource_id, other_id)
+                return
+        self.add(kind, resource_id, data)
+
     def bind_screen_event(self, binding):
-        encoded = (
-            serialized_string(binding.event)
-            + b"1"
-            + serialized_string(binding.handler)
-            + struct.pack("<I", 0)
-        )
-        for _, layout in blocks(self.original["SLst", self.native(binding.screen)]):
-            self.extend_events("SEVT", word(layout, 0), [encoded])
+        encoded = event(binding.event, handler=binding.handler)
+        self.extend_events(binding.kind, self.native(binding.screen), [encoded])
 
     def source(self, text, string_id=None):
         if string_id is None:
             string_id = self.allocate()
-        source_id = self.allocate()
         self.add("Str ", string_id, text.encode("utf-8") + b"\0")
+        return self.property_source(0x80, string_id)
+
+    def property_source(self, service, property_id):
+        source_id = self.allocate()
         self.add(
             "SORC",
             source_id,
-            pack_blocks([(0x534F5243, struct.pack("<III", 0x80, string_id, 1))]),
+            pack_blocks([(0x534F5243, struct.pack("<III", service, property_id, 1))]),
         )
         return source_id
 
@@ -227,11 +251,16 @@ class Resources:
         return self.added[key] if key in self.added else self.original[key]
 
     def extend_events(self, kind, resource_id, events):
-        data = Resource(self.current(kind, resource_id))
-        put(data, 0, word(data, 0) + len(events))
-        for event_data in events:
-            data.extend(event_data)
-        self.replace(kind, resource_id, data)
+        if (kind, resource_id) not in self.added:
+            self.stock(kind, resource_id)
+        self.event_extensions.setdefault((kind, resource_id), []).extend(events)
+
+    def insert_menu_item(self, table, after, item):
+        rows = blocks(self.stock("ITEM", table))
+        if not any(word(row, 0x30) == after for _, row in rows):
+            raise ValueError(f"Menu anchor {after:#x} missing from {table:#x}")
+        kind, data = item
+        self.menu_items.append((table, after, kind, Resource(data)))
 
     def clone_layout(
         self,
@@ -240,6 +269,7 @@ class Resources:
         title_source=None,
         substitutions=None,
         item_table=None,
+        view_bindings=None,
     ):
         layout = blocks(self.original["SLyt", original_id])
         for _, item in layout:
@@ -248,54 +278,86 @@ class Resources:
             put(item, 0, list_id)
             for _, instance in instances:
                 self.clone_instance(
-                    instance, substitutions or {}, title_source, item_table
+                    instance,
+                    substitutions or {},
+                    title_source,
+                    item_table,
+                    view_bindings or {},
                 )
             self.add("SSin", list_id, pack_blocks(instances))
         self.add("SLyt", new_id, pack_blocks(layout))
-        self.add("SEVT", new_id, self.original["SEVT", original_id])
+        self.alias_events("SEVT", new_id, original_id)
 
-    def clone_instance(self, instance, substitutions, title_source, item_table):
+    def clone_instance(
+        self, instance, substitutions, title_source, item_table, view_bindings
+    ):
         original_id = word(instance, 0)
+        template_id = word(instance, 4)
+        original = self.original.get(("VCvs", original_id))
+        binding = view_bindings.get(template_id)
+        if binding is None and original is not None:
+            binding = self.rebind_view(
+                Resource(original), instance, title_source, item_table
+            )
+        for offset in (4, 8):
+            value = word(instance, offset)
+            if value in substitutions:
+                put(instance, offset, substitutions[value])
+        if binding is None or (
+            original is not None
+            and binding.data == original.data
+            and binding.origins == original.origins
+        ):
+            return
         new_id = self.allocate()
         put(instance, 0, new_id)
-        for offset in (4, 8):
-            original = word(instance, offset)
-            put(instance, offset, substitutions.get(original, original))
-        for kind in ("VCrv", "VCvs"):
-            key = kind, original_id
-            if key not in self.original:
-                continue
-            data = Resource(self.original[key])
-            if kind == "VCvs":
-                data = self.rebind_view(data, instance, title_source, item_table)
-            self.add(kind, new_id, data)
+        if ("VCrv", original_id) in self.original:
+            self.add("VCrv", new_id, self.original["VCrv", original_id])
+        self.add("VCvs", new_id, binding)
 
     def rebind_view(self, data, instance, title_source, item_table):
-        if title_source is not None and word(instance, 4) == self.native(
-            "StatusBarWhite_Template"
-        ):
+        titles = {
+            self.native(template): self.native(view)
+            for template, view in (
+                ("StatusBarWhite_Template", "StatusBarWhite_Text"),
+                ("NowPlaying_StatusBar_Template", "NowPlaying_StatusBar_Text_View"),
+            )
+            if template in self.bindings
+        }
+        title_view = titles.get(word(instance, 4))
+        if title_source is not None and title_view is not None:
             bindings = blocks(data)
-            if len(bindings) != 1 or bindings[0][0] != self.native(
-                "StatusBarWhite_Text"
-            ):
-                raise ValueError("Unexpected Legal title binding")
-            put(bindings[0][1], 12, title_source)
+            for index, (view, binding) in enumerate(bindings):
+                if view != title_view:
+                    continue
+                options = blocks(binding)
+                if not any(kind == 0x534F5243 for kind, _ in options):
+                    raise ValueError("Native title is missing its source binding")
+                bindings[index] = (
+                    view,
+                    pack_blocks(
+                        [
+                            (
+                                kind,
+                                struct.pack("<I", title_source)
+                                if kind == 0x534F5243
+                                else value,
+                            )
+                            for kind, value in options
+                        ]
+                    ),
+                )
+                break
+            else:
+                raise ValueError("Native status bar is missing its title view")
             data = pack_blocks(bindings)
         if item_table is not None:
             bindings = blocks(data)
+            changed = False
             for kind, binding in bindings:
                 if kind == 0x3F1:
                     put(binding, 4, item_table)
-            data = pack_blocks(bindings)
+                    changed = True
+            if changed:
+                data = pack_blocks(bindings)
         return data
-
-
-def event(name, action):
-    return (
-        serialized_string(name)
-        + b"1"
-        + serialized_string("")
-        + struct.pack("<I", 1)
-        + serialized_string(action)
-        + struct.pack("<I", 0)
-    )

@@ -35,9 +35,32 @@ class WorkflowTests(unittest.TestCase):
         self.assertTrue(
             all(s["path"].startswith("2.0.1/") for s in selected["programs"])
         )
-        for names in ([name, name], ["unknown"]):
+        for names in ([], [name, name], ["unknown"]):
             with self.assertRaises(ValueError):
                 ghidra.select_targets(manifest, names)
+
+    def test_default_selection_excludes_historical_programs(self):
+        manifest = json.loads(ghidra.MANIFEST.read_text())
+        selected = ghidra.select_targets(manifest, None)
+        self.assertEqual(
+            [source["target"] for source in selected["targets"]], ["firmware-2.0.5"]
+        )
+        self.assertEqual(len(selected["programs"]), 41)
+        self.assertTrue(
+            all(spec["path"].startswith("2.0.5/") for spec in selected["programs"])
+        )
+        self.assertEqual(len(manifest["programs"]), 123)
+
+    def test_explicit_selection_can_include_historical_targets(self):
+        manifest = json.loads(ghidra.MANIFEST.read_text())
+        selected = ghidra.select_targets(
+            manifest, ["classic7g-2.0.4", "firmware-2.0.5"]
+        )
+        self.assertEqual(len(selected["programs"]), 82)
+        self.assertEqual(
+            {Path(spec["path"]).parts[0] for spec in selected["programs"]},
+            {"2.0.4", "2.0.5"},
+        )
 
     def test_failed_verification_does_not_publish_project(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -27,9 +27,10 @@ MANIFEST = ROOT / "ghidra/programs.json"
 
 def select_targets(manifest, names):
     available = {source["target"]: source for source in manifest["targets"]}
-    if names and (len(names) != len(set(names)) or set(names) - available.keys()):
+    names = names if names is not None else ["firmware-2.0.5"]
+    if not names or len(names) != len(set(names)) or set(names) - available.keys():
         raise ValueError(f"Select distinct targets from: {', '.join(available)}")
-    sources = [available[name] for name in names] if names else list(available.values())
+    sources = [available[name] for name in names]
     versions = {load_profile(source["target"])["ipsw"]["version"] for source in sources}
     programs = [
         spec for spec in manifest["programs"] if Path(spec["path"]).parts[0] in versions
@@ -251,7 +252,9 @@ def parse_args():
     parser.add_argument("command", choices=["import", "export"])
     parser.add_argument("--name", default="osos")
     parser.add_argument(
-        "--target", action="append", help="Select a target; repeat for multiple targets"
+        "--target",
+        action="append",
+        help="Select a target (default: firmware-2.0.5); repeat for multiple targets",
     )
     parser.add_argument(
         "--fresh",

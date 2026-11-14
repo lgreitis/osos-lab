@@ -40,8 +40,8 @@ def range_label(number, scale, signed, suffix):
 
 
 def validate_values(value):
-    if not 1 <= len(value.labels) <= 100:
-        raise ValueError(f"Expected 1..100 choices: {value.name}")
+    if not 1 <= len(value.labels) <= 1024:
+        raise ValueError(f"Expected 1..1024 choices: {value.name}")
     if len(set(value.numbers)) != len(value.numbers):
         raise ValueError(f"Duplicate UI choice value: {value.name}")
 
@@ -56,7 +56,7 @@ class Parser:
     """Track document-wide names and bindings while reading nested menu nodes."""
 
     def __init__(self):
-        self.document = Document(None, {}, [], [])
+        self.document = Document(None, {}, [])
         self.names = set()
         self.entry = None
 
@@ -70,11 +70,16 @@ class Parser:
                 "range",
                 "menu",
                 "text",
+                "canvas",
+                "list",
                 "toggle",
+                "setting",
                 "settings-entry",
                 "string",
                 "screen-event",
+                "layout-event",
                 "music-entry",
+                "bitmap",
             ),
         )
         for node in tree:
@@ -88,6 +93,11 @@ class Parser:
             and document.music_entry is None
         ):
             raise ValueError("Incomplete UI declaration")
+        # Only canvas pages read settings; nothing else would emit their storage.
+        if document.fields and (
+            document.root is None or document.root.kind != "canvas"
+        ):
+            raise ValueError("Settings require a canvas page")
         validate_slots(document.fields)
         return document
 
@@ -111,36 +121,80 @@ class Parser:
             )
             validate_values(value)
             document.values[value.name] = value
-        elif node.tag in ("menu", "text", "toggle"):
+        elif node.tag in ("menu", "text", "toggle", "canvas", "list"):
             if document.root is not None:
                 raise ValueError("Expected one root menu or page per UI declaration")
-            if node.tag == "toggle":
-                attributes(node, "id title")
-                document.root = Item(
-                    "toggle", self.identifier(node), node.attrib["title"]
+            if node.tag in ("toggle", "canvas", "list"):
+                attributes(
+                    node, "id title", "select layout" if node.tag == "list" else ""
                 )
+                document.root = Item(
+                    node.tag, self.identifier(node), node.attrib["title"]
+                )
+                if node.tag == "list":
+                    document.root.select = node.get("select", "return")
+                    document.root.layout = node.get("layout", "inline")
+                    if document.root.select not in ("return", "stay"):
+                        raise ValueError("<list> select must be return or stay")
+                    if document.root.layout not in ("inline", "stacked"):
+                        raise ValueError("<list> layout must be inline or stacked")
             else:
                 document.root = (
                     self.parse_menu(node)
                     if node.tag == "menu"
                     else self.parse_text(node)
                 )
+        elif node.tag == "setting":
+            self.parse_setting(node)
         elif node.tag == "settings-entry":
-            attributes(node, "menu after", "open")
+            attributes(node, "menu after", "open preview image caption")
             if self.entry is not None:
                 raise ValueError("Duplicate Settings menu entry")
             self.entry = node
         elif node.tag == "string":
             attributes(node, "id text")
             document.strings[self.identifier(node)] = node.attrib["text"]
+        elif node.tag == "bitmap":
+            attributes(node, "id file", "format")
+            bitmap_format = node.get("format", "auto")
+            if bitmap_format not in ("auto", "gray8"):
+                raise ValueError("Bitmap format must be auto or gray8")
+            document.bitmaps[self.identifier(node)] = (
+                node.attrib["file"],
+                bitmap_format,
+            )
         elif node.tag == "screen-event":
             document.events.append(self.parse_screen_event(node))
+        elif node.tag == "layout-event":
+            attributes(node, "layout event handler")
+            if not node.attrib["event"] or not node.attrib["handler"]:
+                raise ValueError("Layout events require an event and handler")
+            document.events.append(
+                ScreenEvent(
+                    resource_reference(node.attrib["layout"]),
+                    node.attrib["event"],
+                    node.attrib["handler"],
+                    "SEVT",
+                )
+            )
         elif node.tag == "music-entry":
-            attributes(node, "id title after screen layout open highlight")
+            attributes(
+                node,
+                "id title after screen layout open highlight",
+                "main-after main-visible music-visible",
+            )
             if document.music_entry is not None:
                 raise ValueError("Duplicate Music menu entry")
             self.identifier(node)
             document.music_entry = dict(node.attrib)
+            for attribute, default in (
+                ("main-visible", "false"),
+                ("music-visible", "true"),
+            ):
+                value = node.get(attribute, default)
+                if value not in ("true", "false"):
+                    raise ValueError(f"Invalid {attribute} on <music-entry>")
+                document.music_entry[attribute] = value
 
     def parse_values(self, node):
         attributes(node, "id", children=("value",))
@@ -152,8 +206,15 @@ class Parser:
         return value
 
     def parse_range(self, node):
-        attributes(node, "id first last step", "scale suffix signed")
+        attributes(
+            node, "id first last step", "scale suffix signed", children=("value",)
+        )
         value = Values(self.identifier(node))
+        # Named choices such as Auto precede the generated numeric sequence.
+        for child in node:
+            attributes(child, "number label")
+            value.numbers.append(integer(child, "number"))
+            value.labels.append(child.attrib["label"])
         first, last, step = (integer(node, key) for key in ("first", "last", "step"))
         scale = integer(node, "scale", "1")
         signed = node.get("signed", "false")
@@ -165,54 +226,43 @@ class Parser:
             or signed not in ("true", "false")
         ):
             raise ValueError(f"Invalid UI range: {value.name}")
-        if (last - first) // step + 1 > 100:
-            raise ValueError("UI selectors support at most 100 choices")
-        value.numbers = list(range(first, last + (1 if step > 0 else -1), step))
-        value.labels = [
+        if len(value.numbers) + (last - first) // step + 1 > 1024:
+            raise ValueError("UI selectors support at most 1024 choices")
+        numbers = list(range(first, last + (1 if step > 0 else -1), step))
+        value.numbers += numbers
+        value.labels += [
             range_label(number, scale, signed == "true", node.get("suffix", ""))
-            for number in value.numbers
+            for number in numbers
         ]
         return value
 
     def parse_menu(self, node):
-        attributes(node, "id title", children=("menu", "selector", "action", "info"))
+        attributes(node, "id title", children=("menu", "info"))
         item = Item("menu", self.identifier(node), node.attrib["title"])
         for child in node:
             if child.tag == "menu":
                 row = self.parse_menu(child)
             else:
-                row = self.parse_row(child)
+                attributes(child, "id title")
+                row = Item("info", self.identifier(child), child.attrib["title"])
             item.items.append(row)
         if not item.items:
             raise ValueError(f"Empty UI menu: {item.name}")
         return item
 
-    def parse_row(self, node):
-        if node.tag == "info":
-            attributes(node, "id title")
-            return Item("info", self.identifier(node), node.attrib["title"])
-        required = "id title values"
-        if node.tag == "selector":
-            required += " slot default"
-        attributes(node, required)
+    def parse_setting(self, node):
+        attributes(node, "id title values slot default")
         name, ref = self.identifier(node), node.attrib["values"]
         if ref not in self.document.values:
             raise ValueError(f"Unknown values for {name}: {ref}")
-        row = Item(node.tag, name, node.attrib["title"], choices=ref)
-        if node.tag == "selector":
-            self.bind_selector(node, row)
-        else:
-            self.document.actions.append(row)
-        return row
-
-    def bind_selector(self, node, row):
-        row.slot = integer(node, "slot", minimum=0, maximum=99)
+        item = Item("setting", name, node.attrib["title"], choices=ref)
+        item.slot = integer(node, "slot", minimum=0, maximum=99)
         default = integer(node, "default")
-        choices = self.document.values[row.choices].numbers
+        choices = self.document.values[ref].numbers
         if default not in choices:
-            raise ValueError(f"Invalid default for {row.name}: {default}")
-        row.default_index = choices.index(default)
-        self.document.fields.append(row)
+            raise ValueError(f"Invalid default for {name}: {default}")
+        item.default_index = choices.index(default)
+        self.document.fields.append(item)
 
     def parse_text(self, node):
         attributes(node, "id title file")
@@ -243,6 +293,17 @@ class Parser:
             raise ValueError("Invalid Settings menu entry")
         document.after = resource_reference(entry.attrib["after"])
         document.open_action = entry.get("open", "")
+        document.preview = entry.get("preview", "")
+        if document.preview not in ("", "image"):
+            raise ValueError("Settings preview must be image")
+        document.preview_image = entry.get("image", "")
+        document.preview_caption = entry.get("caption", "")
+        if (
+            document.preview_image or document.preview_caption
+        ) and document.preview != "image":
+            raise ValueError("Settings image and caption require an image preview")
+        if document.preview_image and document.preview_image not in document.bitmaps:
+            raise ValueError("Settings preview image must reference a declared bitmap")
 
 
 def resource_reference(value):

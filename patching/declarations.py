@@ -2,10 +2,10 @@
 """Decode build-only C records into firmware writes and array copies."""
 
 import struct
-import subprocess
 from dataclasses import dataclass
 from enum import IntEnum
-from pathlib import Path
+
+from .toolchain import read_section
 
 RECORD = struct.Struct("<5I64s")
 
@@ -62,25 +62,5 @@ def parse(data):
     return patches
 
 
-def collect(directory, units, prefix):
-    data = bytearray()
-    for name, _ in units:
-        if not str(name).endswith(".c"):
-            continue
-        obj = directory / (Path(name).name + ".o")
-        output = obj.with_suffix(".patches")
-        subprocess.run(
-            [
-                prefix + "objcopy",
-                "-O",
-                "binary",
-                "-j",
-                ".cfw.patch",
-                str(obj),
-                str(output),
-            ],
-            check=True,
-        )
-        data.extend(output.read_bytes())
-    (directory / "patches.bin").write_bytes(data)
-    return parse(data)
+def collect(directory, output, prefix):
+    return parse(read_section(directory, output, ".cfw.patch", prefix))

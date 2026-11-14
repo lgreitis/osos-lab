@@ -5,102 +5,102 @@
 enum {
     OSOS_RESOURCE_BMAP = 0x424d6170,
     OSOS_RESOURCE_DRAW = 0x44726177,
-    OSOS_RESOURCE_COLR = 0x434f4c52,
-    OSOS_BMAP_HEADER_SIZE = 28,
 };
 
-static inline int osos_bitmap_view_ready(void *view)
+/* Descriptor identity is retained separately from the changing model property ID. */
+static inline uint32_t osos_view_id(const void *view)
 {
-    return *((unsigned char *)view + 0xa1) != 0;
-}
-
-static inline uint32_t osos_bitmap_view_type(void *view)
-{
-    return *(uint32_t *)((unsigned char *)view + 0x40);
-}
-
-static inline uint32_t osos_bitmap_view_id(void *view)
-{
-    return *(uint32_t *)((unsigned char *)view + 0x44);
-}
-
-static inline void *osos_bitmap_view_service(void *view)
-{
-    return *(void **)((unsigned char *)view + 0x38);
-}
-
-static inline void *osos_bitmap_view_context(void *view)
-{
-    return *(void **)((unsigned char *)view + 0x15c);
-}
-
-static inline void *osos_bitmap_view_bitmap(void *view)
-{
-    return (unsigned char *)view + 0xa4;
-}
-
-static inline void *osos_graphics_bitmap(void *context)
-{
-    return *(void **)((unsigned char *)context + 0x1c);
-}
-
-static inline const unsigned char *osos_bitmap_pixels(void *bitmap)
-{
-    return *(const unsigned char **)((unsigned char *)bitmap + 4);
-}
-
-/* Draw paths call the loader even when the owned bitmap is already cached. */
-static inline int osos_bitmap_cache_ready(void *cache)
-{
-    return *((unsigned char *)cache + 8) != 0;
-}
-
-static inline void *osos_bitmap_cache_service(void *cache)
-{
-    return *(void **)cache;
-}
-
-static inline uint32_t osos_bitmap_cache_id(void *cache)
-{
-    return *(uint32_t *)((unsigned char *)cache + 4);
-}
-
-static inline void *osos_bitmap_cache_bitmap(void *cache)
-{
-    return (unsigned char *)cache + 0xc;
-}
-
-static inline void *osos_resource_service_get(void *service, uint32_t type, uint32_t id)
-{
-    typedef void *(*fn)(void *, uint32_t, uint32_t);
-    return ((fn)OSOS_RESOURCE_SERVICE_GET)(service, type, id);
-}
-
-static inline void osos_bitmap_load_resource(void *bitmap, const void *data)
-{
-    typedef void (*fn)(void *, const void *, uint32_t, uint32_t);
-    ((fn)OSOS_BITMAP_LOAD_RESOURCE)(bitmap, data, 0, 0);
-}
-
-static inline void osos_graphics_attach_bitmap(void *context, void *bitmap)
-{
-    typedef void (*fn)(void *, void *);
-    ((fn)OSOS_GRAPHICS_ATTACH_BITMAP)(context, bitmap);
+    return *(const uint32_t *)((const unsigned char *)view + 0x4c);
 }
 
 /* Drawing colors are byte-order RGBA; COLR resource words are 0x00RRGGBB. */
 static inline void osos_surface_fill_rect(void *surface, const void *rect,
-                                          const unsigned char *color,
-                                          uint32_t mode, void *clip)
+                                          const unsigned char *color, uint32_t mode,
+                                          void *clip)
 {
     typedef void (*fn)(void *, const void *, const unsigned char *, uint32_t, void *);
     ((fn)OSOS_SURFACE_FILL_RECT)(surface, rect, color, mode, clip);
+}
+
+static inline void osos_graphics_fill_rect(void *context, const int32_t *rect)
+{
+    typedef void (*fn)(void *, const int32_t *);
+    ((fn)OSOS_GRAPHICS_FILL_RECT)(context, rect);
+}
+
+/* Match GraphicsContext_FillRect's origin, surface, mode and clip contract. */
+static inline void osos_graphics_fill_rect_unmapped(void *context, const int32_t *rect)
+{
+    const unsigned char *bytes = context;
+    int32_t x = *(const int32_t *)(bytes + 0x2c);
+    int32_t y = *(const int32_t *)(bytes + 0x30);
+    int32_t translated[] = {rect[0] + y, rect[1] + x, rect[2] + y, rect[3] + x};
+    void *surface = *(unsigned char **)(bytes + 0x1c) + 4;
+    osos_surface_fill_rect(surface, translated, bytes + 0x11, bytes[0x10],
+                           (unsigned char *)context + 0x34);
 }
 
 static inline void osos_graphics_set_color(void *context, const unsigned char *color)
 {
     typedef void (*fn)(void *, const unsigned char *);
     ((fn)OSOS_GRAPHICS_SET_COLOR)(context, color);
+}
+
+/* Native fonts are borrowed two-word handles resolved from the firmware font cache. */
+static inline void osos_font_construct(uint32_t *font, const char *family,
+                                       uint32_t size, unsigned char style)
+{
+    typedef void (*fn)(uint32_t *, const char *, uint32_t, unsigned char);
+    ((fn)OSOS_FONT_CONSTRUCT)(font, family, size, style);
+}
+
+static inline void osos_graphics_set_font(void *context, const uint32_t *font)
+{
+    typedef void (*fn)(void *, const uint32_t *);
+    ((fn)OSOS_GRAPHICS_SET_FONT)(context, font);
+}
+
+static inline void osos_graphics_set_pen(void *context, int x, int baseline)
+{
+    typedef void (*fn)(void *, int, int);
+    ((fn)OSOS_GRAPHICS_SET_PEN)(context, x, baseline);
+}
+
+static inline void osos_graphics_set_mode(void *context, unsigned char mode)
+{
+    typedef void (*fn)(void *, unsigned char);
+    ((fn)OSOS_GRAPHICS_SET_MODE)(context, mode);
+}
+
+static inline void osos_graphics_set_background_color(void *context,
+                                                      const unsigned char *color)
+{
+    typedef void (*fn)(void *, const unsigned char *);
+    ((fn)OSOS_GRAPHICS_SET_BACKGROUND_COLOR)(context, color);
+}
+
+static inline void osos_graphics_draw_text(void *context, const char *text)
+{
+    typedef void (*fn)(void *, const char *);
+    ((fn)OSOS_GRAPHICS_DRAW_TEXT)(context, text);
+}
+
+static inline int osos_graphics_text_width(void *context, const char *text)
+{
+    typedef int (*fn)(void *, const char *);
+    return ((fn)OSOS_GRAPHICS_TEXT_WIDTH)(context, text);
+}
+
+static inline int osos_graphics_font_ascent(void *context)
+{
+    typedef int (*fn)(void *);
+    return ((fn)OSOS_GRAPHICS_FONT_ASCENT)(context);
+}
+
+static inline int osos_graphics_font_descent(void *context)
+{
+    typedef int (*fn)(void *);
+    return ((fn)OSOS_GRAPHICS_FONT_DESCENT)(context);
 }
 
 /* GLES color components use 16.16 fixed point. */

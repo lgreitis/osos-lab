@@ -12,11 +12,6 @@ Allow opening a song's context menu when browsing through Cover Flow.
 Investigate whether the EQ can support five custom bands instead of the current
 three.
 
-## Clicker output options
-
-Add Off, Speaker, Headphones, and Both options for the click wheel sound, matching
-the iPod nano's Clicker settings.
-
 ## FairPlay DRM
 
 Investigate full removal, or a narrower approach using legitimately available 

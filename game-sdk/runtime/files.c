@@ -13,45 +13,57 @@ struct game_file {
 
 static struct game_file files[12];
 
-struct game_file *game_file_open(const char *name)
+int game_make_path(struct osos_path *path, const char *name, int allow_root)
 {
-    struct osos_path path = {0, PACKAGE_ROOT};
+    *path = (struct osos_path){0, PACKAGE_ROOT};
 
     unsigned i = sizeof(PACKAGE_ROOT) - 1;
     const char *id = game_application.package_id;
     if (!id || !*id || *id == '.')
-        return NULL;
+        return -1;
 
     for (; *id; ++id) {
-        if (*id == '/' || *id == '\\' || *id == ':' || i >= sizeof(path.text) - 2)
-            return NULL;
-        path.text[i++] = *id;
+        if (*id == '/' || *id == '\\' || *id == ':' || i >= sizeof(path->text) - 2)
+            return -1;
+        path->text[i++] = *id;
     }
-    path.text[i++] = '/';
-
-    if (!name || !*name)
-        return NULL;
+    if (!name)
+        return -1;
     while (name[0] == '.' && name[1] == '/')
         name += 2;
-    if (!*name || *name == '/')
-        return NULL;
+    if (!*name) {
+        path->text[i] = 0;
+        return allow_root ? 0 : -1;
+    }
+    if (*name == '/')
+        return -1;
+    path->text[i++] = '/';
 
     const char *component = name;
     for (; *name; ++name) {
         if (name == component &&
             (*name == '.' && (name[1] == '/' || name[1] == 0 ||
                               (name[1] == '.' && (name[2] == '/' || name[2] == 0)))))
-            return NULL;
-        if (*name == '\\' || *name == ':' || i >= sizeof(path.text) - 1)
-            return NULL;
+            return -1;
+        if (*name == '\\' || *name == ':' || i >= sizeof(path->text) - 1)
+            return -1;
         if (*name == '/') {
             if (name == component || !name[1])
-                return NULL;
+                return -1;
             component = name + 1;
         }
-        path.text[i++] = *name;
+        path->text[i++] = *name;
     }
-    path.text[i] = 0;
+    path->text[i] = 0;
+
+    return 0;
+}
+
+struct game_file *game_file_open(const char *name)
+{
+    struct osos_path path;
+    if (game_make_path(&path, name, 0) < 0)
+        return NULL;
 
     for (unsigned slot = 0; slot < sizeof(files) / sizeof(files[0]); ++slot) {
         struct game_file *file = &files[slot];

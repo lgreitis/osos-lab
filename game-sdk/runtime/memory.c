@@ -60,7 +60,16 @@ void game_free(void *pointer)
         osos_game_free((union allocation_header *)pointer - 1);
 }
 
-/* GCC can emit this helper for aggregate initialization in freestanding code. */
+/* GCC can emit these helpers for aggregates in freestanding apps without libc. */
+void *memcpy(void *destination, const void *source, size_t bytes)
+{
+    unsigned char *out = destination;
+    const unsigned char *in = source;
+    for (size_t i = 0; i < bytes; ++i)
+        out[i] = in[i];
+    return destination;
+}
+
 void *memset(void *destination, int value, size_t bytes)
 {
     unsigned char *out = destination;

@@ -2,6 +2,7 @@
 <ui>
   <music-entry id="CFW_AlbumArtists" title="Album Artists"
                after="MusicMenu_ListItem_Artists"
+               main-visible="false" music-visible="true"
                screen="MediaLists_Artists_Screen" layout="MediaLists_Artists_Screen_Default"
                open="CFW_AlbumArtists" highlight="HandleMusicHilited"/>
 </ui>

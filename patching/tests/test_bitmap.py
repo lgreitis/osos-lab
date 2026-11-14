@@ -31,6 +31,17 @@ def png(width, height, color, rows, palette=b"", alpha=b"", depth=8):
 
 
 class BitmapTests(unittest.TestCase):
+    def test_grayscale_mask_has_native_format_and_padded_rows(self):
+        rgba = bytes(c for v in (0, 127, 255, 32, 64, 96) for c in (v, v, v, 255))
+        bitmap = encode_bmap(3, 2, rgba, gray8=True)
+        self.assertEqual(
+            struct.unpack_from("<HHHHiiiii", bitmap), (8, 0, 4, 8, 0, 0, 2, 3, 8)
+        )
+        self.assertEqual(bitmap[28:], bytes((0, 127, 255, 0, 32, 64, 96, 0)))
+        for pixel in (bytes((1, 2, 3, 255)), bytes((1, 1, 1, 128))):
+            with self.assertRaisesRegex(ValueError, "opaque grayscale"):
+                encode_bmap(1, 1, pixel, gray8=True)
+
     def read(self, data):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "input.png"

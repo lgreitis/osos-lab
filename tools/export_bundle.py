@@ -59,6 +59,12 @@ def export(build_dir, helper, version, minimum, out):
                     "data": str((build_dir / (name + ".data")).resolve()),
                 },
             }
+        spec["components"]["osos"]["files"].update(
+            {
+                "dark_mode": str((build_dir / "dark-mode.bin").resolve()),
+                "bitmap_catalog": str((build_dir / "dark-mode.json").resolve()),
+            }
+        )
         descriptor = directory / "nor.json"
         descriptor.write_text(json.dumps(nor_spec) + "\n")
         spec["components"]["nor"] = {
@@ -76,7 +82,7 @@ def main():
     parser.add_argument("--build", type=Path, default=ROOT / "build")
     parser.add_argument("--helper", type=Path, required=True)
     parser.add_argument("--version", required=True)
-    parser.add_argument("--minimum-installer-version", default="0.2.0")
+    parser.add_argument("--minimum-installer-version", default="0.2.8")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     export(

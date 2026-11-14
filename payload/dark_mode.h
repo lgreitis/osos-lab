@@ -3,8 +3,12 @@
 #pragma once
 #include <stdint.h>
 
+/* Legacy import: pre-store Dark Mode file. */
+#define CFW_DARK_MODE_LEGACY_FILE "iPod_Control\\Device\\CFWDark"
+
 void cfw_dark_mode_load(void);
 int cfw_dark_mode_enabled(void);
 int cfw_dark_mode_action(void *controller, const char *action, uint32_t argument);
-const void *cfw_dark_mode_color(uint32_t id, const void *color);
+/* Reset All Settings: turns Dark Mode off. */
+void cfw_dark_mode_reset(void);
 int cfw_dark_mode_property(uint32_t type, uint32_t property, uintptr_t *out);

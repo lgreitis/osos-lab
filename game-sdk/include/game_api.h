@@ -6,6 +6,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum game_button {
     GAME_BUTTON_MENU = 1,
     GAME_BUTTON_CENTER = 2,
@@ -48,6 +52,10 @@ struct game_app {
 
 extern const struct game_app game_application;
 
+/* Draws clipped 5x7 text using the SDK ASCII font. */
+void game_draw_text(const struct game_framebuffer *framebuffer, unsigned x, unsigned y,
+                    const char *text, uint16_t color);
+
 /* Requests native shutdown after the current callback returns. */
 void game_request_exit(void);
 
@@ -60,13 +68,43 @@ void game_sleep_ms(uint32_t milliseconds);
 
 struct game_wheel {
     int32_t delta;    /* Positive clockwise; consumed on each read. */
-    uint8_t position; /* Native angular coordinate, 0..255. */
+    uint8_t position; /* Native angle: right=0, up=64, left=128, down=192. */
     uint8_t touched;
 };
 
 struct game_wheel game_read_wheel(void);
+
+enum game_direction {
+    GAME_DIRECTION_UP = 1,
+    GAME_DIRECTION_RIGHT = 2,
+    GAME_DIRECTION_DOWN = 4,
+    GAME_DIRECTION_LEFT = 8,
+};
+
+#define GAME_WHEEL_TOP_POSITION 64
+
+/* Eight touch sectors; diagonals combine two direction bits. Zero when untouched.
+ * top_position sets the native wheel coordinate used as Up; use GAME_WHEEL_TOP_POSITION. */
+uint8_t game_wheel_directions(const struct game_wheel *wheel, uint8_t top_position);
+
 /* Returns 0/1 for unlocked/locked, or -1 if the native read failed. */
 int game_hold_locked(void);
+
+/* Package-relative directory traversal, including subdirectories when recursive is
+ * nonzero. Use "" for the package root. Four iterators may be open at once.
+ * Read returns 1 for an entry, 0 at end/unavailable, -1 for invalid input or a
+ * path exceeding the buffer. Names are relative to the directory opened.
+ * Close even empty/unavailable directories; shutdown closes remaining iterators. */
+struct game_directory;
+
+struct game_directory_entry {
+    char name[256];
+    uint8_t is_directory;
+};
+struct game_directory *game_directory_open(const char *path, int recursive);
+int game_directory_read(struct game_directory *directory,
+                        struct game_directory_entry *entry);
+void game_directory_close(struct game_directory *directory);
 
 /* Read-only package-relative paths. Traversal is rejected; up to 12 open files.
  * Open returns NULL on failure, read returns bytes/-1, seek returns 0/-1.
@@ -78,5 +116,9 @@ int game_file_seek(struct game_file *file, uint32_t offset);
 uint32_t game_file_size(const struct game_file *file);
 uint32_t game_file_position(const struct game_file *file);
 void game_file_close(struct game_file *file);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

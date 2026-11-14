@@ -1,254 +1,260 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #define CFW_OSOS_H
 #define CFW_PATCH_H
 #define PATCH_ARM
 #include "../../../payload/assets.h"
-#include "../../../payload/native/bindings.h"
 
-static const unsigned char stock[40], replacement[40], unlisted[40];
-struct cfw_bitmap_asset cfw_bitmap_assets[] = {
-    {0x0dad012a, replacement, NULL}
+static unsigned char stock[] = {100, 0, 0, 0, 2, 0, 8, 0,   0, 0, 0,  0,   0, 0,
+                                0,   0, 1, 0, 0, 0, 2, 0,   0, 0, 14, 0,   0, 0,
+                                2,   0, 0, 0, 3, 2, 1, 255, 6, 5, 4,  255, 0, 1};
+static unsigned char original[sizeof(stock)];
+const struct cfw_bitmap_asset cfw_bitmap_assets[] = {
+    {stock, sizeof(stock), 0x25789516}};
+const uint32_t cfw_bitmap_asset_count = 1, cfw_theme_max_bytes = 24;
+const unsigned char cfw_theme_catalog_hash[32] = {1, 2, 3};
+
+static union {
+    uint32_t alignment;
+    unsigned char data[128];
+} disk;
+
+static uint32_t disk_size, cursor;
+static int missing, short_read, no_memory, allocations;
+
+struct osos_path {
+    uint16_t volume;
+    char text[258];
 };
-const uint32_t cfw_bitmap_asset_count = 1;
-static unsigned char view[0x168], context[0x48], shared_bitmap[0xb8];
-static unsigned char cache[0xd0];
-static int dark, draw_available, loads, attachments;
-static int resource_lookups;
-static int color_lookups;
-static const uint32_t stock_color = 0x00ffffff, replacement_color = 0x00fffffe;
-static int visible = 1;
 
-static void put_pointer(void *base, unsigned offset, const void *pointer)
+static void *allocate(uint32_t size)
 {
-    memcpy((unsigned char *)base + offset, &pointer, sizeof(pointer));
-}
-
-static void *get_pointer(void *base, unsigned offset)
-{
-    void *pointer;
-    memcpy(&pointer, (unsigned char *)base + offset, sizeof(pointer));
-    return pointer;
-}
-
-int cfw_dark_mode_enabled(void) { return dark; }
-
-const void *cfw_dark_mode_color(uint32_t id, const void *color)
-{
-    assert(id == 123 && color == &stock_color);
-    color_lookups++;
-    return &replacement_color;
-}
-
-void cfw_bitmap_view_load_original(void *object)
-{
-    assert(object == view);
-    if (view[0xa1])
-        return;
-    if (!visible)
-        return;
-    void *bitmap = view + 0xa4;
-    if (*(uint32_t *)(view + 0x40) == 0x44726177 && draw_available)
-        bitmap = shared_bitmap;
-    uint32_t id = *(uint32_t *)(view + 0x44);
-    put_pointer(bitmap, 4, (id == 123 ? unlisted : stock) + 28);
-    put_pointer(context, 0x1c, bitmap);
-    put_pointer(view, 0x15c, context);
-    view[0xa1] = 1;
-}
-
-static void *get_resource(void *service, uint32_t type, uint32_t id)
-{
-    resource_lookups++;
-    (void)service;
-    if (type == 0x434f4c52) {
-        assert(id == 123);
-        return (void *)&stock_color;
-    }
-    if (id == 123)
-        return (void *)unlisted;
-    assert(id == 0x0dad012a || id == 0x8c02);
-    if (id == 0x8c02 && !visible)
+    if (no_memory)
         return NULL;
-    if (type == 0x44726177)
-        return draw_available ? shared_bitmap : NULL;
-    assert(type == 0x424d6170);
-    return (void *)stock;
+    allocations++;
+    return malloc(size);
 }
 
-void *cfw_bitmap_resource_get_original(void *service, uint32_t type, uint32_t id)
+static void release(void *data)
 {
-    return get_resource(service, type, id);
+    allocations--;
+    free(data);
 }
 
-const void *cfw_bitmap_resource_get(void *service, uint32_t type, uint32_t id);
-
-void cfw_bitmap_cache_load_original(void *object)
+static int osos_file_open(const struct osos_path *path, uint32_t mode, void **handle)
 {
-    assert(object == cache);
-    if (cache[8] || !visible)
-        return;
-    const void *data = cfw_bitmap_resource_get(NULL, 0x424d6170,
-                                              *(uint32_t *)(cache + 4));
-    put_pointer(cache + 0xc, 4, (const unsigned char *)data + 28);
-    cache[8] = 1;
+    assert(path->volume == 0 &&
+           !strcmp(path->text, cfw_assets_enabled() ? "themes\\default\\theme.bin"
+                                                    : "themes\\dark\\theme.bin") &&
+           mode == 1);
+    if (missing)
+        return -1;
+    cursor = 0;
+    *handle = &disk;
+    return 0;
 }
 
-static void load_bitmap(void *bitmap, const void *data, uint32_t a, uint32_t b)
+static int osos_file_read(void *handle, void *data, uint32_t size, uint32_t *count)
 {
-    assert((bitmap == view + 0xa4 || bitmap == cache + 0xc) && !a && !b);
-    loads++;
-    put_pointer(bitmap, 4, (const unsigned char *)data + 28);
+    assert(handle == &disk);
+    *count = size < disk_size - cursor ? size : disk_size - cursor;
+    if (short_read && *count)
+        --*count;
+    memcpy(data, disk.data + cursor, *count);
+    cursor += *count;
+    return 0;
 }
 
-static void attach_bitmap(void *target, void *bitmap)
+static void osos_file_close(void *handle)
 {
-    assert(target == context);
-    attachments++;
-    put_pointer(target, 0x1c, bitmap);
+    assert(handle == &disk);
 }
 
-#undef OSOS_RESOURCE_SERVICE_GET
-#undef OSOS_BITMAP_LOAD_RESOURCE
-#undef OSOS_GRAPHICS_ATTACH_BITMAP
-#define OSOS_RESOURCE_SERVICE_GET get_resource
-#define OSOS_BITMAP_LOAD_RESOURCE load_bitmap
-#define OSOS_GRAPHICS_ATTACH_BITMAP attach_bitmap
-#include "../../../payload/native/graphics.h"
+#define osos_import_alloc allocate
+#define osos_import_free release
+
 #include "../../../payload/assets.c"
 
-static void check_switching(uint32_t type, int available, uint32_t id)
+static void pack(int dark)
 {
-    memset(view, 0, sizeof(view));
-    dark = loads = attachments = resource_lookups = 0;
-    draw_available = available;
-    *(uint32_t *)(view + 0x40) = type;
-    *(uint32_t *)(view + 0x44) = id;
-    put_pointer(shared_bitmap, 4, stock + 28);
-    cfw_bitmap_view_load(view);
-    assert(!loads && !attachments && !resource_lookups);
-    void *original = get_pointer(context, 0x1c);
-    for (int cycle = 0; cycle < 2; cycle++) {
-        dark = 1;
-        cfw_bitmap_view_load(view);
-        assert(get_pointer(context, 0x1c) == view + 0xa4);
-        assert(get_pointer(view + 0xa4, 4) == replacement + 28);
-        int previous = attachments;
-        cfw_bitmap_view_load(view);
-        assert(attachments == previous);
-        /* Recreating a Draw cache leaves old embedded pixels behind. */
-        view[0xa1] = 0;
-        cfw_bitmap_view_load(view);
-        assert(get_pointer(context, 0x1c) == view + 0xa4);
-        assert(get_pointer(view + 0xa4, 4) == replacement + 28);
-        dark = 0;
-        cfw_bitmap_view_load(view);
-        assert(get_pointer(context, 0x1c) == original);
-        assert(get_pointer(original, 4) == stock + 28);
-        previous = attachments;
-        cfw_bitmap_view_load(view);
-        assert(attachments == previous);
-        assert(get_pointer(shared_bitmap, 4) == stock + 28);
-    }
-    int previous = attachments;
-    *(uint32_t *)(view + 0x44) = 123;
-    view[0xa1] = 0;
-    dark = 1;
-    cfw_bitmap_view_load(view);
-    assert(attachments == previous);
-    assert(get_pointer(get_pointer(context, 0x1c), 4) == unlisted + 28);
+    memset(disk.data, 0, sizeof(disk.data));
+    struct theme_header *header = (void *)disk.data;
+    header->magic = 0x33485452;
+    memcpy(header->catalog, cfw_theme_catalog_hash, 32);
+    header->count = 1;
+    header->size = 24;
+    struct theme_record *record = (void *)(disk.data + sizeof(*header));
+    record->offset = 32;
+    record->size = sizeof(stock) - 32;
+    memcpy(record->data, original + 32, record->size);
+    if (dark)
+        record->data[0] ^= 0xaa;
+    header->crc = ~checksum(UINT32_MAX, (const void *)record, header->size);
+    disk_size = sizeof(*header) + header->size;
 }
 
-static void check_dynamic_visibility(void)
+static void rejected(const unsigned char *original)
 {
-    memset(view, 0, sizeof(view));
-    *(uint32_t *)(view + 0x40) = 0x424d6170;
-    *(uint32_t *)(view + 0x44) = 0x8c02;
-    dark = 1;
-    visible = loads = attachments = 0;
-    cfw_bitmap_view_load(view);
-    assert(!view[0xa1] && !loads && !attachments);
-    visible = 1;
-    cfw_bitmap_view_load(view);
-    assert(get_pointer(view + 0xa4, 4) == replacement + 28);
-    visible = view[0xa1] = 0;
-    int previous = attachments;
-    cfw_bitmap_view_load(view);
-    assert(!view[0xa1] && attachments == previous);
-    visible = 1;
+    int was_active = active;
+    assert(!cfw_assets_prepare());
+    assert(!theme && !allocations && active == was_active);
+    assert(!memcmp(stock, original, sizeof(stock)));
 }
 
-static void check_cached_images(void)
+static void check_layouts(void)
 {
-    for (int initial_dark = 0; initial_dark < 2; initial_dark++) {
-        memset(cache, 0, sizeof(cache));
-        *(uint32_t *)(cache + 4) = 0x0dad012a;
-        dark = initial_dark;
-        cfw_bitmap_cache_load(cache);
-        assert(get_pointer(cache + 0xc, 4) == (dark ? replacement : stock) + 28);
-        for (int cycle = 0; cycle < 4; cycle++) {
-            dark = !dark;
-            cfw_bitmap_cache_load(cache);
-            assert(get_pointer(cache + 0xc, 4) == (dark ? replacement : stock) + 28);
-            int previous = loads;
-            cfw_bitmap_cache_load(cache);
-            assert(loads == previous);
+    const uint32_t formats[] = {4, 8, 0x64, 0x65, 0x565, 0x1888};
+    const uint32_t depths[] = {4, 8, 8, 16, 16, 32};
+    for (unsigned header = 28; header <= 32; header += 4) {
+        for (unsigned i = 0; i < 6; i++) {
+            unsigned char data[256] = {0};
+            uint32_t colors = i == 2 || i == 3 ? 2 : 0;
+            uint32_t pixels = header + (colors ? 4 + colors * 4 : 0);
+            uint32_t size = pixels + 32;
+            data[0] = formats[i];
+            data[1] = formats[i] >> 8;
+            data[4] = 16;
+            data[6] = depths[i];
+            data[16] = 2;
+            data[20] = 4;
+            data[header - 4] = size - header;
+            if (colors)
+                data[header] = colors;
+            struct cfw_bitmap_asset asset = {data, size, 0};
+            struct bitmap_layout layout;
+            assert(bitmap_layout(&asset, &layout));
+            assert(layout.start == header + (colors ? 4 : 0));
+            assert(layout.pixels == pixels && layout.colors == colors);
+            assert(layout.width == 4 && layout.height == 2 && layout.stride == 16);
+            assert(layout.depth == depths[i]);
+            for (unsigned truncated = 0; truncated < size; truncated++) {
+                asset.size = truncated;
+                assert(!bitmap_layout(&asset, &layout));
+            }
+            asset.size = size;
+            data[4] = 0;
+            assert(!bitmap_layout(&asset, &layout));
+            data[4] = 16;
+            memset(data + 16, 255, 4);
+            assert(!bitmap_layout(&asset, &layout));
         }
     }
-    memset(cache, 0, sizeof(cache));
-    *(uint32_t *)(cache + 4) = 123;
-    dark = 1;
-    cfw_bitmap_cache_load(cache);
-    assert(get_pointer(cache + 0xc, 4) == unlisted + 28);
-    dark = 0;
-    cfw_bitmap_cache_load(cache);
-    assert(get_pointer(cache + 0xc, 4) == unlisted + 28);
-    cache[8] = visible = 0;
-    dark = 1;
-    cfw_bitmap_cache_load(cache);
-    assert(!cache[8]);
-    visible = 1;
-}
-
-static void check_dynamic_dark_source(void)
-{
-    memset(view, 0, sizeof(view));
-    *(uint32_t *)(view + 0x40) = 0x44726177;
-    *(uint32_t *)(view + 0x44) = 0x8c02;
-    view[0xa1] = 1;
-    put_pointer(view, 0x15c, context);
-    put_pointer(context, 0x1c, shared_bitmap);
-    put_pointer(shared_bitmap, 4, replacement + 28);
-    draw_available = 1;
-    dark = 0;
-    cfw_bitmap_view_load(view);
-    assert(get_pointer(context, 0x1c) == view + 0xa4);
-    assert(get_pointer(view + 0xa4, 4) == stock + 28);
-    assert(get_pointer(shared_bitmap, 4) == replacement + 28);
 }
 
 int main(void)
 {
-    dark = 0;
-    assert(cfw_bitmap_resource_get(NULL, 0x424d6170, 0x0dad012a) == stock);
-    dark = 1;
-    assert(cfw_bitmap_resource_get(NULL, 0x424d6170, 0x0dad012a) == replacement);
-    assert(cfw_bitmap_resource_get(NULL, 0x424d6170, 123) == unlisted);
-    draw_available = 1;
-    assert(cfw_bitmap_resource_get(NULL, 0x44726177, 0x0dad012a) == shared_bitmap);
-    check_switching(0x44726177, 1, 0x0dad012a);
-    check_switching(0x44726177, 0, 0x0dad012a);
-    check_switching(0x424d6170, 0, 0x0dad012a);
-    check_switching(0x44726177, 1, 0x8c02);
-    check_switching(0x44726177, 0, 0x8c02);
-    check_switching(0x424d6170, 0, 0x8c02);
-    check_dynamic_visibility();
-    check_cached_images();
-    check_dynamic_dark_source();
-    assert(!color_lookups);
-    assert(cfw_bitmap_resource_get(NULL, OSOS_RESOURCE_COLR, 123) == &replacement_color);
-    assert(color_lookups == 1);
+    check_layouts();
+    memcpy(original, stock, sizeof(stock));
+    assert(~checksum(UINT32_MAX, stock, sizeof(stock)) == cfw_bitmap_assets[0].crc);
+    pack(1);
+    assert(cfw_assets_prepare() && allocations == 1);
+    assert(!memcmp(stock, original, sizeof(stock)));
+    cfw_assets_set_enabled(1);
+    assert(stock[32] == (original[32] ^ 0xaa));
+    assert(!memcmp(stock + 40, original + 40, 2));
+    cfw_assets_set_enabled(1);
+    assert(stock[32] == (original[32] ^ 0xaa));
+    assert(!theme && !allocations && cfw_assets_enabled());
+    unsigned char dark[sizeof(stock)];
+    memcpy(dark, stock, sizeof(stock));
+    pack(0);
+    missing = 1;
+    rejected(dark);
+    cfw_assets_set_enabled(0);
+    assert(cfw_assets_enabled() && !memcmp(stock, dark, sizeof(stock)));
+    missing = 0;
+    short_read = 1;
+    rejected(dark);
+    short_read = 0;
+    no_memory = 1;
+    rejected(dark);
+    no_memory = 0;
+
+    struct theme_header *header = (void *)disk.data;
+    struct theme_record *record = (void *)(disk.data + sizeof(*header));
+    record->data[0] ^= 1;
+    header->crc = ~checksum(UINT32_MAX, (const void *)record, header->size);
+    rejected(dark);
+    pack(0);
+    stock[0] ^= 1;
+    assert(!cfw_assets_prepare() && !allocations && cfw_assets_enabled());
+    stock[0] ^= 1;
+
+    assert(cfw_assets_prepare() && allocations == 1);
+    cfw_assets_cancel();
+    assert(!allocations && cfw_assets_enabled() && !memcmp(stock, dark, sizeof(stock)));
+    assert(cfw_assets_prepare() && allocations == 1);
+    cfw_assets_set_enabled(0);
+    assert(!memcmp(stock, original, sizeof(stock)) && !allocations && !theme);
+    assert(!cfw_assets_enabled());
+    pack(1);
+    assert(cfw_assets_prepare());
+    cfw_assets_set_enabled(1);
+    assert(!allocations && !memcmp(stock, dark, sizeof(stock)));
+    pack(0);
+    assert(cfw_assets_prepare());
+    cfw_assets_set_enabled(0);
+    assert(!allocations && !memcmp(stock, original, sizeof(stock)));
+
+    pack(1);
+    short_read = 1;
+    rejected(original);
+    short_read = 0;
+    no_memory = 1;
+    rejected(original);
+    no_memory = 0;
+
+    for (unsigned byte = 0; byte < disk_size; byte++) {
+        unsigned char saved = disk.data[byte];
+        disk.data[byte] ^= 0x80;
+        rejected(original);
+        disk.data[byte] = saved;
+    }
+
+    for (unsigned length = 0; length < disk_size; length++) {
+        uint32_t saved = disk_size;
+        disk_size = length;
+        rejected(original);
+        disk_size = saved;
+    }
+
+    for (unsigned kind = 0; kind < 6; kind++) {
+        pack(1);
+        if (kind == 0)
+            record->asset = 1;
+        if (kind == 1)
+            record->offset = 0;
+        if (kind == 2)
+            record->size = UINT32_MAX;
+        if (kind == 3)
+            record->offset = sizeof(stock);
+        if (kind == 4)
+            header->count = 0;
+        if (kind == 5) {
+            record->offset = 40;
+            record->size = 1;
+            record->data[0] = 3;
+        }
+        header->crc = ~checksum(UINT32_MAX, (const void *)record, header->size);
+        rejected(original);
+    }
+
+    pack(1);
+    record->data[8] = 2;
+    header->crc = ~checksum(UINT32_MAX, (const void *)record, header->size);
+    rejected(original);
+
+    pack(1);
+    stock[0] ^= 1;
+    assert(!cfw_assets_prepare() && !allocations);
+    stock[0] ^= 1;
+    assert(cfw_assets_prepare());
+    cfw_assets_cancel();
+    assert(!allocations && !memcmp(stock, original, sizeof(stock)));
+
     return 0;
 }

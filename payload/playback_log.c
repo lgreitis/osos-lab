@@ -14,6 +14,7 @@
 #include "cfw.h"
 #include "patch.h"
 #include "preferences.h"
+#include "store.h"
 
 #define LOG_PATH "playback.tsv"
 #define LOG_VERSION "2"
@@ -43,16 +44,18 @@ struct track_session {
 enum ending { ENDED_END, ENDED_SKIP, ENDED_CHANGE };
 
 enum {
-    LOG_OFF_RECORD = 0x30474f4c, /* LOG0 */
-    LOG_ON_RECORD = 0x31474f4c,  /* LOG1 */
+    LOG_ON_RECORD = 0x31474f4c, /* LOG1 */
 };
 
 static const struct osos_path log_path = {0, LOG_PATH};
-static const struct osos_path settings_path = {0, "iPod_Control\\Device\\CFWLog"};
+static const char settings_path[] = "iPod_Control\\Device\\CFWLog";
 static unsigned int enabled;
 /* Set while MediaPlayer_AdvanceTrack (next/previous) switches tracks. */
 static int advancing;
 static char session[16];
+static int write_failed;
+static struct track_session *completed;
+extern void cfw_playback_log_native_complete(struct track_session *);
 
 static struct {
     char data[2048];
@@ -61,8 +64,15 @@ static struct {
 
 static void append(const char *text)
 {
-    while (*text && line.size + 1 < sizeof(line.data)) {
-        char c = *text++;
+    /* Six tag fields must leave room for the remaining columns and newline. */
+    unsigned count = 0;
+    while (count < 255 && text[count])
+        count++;
+    if (count == 255)
+        while (count && ((unsigned char)text[count] & 0xc0) == 0x80)
+            count--;
+    for (unsigned i = 0; i < count && line.size + 1 < sizeof(line.data); i++) {
+        char c = text[i];
         /* Keep each row on one line with tab-separated fields. */
         line.data[line.size++] = (c == '\t' || c == '\n' || c == '\r') ? ' ' : c;
     }
@@ -158,7 +168,8 @@ static void clock_now(uint32_t *local, uint32_t *utc)
     ((void (*)(void *))OSOS_CLOCK_READ)(clock);
     *local = ((uint32_t (*)(void *, int))OSOS_CLOCK_SECONDS)(clock, 1);
     /* Mac-epoch seconds; the flag subtracts the configured time zone and DST. */
-    *utc = ((uint32_t (*)(void *, int))OSOS_CLOCK_MAC_SECONDS)(clock, 1) - MAC_EPOCH_OFFSET;
+    *utc = ((uint32_t (*)(void *, int))OSOS_CLOCK_MAC_SECONDS)(clock, 1) -
+           MAC_EPOCH_OFFSET;
 }
 
 static void utc_offset(uint32_t local, uint32_t utc)
@@ -186,19 +197,29 @@ static void write_line(void)
 {
     void *handle;
     uint32_t written = 0;
-    if (osos_file_open(&log_path, 2, &handle) != 0)
+    if (write_failed || osos_file_open(&log_path, 2, &handle) != 0)
         return;
     typedef int (*seek)(void *, uint64_t, int);
     if (((seek)OSOS_FILE_SEEK)(handle, 0, 2) == 0) {
-        if (!*(uint32_t *)((uint8_t *)handle + FILE_SIZE_OFFSET))
-            osos_file_write(handle, header_row, sizeof(header_row) - 1, &written);
-        osos_file_write(handle, line.data, line.size, &written);
+        if (!*(uint32_t *)((uint8_t *)handle + FILE_SIZE_OFFSET) &&
+            (osos_file_write(handle, header_row, sizeof(header_row) - 1, &written) !=
+                 0 ||
+             written != sizeof(header_row) - 1)) {
+            write_failed = 1;
+            osos_file_close(handle);
+            return;
+        }
+        /* Retrying a partial row would duplicate its prefix. */
+        if (osos_file_write(handle, line.data, line.size, &written) != 0 ||
+            written != line.size)
+            write_failed = 1;
     }
     osos_file_close(handle);
 }
 
 static void log_session(struct osos_media_item *item, uint8_t state, uint32_t position,
-                        enum ending ending, uint32_t plays_before, uint32_t skips_before)
+                        enum ending ending, uint32_t plays_before,
+                        uint32_t skips_before)
 {
     struct osos_player *player = osos_player_get();
     uint32_t length = osos_media_item_duration(item);
@@ -233,8 +254,8 @@ static void log_session(struct osos_media_item *item, uint8_t state, uint32_t po
     field_number(length ? (uint32_t)((uint64_t)elapsed * 100 / length) : 0);
     field_text(ending == ENDED_END ? "end" : ending == ENDED_SKIP ? "skip" : "change");
     field_text(state == SESSION_PLAYED || plays > plays_before ? "played"
-               : skips > skips_before                         ? "skipped"
-                                                              : "none");
+               : skips > skips_before                          ? "skipped"
+                                                               : "none");
     field_media_text(item, OSOS_MEDIA_ARTIST);
     field_media_text(item, 0);
     field_media_text(item, OSOS_MEDIA_ALBUM);
@@ -270,25 +291,33 @@ static void log_session(struct osos_media_item *item, uint8_t state, uint32_t po
     write_line();
 }
 
-static void finish(struct track_session *session_object, uint32_t position, enum ending ending)
+static void finish(struct track_session *session_object, uint32_t position,
+                   enum ending ending)
 {
     typedef void (*native_finish)(struct track_session *, uint32_t);
     struct osos_player *player = osos_player_get();
-    struct osos_media_item *item = &session_object->item;
-    int logged = enabled && session_object && session_object == player->current &&
-                 session_object->state != SESSION_FINISHED && osos_media_item_valid(item);
+    struct osos_media_item *item = session_object ? &session_object->item : NULL;
+    int logged =
+        enabled && session_object && session_object == player->current &&
+        session_object->state != SESSION_FINISHED &&
+        !(session_object->state == SESSION_PLAYED && completed == session_object) &&
+        osos_media_item_valid(item);
     uint8_t state = logged ? session_object->state : 0;
     uint32_t plays = logged ? osos_media_item_play_count(item) : 0;
     uint32_t skips = logged ? osos_media_item_skip_count(item) : 0;
     /* The native finish updates the counters; the item outlives it in the caller. */
     ((native_finish)OSOS_TRACK_SESSION_FINISH)(session_object, position);
-    if (logged)
+    if (logged) {
+        if (state == SESSION_PLAYED)
+            completed = session_object;
         log_session(item, state, position, state == SESSION_PLAYED ? ENDED_END : ending,
                     plays, skips);
+    }
 }
 
 /* Next/previous: MediaPlayer_AdvanceTrack can finish the current track itself. */
-PATCH_ARM void cfw_playback_log_skip(struct track_session *session_object, uint32_t position)
+PATCH_ARM void cfw_playback_log_skip(struct track_session *session_object,
+                                     uint32_t position)
 {
     finish(session_object, position, ENDED_SKIP);
 }
@@ -310,11 +339,37 @@ PATCH_ARM int cfw_playback_log_advance(struct osos_player *player, int index, in
     return result;
 }
 
+/* Repeat-one can restart this object without releasing the current track. */
+PATCH_ARM void cfw_playback_log_complete(struct track_session *object)
+{
+    struct osos_player *player = osos_player_get();
+    int logged = enabled && object && object == player->current && object->state == 4 &&
+                 osos_media_item_valid(&object->item);
+    cfw_playback_log_native_complete(object);
+    if (logged && object->state == SESSION_PLAYED) {
+        completed = object;
+        log_session(&object->item, SESSION_PLAYED,
+                    osos_media_item_duration(&object->item), ENDED_END, 0, 0);
+    }
+}
+
 void cfw_playback_log_load(void)
 {
-    uint32_t record;
-    enabled = cfw_preferences_read(&settings_path, &record, sizeof(record)) &&
-              record == LOG_ON_RECORD;
+    uint32_t record = 0;
+    if (!cfw_store_get(CFW_STORE_PLAYBACK_LOG, &record, sizeof(record))) {
+        uint32_t legacy;
+        record = cfw_preferences_read(settings_path, &legacy, sizeof(legacy)) &&
+                 legacy == LOG_ON_RECORD;
+        cfw_store_set(CFW_STORE_PLAYBACK_LOG, &record, sizeof(record));
+    }
+    enabled = record == 1;
+}
+
+void cfw_playback_log_reset(void)
+{
+    enabled = 0;
+    uint32_t record = 0;
+    cfw_store_set(CFW_STORE_PLAYBACK_LOG, &record, sizeof(record));
 }
 
 int cfw_playback_log_property(uint32_t type, uint32_t property, uintptr_t *out)
@@ -331,11 +386,10 @@ int cfw_playback_log_action(void *controller, const char *action, uint32_t argum
         return 0;
     if (argument == OSOS_ACTION_SUPPORT_QUERY)
         return 1;
-    uint32_t record = enabled ? LOG_OFF_RECORD : LOG_ON_RECORD;
-    if (cfw_preferences_write(&settings_path, &record, sizeof(record))) {
-        enabled = !enabled;
-        osos_model_notify(osos_settings_model(controller), OSOS_NOTIFY_ALL,
-                          CFW_PlaybackLog_Value);
-    }
+    enabled = !enabled;
+    uint32_t record = enabled;
+    cfw_store_set(CFW_STORE_PLAYBACK_LOG, &record, sizeof(record));
+    osos_model_notify(osos_settings_model(controller), OSOS_NOTIFY_ALL,
+                      CFW_PlaybackLog_Value);
     return 1;
 }

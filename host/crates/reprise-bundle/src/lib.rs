@@ -136,6 +136,15 @@ impl Manifest {
                 referenced.insert(hash);
             }
         }
+        if self.components.get("osos").is_some_and(|component| {
+            component.files.contains_key("dark_mode")
+                || component.files.contains_key("bitmap_catalog")
+        }) && minimum < Version::new(0, 2, 8)
+        {
+            return Err(invalid(
+                "Disk themes require minimum installer version 0.2.8",
+            ));
+        }
         if self.purpose == Purpose::Release
             && ["usb_helper", "osos", "companion", "nor"]
                 .iter()

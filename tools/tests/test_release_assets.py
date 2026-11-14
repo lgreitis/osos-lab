@@ -27,11 +27,15 @@ class ReleaseAssetsTests(unittest.TestCase):
         # Recipes are opaque to collection; assembly has separate integration tests.
         (self.root / "component").write_bytes(b"test component")
         spec = bundle.helper_spec(
-            release.ROOT / "usb-helper/tests/fixtures", "0.2.0", "0.2.0"
+            release.ROOT / "usb-helper/tests/fixtures", "0.3.0", "0.2.8"
         )
         spec["purpose"] = "release"
         for name, format_name, fields in (
-            ("osos", "reprise-osos-recipe-v2", ("recipe", "data")),
+            (
+                "osos",
+                "reprise-osos-recipe-v2",
+                ("recipe", "data", "dark_mode", "bitmap_catalog"),
+            ),
             ("companion", "reprise-companion-recipe-v2", ("recipe", "data")),
             ("nor", "reprise-nor-template-v1", ("image", "descriptor")),
         ):
@@ -49,7 +53,7 @@ class ReleaseAssetsTests(unittest.TestCase):
         for name in ("osos-lab-source.tar.gz", "rockbox-source.tar.gz"):
             (self.directory / name).write_bytes(b"test source archive")
 
-    def collect(self, version="0.2.0"):
+    def collect(self, version="0.3.0"):
         release.collect(
             self.directory, self.output, self.reprise, self.seed, self.key, version
         )
@@ -59,6 +63,7 @@ class ReleaseAssetsTests(unittest.TestCase):
         raw = (self.output / "classic-manifest.json").read_bytes()
         manifest = json.loads(raw)
         self.assertEqual(manifest["compatibility"]["target"], "classic")
+        self.assertEqual(manifest["minimum_installer_version"], "0.2.8")
         hashes = set(manifest["assets"])
         with zipfile.ZipFile(self.output / "repriseos-classic.zip") as archive:
             self.assertEqual(archive.read("manifest.json"), raw)
@@ -85,7 +90,7 @@ class ReleaseAssetsTests(unittest.TestCase):
 
     def test_failed_collection_leaves_no_partial_release(self):
         with self.assertRaisesRegex(ValueError, "identity mismatch"):
-            self.collect("0.3.0")
+            self.collect("0.3.1")
         self.assertFalse(self.output.exists())
         package = self.directory / "classic" / "package"
         (package / "manifest.json").unlink()

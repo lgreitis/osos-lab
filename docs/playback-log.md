@@ -4,7 +4,8 @@ Turn it on in Settings > Playback Log (off by default). RepriseOS then appends
 one row to `playback.tsv` (root of the iPod's disk) each time a track stops
 playing: it ends, you skip it, you pick something else, or playback
 stops. The file is UTF-8, tab-separated, with a header row written when the
-file is created. Tabs and line breaks inside tags are replaced with spaces.
+file is created. Tabs and line breaks inside tags are replaced with spaces. Tag
+fields are limited to 255 UTF-8 bytes without splitting a character.
 
 Load it with `pandas.read_csv("playback.tsv", sep="\t")`, LibreOffice, or
 `cut`/`awk -F'\t'`.
@@ -27,7 +28,7 @@ Load it with `pandas.read_csv("playback.tsv", sep="\t")`, LibreOffice, or
 | `genre`, `composer` | Tags from the iTunesDB. |
 | `bitrate` | Average kbps from the iTunesDB. |
 | `sample_rate` | Hz from the iTunesDB. |
-| `lossless` | `yes` above 400 kbps (ALAC, WAV, AIFF); no MP3 or AAC exceeds it. |
+| `lossless` | Bitrate heuristic: `yes` above 400 kbps, otherwise `no`. This does not identify the codec. |
 | `rating` | Stars, 0-5. |
 | `play_count`, `skip_count` | The track's counters after this playback. |
 | `shuffle` | `on` or `off` for the playing queue. |
@@ -38,4 +39,6 @@ Load it with `pandas.read_csv("playback.tsv", sep="\t")`, LibreOffice, or
 `apple` follows Apple's rule: a track counts as played when it stops within 10 s
 of its end (60 s for tracks of 20 minutes or longer). Apple's skip counter is
 updated elsewhere and is not reflected here; use `ended` to see skips, and
-`percent` or `elapsed_ms` to apply any other rule (Last.fm, Spotify, your own).
+`percent` or `elapsed_ms` to inspect playback position. These are not measured
+listening time and cannot reliably determine scrobble eligibility after pauses
+or seeks.

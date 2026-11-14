@@ -4,20 +4,31 @@
 #define CFW_UI_H
 #include <stdint.h>
 
+struct cfw_ui_events {
+    uint32_t type, id, size;
+    const unsigned char *data;
+};
+
+struct cfw_ui_event_alias {
+    uint32_t type, id, original;
+};
+extern const struct cfw_ui_events cfw_ui_events[];
+extern const uint32_t cfw_ui_event_count;
+extern const struct cfw_ui_event_alias cfw_ui_event_aliases[];
+extern const uint32_t cfw_ui_event_alias_count;
+
+struct cfw_ui_model {
+    uint32_t *values;
+    void (*change)(uint32_t field, uint32_t value);
+    void (*commit)(void);
+};
+
+/* One choice list from a <setting>; its slot is the index in the generated array. */
 struct cfw_ui_field {
-    uint32_t parent_table, parent_index, parent_item, selector_table, count,
-        default_value;
-    const uint32_t *labels, *marked, *summaries, *items;
+    uint32_t count, default_value;
+    const char *title;
+    const char *const *labels;
 };
 
-struct cfw_ui_action {
-    uint32_t table, index, item, count;
-    const uint32_t *labels;
-};
-
-void cfw_ui_refresh(const struct cfw_ui_field *field, unsigned int selected);
-void cfw_ui_status(const struct cfw_ui_action *action, unsigned int status);
-int cfw_ui_selection(const char *prefix, const char *action,
-                     const struct cfw_ui_field *fields, unsigned int count,
-                     unsigned int *field, unsigned int *value);
+void cfw_ui_register_canvas(void);
 #endif

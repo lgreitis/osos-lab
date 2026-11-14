@@ -66,6 +66,7 @@ def build_package(config, output, rockbox, info, minimum):
     output.mkdir()
     build.build_osos(config, output, None, recipe_only=True, info=info)
     build.build_apple(config, output, None, recipe_only=True)
+    run(sys.executable, ROOT / "themes/build.py", "--out", output / "dark-mode.bin")
     build.build_rockbox(config, output, rockbox)
     helper = config.work / "helper"
     run(
@@ -118,7 +119,7 @@ def main():
         "--cross-prefix", default=os.environ.get("CROSS_COMPILE", "arm-elf-eabi-")
     )
     parser.add_argument("--jobs", type=int, choices=range(1, 9), default=8)
-    parser.add_argument("--minimum-installer-version", default="0.2.0")
+    parser.add_argument("--minimum-installer-version", default="0.2.8")
     parser.add_argument("--out", type=Path, default=ROOT / "build/releases")
     args = parser.parse_args()
     if not valid_version(args.minimum_installer_version):

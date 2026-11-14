@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 
 from ..symbols import require
-from ..toolchain import run
+from ..toolchain import read_section
 from .segments import Input
 
 RECORD = struct.Struct("<4I32s")
@@ -61,23 +61,7 @@ def parse(data):
 
 
 def collect(directory, output, prefix):
-    path = directory / (output + ".native")
-    # objcopy leaves the output untouched when the section is missing.
-    path.write_bytes(b"")
-    run(
-        [
-            prefix + "objcopy",
-            "--dump-section",
-            f".cfw.native={path}",
-            output + ".elf",
-        ],
-        directory,
-    )
-    declarations = parse(path.read_bytes())
-    if not declarations:
-        raise ValueError(f"Missing native declarations in {output}")
-
-    return declarations
+    return parse(read_section(directory, output, ".cfw.native", prefix))
 
 
 def thumb_bl(source, target):

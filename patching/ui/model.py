@@ -20,6 +20,8 @@ class Item:
     slot: int = 0
     default_index: int = 0
     text_file: str = ""
+    select: str = "return"
+    layout: str = "inline"
     items: list["Item"] = field(default_factory=list)
 
 
@@ -28,6 +30,7 @@ class ScreenEvent:
     screen: str | int
     event: str
     handler: str
+    kind: str = "CEVT"  # SEVT extends a layout instead of a screen.
 
 
 @dataclass
@@ -35,37 +38,17 @@ class Document:
     root: Item | None
     values: dict[str, Values]
     fields: list[Item]
-    actions: list[Item]
     after: str | int = ""
     open_action: str = ""
     strings: dict[str, str] = field(default_factory=dict)
     events: list[ScreenEvent] = field(default_factory=list)
     music_entry: dict[str, str] | None = None
-
-
-@dataclass
-class FieldBinding:
-    parent_item: int
-    selector_table: int
-    default: int
-    labels: list[int]
-    marked: list[int]
-    summaries: list[int]
-    items: list[int]
-    parent_table: int = 0
-    parent_index: int = 0
-
-
-@dataclass
-class ActionBinding:
-    item: int
-    index: int
-    table: int = 0
-    labels: list[int] = field(default_factory=list)
+    preview: str = ""
+    preview_image: str = ""
+    preview_caption: str = ""
+    bitmaps: dict[str, tuple[str, str]] = field(default_factory=dict)
 
 
 @dataclass
 class CompiledDocument:
-    fields: dict[int, FieldBinding] = field(default_factory=dict)
-    actions: dict[str, ActionBinding] = field(default_factory=dict)
     string_ids: dict[str, int] = field(default_factory=dict)
