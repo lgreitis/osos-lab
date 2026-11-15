@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use super::image::{relocate_cold_init, COLD_INIT_SIZE, COLD_INIT_TAG, ROM_END, ROM_START};
+use super::protocol::{CONFIG_SIZE, NEXT};
 use super::*;
 use crate::firmware;
+use crate::DeviceInfo;
 use std::io::Cursor;
 
 fn fixture_helper() -> Result<UploadHelper> {
@@ -49,6 +51,10 @@ fn options() -> UploadOptions {
 }
 
 fn status(size: u32, state: u32, sha: &[u8; 32]) -> Status {
+    status_at(size, state, sha, "/osos-cfw.bin")
+}
+
+fn status_at(size: u32, state: u32, sha: &[u8; 32], path: &str) -> Status {
     let mut raw = vec![0; RESULT_SIZE];
     for (at, v) in [
         (0, 0x55504c32),
@@ -68,7 +74,7 @@ fn status(size: u32, state: u32, sha: &[u8; 32]) -> Status {
     }
     raw[64..96].copy_from_slice(sha);
     raw[96..128].copy_from_slice(sha);
-    raw[128..141].copy_from_slice(b"/osos-cfw.bin");
+    raw[128..128 + path.len()].copy_from_slice(path.as_bytes());
     Status { raw }
 }
 struct Fake {
@@ -89,6 +95,10 @@ impl BulkTransport for Fake {
         assert_eq!(nonce, &[7; 16]);
         self.commands.push(req);
         Ok(())
+    }
+
+    fn next(&mut self, _: &[u8; CONFIG_SIZE]) -> Result<()> {
+        panic!("single-file transfer must not queue a next file")
     }
 
     fn send(&mut self, b: &[u8]) -> Result<usize> {
@@ -149,19 +159,23 @@ fn streaming_exceeds_old_limit_and_preserves_odd_lengths() {
             &mut Cursor::new(&data),
             &[7; 16],
             size,
-            &mut |p| progress.push(p),
+            3,
+            &mut |p| {
+                progress.push(p);
+                Ok(())
+            },
         )
         .unwrap();
         result.complete(&hash, &options()).unwrap();
         assert_eq!(bulk.sent, size);
-        assert_eq!(bulk.commands, vec![0x53, 0x54]);
+        assert_eq!(bulk.commands, vec![0x53]);
         assert!(progress.iter().all(|p| p.completed <= p.total));
-        assert!(progress.iter().all(|p| p.stage == "upload"));
+        assert!(progress.iter().all(|p| p.stage == "upload" && p.file == 3));
     }
 }
 
 #[test]
-fn transfer_rejects_short_usb_and_changed_input_but_acknowledges_hash_failure() {
+fn transfer_rejects_short_usb_and_changed_input_and_reports_hash_failure() {
     let mut bulk = fake(512);
     bulk.short = true;
     assert!(transfer(
@@ -169,7 +183,8 @@ fn transfer_rejects_short_usb_and_changed_input_but_acknowledges_hash_failure() 
         &mut Cursor::new(vec![1; 512]),
         &[7; 16],
         512,
-        &mut |_| {}
+        0,
+        &mut |_| Ok(())
     )
     .is_err());
     assert_eq!(bulk.commands, vec![0x53]);
@@ -180,7 +195,8 @@ fn transfer_rejects_short_usb_and_changed_input_but_acknowledges_hash_failure() 
             &mut Cursor::new(vec![1; bytes]),
             &[7; 16],
             512,
-            &mut |_| {}
+            0,
+            &mut |_| Ok(())
         )
         .is_err());
         assert_eq!(bulk.commands, vec![0x53]);
@@ -192,13 +208,251 @@ fn transfer_rejects_short_usb_and_changed_input_but_acknowledges_hash_failure() 
         &mut Cursor::new(vec![1; 512]),
         &[7; 16],
         512,
-        &mut |_| {},
+        0,
+        &mut |_| Ok(()),
     )
     .unwrap();
     assert!(result
         .complete(&Sha256::digest([1; 512]).into(), &options())
         .is_err());
-    assert_eq!(bulk.commands, vec![0x53, 0x54]);
+    assert_eq!(bulk.commands, vec![0x53]);
+}
+
+/// Serves a batch: each file starts READY, completes once its bytes arrived and
+/// moves on when NEXT names the following path.
+struct BatchFake {
+    files: Vec<(u32, &'static str)>,
+    current: usize,
+    started: bool,
+    sent: u32,
+    hash: Sha256,
+    commands: Vec<u8>,
+    payloads: Vec<[u8; CONFIG_SIZE]>,
+    corrupt: Option<usize>,
+    /// Report the previous file's byte count as received after NEXT.
+    stale: bool,
+}
+
+impl BatchFake {
+    fn new(files: &[(u32, &'static str)]) -> Self {
+        Self {
+            files: files.to_vec(),
+            current: 0,
+            started: false,
+            sent: 0,
+            hash: Sha256::new(),
+            commands: vec![],
+            payloads: vec![],
+            corrupt: None,
+            stale: false,
+        }
+    }
+}
+
+impl BulkTransport for BatchFake {
+    fn endpoint(&self) -> u8 {
+        2
+    }
+
+    fn command(&mut self, req: u8, nonce: &[u8; 16]) -> Result<()> {
+        assert_eq!(nonce, &[7; 16]);
+        if req == START {
+            assert!(!self.started);
+            self.started = true;
+        } else {
+            assert_eq!(req, ACKNOWLEDGE);
+            assert_eq!(self.current + 1, self.files.len());
+        }
+        self.commands.push(req);
+        Ok(())
+    }
+
+    fn next(&mut self, payload: &[u8; CONFIG_SIZE]) -> Result<()> {
+        assert!(self.started && self.sent == self.files[self.current].0);
+        assert_eq!(&payload[..16], &[7; 16]);
+        self.commands.push(NEXT);
+        self.payloads.push(*payload);
+        self.current += 1;
+        self.started = false;
+        self.sent = 0;
+        self.hash = Sha256::new();
+        Ok(())
+    }
+
+    fn send(&mut self, b: &[u8]) -> Result<usize> {
+        assert!(self.started);
+        let n = (self.files[self.current].0 - self.sent).min(CHUNK as u32) as usize;
+        self.hash.update(&b[..n]);
+        self.sent += n as u32;
+        Ok(b.len())
+    }
+
+    fn status(&mut self, nonce: &[u8; 16], size: u32) -> Result<Status> {
+        assert_eq!(nonce, &[7; 16]);
+        let (expected, path) = self.files[self.current];
+        assert_eq!(size, expected);
+        let state = if !self.started {
+            READY
+        } else if self.sent == size {
+            COMPLETE
+        } else {
+            2
+        };
+        let mut result = status_at(size, state, &self.hash.clone().finalize().into(), path);
+        if self.corrupt == Some(self.current) {
+            result.raw[64] ^= 1;
+        }
+        if self.stale && self.current > 0 && state == READY {
+            put(&mut result.raw, 36, 1);
+        }
+        Ok(result)
+    }
+}
+
+fn device() -> DeviceInfo {
+    DeviceInfo {
+        selector: crate::DeviceSelector { bus: 1, address: 2 },
+        port_path: vec![3],
+        vendor_id: 0x05ac,
+        product_id: 0x1227,
+        mode: "test",
+        dfu_candidate: true,
+    }
+}
+
+fn batch(
+    bulk: &mut BatchFake,
+    emit: &mut Emit<'_>,
+) -> (Result<Status>, Vec<UploadReport>, Vec<[u8; 32]>) {
+    let data: Vec<Vec<u8>> = bulk
+        .files
+        .iter()
+        .map(|(size, _)| (0..*size).map(|i| (i * 37) as u8).collect())
+        .collect();
+    let hashed: Vec<(u32, [u8; 32])> = data
+        .iter()
+        .map(|d| (d.len() as u32, Sha256::digest(d).into()))
+        .collect();
+    let mut cursors: Vec<Cursor<&[u8]>> = data.iter().map(|d| Cursor::new(d.as_slice())).collect();
+    let mut files: Vec<UploadFile<'_>> = cursors
+        .iter_mut()
+        .zip(&bulk.files)
+        .map(|(input, (_, path))| UploadFile {
+            input,
+            options: UploadOptions {
+                destination: (*path).into(),
+                overwrite: true,
+            },
+        })
+        .collect();
+    let mut reports = vec![];
+    let result = transfer_files(
+        bulk,
+        &mut files,
+        &hashed,
+        &[7; 16],
+        &device(),
+        &mut reports,
+        emit,
+    );
+    (result, reports, hashed.iter().map(|h| h.1).collect())
+}
+
+const BATCH: [(u32, &str); 3] = [
+    (0, "/themes/default/theme.bin"),
+    (513, "/cfw-loader.bin"),
+    (70000, "/osos-cfw.bin"),
+];
+
+#[test]
+fn batch_queues_each_further_file_with_next_and_acknowledges_once() {
+    let mut bulk = BatchFake::new(&BATCH);
+    let mut progress = vec![];
+    let (result, reports, hashes) = batch(&mut bulk, &mut |p| {
+        progress.push(p);
+        Ok(())
+    });
+    let last = result.unwrap();
+    assert_eq!(last.state(), COMPLETE);
+    assert_eq!(
+        bulk.commands,
+        vec![START, NEXT, START, NEXT, START, ACKNOWLEDGE]
+    );
+    let destinations: Vec<&str> = reports.iter().map(|r| r.destination.as_str()).collect();
+    assert_eq!(destinations, BATCH.map(|f| f.1));
+    assert_eq!(reports[2].bytes, 70000);
+    assert_eq!(reports[2].nonce, "07".repeat(16));
+    for (payload, (index, (size, path))) in
+        bulk.payloads.iter().zip(BATCH.iter().enumerate().skip(1))
+    {
+        assert_eq!(word(payload, 16), *size);
+        assert_eq!(word(payload, 20), 1);
+        assert_eq!(&payload[24..56], &hashes[index]);
+        assert_eq!(&payload[56..56 + path.len()], path.as_bytes());
+        assert!(payload[56 + path.len()..].iter().all(|b| *b == 0));
+    }
+    for stage in ["prepare", "complete"] {
+        let files: Vec<usize> = progress
+            .iter()
+            .filter(|p| p.stage == stage)
+            .map(|p| p.file)
+            .collect();
+        assert_eq!(files, vec![0, 1, 2], "{stage}");
+    }
+    assert!(progress
+        .iter()
+        .all(|p| p.file < 3 && p.completed <= p.total));
+}
+
+#[test]
+fn batch_stops_at_the_first_bad_file_and_keeps_the_verified_reports() {
+    let mut bulk = BatchFake::new(&BATCH);
+    bulk.corrupt = Some(1);
+    let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
+    let error = result.unwrap_err().to_string();
+    assert!(error.starts_with("/cfw-loader.bin: "), "{error}");
+    assert_eq!(bulk.commands, vec![START, NEXT, START]);
+    assert_eq!(reports.len(), 1);
+
+    let mut bulk = BatchFake::new(&BATCH);
+    bulk.stale = true;
+    let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
+    assert!(result.unwrap_err().to_string().contains("not ready"));
+    assert_eq!(bulk.commands, vec![START, NEXT]);
+    assert_eq!(reports.len(), 1);
+
+    let mut bulk = BatchFake::new(&BATCH);
+    let (result, reports, _) = batch(&mut bulk, &mut |p| {
+        if p.file == 2 {
+            Err(invalid("cancelled"))
+        } else {
+            Ok(())
+        }
+    });
+    assert!(result.unwrap_err().to_string().contains("cancelled"));
+    assert_eq!(bulk.commands, vec![START, NEXT, START]);
+    assert_eq!(reports.len(), 2);
+}
+
+#[test]
+fn helpers_without_batch_upload_take_one_file() {
+    assert!(check_file_count(1, false).is_ok());
+    assert!(check_file_count(2, false).is_err());
+    assert!(check_file_count(2, true).is_ok());
+    assert!(check_file_count(0, true).is_err());
+}
+
+#[test]
+fn batch_upload_is_a_manifest_capability() {
+    assert!(!fixture_helper().unwrap().supports_batch_upload());
+    let image = include_bytes!("../../../../../usb-helper/tests/fixtures/upload.dfu");
+    let mut manifest: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "../../../../../usb-helper/tests/fixtures/manifest.json"
+    ))
+    .unwrap();
+    manifest["batch_upload"] = true.into();
+    let helper = UploadHelper::from_bytes(image, &serde_json::to_vec(&manifest).unwrap()).unwrap();
+    assert!(helper.supports_batch_upload());
 }
 
 #[test]
@@ -247,6 +501,9 @@ impl BulkTransport for InspectionFake {
     }
     fn send(&mut self, _: &[u8]) -> Result<usize> {
         panic!("Storage inspection must not upload file data")
+    }
+    fn next(&mut self, _: &[u8; CONFIG_SIZE]) -> Result<()> {
+        panic!("Storage inspection has no next file")
     }
 }
 

@@ -22,7 +22,7 @@ use std::{
 const HELP: &str = r#"Reprise device tools
 
 Usage:
-  reprise upload --input FILE --destination /PATH
+  reprise upload --input FILE --destination /PATH [--input FILE --destination /PATH ...]
     (--helper BUILD_DIRECTORY | --bundle DIRECTORY --key PUBLIC_KEY_FILE)
     [--overwrite] [--device BUS:ADDRESS] [--json]
   reprise bundle export --spec FILE --base DIR --out NEW_DIR [--json]
@@ -54,7 +54,9 @@ Usage:
     [--skip-bytes BYTES] [--offset BYTES] [--size BYTES] [--chunk BYTES] [--iv HEX]
     [--reference FILE] [--device BUS:ADDRESS] [--json]
 
-upload streams through a 64 KiB buffer, verifies disk readback, then returns to DFU.
+upload sends every --input FILE --destination /PATH pair through one helper session, in order,
+streaming each through a 64 KiB buffer and verifying its disk readback, then returns to DFU.
+Several files need a helper with batch upload.
 Use a signed --bundle with its trusted --key, or a development --helper directory. Existing destination
 files require --overwrite; replacement happens after temporary-file verification.
 Files may have any byte length up to 2 GiB minus 1 byte; directories must exist.

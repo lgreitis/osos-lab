@@ -17,7 +17,8 @@ static struct usb_class_driver_ep_allocation endpoints[] = {
     {.type = USB_ENDPOINT_XFER_BULK, .dir = DIR_OUT, .mps = -1},
 };
 static int interface_number;
-static bool finished, receiving, stopping, start_pending, closed;
+static bool finished, receiving, stopping, start_pending, next_pending;
+static struct upload_config next_config;
 static int pending_length = -1;
 static uint32_t activity, return_at;
 static uint8_t status_data[320] USB_DEVBSS_ATTR;
@@ -174,10 +175,17 @@ static bool control(struct usb_ctrlrequest *req, uint8_t *data, size_t capacity)
         usb_core_control_response(USB_CONTROL_ACK, status_data, sizeof(status_data));
         return true;
     }
-    if (req->bRequestType != 0x21 || req->wLength != 16 ||
+    if (req->bRequestType != 0x21 || req->wLength < 16 ||
         memcmp(data, UPLOAD_RESULT->nonce, 16))
         return false;
-    if (req->bRequest == 0x53 && UPLOAD_RESULT->state == 1 && !finished) {
+    if (req->bRequest == 0x59 && req->wLength == sizeof(next_config) &&
+        UPLOAD_RESULT->state == 4 && !UPLOAD_RESULT->rc && !finished) {
+        memcpy(&next_config, data, sizeof(next_config));
+        activity = USEC_TIMER;
+        next_pending = true;
+    } else if (req->wLength != 16) {
+        return false;
+    } else if (req->bRequest == 0x53 && UPLOAD_RESULT->state == 1 && !finished) {
         activity = USEC_TIMER;
         UPLOAD_RESULT->state = 2;
         start_pending = true;
@@ -231,6 +239,11 @@ int upload_usb(void)
             usb_charging_maxcurrent_change(usb_charging_maxcurrent());
         else if (event.id != SYS_TIMEOUT)
             usb_core_handle_notify(event.id, event.data);
+        if (next_pending) {
+            next_pending = false;
+            upload_next(&next_config);
+            activity = USEC_TIMER;
+        }
         if (start_pending && UPLOAD_RESULT->state == 2) {
             start_pending = false;
             upload_start();
@@ -249,10 +262,6 @@ int upload_usb(void)
         if (UPLOAD_RESULT->state == 3) {
             upload_verify_step();
             activity = USEC_TIMER;
-        }
-        if (UPLOAD_RESULT->state == 4 && !closed) {
-            upload_close();
-            closed = true;
         }
     }
     stopping = true;

@@ -8,6 +8,8 @@ pub(super) const STATUS: u8 = 0x52;
 pub(super) const START: u8 = 0x53;
 pub(super) const ACKNOWLEDGE: u8 = 0x54;
 pub(super) const CANCEL: u8 = 0x55;
+pub(super) const NEXT: u8 = 0x59;
+pub(super) const CONFIG_SIZE: usize = 248;
 pub(super) const READY: u32 = 1;
 pub(super) const VERIFYING: u32 = 3;
 pub(super) const COMPLETE: u32 = 4;
@@ -131,6 +133,34 @@ impl Status {
         }
         Ok(())
     }
+}
+
+/// The helper's 248-byte file config after its 16-byte tag or nonce: size, mode
+/// (0 create, 1 replace, 2 inspect storage), SHA-256 and path.
+pub(super) fn write_config(config: &mut [u8], size: u32, mode: u32, sha: &[u8; 32], path: &str) {
+    config[16..20].copy_from_slice(&size.to_le_bytes());
+    config[20..24].copy_from_slice(&mode.to_le_bytes());
+    config[24..56].copy_from_slice(sha);
+    config[56..56 + path.len()].copy_from_slice(path.as_bytes());
+}
+
+/// The NEXT request: a file config carrying the session nonce in place of the tag.
+pub(super) fn next_payload(
+    nonce: &[u8; 16],
+    size: u32,
+    sha: &[u8; 32],
+    options: &UploadOptions,
+) -> [u8; CONFIG_SIZE] {
+    let mut payload = [0; CONFIG_SIZE];
+    payload[..16].copy_from_slice(nonce);
+    write_config(
+        &mut payload,
+        size,
+        u32::from(options.overwrite),
+        sha,
+        &options.destination,
+    );
+    payload
 }
 
 pub(super) fn helper_error(rc: i32, errno: u32) -> Error {

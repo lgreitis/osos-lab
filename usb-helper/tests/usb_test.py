@@ -35,11 +35,14 @@ unsigned get_descriptor(unsigned type, unsigned req, unsigned value, unsigned in
             stream.write(
                 """
 #include "layout.h"
+#include "upload.h"
 #include <stdbool.h>
 struct usb_ctrlrequest { unsigned bRequestType, bRequest, wValue, wIndex, wLength; };
 static unsigned interface_number, activity, return_at;
-static bool finished, start_pending;
-static struct { uint8_t nonce[16]; uint32_t state; uint8_t rest[300]; } result;
+static bool finished, start_pending, next_pending;
+static struct upload_config next_config;
+static struct upload_result result;
+#undef UPLOAD_RESULT
 #define UPLOAD_RESULT (&result)
 #define USEC_TIMER 123
 #define USB_CONTROL_ACK 0
@@ -49,7 +52,7 @@ struct storage_diagnostics upload_diagnostics;
 struct layout_attempt upload_attempts[LAYOUT_ATTEMPTS];
 static unsigned response_size;
 static uint8_t response[sizeof(struct layout_attempt)];
-static void upload_fail(int rc) { (void)rc; }
+void upload_fail(int rc) { (void)rc; }
 static void usb_core_control_response(int ack, const void *data, unsigned size) {
     (void)ack;
     response_size = size;
@@ -70,6 +73,25 @@ unsigned probe_request(unsigned type, unsigned request, unsigned value,
     if (!control(&req, nonce, sizeof(nonce))) return 0;
     memcpy(out, response, response_size);
     return response_size;
+}
+/* Returns 1 when the request was claimed, plus 2 when a next file was queued and 4
+   when START is pending. */
+unsigned command_request(unsigned request, unsigned length, unsigned state, int rc,
+                         const void *payload) {
+    struct usb_ctrlrequest req = {0x21, request, 0, 0, length};
+    uint8_t data[256] = {0};
+    memcpy(data, payload, length);
+    result.state = state;
+    result.rc = rc;
+    memset(result.nonce, 7, 16);
+    finished = false;
+    start_pending = false;
+    next_pending = false;
+    memset(&next_config, 0, sizeof(next_config));
+    unsigned claimed = control(&req, data, sizeof(data)) ? 1 : 0;
+    if (next_pending && !memcmp(next_config.path, "/a.bin", 7)) claimed |= 2;
+    if (start_pending) claimed |= 4;
+    return claimed;
 }
 """
             )
@@ -119,6 +141,28 @@ unsigned probe_request(unsigned type, unsigned request, unsigned value,
             (0xA1, 0x57, 1, 0, 96),
         ]:
             self.assertEqual(request(type_, req, value, index, length, output), 0)
+
+    def test_next_file_needs_a_complete_session_and_the_full_config(self):
+        nonce = bytes([7]) * 16
+        config = (
+            nonce + struct.pack("<II", 512, 1) + bytes(32) + b"/a.bin".ljust(192, b"\0")
+        )
+        self.assertEqual(len(config), 248)
+        request = self.lib.command_request
+        self.assertEqual(request(0x59, 248, 4, 0, config), 3)
+        self.assertEqual(request(0x53, 16, 1, 0, nonce), 5)
+        self.assertEqual(request(0x54, 16, 4, 0, nonce), 1)
+        for req, length, state, rc, payload in [
+            (0x59, 248, 1, 0, config),
+            (0x59, 248, 4, -304, config),
+            (0x59, 247, 4, 0, config),
+            (0x59, 16, 4, 0, config),
+            (0x59, 248, 4, 0, bytes(16) + config[16:]),
+            (0x53, 248, 1, 0, config),
+            (0x53, 16, 4, 0, nonce),
+            (0x54, 15, 4, 0, nonce),
+        ]:
+            self.assertEqual(request(req, length, state, rc, payload), 0, (req, length))
 
     def test_os_string_and_compatible_id(self):
         string = self.descriptor(0x80, 6, 0x03EE, 0)

@@ -5,7 +5,7 @@ use super::{
         PROBE, PROBE_SIZE,
     },
     image::UsbIdentity,
-    protocol::{Status, RESULT_SIZE, STATUS},
+    protocol::{Status, CONFIG_SIZE, NEXT, RESULT_SIZE, STATUS},
 };
 use crate::{exact, invalid, usb::usb_error, DeviceInfo, Result};
 use rusb::{Context, DeviceHandle, UsbContext};
@@ -20,6 +20,7 @@ pub(super) trait BulkTransport {
     fn endpoint(&self) -> u8;
     fn status(&mut self, nonce: &[u8; 16], size: u32) -> Result<Status>;
     fn command(&mut self, request: u8, nonce: &[u8; 16]) -> Result<()>;
+    fn next(&mut self, payload: &[u8; CONFIG_SIZE]) -> Result<()>;
     fn send(&mut self, data: &[u8]) -> Result<usize>;
     fn diagnostics(&mut self, _directory: Option<&std::path::Path>, _log: &mut dyn FnMut(String)) {}
 }
@@ -83,6 +84,14 @@ impl BulkTransport for Bulk {
             .write_control(0x21, request, 0, 0, nonce, TIMEOUT)
             .map_err(|e| usb_error("upload command", e))?;
         exact("Upload command", n, 16)
+    }
+
+    fn next(&mut self, payload: &[u8; CONFIG_SIZE]) -> Result<()> {
+        let n = self
+            .handle
+            .write_control(0x21, NEXT, 0, 0, payload, TIMEOUT)
+            .map_err(|e| usb_error("next file", e))?;
+        exact("Next file", n, CONFIG_SIZE)
     }
 }
 

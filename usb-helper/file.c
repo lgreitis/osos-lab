@@ -14,6 +14,8 @@
 #include "sha256.h"
 
 UPLOAD_CONFIG_QUALIFIER struct upload_config upload_config = {.tag = "REPRISE-UPLOAD2"};
+/* The file being handled: the image config first, then each NEXT request. */
+static struct upload_config current;
 static int fd = -1;
 static bool mounted, writes_enabled, closed;
 static uint64_t data_start, data_end;
@@ -83,15 +85,36 @@ void upload_close(void)
     ata_sleepnow();
 }
 
+static bool current_valid(void)
+{
+    memcpy(UPLOAD_RESULT->path, current.path, sizeof(current.path));
+    UPLOAD_RESULT->size = current.size;
+    return path_valid(current.path) && strncasecmp(current.path, "/.reprise-", 10) &&
+           current.size <= UPLOAD_LIMIT;
+}
+
+static void prepare_file(void)
+{
+    sector_t free_kib;
+    if (!fat_size(IF_MV(0, ) NULL, &free_kib) ||
+        (uint64_t)free_kib * 1024 < (uint64_t)current.size + fat_get_cluster_size(IF_MV(0))) {
+        upload_fail(-322);
+        return;
+    }
+    if (!current.overwrite && file_exists(current.path)) {
+        upload_fail(-304);
+        return;
+    }
+    UPLOAD_RESULT->state = 1;
+}
+
 /* Layout is checked by the helper before calling this function. */
 void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
 {
-    char *path = UPLOAD_RESULT->path;
-    for (unsigned i = 0; i < sizeof(upload_config.path); ++i)
-        path[i] = upload_config.path[i];
-    UPLOAD_RESULT->size = upload_config.size;
-    if (!path_valid(path) || !strncasecmp(path, "/.reprise-", 10) ||
-        upload_config.size > UPLOAD_LIMIT || upload_config.overwrite > 2) {
+    const volatile uint8_t *source = (const volatile uint8_t *)&upload_config;
+    for (unsigned i = 0; i < sizeof(current); ++i)
+        ((uint8_t *)&current)[i] = source[i];
+    if (!current_valid() || current.overwrite > 2) {
         upload_fail(-302);
         return;
     }
@@ -118,35 +141,51 @@ void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
     }
     data_start = start;
     data_end = end;
+    if (current.overwrite < 2) {
+        prepare_file();
+        return;
+    }
     sector_t free_kib;
     if (!fat_size(IF_MV(0, ) NULL, &free_kib) ||
-        (uint64_t)free_kib * 1024 <
-            (uint64_t)upload_config.size + fat_get_cluster_size(IF_MV(0))) {
+        (uint64_t)free_kib * 1024 < (uint64_t)current.size + fat_get_cluster_size(IF_MV(0))) {
         upload_fail(-322);
         return;
     }
-    if (upload_config.overwrite == 2) {
-        STORAGE_RESULT->start = start;
-        STORAGE_RESULT->end = end;
-        STORAGE_RESULT->free_bytes = (uint64_t)free_kib * 1024;
-        STORAGE_RESULT->sector_bytes = bytes;
-        STORAGE_RESULT->existing_files =
-            file_exists("/cfw-loader.bin") | (file_exists("/osos-cfw.bin") << 1);
-        UPLOAD_RESULT->state = 4;
+    STORAGE_RESULT->start = start;
+    STORAGE_RESULT->end = end;
+    STORAGE_RESULT->free_bytes = (uint64_t)free_kib * 1024;
+    STORAGE_RESULT->sector_bytes = bytes;
+    STORAGE_RESULT->existing_files =
+        file_exists("/cfw-loader.bin") | (file_exists("/osos-cfw.bin") << 1);
+    UPLOAD_RESULT->state = 4;
+}
+
+/* Queues another file on the mounted volume once the previous one is complete.
+   `next` carries the nonce where the image config carries its tag. */
+void upload_next(const struct upload_config *next)
+{
+    if (UPLOAD_RESULT->state != 4 || UPLOAD_RESULT->rc || current.overwrite > 1)
+        return;
+    memcpy(&current, next, sizeof(current));
+    UPLOAD_RESULT->received = 0;
+    UPLOAD_RESULT->written = 0;
+    UPLOAD_RESULT->verified = 0;
+    UPLOAD_RESULT->error_no = 0;
+    UPLOAD_RESULT->rejected = 0;
+    memset(UPLOAD_RESULT->source_sha256, 0, sizeof(UPLOAD_RESULT->source_sha256));
+    memset(UPLOAD_RESULT->disk_sha256, 0, sizeof(UPLOAD_RESULT->disk_sha256));
+    if (!current_valid() || current.overwrite > 1) {
+        upload_fail(-302);
         return;
     }
-    if (!upload_config.overwrite && file_exists(path)) {
-        upload_fail(-304);
-        return;
-    }
-    UPLOAD_RESULT->state = 1;
+    prepare_file();
 }
 
 static void begin_readback(void)
 {
     sha256_final(&hash, UPLOAD_RESULT->source_sha256);
     for (unsigned i = 0; i < 32; ++i)
-        if (UPLOAD_RESULT->source_sha256[i] != upload_config.sha256[i]) {
+        if (UPLOAD_RESULT->source_sha256[i] != current.sha256[i]) {
             upload_fail(-305);
             return;
         }
@@ -171,7 +210,7 @@ static void begin_readback(void)
         return;
     }
     fd = open(temporary, O_RDONLY);
-    if (fd < 0 || filesize(fd) != (off_t)upload_config.size) {
+    if (fd < 0 || filesize(fd) != (off_t)current.size) {
         upload_fail(-309);
         return;
     }
@@ -188,14 +227,14 @@ void upload_start(void)
         return;
     }
     sha256_init(&hash);
-    if (!upload_config.size)
+    if (!current.size)
         begin_readback();
 }
 
 void upload_write(unsigned bytes)
 {
     if (fd < 0 || bytes > UPLOAD_CHUNK ||
-        bytes > upload_config.size - UPLOAD_RESULT->written) {
+        bytes > current.size - UPLOAD_RESULT->written) {
         upload_fail(-311);
         return;
     }
@@ -207,13 +246,13 @@ void upload_write(unsigned bytes)
         upload_fail(-312);
         return;
     }
-    if (UPLOAD_RESULT->written == upload_config.size)
+    if (UPLOAD_RESULT->written == current.size)
         begin_readback();
 }
 
 static int create_parents(const char *path)
 {
-    char parent[sizeof(upload_config.path)];
+    char parent[sizeof(current.path)];
     strcpy(parent, path);
     for (char *slash = strchr(parent + 1, '/'); slash; slash = strchr(slash + 1, '/')) {
         *slash = 0;
@@ -226,7 +265,7 @@ static int create_parents(const char *path)
 
 void upload_verify_step(void)
 {
-    unsigned left = upload_config.size - UPLOAD_RESULT->verified;
+    unsigned left = current.size - UPLOAD_RESULT->verified;
     unsigned count = MIN(left, UPLOAD_CHUNK);
     if (count) {
         ssize_t n = read(fd, UPLOAD_DATA, count);
@@ -249,7 +288,7 @@ void upload_verify_step(void)
         upload_fail(-315);
         return;
     }
-    if (!upload_config.overwrite && file_exists(UPLOAD_RESULT->path)) {
+    if (!current.overwrite && file_exists(UPLOAD_RESULT->path)) {
         upload_fail(-304);
         return;
     }
@@ -258,6 +297,7 @@ void upload_verify_step(void)
         upload_fail(-316);
         return;
     }
-    upload_close();
+    /* The volume stays mounted for the next file; the host's final request closes it. */
+    writes_enabled = false;
     UPLOAD_RESULT->state = 4;
 }

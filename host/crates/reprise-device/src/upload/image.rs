@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
-use super::{protocol::word, UploadOptions};
+use super::{
+    protocol::{word, write_config, CONFIG_SIZE},
+    UploadOptions,
+};
 use crate::{exact, firmware, invalid, Result};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -21,6 +24,8 @@ struct Manifest {
     cold_init_offset: usize,
     #[serde(default)]
     storage_inspection: bool,
+    #[serde(default)]
+    batch_upload: bool,
     #[serde(default)]
     usb: UsbIdentity,
 }
@@ -57,6 +62,7 @@ pub struct UploadHelper {
     pub(super) config_offset: usize,
     pub(super) cold_init_offset: usize,
     pub(super) storage_inspection: bool,
+    pub(super) batch_upload: bool,
     pub(super) usb: UsbIdentity,
 }
 
@@ -85,11 +91,11 @@ impl UploadHelper {
             return Err(invalid("Helper image/manifest mismatch"));
         }
         slot(image, m.nonce_offset, b"REPRISE-NONCE-01", 16)?;
-        slot(image, m.config_offset, b"REPRISE-UPLOAD2\0", 248)?;
+        slot(image, m.config_offset, b"REPRISE-UPLOAD2\0", CONFIG_SIZE)?;
         slot(image, m.cold_init_offset, COLD_INIT_TAG, COLD_INIT_SIZE)?;
         let mut slots = [
             (m.nonce_offset, 16),
-            (m.config_offset, 248),
+            (m.config_offset, CONFIG_SIZE),
             (m.cold_init_offset, COLD_INIT_SIZE),
         ];
         slots.sort_unstable();
@@ -105,6 +111,7 @@ impl UploadHelper {
             config_offset: m.config_offset,
             cold_init_offset: m.cold_init_offset,
             storage_inspection: m.storage_inspection,
+            batch_upload: m.batch_upload,
             usb: m.usb,
         })
     }
@@ -115,6 +122,11 @@ impl UploadHelper {
 
     pub fn supports_storage_inspection(&self) -> bool {
         self.storage_inspection
+    }
+
+    /// The helper takes further files over USB after the configured one.
+    pub fn supports_batch_upload(&self) -> bool {
+        self.batch_upload
     }
 
     pub fn validate_platform(&self) -> Result<()> {
@@ -179,11 +191,13 @@ impl UploadHelper {
             sha,
             destination,
         } = config;
-        let config = &mut image[self.config_offset..self.config_offset + 248];
-        config[16..20].copy_from_slice(&size.to_le_bytes());
-        config[20..24].copy_from_slice(&mode.to_le_bytes());
-        config[24..56].copy_from_slice(sha);
-        config[56..56 + destination.len()].copy_from_slice(destination.as_bytes());
+        write_config(
+            &mut image[self.config_offset..self.config_offset + CONFIG_SIZE],
+            size,
+            mode,
+            sha,
+            destination,
+        );
         Ok(image)
     }
 }
