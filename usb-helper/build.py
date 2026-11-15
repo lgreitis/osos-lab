@@ -277,6 +277,7 @@ def write_image(out, symbols, blob, cold_offset):
     manifest = dict(
         schema=3,
         storage_inspection=True,
+        batch_upload=True,
         usb={**usb_ids, "winusb": True},
         mode="stream-file",
         rom_sha256=ROM_SHA,

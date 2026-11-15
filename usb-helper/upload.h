@@ -28,6 +28,8 @@ struct upload_result {
 };
 
 _Static_assert(sizeof(struct upload_config) == 248, "upload config");
+/* NEXT carries the config in one control transfer; Rockbox buffers 256 bytes. */
+_Static_assert(sizeof(struct upload_config) <= 256, "upload config fits a control transfer");
 _Static_assert(sizeof(struct upload_result) == 320, "upload result");
 
 extern UPLOAD_CONFIG_QUALIFIER struct upload_config upload_config;
@@ -38,6 +40,7 @@ struct storage_result {
 };
 
 void upload_prepare(uint64_t start, uint64_t end, unsigned bytes);
+void upload_next(const struct upload_config *next);
 void upload_start(void);
 void upload_write(unsigned bytes);
 void upload_verify_step(void);
