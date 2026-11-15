@@ -7,8 +7,8 @@ mod transport;
 use crate::{exact, invalid, Cleanup, DeviceInfo, Error, Result, Session};
 pub use image::UploadHelper;
 use protocol::{
-    helper_error, word, Status, ACKNOWLEDGE, CANCEL, COMPLETE, READY, RESULT_ADDR, RESULT_SIZE,
-    START, VERIFYING,
+    helper_error, next_payload, word, Status, ACKNOWLEDGE, CANCEL, COMPLETE, READY, RESULT_ADDR,
+    RESULT_SIZE, START, VERIFYING,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -47,8 +47,20 @@ impl UploadOptions {
     }
 }
 
+pub trait Input: Read + Seek {}
+impl<T: Read + Seek + ?Sized> Input for T {}
+
+/// One file of a batch: its content and where it goes on the data partition.
+pub struct UploadFile<'a> {
+    pub input: &'a mut dyn Input,
+    pub options: UploadOptions,
+}
+
+/// `file` indexes the batch. `prepare` opens each file, `launch` and `dfu-return`
+/// happen once per batch.
 #[derive(Clone, Debug, Serialize)]
 pub struct UploadProgress {
+    pub file: usize,
     pub stage: &'static str,
     pub completed: u64,
     pub total: u64,
@@ -64,19 +76,38 @@ pub struct UploadReport {
     pub sha256: String,
     pub overwrite: bool,
     pub seconds: f64,
-    pub cleanup: Cleanup,
 }
 
 pub struct Uploaded {
     pub session: Session,
-    pub report: UploadReport,
+    pub reports: Vec<UploadReport>,
+    pub cleanup: Cleanup,
 }
 
+/// `reports` covers the files that were verified before the failure.
 #[derive(Debug, thiserror::Error, Serialize)]
 #[error("{message}")]
 pub struct UploadFailure {
     pub message: String,
     pub cleanup: Cleanup,
+    pub reports: Vec<UploadReport>,
+}
+
+type Emit<'a> = dyn FnMut(UploadProgress) -> Result<()> + 'a;
+/// Size and SHA-256 of one input, hashed before the helper launches.
+type Hashed = (u32, [u8; 32]);
+
+/// Older helpers end the session after the configured file.
+fn check_file_count(count: usize, batch_upload: bool) -> Result<()> {
+    if count == 0 {
+        return Err(invalid("Nothing to upload"));
+    }
+    if count > 1 && !batch_upload {
+        return Err(invalid(
+            "This package's upload helper takes one file per launch",
+        ));
+    }
+    Ok(())
 }
 
 fn io_error(e: std::io::Error) -> Error {
@@ -84,22 +115,21 @@ fn io_error(e: std::io::Error) -> Error {
 }
 
 fn progress(
-    emit: &mut impl FnMut(UploadProgress),
+    emit: &mut Emit<'_>,
+    file: usize,
     stage: &'static str,
     completed: u64,
     total: u64,
-) {
+) -> Result<()> {
     emit(UploadProgress {
+        file,
         stage,
         completed,
         total,
-    });
+    })
 }
 
-fn hash_input(
-    input: &mut (impl Read + Seek),
-    emit: &mut impl FnMut(UploadProgress),
-) -> Result<(u64, [u8; 32])> {
+fn hash_input(input: &mut dyn Input, file: usize, emit: &mut Emit<'_>) -> Result<(u64, [u8; 32])> {
     let size = input.seek(SeekFrom::End(0)).map_err(io_error)?;
     if size > MAX_UPLOAD_SIZE {
         return Err(invalid(
@@ -115,19 +145,22 @@ fn hash_input(
         input.read_exact(&mut buffer[..n]).map_err(io_error)?;
         hash.update(&buffer[..n]);
         left -= n as u64;
-        progress(emit, "hash", size - left, size);
+        progress(emit, file, "hash", size - left, size)?;
     }
     let sha: [u8; 32] = hash.finalize().into();
     input.seek(SeekFrom::Start(0)).map_err(io_error)?;
     Ok((size, sha))
 }
 
+/// Streams one file and polls until the helper reports COMPLETE. The caller sends
+/// ACKNOWLEDGE or NEXT afterwards.
 fn transfer(
     bulk: &mut impl BulkTransport,
-    input: &mut impl Read,
+    input: &mut dyn Read,
     nonce: &[u8; 16],
     size: u32,
-    emit: &mut impl FnMut(UploadProgress),
+    file: usize,
+    emit: &mut Emit<'_>,
 ) -> Result<Status> {
     let ready = bulk.status(nonce, size)?;
     if ready.rc() != 0 {
@@ -154,7 +187,8 @@ fn transfer(
         let n = bulk.send(&buffer[..wire_size])?;
         exact("File upload", n, wire_size)?;
         sent += count as u32;
-        progress(emit, "upload", u64::from(sent), u64::from(size));
+        // Cancelling waits for the file boundary so no staged file is left behind.
+        let _ = progress(emit, file, "upload", u64::from(sent), u64::from(size));
     }
 
     // Re-hashing on the device catches changes to the input after preflight.
@@ -172,11 +206,11 @@ fn transfer(
             last = now;
         }
         if status.state() == COMPLETE {
-            bulk.command(ACKNOWLEDGE, nonce)?;
             return Ok(status);
         }
-        progress(
+        let _ = progress(
             emit,
+            file,
             if status.state() == VERIFYING {
                 "verify"
             } else {
@@ -194,6 +228,51 @@ fn transfer(
         }
         std::thread::sleep(Duration::from_millis(20));
     }
+}
+
+/// Sends every file through one helper session: the first is configured in the
+/// image, each further one is queued with NEXT once the previous one is verified.
+/// Returns the last status after ACKNOWLEDGE; `reports` grows per verified file.
+fn transfer_files(
+    bulk: &mut impl BulkTransport,
+    files: &mut [UploadFile<'_>],
+    hashed: &[Hashed],
+    nonce: &[u8; 16],
+    device: &DeviceInfo,
+    reports: &mut Vec<UploadReport>,
+    emit: &mut Emit<'_>,
+) -> Result<Status> {
+    let mut last = None;
+    for (index, file) in files.iter_mut().enumerate() {
+        let (size, sha) = hashed[index];
+        let started = Instant::now();
+        // Reported before NEXT so a cancelling `emit` stops between files.
+        progress(emit, index, "prepare", 0, 1)?;
+        let status = (|| {
+            if index > 0 {
+                bulk.next(&next_payload(nonce, size, &sha, &file.options))?;
+            }
+            let status = transfer(bulk, file.input, nonce, size, index, emit)?;
+            status.complete(&sha, &file.options)?;
+            Ok::<_, Error>(status)
+        })()
+        .map_err(|e| invalid(format!("{}: {e}", file.options.destination)))?;
+        reports.push(UploadReport {
+            schema_version: 2,
+            device: device.clone(),
+            nonce: nonce.iter().map(|b| format!("{b:02x}")).collect(),
+            destination: file.options.destination.clone(),
+            bytes: u64::from(size),
+            sha256: sha.iter().map(|b| format!("{b:02x}")).collect(),
+            overwrite: file.options.overwrite,
+            seconds: started.elapsed().as_secs_f64(),
+        });
+        let _ = progress(emit, index, "complete", u64::from(size), u64::from(size));
+        last = Some(status);
+    }
+    let last = last.ok_or_else(|| invalid("Nothing to upload"))?;
+    bulk.command(ACKNOWLEDGE, nonce)?;
+    Ok(last)
 }
 
 fn inspect_bulk(
@@ -240,6 +319,24 @@ fn log_return_record(record: &[u8; 64], log: &mut impl FnMut(String)) {
     log(format!("DFU return: phase={}, storage rc={}, sector size={} bytes, sectors={sectors}, battery={} mV", word(record, 8), word(record, 12) as i32, word(record, 16), word(record, 28)));
 }
 
+/// The helper's final unmount runs after its last USB answer, so its error only
+/// reaches the return record.
+fn return_record_ok(record: &[u8; 64]) -> Result<()> {
+    let (phase, rc) = (word(record, 8), word(record, 12) as i32);
+    if phase == 4 && rc == 0 {
+        return Ok(());
+    }
+    if phase == 4 && rc < 0 {
+        return Err(invalid(format!(
+            "Helper failed during DFU return: {}",
+            helper_error(rc, 0)
+        )));
+    }
+    Err(invalid(format!(
+        "Helper storage return failed: phase={phase}, rc={rc}"
+    )))
+}
+
 fn returned(info: &DeviceInfo, nonce: &[u8; 16]) -> Result<(Session, [u8; 64])> {
     let deadline = Instant::now() + Duration::from_secs(45);
     loop {
@@ -279,12 +376,11 @@ fn returned(info: &DeviceInfo, nonce: &[u8; 16]) -> Result<(Session, [u8; 64])> 
 }
 
 impl Session {
-    fn launch_helper(mut self, image: &[u8], before_launch: impl FnOnce()) -> (Result<()>, bool) {
+    fn launch_helper(mut self, image: &[u8]) -> (Result<()>, bool) {
         self.operation_ready = false;
         self.dfu.transport.timeout = Duration::from_secs(2);
         let mut launched = false;
         let result = self.dfu.idle().and_then(|()| {
-            before_launch();
             launched = true;
             self.dfu.launch_image(image)
         });
@@ -309,64 +405,80 @@ impl Session {
 }
 
 impl Session {
-    /// Consumes checked DFU and returns a newly claimed session after the upload.
-    /// Progress callbacks report activity; cancellation must not interrupt disk cleanup.
-    pub fn upload(
+    /// Consumes checked DFU, uploads every file through one helper session and returns
+    /// a newly claimed session. An error from `emit` while hashing, at launch or before
+    /// a further file cancels the batch; the helper still finishes its disk cleanup and
+    /// returns to DFU.
+    pub fn upload_files(
         self,
         helper: &UploadHelper,
-        input: &mut (impl Read + Seek),
-        options: UploadOptions,
-        emit: impl FnMut(UploadProgress),
-    ) -> std::result::Result<Uploaded, UploadFailure> {
-        self.upload_with_log(helper, input, options, emit, |_| {})
-    }
-
-    pub fn upload_with_log(
-        self,
-        helper: &UploadHelper,
-        input: &mut (impl Read + Seek),
-        options: UploadOptions,
-        mut emit: impl FnMut(UploadProgress),
+        files: &mut [UploadFile<'_>],
+        mut emit: impl FnMut(UploadProgress) -> Result<()>,
         mut log: impl FnMut(String),
     ) -> std::result::Result<Uploaded, UploadFailure> {
-        let started = Instant::now();
         let mut nonce = [0; 16];
         let info = self.info.clone();
         let verified_rom = self.verified_rom.clone();
-        let setup = (|| -> Result<(u32, [u8; 32], Vec<u8>)> {
+        let mut reports = Vec::new();
+        let setup = (|| -> Result<(Vec<Hashed>, Vec<u8>)> {
             helper.validate_platform()?;
-            options.validate()?;
+            check_file_count(files.len(), helper.batch_upload)?;
             if !self.operation_ready {
                 return Err(invalid("Upload requires successful checks on this session"));
             }
             if info.port_path.is_empty() {
                 return Err(invalid("Upload requires a stable USB port path"));
             }
-            let (size, sha) = hash_input(input, &mut emit)?;
+            let mut hashed: Vec<Hashed> = Vec::with_capacity(files.len());
+            for (index, file) in files.iter_mut().enumerate() {
+                file.options.validate()?;
+                let (size, sha) = hash_input(file.input, index, &mut emit)?;
+                hashed.push((size as u32, sha));
+            }
             getrandom::fill(&mut nonce).map_err(|e| invalid(format!("Upload nonce: {e}")))?;
-            Ok((
-                size as u32,
-                sha,
-                helper.prepare(
-                    self.verified_rom
-                        .as_deref()
-                        .ok_or_else(|| invalid("Missing checked BootROM"))?,
-                    &nonce,
-                    size as u32,
-                    &sha,
-                    &options,
-                )?,
-            ))
+            let (size, sha) = hashed[0];
+            let image = helper.prepare(
+                self.verified_rom
+                    .as_deref()
+                    .ok_or_else(|| invalid("Missing checked BootROM"))?,
+                &nonce,
+                size,
+                &sha,
+                &files[0].options,
+            )?;
+            Ok((hashed, image))
         })();
-        let (size, sha, image) = setup.map_err(|e| UploadFailure {
-            message: e.to_string(),
-            cleanup: Cleanup::NotAttempted,
-        })?;
-        let (launch, launched) = self.launch_helper(&image, || progress(&mut emit, "launch", 0, 1));
+        let (hashed, image) = match setup {
+            Ok(prepared) => prepared,
+            Err(e) => {
+                return Err(UploadFailure {
+                    message: e.to_string(),
+                    cleanup: Cleanup::NotAttempted,
+                    reports,
+                })
+            }
+        };
+        let last = files.len() - 1;
+        if let Err(e) = progress(&mut emit, 0, "launch", 0, 1) {
+            return Err(UploadFailure {
+                message: e.to_string(),
+                cleanup: Cleanup::NotAttempted,
+                reports,
+            });
+        }
+        let (launch, launched) = self.launch_helper(&image);
         let transfer_result = launch.and_then(|()| {
             let mut bulk = open_bulk(&info, helper.usb, &mut log)?;
             bulk.diagnostics(None, &mut log);
-            let result = transfer(&mut bulk, input, &nonce, size, &mut emit);
+            let result = transfer_files(
+                &mut bulk,
+                files,
+                &hashed,
+                &nonce,
+                &info,
+                &mut reports,
+                &mut emit,
+            );
             if result.is_err() {
                 if let Err(error) = bulk.command(CANCEL, &nonce) {
                     log(format!("Helper cancellation failed: {error}"));
@@ -377,7 +489,7 @@ impl Session {
         if let Err(error) = &transfer_result {
             log(format!("File transfer failed: {error}"));
         }
-        progress(&mut emit, "dfu-return", 0, 1);
+        let _ = progress(&mut emit, last, "dfu-return", 0, 1);
         let recovered = if launched {
             returned(&info, &nonce)
         } else {
@@ -392,21 +504,15 @@ impl Session {
                         Ok(_) => e.to_string(),
                     },
                     cleanup: Cleanup::Failed(e.to_string()),
+                    reports,
                 })
             }
         };
         log_return_record(&record, &mut log);
         let validation = (|| -> Result<()> {
             let status = transfer_result?;
-            if word(&record, 8) != 4 || word(&record, 12) != 0 {
-                return Err(invalid(format!(
-                    "Helper storage return failed: phase={}, rc={}",
-                    word(&record, 8),
-                    word(&record, 12) as i32
-                )));
-            }
-            session.verify_helper_result(&status, &nonce, size, "Upload")?;
-            status.complete(&sha, &options)
+            return_record_ok(&record)?;
+            session.verify_helper_result(&status, &nonce, hashed[last].0, "Upload")
         })();
         let cleanup = match session.return_to_idle() {
             Ok(()) => Cleanup::Idle,
@@ -416,30 +522,22 @@ impl Session {
             return Err(UploadFailure {
                 message: e.to_string(),
                 cleanup,
+                reports,
             });
         }
         if let Cleanup::Failed(ref e) = cleanup {
             return Err(UploadFailure {
                 message: e.clone(),
                 cleanup,
+                reports,
             });
         }
         session.verified_rom = verified_rom;
         session.operation_ready = true;
-        progress(&mut emit, "complete", u64::from(size), u64::from(size));
         Ok(Uploaded {
-            report: UploadReport {
-                schema_version: 1,
-                device: session.info.clone(),
-                nonce: nonce.iter().map(|b| format!("{b:02x}")).collect(),
-                destination: options.destination,
-                bytes: u64::from(size),
-                sha256: sha.iter().map(|b| format!("{b:02x}")).collect(),
-                overwrite: options.overwrite,
-                seconds: started.elapsed().as_secs_f64(),
-                cleanup,
-            },
             session,
+            reports,
+            cleanup,
         })
     }
 }
@@ -500,7 +598,7 @@ impl Session {
         log(format!(
             "Starting storage helper; required free space: {required_bytes} bytes"
         ));
-        let (launch, _) = self.launch_helper(&image, || {});
+        let (launch, _) = self.launch_helper(&image);
         let operation = launch.and_then(|()| {
             let mut bulk = open_bulk(&info, helper.usb, &mut log)?;
             inspect_bulk(&mut bulk, &nonce, required_bytes, directory, &mut log)
@@ -533,13 +631,7 @@ impl Session {
                 )));
             }
             let status = operation?;
-            if word(&record, 8) != 4 || word(&record, 12) != 0 {
-                return Err(invalid(format!(
-                    "Storage helper failed during DFU return: phase={}, rc={}",
-                    word(&record, 8),
-                    word(&record, 12) as i32
-                )));
-            }
+            return_record_ok(&record)?;
             session.verify_helper_result(&status, &nonce, required_bytes, "Storage")?;
             let data = session.dfu.read_memory(0x2201fbc0, 32)?;
             let quad = |offset| u64::from_le_bytes(data[offset..offset + 8].try_into().unwrap());

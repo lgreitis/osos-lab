@@ -4,7 +4,7 @@ use super::{
     bundle, open_session, parse_selector, print_json, print_report, read_bounded,
     write_check_event, CliResult, Progress,
 };
-use reprise_device::{DeviceSelector, UploadHelper, UploadOptions};
+use reprise_device::{DeviceSelector, UploadFile, UploadHelper, UploadOptions};
 use std::{
     fs::File,
     io::{self, Write},
@@ -13,8 +13,8 @@ use std::{
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct Args {
-    input: String,
-    destination: String,
+    /// Input path and device destination, in upload order.
+    files: Vec<(String, String)>,
     helper: Option<String>,
     bundle: Option<String>,
     key: Option<String>,
@@ -23,8 +23,9 @@ pub(super) struct Args {
 }
 
 pub(super) fn parse(args: &[String]) -> Result<Args, String> {
-    let (mut input, mut destination, mut helper, mut selector) = (None, None, None, None);
-    let (mut bundle, mut key) = (None, None);
+    let (mut helper, mut selector, mut bundle, mut key) = (None, None, None, None);
+    let mut files: Vec<(String, String)> = Vec::new();
+    let mut pending_input = None;
     let mut overwrite = false;
     let mut args = args.iter();
     while let Some(arg) = args.next() {
@@ -37,8 +38,13 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
             .filter(|s| !s.starts_with('-'))
             .ok_or_else(|| format!("{arg} needs a value"))?;
         match arg.as_str() {
-            "--input" if input.is_none() => input = Some(value.clone()),
-            "--destination" if destination.is_none() => destination = Some(value.clone()),
+            "--input" if pending_input.is_none() => pending_input = Some(value.clone()),
+            "--destination" if pending_input.is_some() => {
+                files.push((pending_input.take().unwrap(), value.clone()));
+            }
+            "--input" | "--destination" => {
+                return Err("Give --input FILE --destination /PATH in pairs".into())
+            }
             "--helper" if helper.is_none() => helper = Some(value.clone()),
             "--bundle" if bundle.is_none() => bundle = Some(value.clone()),
             "--key" if key.is_none() => key = Some(value.clone()),
@@ -54,22 +60,32 @@ pub(super) fn parse(args: &[String]) -> Result<Args, String> {
             "Choose --helper BUILD_DIRECTORY or --bundle DIRECTORY --key PUBLIC_KEY_FILE".into(),
         );
     }
-    let result = Args {
-        input: input.ok_or("Missing --input FILE")?,
-        destination: destination.ok_or("Missing --destination /PATH")?,
+    if pending_input.is_some() {
+        return Err("Missing --destination /PATH".into());
+    }
+    if files.is_empty() {
+        return Err("Missing --input FILE --destination /PATH".into());
+    }
+    let mut destinations = std::collections::BTreeSet::new();
+    for (_, destination) in &files {
+        UploadOptions {
+            destination: destination.clone(),
+            overwrite,
+        }
+        .validate()
+        .map_err(|e| e.to_string())?;
+        if !destinations.insert(destination.to_ascii_lowercase()) {
+            return Err(format!("Duplicate destination: {destination}"));
+        }
+    }
+    Ok(Args {
+        files,
         helper,
         bundle,
         key,
         overwrite,
         selector,
-    };
-    UploadOptions {
-        destination: result.destination.clone(),
-        overwrite,
-    }
-    .validate()
-    .map_err(|e| e.to_string())?;
-    Ok(result)
+    })
 }
 
 pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
@@ -97,10 +113,20 @@ pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
             )?
         }
     };
-    let mut input = File::open(&args.input)?;
-    let metadata = input.metadata()?;
-    if !metadata.is_file() || metadata.len() > reprise_device::MAX_UPLOAD_SIZE {
-        return Err("Input must be a regular file, at most 2 GiB minus 1 byte".into());
+    let mut inputs = Vec::with_capacity(args.files.len());
+    for (path, _) in &args.files {
+        let input = File::open(path)?;
+        let metadata = input.metadata()?;
+        if !metadata.is_file() || metadata.len() > reprise_device::MAX_UPLOAD_SIZE {
+            return Err(format!(
+                "{path}: input must be a regular file, at most 2 GiB minus 1 byte"
+            )
+            .into());
+        }
+        inputs.push(input);
+    }
+    if args.files.len() > 1 && !helper.supports_batch_upload() {
+        return Err("This helper takes one file per launch; upload the files one by one".into());
     }
     let mut session = open_session(args.selector)?;
     let checks = session.check(|e| {
@@ -119,52 +145,70 @@ pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
                 .ok_or("Missing checked BootROM")?,
         )?;
     }
+    let mut files: Vec<UploadFile<'_>> = inputs
+        .iter_mut()
+        .zip(&args.files)
+        .map(|(input, (_, destination))| UploadFile {
+            input,
+            options: UploadOptions {
+                destination: destination.clone(),
+                overwrite: args.overwrite,
+            },
+        })
+        .collect();
+    let count = files.len();
     let mut progress = Progress::default();
-    let result = session.upload(
+    let mut current = None;
+    let result = session.upload_files(
         &helper,
-        &mut input,
-        UploadOptions {
-            destination: args.destination,
-            overwrite: args.overwrite,
-        },
+        &mut files,
         |p| {
-            let _ = progress.write(
-                p.stage,
-                p.completed,
-                p.total,
-                json,
-                &mut io::stderr().lock(),
-            );
+            let mut err = io::stderr().lock();
+            if count > 1 && p.stage != "hash" && current != Some(p.file) && !json {
+                current = Some(p.file);
+                progress = Progress::default();
+                let _ = writeln!(err, "File {}/{count}: {}", p.file + 1, args.files[p.file].1);
+            }
+            let _ = progress.write(p.stage, p.completed, p.total, json, &mut err);
+            Ok(())
         },
+        |_| {},
     );
     match result {
         Ok(uploaded) => {
             if json {
-                print_json(&uploaded.report)?;
+                print_json(&serde_json::json!({
+                    "schema_version": 2,
+                    "files": uploaded.reports,
+                    "cleanup": uploaded.cleanup,
+                }))?;
             } else {
-                writeln!(
-                    io::stdout().lock(),
-                    "Uploaded and verified {} bytes to {} in {:.2}s\nSHA-256: {}\nDFU: ready",
-                    uploaded.report.bytes,
-                    uploaded.report.destination,
-                    uploaded.report.seconds,
-                    uploaded.report.sha256
-                )?;
+                let mut out = io::stdout().lock();
+                for report in &uploaded.reports {
+                    writeln!(
+                        out,
+                        "Uploaded and verified {} bytes to {} in {:.2}s\nSHA-256: {}",
+                        report.bytes, report.destination, report.seconds, report.sha256
+                    )?;
+                }
+                writeln!(out, "DFU: ready")?;
             }
             Ok(0)
         }
         Err(error) => {
             if json {
                 print_json(&serde_json::json!({
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "error": error.message,
                     "cleanup": error.cleanup,
+                    "files": error.reports,
                 }))?;
             } else {
                 writeln!(
                     io::stderr().lock(),
-                    "Error: {}\nDFU cleanup: {:?}",
+                    "Error: {}\nVerified before the error: {}\nDFU cleanup: {:?}",
                     error.message,
+                    error.reports.len(),
                     error.cleanup
                 )?;
             }
@@ -178,23 +222,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn upload_requires_explicit_paths_and_overwrite_is_opt_in() {
+    fn upload_takes_input_destination_pairs_and_overwrite_is_opt_in() {
         let parse_line =
             |s: &str| parse(&s.split_whitespace().map(String::from).collect::<Vec<_>>());
-        assert!(
-            !parse_line("--input os --destination /osos.bin --helper helper")
-                .unwrap()
-                .overwrite
-        );
-        assert!(
-            parse_line("--input os --destination /osos.bin --helper helper --overwrite")
-                .unwrap()
-                .overwrite
+        let single = parse_line("--input os --destination /osos.bin --helper helper").unwrap();
+        assert!(!single.overwrite);
+        assert_eq!(single.files, vec![("os".into(), "/osos.bin".into())]);
+        let pair = parse_line(
+            "--input a --destination /a --input b --destination /themes/b --helper helper --overwrite",
+        )
+        .unwrap();
+        assert!(pair.overwrite);
+        assert_eq!(
+            pair.files,
+            vec![("a".into(), "/a".into()), ("b".into(), "/themes/b".into())]
         );
         for line in [
             "--input os --destination /os --bundle b",
             "--input os --destination /os --bundle b --key k --helper h",
             "--input os --destination /os --helper h --key k",
+            "--input os --helper h",
+            "--destination /os --helper h",
+            "--input a --input b --destination /b --helper h",
+            "--input a --destination /a --destination /b --helper h",
+            "--input a --destination /a --input b --destination /A --helper h",
+            "--helper h",
         ] {
             assert!(parse_line(line).is_err(), "{line}");
         }
