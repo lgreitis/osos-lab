@@ -91,6 +91,18 @@ pub struct UploadFailure {
     pub message: String,
     pub cleanup: Cleanup,
     pub reports: Vec<UploadReport>,
+    /// The error behind `message`, typed so callers can tell a USB failure
+    /// such as a disconnected iPod from a refused file.
+    #[source]
+    #[serde(skip)]
+    pub error: Error,
+}
+
+impl UploadFailure {
+    /// Whether the iPod stopped answering over USB during the upload.
+    pub fn device_stopped(&self) -> bool {
+        self.error.device_stopped()
+    }
 }
 
 type Emit<'a> = dyn FnMut(UploadProgress) -> Result<()> + 'a;
@@ -256,7 +268,10 @@ fn transfer_files(
             status.complete(&sha, &file.options)?;
             Ok::<_, Error>(status)
         })()
-        .map_err(|e| invalid(format!("{}: {e}", file.options.destination)))?;
+        .map_err(|e| Error::Context {
+            context: file.options.destination.clone(),
+            source: Box::new(e),
+        })?;
         reports.push(UploadReport {
             schema_version: 2,
             device: device.clone(),
@@ -455,6 +470,7 @@ impl Session {
                     message: e.to_string(),
                     cleanup: Cleanup::NotAttempted,
                     reports,
+                    error: e,
                 })
             }
         };
@@ -464,6 +480,7 @@ impl Session {
                 message: e.to_string(),
                 cleanup: Cleanup::NotAttempted,
                 reports,
+                error: e,
             });
         }
         let (launch, launched) = self.launch_helper(&image);
@@ -498,14 +515,23 @@ impl Session {
         let (mut session, record) = match recovered {
             Ok(s) => s,
             Err(e) => {
+                let cleanup = Cleanup::Failed(e.to_string());
+                let (message, error) = match transfer_result {
+                    Err(original) => (
+                        format!("{original}; DFU cleanup failed: {e}"),
+                        Error::Cleanup {
+                            step: Box::new(original),
+                            cleanup: Box::new(e),
+                        },
+                    ),
+                    Ok(_) => (e.to_string(), e),
+                };
                 return Err(UploadFailure {
-                    message: match transfer_result {
-                        Err(original) => format!("{original}; DFU cleanup failed: {e}"),
-                        Ok(_) => e.to_string(),
-                    },
-                    cleanup: Cleanup::Failed(e.to_string()),
+                    message,
+                    cleanup,
                     reports,
-                })
+                    error,
+                });
             }
         };
         log_return_record(&record, &mut log);
@@ -514,22 +540,33 @@ impl Session {
             return_record_ok(&record)?;
             session.verify_helper_result(&status, &nonce, hashed[last].0, "Upload")
         })();
-        let cleanup = match session.return_to_idle() {
+        let idle = session.return_to_idle();
+        let cleanup = match &idle {
             Ok(()) => Cleanup::Idle,
             Err(e) => Cleanup::Failed(e.to_string()),
         };
         if let Err(e) = validation {
+            let message = e.to_string();
+            let error = match idle {
+                Ok(()) => e,
+                Err(idle) => Error::Cleanup {
+                    step: Box::new(e),
+                    cleanup: Box::new(idle),
+                },
+            };
+            return Err(UploadFailure {
+                message,
+                cleanup,
+                reports,
+                error,
+            });
+        }
+        if let Err(e) = idle {
             return Err(UploadFailure {
                 message: e.to_string(),
                 cleanup,
                 reports,
-            });
-        }
-        if let Cleanup::Failed(ref e) = cleanup {
-            return Err(UploadFailure {
-                message: e.clone(),
-                cleanup,
-                reports,
+                error: e,
             });
         }
         session.verified_rom = verified_rom;
@@ -607,10 +644,18 @@ impl Session {
             log(format!("Storage inspection failed: {error}"));
         }
         log("Waiting up to 45s for nonce-verified DFU return".into());
-        let (mut session, record) = returned(&info, &nonce).map_err(|error| match &operation {
-            Err(original) => invalid(format!("{original}; DFU cleanup failed: {error}")),
-            Ok(_) => error,
-        })?;
+        let (mut session, record) = match returned(&info, &nonce) {
+            Ok(returned) => returned,
+            Err(cleanup) => {
+                return Err(match operation {
+                    Err(step) => Error::Cleanup {
+                        step: Box::new(step),
+                        cleanup: Box::new(cleanup),
+                    },
+                    Ok(_) => cleanup,
+                })
+            }
+        };
         log_return_record(&record, &mut log);
         let result = (|| {
             if word(&record, 8) < 4 {
@@ -654,7 +699,10 @@ impl Session {
         if let Err(error) = cleanup {
             log(format!("DFU cleanup failed: {error}"));
             return Err(match result {
-                Err(original) => invalid(format!("{original}; DFU cleanup failed: {error}")),
+                Err(step) => Error::Cleanup {
+                    step: Box::new(step),
+                    cleanup: Box::new(error),
+                },
                 Ok(_) => error,
             });
         }

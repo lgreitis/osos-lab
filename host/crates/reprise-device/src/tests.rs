@@ -1200,3 +1200,24 @@ fn hardware_override_does_not_bypass_bootrom_or_cleanup_checks() {
         assert!(dfu.transport.steps.is_empty());
     }
 }
+
+#[test]
+fn device_stopped_follows_context_and_cleanup() {
+    let lost = || crate::usb::usb_error("file upload", rusb::Error::NoDevice);
+    let refused = || crate::usb::usb_error("file upload", rusb::Error::Access);
+    let context = |source| Error::Context {
+        context: "/osos-cfw.bin".into(),
+        source: Box::new(source),
+    };
+    let cleanup = |step, cleanup| Error::Cleanup {
+        step: Box::new(step),
+        cleanup: Box::new(cleanup),
+    };
+    assert!(lost().device_stopped());
+    assert!(!refused().device_stopped());
+    assert!(context(lost()).device_stopped());
+    assert!(!context(refused()).device_stopped());
+    assert!(cleanup(context(lost()), invalid("no return")).device_stopped());
+    assert!(cleanup(invalid("bad file"), lost()).device_stopped());
+    assert!(!cleanup(invalid("bad file"), invalid("no return")).device_stopped());
+}
