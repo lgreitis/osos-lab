@@ -52,6 +52,7 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Apple's EU Volume Limit setting on every European iPod, with full volume
   and no volume warning when it is Off.
 - File Info from song, podcast, iTunes U, audiobook, movie, TV episode, video playlist and Now Playing context menus.
+- Sleep Timer in the Now Playing context menu, a shortcut to the stock sleep timer.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Dark Mode, with an On/Off toggle in Settings.
@@ -68,6 +69,11 @@ included, get Apple's **Settings → Volume Limit** screen with **EU Volume Limi
 On limits headphone volume to the EU level. Off allows full volume without Apple's
 high-volume warning, the reduction to the EU level at startup or the automatic
 reduction after long listening.
+
+**Sleep Timer** in the Now Playing context menu is only a shortcut: hold the center
+button and choose Sleep Timer to open the stock Extras → Alarms → Sleep Timer list
+over Now Playing, and Menu returns to it. It is the same timer, with the same
+choices and state, that Extras → Alarms → Sleep Timer sets.
 
 **Album Artists** groups tracks by their Album Artist tag, using Artist when that
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →

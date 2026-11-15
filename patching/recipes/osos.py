@@ -67,6 +67,7 @@ def build_recipe(
                 "crossfeed.ui",
                 "play_next.ui",
                 "file_info.ui",
+                "sleep_timer.ui",
                 "album_artists.ui",
                 "dark_mode.ui",
                 "queue_selection.ui",

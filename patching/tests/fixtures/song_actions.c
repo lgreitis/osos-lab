@@ -125,6 +125,7 @@ static void osos_controller_restore_layout(void *c, unsigned offset)
 }
 
 static int osos_now_playing_action(void *, const char *, uint32_t);
+void cfw_sleep_timer_show(void *controller) { (void)controller; }
 #include "../../../payload/song_actions.c"
 
 int cfw_file_info_show(void *c, struct osos_media_item *item)
