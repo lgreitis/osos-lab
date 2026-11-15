@@ -3,6 +3,7 @@
 #include "clicker.h"
 #include "custom_eq.h"
 #include "dark_mode.h"
+#include "night_shift.h"
 #include "file_info.h"
 #include "playback_log.h"
 #include "osos.h"
@@ -23,6 +24,7 @@ void cfw_settings_boot(void *preferences)
     cfw_playback_log_load();
     cfw_eq_load_preferences();
     cfw_dark_mode_load();
+    cfw_night_shift_load();
     cfw_crossfeed_load();
     cfw_ui_visibility_load_preferences();
     cfw_store_flush();
@@ -51,6 +53,7 @@ PATCH_ARM void cfw_settings_reset(void *model)
     osos_reset_all_settings(model);
     cfw_eq_reset_preferences();
     cfw_dark_mode_reset();
+    cfw_night_shift_reset();
     cfw_crossfeed_reset();
     cfw_playback_log_reset();
 }
@@ -62,6 +65,7 @@ PATCH_ARM int cfw_settings_action(void *controller, const char *action,
         cfw_file_info_action(action, argument) ||
         cfw_clicker_action(controller, action, argument) ||
         cfw_dark_mode_action(controller, action, argument) ||
+        cfw_night_shift_action(controller, action, argument) ||
         cfw_crossfeed_action(controller, action, argument))
         return 1;
 
@@ -74,6 +78,7 @@ PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t propert
     if (cfw_playback_log_property(type, property, out) ||
         cfw_file_info_property(type, property, out) ||
         cfw_dark_mode_property(type, property, out) ||
+        cfw_night_shift_property(type, property, out) ||
         cfw_clicker_property(model, type, property, out) ||
         cfw_crossfeed_property(type, property, out))
         return 1;
