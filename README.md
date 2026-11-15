@@ -55,6 +55,7 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Dark Mode, with an On/Off toggle in Settings.
+- Night Shift, with an On/Off toggle below Brightness in Settings.
 
 Open **Settings → Custom EQ** to edit all five bands. Use the wheel to select a
 band, then Center to select and edit its Type, Gain, Frequency or Q, or the
@@ -78,6 +79,9 @@ skipped and replaced tracks are appended to `playback.tsv`. The log includes
 track metadata, timestamps and playback position. Position is not measured
 listening time: pauses and seeks affect the estimates. See the
 [column reference](docs/playback-log.md).
+
+**Night Shift** warms the whole screen through the display's gamma tables. It is
+off by default and the setting persists across reboots.
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
 

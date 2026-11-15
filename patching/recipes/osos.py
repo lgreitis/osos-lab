@@ -68,6 +68,8 @@ def build_recipe(
                 "play_next.ui",
                 "file_info.ui",
                 "album_artists.ui",
+                # Both anchor after Brightness; the later document lands first.
+                "night_shift.ui",
                 "dark_mode.ui",
                 "queue_selection.ui",
                 "playback_log.ui",
