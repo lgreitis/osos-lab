@@ -46,6 +46,10 @@ pub enum Error {
     },
     #[error("{0}")]
     Invalid(String),
+    /// The iPod did not reach an expected state in time, such as a helper
+    /// that never enumerates or a DFU return that never comes.
+    #[error("{0}")]
+    TimedOut(String),
     #[error("{operation}: received {actual} bytes, expected {expected}")]
     ShortTransfer {
         operation: &'static str,
@@ -55,11 +59,13 @@ pub enum Error {
     #[error("{context}: {source}")]
     Context { context: String, source: Box<Error> },
     /// A step, failed or finished, then a DFU cleanup that failed after it.
-    #[error("{step}; DFU cleanup failed: {cleanup}; re-enter fresh DFU")]
+    /// `advice` ends the message, such as "; re-enter fresh DFU".
+    #[error("{step}; DFU cleanup failed: {cleanup}{advice}")]
     Cleanup {
         #[source]
         step: Box<Error>,
         cleanup: Box<Error>,
+        advice: &'static str,
     },
 }
 
@@ -72,8 +78,11 @@ impl Error {
                 source,
                 rusb::Error::Timeout | rusb::Error::Io | rusb::Error::NoDevice
             ),
+            Error::TimedOut(_) => true,
             Error::Context { source, .. } => source.device_stopped(),
-            Error::Cleanup { step, cleanup } => step.device_stopped() || cleanup.device_stopped(),
+            Error::Cleanup { step, cleanup, .. } => {
+                step.device_stopped() || cleanup.device_stopped()
+            }
             _ => false,
         }
     }

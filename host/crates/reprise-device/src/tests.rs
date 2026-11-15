@@ -641,7 +641,17 @@ fn fast_nor_full_dump_cross_checks_shifted_boundaries_and_edges() {
     let bytes: Vec<u8> = (0..NOR_SIZE)
         .map(|i| (i * 37 + i / 19 + i / 65536) as u8)
         .collect();
-    for fault in ["none", "short", "status", "shifted", "edge", "cleanup"] {
+    for fault in [
+        "none",
+        "short",
+        "status",
+        "shifted",
+        "edge",
+        "cleanup",
+        "lost",
+        "edge_lost",
+        "lost_cleanup",
+    ] {
         let mut script = Script::default();
         script.state(2);
         script.echo_sweep();
@@ -674,10 +684,18 @@ fn fast_nor_full_dump_cross_checks_shifted_boundaries_and_edges() {
                 script.steps[edge_reply].data[4] ^= 1;
                 script.steps.truncate(edge_reply + 8);
             }
+            "lost" | "lost_cleanup" => {
+                script.steps[first_reply].count = usize::MAX;
+                script.steps.truncate(first_reply + 1);
+            }
+            "edge_lost" => {
+                script.steps[edge_reply].count = usize::MAX;
+                script.steps.truncate(edge_reply + 1);
+            }
             _ => {}
         }
         script.idle_cleanup();
-        if fault == "cleanup" {
+        if matches!(fault, "cleanup" | "lost_cleanup") {
             script.steps.back_mut().unwrap().data[0] = 10;
         }
         let mut dfu = Dfu { transport: script };
@@ -694,7 +712,29 @@ fn fast_nor_full_dump_cross_checks_shifted_boundaries_and_edges() {
             assert_eq!(progress.last().unwrap().stage, "nor_verify");
             assert_eq!(progress.last().unwrap().completed, NOR_SIZE);
         } else {
-            assert!(result.is_err(), "{fault}");
+            let error = result.unwrap_err();
+            let text = error.to_string();
+            match fault {
+                "lost" => assert!(text.starts_with("Fast NOR offset 0x0: USB "), "{text}"),
+                "edge_lost" => assert!(text.starts_with("NOR offset 0x0: USB "), "{text}"),
+                "lost_cleanup" => assert!(
+                    matches!(error, Error::Cleanup { .. })
+                        && text.starts_with("Fast NOR offset 0x0: USB ")
+                        && text.ends_with("; re-enter fresh DFU"),
+                    "{text}"
+                ),
+                "cleanup" => assert!(
+                    text.starts_with("NOR dump completed; DFU cleanup failed: ")
+                        && text.ends_with("; re-enter fresh DFU"),
+                    "{text}"
+                ),
+                _ => {}
+            }
+            assert_eq!(
+                error.device_stopped(),
+                matches!(fault, "lost" | "edge_lost" | "lost_cleanup"),
+                "{fault}"
+            );
         }
         assert!(dfu.transport.steps.is_empty(), "{fault}");
     }
@@ -1212,6 +1252,7 @@ fn device_stopped_follows_context_and_cleanup() {
     let cleanup = |step, cleanup| Error::Cleanup {
         step: Box::new(step),
         cleanup: Box::new(cleanup),
+        advice: "",
     };
     assert!(lost().device_stopped());
     assert!(!refused().device_stopped());
@@ -1220,4 +1261,8 @@ fn device_stopped_follows_context_and_cleanup() {
     assert!(cleanup(context(lost()), invalid("no return")).device_stopped());
     assert!(cleanup(invalid("bad file"), lost()).device_stopped());
     assert!(!cleanup(invalid("bad file"), invalid("no return")).device_stopped());
+    let timed_out = || Error::TimedOut("DFU return timed out".into());
+    assert!(timed_out().device_stopped());
+    assert!(cleanup(invalid("bad file"), timed_out()).device_stopped());
+    assert_eq!(timed_out().to_string(), "DFU return timed out");
 }

@@ -196,6 +196,7 @@ impl<T: Transport> Dfu<T> {
             (result, Err(cleanup)) => Err(Error::Cleanup {
                 step: Box::new(result.err().unwrap_or_else(|| invalid("AES completed"))),
                 cleanup: Box::new(cleanup),
+                advice: "; re-enter fresh DFU",
             }),
         }
     }

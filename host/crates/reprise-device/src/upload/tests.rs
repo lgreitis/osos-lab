@@ -874,3 +874,21 @@ fn saved_rom_prepares_fixture_helper() {
         .prepare(&corrupt, &[7; 16], 1, &[9; 32], &options())
         .is_err());
 }
+
+#[test]
+fn storage_cleanup_failure_keeps_its_wording_and_both_errors() {
+    let error = cleanup_after(
+        invalid("Storage probe failed"),
+        Error::TimedOut("DFU return timed out; re-enter DFU before another upload".into()),
+    );
+    assert_eq!(
+        error.to_string(),
+        "Storage probe failed; DFU cleanup failed: DFU return timed out; re-enter DFU before another upload"
+    );
+    assert!(error.device_stopped());
+    let lost_step = cleanup_after(
+        crate::usb::usb_error("storage probe", rusb::Error::NoDevice),
+        invalid("Returned device is not DFU idle"),
+    );
+    assert!(lost_step.device_stopped());
+}

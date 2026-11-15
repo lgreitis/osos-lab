@@ -227,7 +227,10 @@ impl<T: Transport> Dfu<T> {
             let address = offset + bytes.len() as u32;
             let response = self
                 .execute(&payload::nor_read(address, count as u32)?)
-                .map_err(|e| invalid(format!("NOR offset {address:#x}: {e}")))?;
+                .map_err(|e| crate::Error::Context {
+                    context: format!("NOR offset {address:#x}"),
+                    source: Box::new(e),
+                })?;
             let status = u32::from_le_bytes(response[..4].try_into().unwrap());
             if status != 0 {
                 return Err(invalid(format!(
@@ -321,7 +324,7 @@ impl<T: Transport> Dfu<T> {
     fn wait_image_state(&mut self, manifest: bool, deadline: std::time::Instant) -> Result<()> {
         loop {
             if std::time::Instant::now() >= deadline {
-                return Err(invalid("Helper launch timed out"));
+                return Err(crate::Error::TimedOut("Helper launch timed out".into()));
             }
             let mut status = [0; 6];
             let n = self.transport.read(0xa1, 3, 0, 0, &mut status)?;

@@ -122,6 +122,16 @@ fn check_file_count(count: usize, batch_upload: bool) -> Result<()> {
     Ok(())
 }
 
+/// A failed storage step followed by a failed DFU return, in the wording
+/// storage inspection has always used.
+fn cleanup_after(step: Error, cleanup: Error) -> Error {
+    Error::Cleanup {
+        step: Box::new(step),
+        cleanup: Box::new(cleanup),
+        advice: "",
+    }
+}
+
 fn io_error(e: std::io::Error) -> Error {
     invalid(format!("Upload input: {e}"))
 }
@@ -382,8 +392,8 @@ fn returned(info: &DeviceInfo, nonce: &[u8; 16]) -> Result<(Session, [u8; 64])> 
             }
         }
         if Instant::now() >= deadline {
-            return Err(invalid(
-                "DFU return timed out; re-enter DFU before another upload",
+            return Err(Error::TimedOut(
+                "DFU return timed out; re-enter DFU before another upload".into(),
             ));
         }
         std::thread::sleep(Duration::from_millis(100));
@@ -522,6 +532,7 @@ impl Session {
                         Error::Cleanup {
                             step: Box::new(original),
                             cleanup: Box::new(e),
+                            advice: "",
                         },
                     ),
                     Ok(_) => (e.to_string(), e),
@@ -552,6 +563,7 @@ impl Session {
                 Err(idle) => Error::Cleanup {
                     step: Box::new(e),
                     cleanup: Box::new(idle),
+                    advice: "",
                 },
             };
             return Err(UploadFailure {
@@ -648,10 +660,7 @@ impl Session {
             Ok(returned) => returned,
             Err(cleanup) => {
                 return Err(match operation {
-                    Err(step) => Error::Cleanup {
-                        step: Box::new(step),
-                        cleanup: Box::new(cleanup),
-                    },
+                    Err(step) => cleanup_after(step, cleanup),
                     Ok(_) => cleanup,
                 })
             }
@@ -699,10 +708,7 @@ impl Session {
         if let Err(error) = cleanup {
             log(format!("DFU cleanup failed: {error}"));
             return Err(match result {
-                Err(step) => Error::Cleanup {
-                    step: Box::new(step),
-                    cleanup: Box::new(error),
-                },
+                Err(step) => cleanup_after(step, error),
                 Ok(_) => error,
             });
         }
