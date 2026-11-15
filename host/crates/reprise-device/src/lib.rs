@@ -52,6 +52,31 @@ pub enum Error {
         actual: usize,
         expected: usize,
     },
+    #[error("{context}: {source}")]
+    Context { context: String, source: Box<Error> },
+    /// A step, failed or finished, then a DFU cleanup that failed after it.
+    #[error("{step}; DFU cleanup failed: {cleanup}; re-enter fresh DFU")]
+    Cleanup {
+        #[source]
+        step: Box<Error>,
+        cleanup: Box<Error>,
+    },
+}
+
+impl Error {
+    /// Whether the iPod stopped answering over USB, as opposed to refusing
+    /// access, being busy or failing a check.
+    pub fn device_stopped(&self) -> bool {
+        match self {
+            Error::Usb { source, .. } => matches!(
+                source,
+                rusb::Error::Timeout | rusb::Error::Io | rusb::Error::NoDevice
+            ),
+            Error::Context { source, .. } => source.device_stopped(),
+            Error::Cleanup { step, cleanup } => step.device_stopped() || cleanup.device_stopped(),
+            _ => false,
+        }
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

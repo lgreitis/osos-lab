@@ -393,13 +393,14 @@ fn fast_cbc_chains_iv_handles_tail_and_reports_progress() {
             let mut dfu = Dfu { transport: script };
             let mut progress = Vec::new();
             let output = dfu
-                .decrypt_checked(
+                .decrypt_key_checked(
                     &cipher[offset..offset + size],
                     DecryptOptions {
                         iv,
                         chunk_size: chunk,
                     },
                     Some(&plain[offset..offset + size]),
+                    1,
                     |p| {
                         progress.push(p);
                         Ok(())
@@ -464,13 +465,14 @@ fn fast_failures_stop_without_retry_and_always_clean_up() {
         }
         let mut dfu = Dfu { transport: script };
         let error = dfu
-            .decrypt_checked(
+            .decrypt_key_checked(
                 &cipher[..512],
                 DecryptOptions {
                     iv: [0x71; 16],
                     chunk_size: 512,
                 },
                 Some(&plain[..512]),
+                1,
                 |_| {
                     if fault == "callback" {
                         Err(invalid("cancelled"))
@@ -483,8 +485,78 @@ fn fast_failures_stop_without_retry_and_always_clean_up() {
         if fault == "cleanup" {
             assert!(error.to_string().contains("cleanup failed"));
         }
+        assert_eq!(error.device_stopped(), fault == "timeout", "{fault}");
         assert!(dfu.transport.steps.is_empty(), "{fault}");
     }
+}
+
+#[test]
+fn interrupted_decrypt_keeps_finished_chunks_and_resumes() {
+    let (cipher, plain) = fast_fixture();
+    let chunk = 256;
+    let mut script = Script::default();
+    script.state(2);
+    script.echo_sweep();
+    script.fast(&cipher[..256], &[0x71; 16], true, &plain[..256]);
+    script.fast(&cipher[256..512], &cipher[240..256], true, &plain[256..512]);
+    script.fast(&cipher[512..768], &cipher[496..512], true, &plain[512..768]);
+    script.steps.back_mut().unwrap().count = usize::MAX;
+    script.idle_cleanup();
+    let mut dfu = Dfu { transport: script };
+    let mut plaintext = Vec::new();
+    let options = DecryptOptions {
+        iv: [0x71; 16],
+        chunk_size: chunk,
+    };
+    let error = dfu
+        .decrypt_key_into(&cipher, options, None, 1, &mut plaintext, |_| Ok(()))
+        .unwrap_err();
+    assert!(error.to_string().contains("AES at input offset 0x200"));
+    assert!(error.device_stopped());
+    assert_eq!(plaintext, plain[..512]);
+    assert!(dfu.transport.steps.is_empty());
+
+    let offset = plaintext.len();
+    let mut script = Script::default();
+    script.state(2);
+    script.echo_sweep();
+    for start in (offset..cipher.len()).step_by(chunk) {
+        let end = (start + chunk).min(cipher.len());
+        script.fast(
+            &cipher[start..end],
+            &cipher[start - 16..start],
+            true,
+            &plain[start..end],
+        );
+    }
+    script.idle_cleanup();
+    let mut dfu = Dfu { transport: script };
+    let mut progress = Vec::new();
+    let report = dfu
+        .decrypt_key_into(
+            &cipher[offset..],
+            DecryptOptions {
+                iv: cipher[offset - 16..offset].try_into().unwrap(),
+                chunk_size: chunk,
+            },
+            None,
+            1,
+            &mut plaintext,
+            |p| {
+                progress.push(p);
+                Ok(())
+            },
+        )
+        .unwrap();
+    assert_eq!(plaintext, plain);
+    assert_eq!(report.bytes, cipher.len() - offset);
+    assert_eq!(
+        report.sha256,
+        format!("{:x}", sha2::Sha256::digest(&plain[offset..]))
+    );
+    assert_eq!(progress.last().unwrap().completed, cipher.len() - offset);
+    assert_eq!(report.cleanup, Cleanup::Idle);
+    assert!(dfu.transport.steps.is_empty());
 }
 
 #[test]
@@ -494,21 +566,26 @@ fn invalid_aes_inputs_never_touch_transport() {
     };
     for (size, chunk) in [(0, 512), (15, 512), (16, 0), (16, 513), (16, 17)] {
         assert!(dfu
-            .decrypt_checked(
+            .decrypt_key_checked(
                 &vec![0; size],
                 DecryptOptions {
                     iv: [0; 16],
                     chunk_size: chunk
                 },
                 None,
+                1,
                 |_| Ok(())
             )
             .is_err());
     }
     assert!(dfu
-        .decrypt_checked(&[0; 16], DecryptOptions::default(), Some(&[0; 32]), |_| Ok(
-            ()
-        ))
+        .decrypt_key_checked(
+            &[0; 16],
+            DecryptOptions::default(),
+            Some(&[0; 32]),
+            1,
+            |_| Ok(())
+        )
         .is_err());
 }
 

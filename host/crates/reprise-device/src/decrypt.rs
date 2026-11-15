@@ -2,7 +2,7 @@
 
 use crate::{
     dfu::{Dfu, Transport},
-    invalid, payload, Cleanup, Result,
+    invalid, payload, Cleanup, Error, Result,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -91,25 +91,33 @@ impl<T: Transport> Dfu<T> {
         self.fast_exchange(&wire, size)
     }
 
-    pub(crate) fn decrypt_checked(
-        &mut self,
-        ciphertext: &[u8],
-        options: DecryptOptions,
-        reference: Option<&[u8]>,
-        emit: impl FnMut(DecryptProgress) -> Result<()>,
-    ) -> Result<Decrypted> {
-        self.decrypt_key_checked(ciphertext, options, reference, 1, emit)
-    }
-
     pub(crate) fn decrypt_key_checked(
         &mut self,
         ciphertext: &[u8],
         options: DecryptOptions,
         reference: Option<&[u8]>,
         key: u32,
-        mut emit: impl FnMut(DecryptProgress) -> Result<()>,
+        emit: impl FnMut(DecryptProgress) -> Result<()>,
     ) -> Result<Decrypted> {
+        let mut plaintext = Vec::with_capacity(ciphertext.len());
+        let report =
+            self.decrypt_key_into(ciphertext, options, reference, key, &mut plaintext, emit)?;
+        Ok(Decrypted { plaintext, report })
+    }
+
+    /// Appends each decrypted chunk to `plaintext` as it arrives, so the
+    /// chunks before a failure stay with the caller.
+    pub(crate) fn decrypt_key_into(
+        &mut self,
+        ciphertext: &[u8],
+        options: DecryptOptions,
+        reference: Option<&[u8]>,
+        key: u32,
+        plaintext: &mut Vec<u8>,
+        mut emit: impl FnMut(DecryptProgress) -> Result<()>,
+    ) -> Result<DecryptReport> {
         options.validate(ciphertext, reference)?;
+        let base = plaintext.len();
         let operation = (|| {
             if self.state()? != 2 {
                 return Err(invalid(
@@ -131,12 +139,12 @@ impl<T: Transport> Dfu<T> {
                 Vec::new()
             };
             let start = Instant::now();
-            let mut plaintext = Vec::with_capacity(ciphertext.len());
+            plaintext.reserve(ciphertext.len());
             let mut iv = options.iv;
             let mut calls = 0;
             let mut next_percent = 1;
             for block in ciphertext.chunks(options.chunk_size) {
-                let offset = plaintext.len();
+                let offset = plaintext.len() - base;
                 let code = if block.len() == options.chunk_size {
                     &full_code
                 } else {
@@ -144,7 +152,10 @@ impl<T: Transport> Dfu<T> {
                 };
                 let output = self
                     .aes_exchange(block, &iv, code)
-                    .map_err(|e| invalid(format!("AES at input offset {offset:#x}: {e}")))?;
+                    .map_err(|e| Error::Context {
+                        context: format!("AES at input offset {offset:#x}"),
+                        source: Box::new(e),
+                    })?;
                 if reference.is_some_and(|r| output != r[offset..offset + block.len()]) {
                     return Err(invalid(format!(
                         "Plaintext reference mismatch at input offset {offset:#x}"
@@ -153,42 +164,39 @@ impl<T: Transport> Dfu<T> {
                 iv.copy_from_slice(&block[block.len() - 16..]);
                 plaintext.extend_from_slice(&output);
                 calls += 1;
-                if plaintext.len() == ciphertext.len()
-                    || plaintext.len() * 100 >= next_percent * ciphertext.len()
-                {
+                let done = plaintext.len() - base;
+                if done == ciphertext.len() || done * 100 >= next_percent * ciphertext.len() {
                     emit(DecryptProgress {
                         stage: "decrypt",
-                        completed: plaintext.len(),
+                        completed: done,
                         total: ciphertext.len(),
                     })?;
-                    next_percent = plaintext.len() * 100 / ciphertext.len() + 1;
+                    next_percent = done * 100 / ciphertext.len() + 1;
                 }
             }
             let seconds = start.elapsed().as_secs_f64();
-            let report = DecryptReport {
+            let bytes = plaintext.len() - base;
+            Ok(DecryptReport {
                 schema_version: 1,
-                bytes: plaintext.len(),
+                bytes,
                 calls,
                 seconds,
-                kib_per_second: plaintext.len() as f64 / 1024.0 / seconds.max(f64::EPSILON),
-                sha256: format!("{:x}", Sha256::digest(&plaintext)),
+                kib_per_second: bytes as f64 / 1024.0 / seconds.max(f64::EPSILON),
+                sha256: format!("{:x}", Sha256::digest(&plaintext[base..])),
                 reference_matched: reference.is_some(),
                 cleanup: Cleanup::NotAttempted,
-            };
-            Ok(Decrypted { plaintext, report })
+            })
         })();
         match (operation, self.idle()) {
-            (Ok(mut output), Ok(())) => {
-                output.report.cleanup = Cleanup::Idle;
-                Ok(output)
+            (Ok(mut report), Ok(())) => {
+                report.cleanup = Cleanup::Idle;
+                Ok(report)
             }
             (Err(error), Ok(())) => Err(error),
-            (result, Err(cleanup)) => Err(invalid(format!(
-                "{}; DFU cleanup failed: {cleanup}; re-enter fresh DFU",
-                result
-                    .err()
-                    .map_or_else(|| "AES completed".into(), |e| e.to_string())
-            ))),
+            (result, Err(cleanup)) => Err(Error::Cleanup {
+                step: Box::new(result.err().unwrap_or_else(|| invalid("AES completed"))),
+                cleanup: Box::new(cleanup),
+            }),
         }
     }
 }
