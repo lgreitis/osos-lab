@@ -145,10 +145,7 @@ unsigned command_request(unsigned request, unsigned length, unsigned state, int 
     def test_next_file_needs_a_complete_session_and_the_full_config(self):
         nonce = bytes([7]) * 16
         config = (
-            nonce
-            + struct.pack("<II", 512, 1)
-            + bytes(32)
-            + b"/a.bin".ljust(192, b"\0")
+            nonce + struct.pack("<II", 512, 1) + bytes(32) + b"/a.bin".ljust(192, b"\0")
         )
         self.assertEqual(len(config), 248)
         request = self.lib.command_request

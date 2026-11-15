@@ -340,7 +340,12 @@ extern struct storage_result test_storage;
         for size in [0, 65537, 13 * 1024 * 1024 + 17]:
             with self.subTest(size=size):
                 self.run_file(
-                    size, True, False, 0, "/osos-cfw.bin", second="/themes/dark/theme.bin"
+                    size,
+                    True,
+                    False,
+                    0,
+                    "/osos-cfw.bin",
+                    second="/themes/dark/theme.bin",
                 )
 
     def test_next_file_refuses_storage_inspection_and_failed_sessions(self):
