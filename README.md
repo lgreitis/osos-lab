@@ -74,11 +74,10 @@ reduction after long listening.
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →
 Music Menu.
 
-**Playback Log** adds an On/Off switch in Settings. When enabled, completed,
-skipped and replaced tracks are appended to `playback.tsv`. The log includes
-track metadata, timestamps and playback position. Position is not measured
-listening time: pauses and seeks affect the estimates. See the
-[column reference](docs/playback-log.md).
+**Playback Log** adds an On/Off switch in Settings. It exports a standard
+`.scrobbler.log` by default, with optional detailed TSV reports and selectable
+columns configured in a small text file. Listening time excludes pauses and
+seek jumps. See the [configuration and column reference](docs/playback-log.md).
 
 **Night Shift** warms the whole screen through the display's gamma tables. It is
 off by default and the setting persists across reboots.

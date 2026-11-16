@@ -239,3 +239,6 @@ PATCH_CALL(OSOS_ADVANCE_SELECT_CALL, OSOS_PLAYER_SELECT_TRACK,
            cfw_playback_log_advance);
 PATCH_JUMP(OSOS_TRACK_COMPLETE_ENTRY, 0xe92d4010, 0xe1a04000,
            cfw_playback_log_complete);
+
+PATCH_JUMP(OSOS_PLAYER_NOTIFY_ENTRY, 0xe92d4038, 0xe1a05001, cfw_playback_log_notify);
+PATCH_JUMP(OSOS_PLAYER_EVENT_ENTRY, 0xe92d4070, 0xe1a05000, cfw_playback_log_event);
