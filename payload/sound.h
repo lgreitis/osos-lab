@@ -12,3 +12,10 @@ void cfw_crossfeed_reset(void);
 void cfw_crossfeed_process(int16_t *samples, uint32_t frames, uint32_t rate);
 int cfw_crossfeed_action(void *controller, const char *action, uint32_t argument);
 int cfw_crossfeed_property(uint32_t type, uint32_t property, uintptr_t *out);
+
+/* Mono Audio */
+void cfw_mono_audio_process(int16_t *samples, uint32_t frames);
+void cfw_mono_audio_load(void);
+void cfw_mono_audio_reset(void);
+int cfw_mono_audio_property(uint32_t type, uint32_t property, uintptr_t *out);
+int cfw_mono_audio_action(void *controller, const char *action, uint32_t argument);
