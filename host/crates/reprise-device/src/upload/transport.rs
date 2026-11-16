@@ -7,7 +7,7 @@ use super::{
     image::UsbIdentity,
     protocol::{Status, CONFIG_SIZE, NEXT, RESULT_SIZE, STATUS},
 };
-use crate::{exact, invalid, usb::usb_error, DeviceInfo, Result};
+use crate::{exact, invalid, usb::usb_error, DeviceInfo, Error, Result};
 use rusb::{Context, DeviceHandle, UsbContext};
 use std::time::{Duration, Instant};
 const TIMEOUT: Duration = Duration::from_secs(15);
@@ -216,7 +216,7 @@ pub(super) fn open_bulk(
             if !other_ports.is_empty() {
                 return Err(invalid(format!("Upload helper appeared on a different USB bus/port; expected bus {}, port {:?}; observed {other_ports:?}", info.selector.bus, info.port_path)));
             }
-            return Err(invalid(format!(
+            return Err(Error::TimedOut(format!(
                 "Upload helper {:04x}:{:04x} did not enumerate on USB bus {}, port {:?} within 90s",
                 usb.vendor_id, usb.product_id, info.selector.bus, info.port_path
             )));

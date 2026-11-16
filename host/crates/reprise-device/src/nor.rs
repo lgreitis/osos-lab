@@ -2,7 +2,7 @@
 
 use crate::{
     dfu::{Dfu, Transport},
-    invalid, payload, Cleanup, Result,
+    invalid, payload, Cleanup, Error, Result,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -39,8 +39,10 @@ impl<T: Transport> Dfu<T> {
         let code = payload::fast_nor(offset as u32, size)?;
         let mut wire = vec![0; payload::PREFIX_SIZE];
         wire.extend_from_slice(&code);
-        self.fast_exchange(&wire, size)
-            .map_err(|e| invalid(format!("Fast NOR offset {offset:#x}: {e}")))
+        self.fast_exchange(&wire, size).map_err(|e| Error::Context {
+            context: format!("Fast NOR offset {offset:#x}"),
+            source: Box::new(e),
+        })
     }
 
     pub(crate) fn dump_nor_checked(
@@ -139,12 +141,15 @@ impl<T: Transport> Dfu<T> {
                 Ok(dump)
             }
             (Err(error), Ok(())) => Err(error),
-            (result, Err(cleanup)) => Err(invalid(format!(
-                "{}; DFU cleanup failed: {cleanup}; re-enter fresh DFU",
-                result
-                    .err()
-                    .map_or_else(|| "NOR dump completed".into(), |e| e.to_string())
-            ))),
+            (result, Err(cleanup)) => Err(Error::Cleanup {
+                step: Box::new(
+                    result
+                        .err()
+                        .unwrap_or_else(|| invalid("NOR dump completed")),
+                ),
+                cleanup: Box::new(cleanup),
+                advice: "; re-enter fresh DFU",
+            }),
         }
     }
 }

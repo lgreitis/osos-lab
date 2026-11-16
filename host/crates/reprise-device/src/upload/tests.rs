@@ -231,6 +231,8 @@ struct BatchFake {
     corrupt: Option<usize>,
     /// Report the previous file's byte count as received after NEXT.
     stale: bool,
+    /// Lose the device while sending this file.
+    unplug: Option<usize>,
 }
 
 impl BatchFake {
@@ -245,6 +247,7 @@ impl BatchFake {
             payloads: vec![],
             corrupt: None,
             stale: false,
+            unplug: None,
         }
     }
 }
@@ -281,6 +284,9 @@ impl BulkTransport for BatchFake {
 
     fn send(&mut self, b: &[u8]) -> Result<usize> {
         assert!(self.started);
+        if self.unplug == Some(self.current) {
+            return Err(crate::usb::usb_error("file upload", rusb::Error::NoDevice));
+        }
         let n = (self.files[self.current].0 - self.sent).min(CHUNK as u32) as usize;
         self.hash.update(&b[..n]);
         self.sent += n as u32;
@@ -432,6 +438,22 @@ fn batch_stops_at_the_first_bad_file_and_keeps_the_verified_reports() {
     assert!(result.unwrap_err().to_string().contains("cancelled"));
     assert_eq!(bulk.commands, vec![START, NEXT, START]);
     assert_eq!(reports.len(), 2);
+}
+
+#[test]
+fn a_lost_device_mid_file_reports_the_ipod_stopped() {
+    let mut bulk = BatchFake::new(&BATCH);
+    bulk.unplug = Some(2);
+    let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
+    let error = result.unwrap_err();
+    assert!(error.to_string().starts_with("/osos-cfw.bin: "), "{error}");
+    assert!(error.device_stopped());
+    assert_eq!(reports.len(), 2);
+
+    let mut bulk = BatchFake::new(&BATCH);
+    bulk.corrupt = Some(1);
+    let (result, _, _) = batch(&mut bulk, &mut |_| Ok(()));
+    assert!(!result.unwrap_err().device_stopped());
 }
 
 #[test]
@@ -851,4 +873,22 @@ fn saved_rom_prepares_fixture_helper() {
     assert!(helper
         .prepare(&corrupt, &[7; 16], 1, &[9; 32], &options())
         .is_err());
+}
+
+#[test]
+fn storage_cleanup_failure_keeps_its_wording_and_both_errors() {
+    let error = cleanup_after(
+        invalid("Storage probe failed"),
+        Error::TimedOut("DFU return timed out; re-enter DFU before another upload".into()),
+    );
+    assert_eq!(
+        error.to_string(),
+        "Storage probe failed; DFU cleanup failed: DFU return timed out; re-enter DFU before another upload"
+    );
+    assert!(error.device_stopped());
+    let lost_step = cleanup_after(
+        crate::usb::usb_error("storage probe", rusb::Error::NoDevice),
+        invalid("Returned device is not DFU idle"),
+    );
+    assert!(lost_step.device_stopped());
 }

@@ -322,6 +322,23 @@ impl Session {
         reference: Option<&[u8]>,
         emit: impl FnMut(crate::DecryptProgress) -> Result<()>,
     ) -> Result<crate::Decrypted> {
+        let mut plaintext = Vec::with_capacity(ciphertext.len());
+        let report = self.decrypt_into(ciphertext, options, reference, &mut plaintext, emit)?;
+        Ok(crate::Decrypted { plaintext, report })
+    }
+
+    /// Like `decrypt`, appending to `plaintext` chunk by chunk. After an
+    /// error it holds every chunk decrypted before the failure, so a later
+    /// session can continue with the ciphertext after the bytes it gained,
+    /// taking the ciphertext block just before them as IV.
+    pub fn decrypt_into(
+        &mut self,
+        ciphertext: &[u8],
+        options: crate::DecryptOptions,
+        reference: Option<&[u8]>,
+        plaintext: &mut Vec<u8>,
+        emit: impl FnMut(crate::DecryptProgress) -> Result<()>,
+    ) -> Result<crate::DecryptReport> {
         options.validate(ciphertext, reference)?;
         if !self.operation_ready {
             return Err(invalid(
@@ -332,7 +349,7 @@ impl Session {
         self.dfu.transport.timeout = Duration::from_secs(2);
         let result = self
             .dfu
-            .decrypt_checked(ciphertext, options, reference, emit);
+            .decrypt_key_into(ciphertext, options, reference, 1, plaintext, emit);
         self.dfu.transport.timeout = TIMEOUT;
         self.operation_ready = result.is_ok();
         result

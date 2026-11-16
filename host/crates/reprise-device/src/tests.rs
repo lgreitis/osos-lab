@@ -393,13 +393,14 @@ fn fast_cbc_chains_iv_handles_tail_and_reports_progress() {
             let mut dfu = Dfu { transport: script };
             let mut progress = Vec::new();
             let output = dfu
-                .decrypt_checked(
+                .decrypt_key_checked(
                     &cipher[offset..offset + size],
                     DecryptOptions {
                         iv,
                         chunk_size: chunk,
                     },
                     Some(&plain[offset..offset + size]),
+                    1,
                     |p| {
                         progress.push(p);
                         Ok(())
@@ -464,13 +465,14 @@ fn fast_failures_stop_without_retry_and_always_clean_up() {
         }
         let mut dfu = Dfu { transport: script };
         let error = dfu
-            .decrypt_checked(
+            .decrypt_key_checked(
                 &cipher[..512],
                 DecryptOptions {
                     iv: [0x71; 16],
                     chunk_size: 512,
                 },
                 Some(&plain[..512]),
+                1,
                 |_| {
                     if fault == "callback" {
                         Err(invalid("cancelled"))
@@ -483,8 +485,78 @@ fn fast_failures_stop_without_retry_and_always_clean_up() {
         if fault == "cleanup" {
             assert!(error.to_string().contains("cleanup failed"));
         }
+        assert_eq!(error.device_stopped(), fault == "timeout", "{fault}");
         assert!(dfu.transport.steps.is_empty(), "{fault}");
     }
+}
+
+#[test]
+fn interrupted_decrypt_keeps_finished_chunks_and_resumes() {
+    let (cipher, plain) = fast_fixture();
+    let chunk = 256;
+    let mut script = Script::default();
+    script.state(2);
+    script.echo_sweep();
+    script.fast(&cipher[..256], &[0x71; 16], true, &plain[..256]);
+    script.fast(&cipher[256..512], &cipher[240..256], true, &plain[256..512]);
+    script.fast(&cipher[512..768], &cipher[496..512], true, &plain[512..768]);
+    script.steps.back_mut().unwrap().count = usize::MAX;
+    script.idle_cleanup();
+    let mut dfu = Dfu { transport: script };
+    let mut plaintext = Vec::new();
+    let options = DecryptOptions {
+        iv: [0x71; 16],
+        chunk_size: chunk,
+    };
+    let error = dfu
+        .decrypt_key_into(&cipher, options, None, 1, &mut plaintext, |_| Ok(()))
+        .unwrap_err();
+    assert!(error.to_string().contains("AES at input offset 0x200"));
+    assert!(error.device_stopped());
+    assert_eq!(plaintext, plain[..512]);
+    assert!(dfu.transport.steps.is_empty());
+
+    let offset = plaintext.len();
+    let mut script = Script::default();
+    script.state(2);
+    script.echo_sweep();
+    for start in (offset..cipher.len()).step_by(chunk) {
+        let end = (start + chunk).min(cipher.len());
+        script.fast(
+            &cipher[start..end],
+            &cipher[start - 16..start],
+            true,
+            &plain[start..end],
+        );
+    }
+    script.idle_cleanup();
+    let mut dfu = Dfu { transport: script };
+    let mut progress = Vec::new();
+    let report = dfu
+        .decrypt_key_into(
+            &cipher[offset..],
+            DecryptOptions {
+                iv: cipher[offset - 16..offset].try_into().unwrap(),
+                chunk_size: chunk,
+            },
+            None,
+            1,
+            &mut plaintext,
+            |p| {
+                progress.push(p);
+                Ok(())
+            },
+        )
+        .unwrap();
+    assert_eq!(plaintext, plain);
+    assert_eq!(report.bytes, cipher.len() - offset);
+    assert_eq!(
+        report.sha256,
+        format!("{:x}", sha2::Sha256::digest(&plain[offset..]))
+    );
+    assert_eq!(progress.last().unwrap().completed, cipher.len() - offset);
+    assert_eq!(report.cleanup, Cleanup::Idle);
+    assert!(dfu.transport.steps.is_empty());
 }
 
 #[test]
@@ -494,21 +566,26 @@ fn invalid_aes_inputs_never_touch_transport() {
     };
     for (size, chunk) in [(0, 512), (15, 512), (16, 0), (16, 513), (16, 17)] {
         assert!(dfu
-            .decrypt_checked(
+            .decrypt_key_checked(
                 &vec![0; size],
                 DecryptOptions {
                     iv: [0; 16],
                     chunk_size: chunk
                 },
                 None,
+                1,
                 |_| Ok(())
             )
             .is_err());
     }
     assert!(dfu
-        .decrypt_checked(&[0; 16], DecryptOptions::default(), Some(&[0; 32]), |_| Ok(
-            ()
-        ))
+        .decrypt_key_checked(
+            &[0; 16],
+            DecryptOptions::default(),
+            Some(&[0; 32]),
+            1,
+            |_| Ok(())
+        )
         .is_err());
 }
 
@@ -564,7 +641,17 @@ fn fast_nor_full_dump_cross_checks_shifted_boundaries_and_edges() {
     let bytes: Vec<u8> = (0..NOR_SIZE)
         .map(|i| (i * 37 + i / 19 + i / 65536) as u8)
         .collect();
-    for fault in ["none", "short", "status", "shifted", "edge", "cleanup"] {
+    for fault in [
+        "none",
+        "short",
+        "status",
+        "shifted",
+        "edge",
+        "cleanup",
+        "lost",
+        "edge_lost",
+        "lost_cleanup",
+    ] {
         let mut script = Script::default();
         script.state(2);
         script.echo_sweep();
@@ -597,10 +684,18 @@ fn fast_nor_full_dump_cross_checks_shifted_boundaries_and_edges() {
                 script.steps[edge_reply].data[4] ^= 1;
                 script.steps.truncate(edge_reply + 8);
             }
+            "lost" | "lost_cleanup" => {
+                script.steps[first_reply].count = usize::MAX;
+                script.steps.truncate(first_reply + 1);
+            }
+            "edge_lost" => {
+                script.steps[edge_reply].count = usize::MAX;
+                script.steps.truncate(edge_reply + 1);
+            }
             _ => {}
         }
         script.idle_cleanup();
-        if fault == "cleanup" {
+        if matches!(fault, "cleanup" | "lost_cleanup") {
             script.steps.back_mut().unwrap().data[0] = 10;
         }
         let mut dfu = Dfu { transport: script };
@@ -617,7 +712,29 @@ fn fast_nor_full_dump_cross_checks_shifted_boundaries_and_edges() {
             assert_eq!(progress.last().unwrap().stage, "nor_verify");
             assert_eq!(progress.last().unwrap().completed, NOR_SIZE);
         } else {
-            assert!(result.is_err(), "{fault}");
+            let error = result.unwrap_err();
+            let text = error.to_string();
+            match fault {
+                "lost" => assert!(text.starts_with("Fast NOR offset 0x0: USB "), "{text}"),
+                "edge_lost" => assert!(text.starts_with("NOR offset 0x0: USB "), "{text}"),
+                "lost_cleanup" => assert!(
+                    matches!(error, Error::Cleanup { .. })
+                        && text.starts_with("Fast NOR offset 0x0: USB ")
+                        && text.ends_with("; re-enter fresh DFU"),
+                    "{text}"
+                ),
+                "cleanup" => assert!(
+                    text.starts_with("NOR dump completed; DFU cleanup failed: ")
+                        && text.ends_with("; re-enter fresh DFU"),
+                    "{text}"
+                ),
+                _ => {}
+            }
+            assert_eq!(
+                error.device_stopped(),
+                matches!(fault, "lost" | "edge_lost" | "lost_cleanup"),
+                "{fault}"
+            );
         }
         assert!(dfu.transport.steps.is_empty(), "{fault}");
     }
@@ -1122,4 +1239,30 @@ fn hardware_override_does_not_bypass_bootrom_or_cleanup_checks() {
         assert_eq!(report.cleanup == Cleanup::Idle, final_state == 2);
         assert!(dfu.transport.steps.is_empty());
     }
+}
+
+#[test]
+fn device_stopped_follows_context_and_cleanup() {
+    let lost = || crate::usb::usb_error("file upload", rusb::Error::NoDevice);
+    let refused = || crate::usb::usb_error("file upload", rusb::Error::Access);
+    let context = |source| Error::Context {
+        context: "/osos-cfw.bin".into(),
+        source: Box::new(source),
+    };
+    let cleanup = |step, cleanup| Error::Cleanup {
+        step: Box::new(step),
+        cleanup: Box::new(cleanup),
+        advice: "",
+    };
+    assert!(lost().device_stopped());
+    assert!(!refused().device_stopped());
+    assert!(context(lost()).device_stopped());
+    assert!(!context(refused()).device_stopped());
+    assert!(cleanup(context(lost()), invalid("no return")).device_stopped());
+    assert!(cleanup(invalid("bad file"), lost()).device_stopped());
+    assert!(!cleanup(invalid("bad file"), invalid("no return")).device_stopped());
+    let timed_out = || Error::TimedOut("DFU return timed out".into());
+    assert!(timed_out().device_stopped());
+    assert!(cleanup(invalid("bad file"), timed_out()).device_stopped());
+    assert_eq!(timed_out().to_string(), "DFU return timed out");
 }
