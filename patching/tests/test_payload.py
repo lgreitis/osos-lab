@@ -61,6 +61,7 @@ class PayloadTests(unittest.TestCase):
                     root / "payload/crossfeed.ui",
                     root / "payload/cfw_info.ui",
                     root / "payload/album_artists.ui",
+                    root / "payload/sleep_timer.ui",
                 ],
                 directory,
                 "test",

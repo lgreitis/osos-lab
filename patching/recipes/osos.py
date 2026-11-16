@@ -67,6 +67,7 @@ def build_recipe(
                 "crossfeed.ui",
                 "play_next.ui",
                 "file_info.ui",
+                "sleep_timer.ui",
                 "album_artists.ui",
                 # Both anchor after Brightness; the later document lands first.
                 "night_shift.ui",

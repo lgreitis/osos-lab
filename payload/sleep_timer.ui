@@ -1,0 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <string id="CFW_SLEEP_TIMER_LABEL" text="Sleep Timer"/>
+  <screen-event screen="NowPlaying_Screen" event="contextualMenu.CFW_SleepTimer" handler="CFW_SleepTimer"/>
+</ui>
