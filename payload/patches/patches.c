@@ -242,3 +242,16 @@ PATCH_JUMP(OSOS_TRACK_COMPLETE_ENTRY, 0xe92d4010, 0xe1a04000,
 
 PATCH_JUMP(OSOS_PLAYER_NOTIFY_ENTRY, 0xe92d4038, 0xe1a05001, cfw_playback_log_notify);
 PATCH_JUMP(OSOS_PLAYER_EVENT_ENTRY, 0xe92d4070, 0xe1a05000, cfw_playback_log_event);
+
+/* Up Next queue list and player refresh. */
+PATCH_JUMP(OSOS_NOW_PLAYING_VISIBLE_TAIL, 0x33a01000, 0xea023c73,
+           cfw_up_next_now_playing_visible);
+PATCH_JUMP(OSOS_BROWSER_BUILD_SONGS, 0xe92d4ff1, 0xe24dd018, cfw_up_next_build_songs);
+PATCH_JUMP(OSOS_SONG_CONTEXT_MENU, 0xe92d4ff0, 0xe24dd034, cfw_up_next_song_menu);
+PATCH_JUMP(OSOS_PLAY_SONG_ROW, 0xe92d4ff0, 0xe1a06000, cfw_up_next_play_row);
+PATCH_JUMP(OSOS_NOW_PLAYING_EVENT, 0xe92d41f0, 0xe1a04000, cfw_up_next_np_event);
+PATCH_JUMP(OSOS_PLAYER_HANDLE_NEXT, 0xe92d4010, 0xeb023157, cfw_up_next_next);
+PATCH_JUMP(OSOS_PLAYER_HANDLE_PREVIOUS, 0xe92d4010, 0xeb022beb, cfw_up_next_previous);
+PATCH_JUMP(OSOS_NAVIGATOR_POP_TOP, 0xe92d4070, 0xe1a05000, cfw_up_next_pop_top);
+PATCH_POINTER(OSOS_LIBRARY_READ_SONG_ITEM_SLOT, OSOS_LIBRARY_READ_SONG_ITEM,
+              cfw_up_next_song_item);

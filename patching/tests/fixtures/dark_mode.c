@@ -437,19 +437,28 @@ int cfw_file_info_indexed_property(uint32_t type, uint32_t property, uint32_t in
 #define osos_settings_property settings_property
 #define osos_preferences_flush native_flush
 #define osos_reset_all_settings native_reset
+
 /* Night Shift talks to the display hardware; its own entry points are stubbed. */
-void cfw_night_shift_load(void) {}
-void cfw_night_shift_reset(void) {}
+void cfw_night_shift_load(void)
+{
+}
+
+void cfw_night_shift_reset(void)
+{
+}
+
 int cfw_night_shift_action(void *c, const char *a, uint32_t g)
 {
     (void)c, (void)a, (void)g;
     return 0;
 }
+
 int cfw_night_shift_property(uint32_t t, uint32_t p, uintptr_t *o)
 {
     (void)t, (void)p, (void)o;
     return 0;
 }
+
 #include "../../../payload/settings.c"
 
 static void check_settings_lifecycle(void)
@@ -671,4 +680,13 @@ int cfw_playback_log_property(uint32_t t, uint32_t p, uintptr_t *o)
 
 void cfw_playback_log_reset(void)
 {
+}
+
+int cfw_up_next_property(void *model, uint32_t type, uint32_t property, uintptr_t *out)
+{
+    (void)model;
+    (void)type;
+    (void)property;
+    (void)out;
+    return 0;
 }

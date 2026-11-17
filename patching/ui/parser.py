@@ -80,6 +80,7 @@ class Parser:
                 "layout-event",
                 "music-entry",
                 "bitmap",
+                "main-entry",
             ),
         )
         for node in tree:
@@ -91,6 +92,7 @@ class Parser:
             and not document.strings
             and not document.events
             and document.music_entry is None
+            and document.main_entry is None
         ):
             raise ValueError("Incomplete UI declaration")
         # Only canvas pages read settings; nothing else would emit their storage.
@@ -195,6 +197,12 @@ class Parser:
                 if value not in ("true", "false"):
                     raise ValueError(f"Invalid {attribute} on <music-entry>")
                 document.music_entry[attribute] = value
+        elif node.tag == "main-entry":
+            attributes(node, "id title after open hilite preview", "message")
+            if document.main_entry is not None:
+                raise ValueError("Duplicate main menu entry")
+            self.identifier(node)
+            document.main_entry = dict(node.attrib)
 
     def parse_values(self, node):
         attributes(node, "id", children=("value",))

@@ -53,10 +53,24 @@ static const uint32_t native_rows_table[5];
 #include "../../../payload/store.c"
 #include "../../../payload/ui_visibility.c"
 
-static uint32_t visible[2];
+static uint32_t visible[2], available[2] = {3, 3};
 const struct cfw_ui_visibility cfw_ui_visibility[] = {
-    {101, 1, {11, 21}, {2, 3}, 2, "iPod_Control\\Device\\CFWMenu_a", &visible[0]},
-    {202, 2, {12, 22}, {2, 3}, 1, "iPod_Control\\Device\\CFWMenu_b", &visible[1]},
+    {101,
+     1,
+     {11, 21},
+     {2, 3},
+     2,
+     "iPod_Control\\Device\\CFWMenu_a",
+     &visible[0],
+     &available[0]},
+    {202,
+     2,
+     {12, 22},
+     {2, 3},
+     1,
+     "iPod_Control\\Device\\CFWMenu_b",
+     &visible[1],
+     &available[1]},
 };
 const uint32_t cfw_ui_visibility_count = 2;
 
@@ -197,6 +211,21 @@ static void check_visibility(void)
     boot();
     cfw_ui_visibility_load_preferences();
     assert(visible[0] == 0 && visible[1] == 3);
+
+    /* Runtime availability never overwrites the persisted user preference. */
+    cfw_ui_visibility_set_available(12, 0);
+    assert(shown[0][2] == 0 && visible[1] == 3);
+    cfw_ui_main_menu_toggle(NULL, CFW_UI_CUSTOM_ROW | 1);
+    assert(visible[1] == 2 && shown[0][2] == 0);
+    cfw_ui_visibility_set_available(12, 1);
+    assert(shown[0][2] == 0 && visible[1] == 2);
+    cfw_store_flush();
+    visible[1] = 3;
+    boot();
+    cfw_ui_visibility_load_preferences();
+    assert(visible[1] == 2);
+    cfw_ui_main_menu_reset(NULL);
+    assert(visible[1] == 3 && shown[0][2] == 1);
 
     /* Entries missing from the record keep their defaults. */
     uint32_t pairs[2] = {202, 2};

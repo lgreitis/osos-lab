@@ -12,6 +12,7 @@
 #include "resources.h"
 #include "sound.h"
 #include "store.h"
+#include "up_next.h"
 
 static void *native_preferences;
 
@@ -75,7 +76,8 @@ PATCH_ARM int cfw_settings_action(void *controller, const char *action,
 PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t property,
                                     uintptr_t *out)
 {
-    if (cfw_playback_log_property(type, property, out) ||
+    if (cfw_up_next_property(model, type, property, out) ||
+        cfw_playback_log_property(type, property, out) ||
         cfw_file_info_property(type, property, out) ||
         cfw_dark_mode_property(type, property, out) ||
         cfw_night_shift_property(type, property, out) ||

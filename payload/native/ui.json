@@ -54,6 +54,12 @@
     "MediaLists_Movies_Screen": 229443588,
     "MediaLists_NestedVideoPlaylists_Screen": 229443602,
     "MediaLists_TVEpisodes_Layout": 229443587,
-    "MediaLists_Movies_Layout": 229443589
+    "MediaLists_Movies_Layout": 229443589,
+    "MainMenu_List_Sleep": 229443478,
+    "MainMenu_List_NowPlaying": 229443479,
+    "MainMenu_Preview_Compilations": 229443495,
+    "PreviewArea_Watermark_Message": 229441979,
+    "PreviewArea_Watermark_Message2": 229441980,
+    "PreviewArea_Watermark_Message3": 229441981
   }
 }

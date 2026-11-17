@@ -135,12 +135,13 @@ int cfw_file_info_show(void *c, struct osos_media_item *item)
     return item != NULL && !create_failed;
 }
 
-void cfw_play_next_add(struct osos_player *p, struct osos_media_item *item, int last)
+int cfw_play_next_add(struct osos_player *p, struct osos_media_item *item, int last)
 {
     (void)p;
     (void)item;
     (void)last;
     queued++;
+    return 1;
 }
 
 void cfw_play_next_menu(struct osos_context_menu *m)
@@ -228,5 +229,17 @@ int main(void)
     assert(cfw_song_action(controller, "CFW_FileInfo", 0));
     assert(shown_item.record == NULL);
     assert(restores == 3 && restored_offset == OSOS_SONG_LAYOUT_OFFSET);
+    return 0;
+}
+
+void cfw_up_next_refresh(void)
+{
+}
+
+int cfw_up_next_song_action(void *controller, const char *action, uint32_t argument)
+{
+    (void)controller;
+    (void)action;
+    (void)argument;
     return 0;
 }

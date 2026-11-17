@@ -74,8 +74,8 @@ void cfw_play_next_menu(struct osos_context_menu *menu)
     }
 }
 
-void cfw_play_next_add(struct osos_player *player, struct osos_media_item *selected,
-                       int last)
+int cfw_play_next_add(struct osos_player *player, struct osos_media_item *selected,
+                      int last)
 {
     struct osos_media_entry *current = current_entry(player);
     if (current) {
@@ -85,10 +85,13 @@ void cfw_play_next_add(struct osos_player *player, struct osos_media_item *selec
             struct osos_media_entry *inserted =
                 insert_song(player, osos_media_item_entry(selected), current, last);
             osos_player_rebuild_artwork(player);
-            if (inserted)
+            if (inserted) {
                 invalidate_next(player);
+                return 1;
+            }
         }
     }
+    return 0;
 }
 
 void cfw_play_next_add_browser(struct osos_player *player, void *browser, int last)

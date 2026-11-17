@@ -6,6 +6,7 @@ struct cfw_ui_visibility {
     uint32_t key, title, items[2], anchors[2], defaults;
     const char *filename; /* Legacy import: pre-store CFWMenu_<key> file. */
     uint32_t *visible;
+    uint32_t *available; /* Runtime availability, independent of the saved checkbox. */
 };
 extern const struct cfw_ui_visibility cfw_ui_visibility[];
 extern const uint32_t cfw_ui_visibility_count;
@@ -23,7 +24,8 @@ static inline uint32_t cfw_ui_visibility_index(unsigned menu, uint32_t index,
         if (displayed++ == index)
             return native;
         for (uint32_t i = 0; i < cfw_ui_visibility_count; i++) {
-            if (cfw_ui_visibility[i].anchors[menu] != rows[native * 5])
+            if (!cfw_ui_visibility[i].items[menu] ||
+                cfw_ui_visibility[i].anchors[menu] != rows[native * 5])
                 continue;
             if (displayed++ == index)
                 return CFW_UI_CUSTOM_ROW | i;
@@ -38,7 +40,8 @@ cfw_ui_visibility_extra_count(unsigned menu, const uint32_t *rows, uint32_t coun
     uint32_t extra = 0;
     for (uint32_t native = 0; native < count; native++)
         for (uint32_t i = 0; i < cfw_ui_visibility_count; i++)
-            extra += cfw_ui_visibility[i].anchors[menu] == rows[native * 5];
+            extra += cfw_ui_visibility[i].items[menu] &&
+                     cfw_ui_visibility[i].anchors[menu] == rows[native * 5];
     return extra;
 }
 
@@ -68,3 +71,5 @@ void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property,
                                        uintptr_t *out);
 int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
                                uint32_t index, uintptr_t *out);
+
+void cfw_ui_visibility_set_available(uint32_t item, int available);

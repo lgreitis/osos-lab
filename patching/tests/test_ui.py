@@ -565,6 +565,102 @@ class UiTests(unittest.TestCase):
         header = emit_header(document, compiled.string_ids)
         self.assertIn("#define CFW_AlbumArtists_Screen ", header)
 
+    def test_main_entry_adds_a_hidden_row_with_a_live_preview(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        document = parser.parse(
+            '<ui><main-entry id="CFW_UpNext" title="Up Next" after="MainMenu_List_NowPlaying" '
+            'open="CFW_UpNext" hilite="CFW_UpNextHilited" '
+            'preview="MainMenu_Preview_Compilations" message="0 Songs"/></ui>'
+        )
+        compiled = compile_document(resources, document)
+        item = compiled.string_ids["CFW_UpNext_MainItem"]
+        table, after, kind, row = resources.menu_items[0]
+        self.assertEqual(table, bindings["MainMenu_Items"])
+        self.assertEqual(after, bindings["MainMenu_List_NowPlaying"])
+        self.assertNotIn(("ITEM", table), resources.added)
+        visibility = resources.visibility[0]
+        self.assertEqual(visibility["defaults"], 1)
+        self.assertEqual(visibility["available"], 0)
+        self.assertEqual(visibility["items"], {"Main": item, "Music": 0})
+        self.assertEqual(visibility["anchors"]["Main"], bindings["MainMenu_List_Sleep"])
+        self.assertEqual(visibility["anchors"]["Music"], 0)
+        self.assertEqual(word(row, 0x30), item)
+        self.assertEqual(word(row, 0x64), 0)
+        self.assertEqual(word(row, 0x5C) & 0xFFFF, 4)
+        title = blocks(resources.added["SORC", word(row, 0x68)])
+        self.assertEqual(word(title[0][1], 4), compiled.string_ids["CFW_UpNext_Title"])
+        # The first preview line reads the <id>_Count property; the others are empty.
+        preview = compiled.string_ids["CFW_UpNext_Preview"]
+        layout = blocks(resources.added["SLyt", preview])
+        sources = {
+            view: word(binding, len(binding) - 4)
+            for key, data in resources.added.items()
+            if key[0] == "VCvs"
+            for view, binding in blocks(data)
+            if view
+            in (
+                bindings["PreviewArea_Watermark_Message"],
+                bindings["PreviewArea_Watermark_Message2"],
+                bindings["PreviewArea_Watermark_Message3"],
+            )
+            and key[1] >= 0x0CF00000
+        }
+        self.assertEqual(len(layout), 1)
+        message = blocks(
+            resources.added["SORC", sources[bindings["PreviewArea_Watermark_Message"]]]
+        )
+        self.assertEqual(
+            [word(message[0][1], offset) for offset in (0, 4)],
+            [0x8900, compiled.string_ids["CFW_UpNext_Count"]],
+        )
+        self.assertEqual(
+            sources[bindings["PreviewArea_Watermark_Message2"]],
+            sources[bindings["PreviewArea_Watermark_Message3"]],
+        )
+        self.assertEqual(
+            bytes(
+                resources.added["Str ", compiled.string_ids["CFW_UpNext_Message"]].data
+            ),
+            b"0 Songs\0",
+        )
+
+        screen = bindings["MainMenus_Main_Screen"]
+        layouts = blocks(resources.added["SLst", screen])
+        self.assertEqual(len(layouts), len(blocks(resources.stock("SLst", screen))) + 1)
+        self.assertEqual(word(layouts[-1][1], 0), preview)
+        appended = b"".join(resources.event_extensions["CEVT", screen])
+        self.assertIn(f"list.pid.{item}.chosen".encode(), appended)
+        self.assertIn(b"CFW_UpNext\0", appended)
+        self.assertIn(f"list.pid.{item}.delayedselected".encode(), appended)
+        self.assertIn(b"CFW_UpNextHilited", appended)
+        self.assertIn(b"navigator.SwitchLayout", appended)
+        self.assertIn(b"CFW_UpNext_Preview", appended)
+        header = emit_header(document, compiled.string_ids)
+        for name in ("MainItem", "Count", "Message", "Preview", "Title"):
+            self.assertIn(f"#define CFW_UpNext_{name} ", header)
+
+    def test_main_entry_rejects_missing_anchor_and_bad_declarations(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        entry = (
+            '<main-entry id="X" title="X" after="{after}" open="O" hilite="H" '
+            'preview="MainMenu_Preview_Compilations"/>'
+        )
+        document = parser.parse("<ui>" + entry.format(after="999") + "</ui>")
+        with self.assertRaises(ValueError):
+            compile_document(Resources(metadata["resources"], bindings), document)
+        for xml in (
+            '<ui><main-entry id="X" title="X" after="1" open="O"/></ui>',
+            "<ui>" + entry.format(after="1") * 2 + "</ui>",
+            "<ui>" + entry.format(after="1").replace("/>", ' extra="1"/>') + "</ui>",
+        ):
+            with self.assertRaises(ValueError):
+                parser.parse(xml)
+
     def test_file_info_is_a_stacked_runtime_list_that_stays_open(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())

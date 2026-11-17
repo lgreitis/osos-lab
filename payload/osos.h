@@ -406,11 +406,17 @@ static inline int osos_genius_map_row(void *genius, int row)
     return ((fn)OSOS_GENIUS_MAP_ROW)(genius, row);
 }
 
-static inline void osos_media_item_init(struct osos_media_item *item)
+static inline void osos_media_item_init_record(struct osos_media_item *item,
+                                               struct osos_media_record *record)
 {
     typedef struct osos_media_item *(*fn)(struct osos_media_item *,
                                           struct osos_media_record *, uint8_t);
-    ((fn)OSOS_MEDIA_ITEM_INIT)(item, NULL, 0);
+    ((fn)OSOS_MEDIA_ITEM_INIT)(item, record, 0);
+}
+
+static inline void osos_media_item_init(struct osos_media_item *item)
+{
+    osos_media_item_init_record(item, NULL);
 }
 
 static inline void osos_genius_get_item(void *genius, int row,

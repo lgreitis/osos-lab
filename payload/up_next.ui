@@ -1,0 +1,14 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<!-- Up Next: a main menu row below Now Playing (shown only while songs are queued) whose
+     preview is a music-note picture and "n Songs"; the list is Apple's Songs screen over the
+     play queue. -->
+<ui>
+  <main-entry id="CFW_UpNext" title="Up Next" after="MainMenu_List_NowPlaying"
+              open="CFW_UpNext" hilite="CFW_UpNextHilited"
+              preview="MainMenu_Preview_Compilations" message="0 Songs"/>
+  <string id="CFW_UPNEXT_REMOVE" text="Remove from Queue"/>
+  <string id="CFW_UPNEXT_ALBUM" text="Go to Album"/>
+  <string id="CFW_UPNEXT_ARTIST" text="Go to Artist"/>
+  <screen-event screen="MediaLists_Songs_Screen" event="contextualMenu.CFW_RemoveFromQueue"
+                handler="CFW_RemoveFromQueue"/>
+</ui>
