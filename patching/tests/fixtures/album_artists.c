@@ -233,7 +233,12 @@ int main(void)
     records[2].album_artist = 3;
     records[3].artist = 9; /* Artist fallback. */
     records[5].album_artist = 11;
-    expect_groups((uint32_t[]){3, 11, 1, 2, 9}, "AACCZ", 5);
+    expect_groups((uint32_t[]){3, 11, 1, 2, 9}, "AATTT", 5);
+    strings[11] = u"An Aardvark";
+    expect_groups((uint32_t[]){3, 11, 1, 2, 9}, "AATTT", 5);
+    strings[11] = u"A Zebra";
+    expect_groups((uint32_t[]){11, 3, 1, 2, 9}, "AATTT", 5);
+    strings[11] = u"An Artist";
 
     /* Explicit names take priority, including a literal leading The. */
     records[0].sort_album_artist = records[1].sort_album_artist = 7;

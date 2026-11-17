@@ -68,6 +68,13 @@ struct cached {
 };
 static struct cached tokens[4096];
 static uint32_t next_token = 1, live_refs;
+static size_t live_bytes, peak_bytes;
+
+union allocation {
+    max_align_t alignment;
+    size_t bytes;
+};
+
 static int fail_alloc, track_status, frozen;
 static void (*during_import)(struct reader *);
 
@@ -152,12 +159,26 @@ static int mock_position(void *object, uint64_t *out)
 
 static void *mock_alloc(uint32_t bytes)
 {
-    return fail_alloc ? NULL : malloc(bytes);
+    if (fail_alloc)
+        return NULL;
+    union allocation *allocation = malloc(sizeof(*allocation) + bytes);
+    assert(allocation);
+    allocation->bytes = bytes;
+    live_bytes += bytes;
+    if (live_bytes > peak_bytes)
+        peak_bytes = live_bytes;
+    return allocation + 1;
 }
 
 static void mock_free(void *data)
 {
-    free(data);
+    if (!data)
+        return;
+    union allocation *allocation = data;
+    allocation--;
+    assert(live_bytes >= allocation->bytes);
+    live_bytes -= allocation->bytes;
+    free(allocation);
 }
 
 static void mock_destroy(void *track_data)
@@ -226,6 +247,82 @@ static void import_one(struct reader *reader)
     retain(reader, &imported, artist, 6, 3);
 }
 
+static uint32_t library_size, library_fields;
+static int fail_compaction;
+
+static struct osos_media_record library_record(void *library, uint32_t index)
+{
+    return record(library, index * 0x9e3779b9u, index >> 4);
+}
+
+static void import_library(struct reader *reader)
+{
+    for (uint32_t i = 0; i < library_size; i++) {
+        struct osos_media_record song = library_record(reader->owner, i);
+        uint32_t fields = library_fields ? library_fields : i % 7 + 1;
+        if (fields & 1)
+            retain(reader, &song, artist, 6, 0);
+        if (fields & 2)
+            retain_field(reader, &song, other, 5, 0, 29);
+        if (fields & 4)
+            retain_field(reader, &song, artist, 6, 0, 23);
+    }
+    fail_alloc = fail_compaction;
+}
+
+static void check_library(struct reader *reader, uint32_t size, uint32_t fields)
+{
+    library_size = size;
+    library_fields = fields;
+    peak_bytes = 0;
+    during_import = import_library;
+    assert(!cfw_album_artist_import_tracks(reader));
+    during_import = NULL;
+    fail_alloc = 0;
+    unsigned columns = fields ? !!(fields & 1) + !!(fields & 2) + !!(fields & 4) : 3;
+    uint32_t refs = 0;
+    for (uint32_t i = 0; i < size; i++) {
+        uint32_t present = fields ? fields : i % 7 + 1;
+        refs += !!(present & 1) + !!(present & 2) + !!(present & 4);
+    }
+    assert(count == size && live_refs == refs);
+    if (fail_compaction) {
+        assert(!packed && entries && capacity >= size);
+        assert(live_bytes == capacity * sizeof(*entries));
+    } else {
+        assert(packed && !entries && !capacity);
+        assert(packed_stride == 2 + columns);
+        assert(live_bytes == size * (2 + columns) * sizeof(uint32_t));
+    }
+    for (uint32_t i = 0; i < size; i++) {
+        uint32_t index = (i * 7919u) % size;
+        uint32_t present = fields ? fields : index % 7 + 1;
+        struct osos_media_record song = library_record(reader->owner, index);
+        expect(&song, present & 1 ? artist : NULL, present & 1 ? 6 : 0);
+        uint32_t album_sort = cfw_album_artist_sort_token(&song, 1);
+        uint32_t artist_sort = cfw_album_artist_sort_token(&song, 0);
+        assert(!!album_sort == !!(present & 2));
+        assert(!!artist_sort == !!(present & 4));
+        if (album_sort)
+            assert(tokens[album_sort].bytes == sizeof(other) &&
+                   !memcmp(tokens[album_sort].text, other, sizeof(other)));
+        if (artist_sort)
+            assert(tokens[artist_sort].bytes == sizeof(artist) &&
+                   !memcmp(tokens[artist_sort].text, artist, sizeof(artist)));
+    }
+    struct osos_media_record absent = record(reader->owner, UINT32_MAX, UINT32_MAX);
+    assert(!cfw_album_artist_token(&absent));
+    assert(!cfw_album_artist_sort_token(&absent, 1));
+    struct osos_media_record foreign = library_record(&library_a, 0);
+    assert(!cfw_album_artist_token(&foreign));
+    if (size >= 10000)
+        printf("Album Artist memory: %u tracks, %u columns, %zu live bytes, %zu peak "
+               "bytes\n",
+               size, columns, live_bytes, peak_bytes);
+    cfw_album_artist_destroy_tracks(reader->owner);
+    assert(!live_refs && !live_bytes && !packed && !entries);
+}
+
 int main(void)
 {
     struct file file = {0};
@@ -237,6 +334,10 @@ int main(void)
     expect(&imported, artist, 6);
     assert(live_refs == 1);
     assert(string_cache == library_a + OSOS_TRACKDATA_ARTIST_CACHE_OFFSET);
+    assert(packed && packed_stride == 3 && live_bytes == 12);
+    assert(!cfw_album_artist_sort_token(&imported, 0));
+    assert(!cfw_album_artist_import_tracks(&reader));
+    retain(&reader, &imported, artist, 6, 3);
 
     /* Replacing metadata must preserve the native Artist/Composer reference. */
     uint32_t shared_token = cfw_album_artist_token(&imported);
@@ -264,6 +365,10 @@ int main(void)
     for (uint32_t i = 0; i < 700; i++)
         expect(&records[i], artist, 6);
     retain(&reader, &records[5], NULL, 0, 0);
+    for (uint32_t i = 0; i < 700; i++)
+        expect(&records[i], i == 5 ? NULL : artist, i == 5 ? 0 : 6);
+    compact();
+    assert(packed && !capacity && count == 699 && live_bytes == 699 * 12);
     for (uint32_t i = 0; i < 700; i++)
         expect(&records[i], i == 5 ? NULL : artist, i == 5 ? 0 : 6);
 
@@ -339,12 +444,18 @@ int main(void)
     file.decode_error = 0;
     assert(!cfw_album_artist_sort_token(&next, 1) && live_refs == 2);
     assert(cfw_album_artist_sort_token(&next, 0) == artist_sort);
+    compact();
+    assert(packed && packed_stride == 4 && count == 1 && live_bytes == 16);
+    expect(&next, artist, 6);
+    assert(!cfw_album_artist_sort_token(&next, 1));
+    assert(cfw_album_artist_sort_token(&next, 0) == artist_sort);
     cfw_album_artist_destroy_tracks(&library_b);
     assert(!live_refs && !cfw_album_artist_sort_token(&next, 0));
     assert(cfw_album_artist_import_tracks(&reader) == 0);
 
     /* Stock finalization freezes reference accounting; destruction frees storage. */
     retain(&reader, &next, artist, 6, 0);
+    compact();
     frozen = 1;
     expect(&next, artist, 6);
     cfw_album_artist_destroy_tracks(&library_b);
@@ -361,7 +472,36 @@ int main(void)
     track_status = 0;
     assert(cfw_album_artist_import_tracks(&reader) == 0);
     clear();
-    assert(live_refs == 0);
+    assert(live_refs == 0 && live_bytes == 0);
+    assert(!cfw_album_artist_import_tracks(&reader));
+    library_size = 192;
+    library_fields = 1;
+    import_library(&reader);
+    assert(count == 192 && capacity == 256);
+    fail_alloc = 1;
+    struct osos_media_record skipped = library_record(reader.owner, 192);
+    retain(&reader, &skipped, other, 5, 0);
+    assert(count == 192 && live_refs == 192 && !cfw_album_artist_token(&skipped));
+    fail_alloc = 0;
+    compact();
+    struct osos_media_record kept = library_record(reader.owner, 0);
+    expect(&kept, artist, 6);
+    clear();
+    assert(!live_bytes && !live_refs);
+    for (uint32_t fields = 0; fields < 8; fields++)
+        check_library(&reader, 257, fields);
+    for (unsigned fields = 1; fields <= 7; fields += 6) {
+        check_library(&reader, 10000, fields);
+        check_library(&reader, 20000, fields);
+        check_library(&reader, 50000, fields);
+    }
+    fail_compaction = 1;
+    check_library(&reader, 701, 7);
+    fail_compaction = 0;
+    assert(!cfw_album_artist_import_tracks(&reader));
+    retain(&reader, &next, NULL, 0, 0);
+    compact();
+    assert(!count && !packed && !live_bytes);
     puts("Album Artist: lookup, collisions, deduplication, reloads, failures and "
          "Unicode bounds passed");
 }

@@ -115,8 +115,7 @@ static uint32_t artist_sort_view(void *track_data, struct osos_media_record *rec
     uint32_t units = token_view(track_data, sort_token, text);
     if (units)
         return units;
-    units = artist_name_view(track_data, resolved_artist_token(record), text);
-    return album_artist_skip_article(text, units);
+    return artist_name_view(track_data, resolved_artist_token(record), text);
 }
 
 static int compare_track_artists(void *track_data, const struct album_artist_track *a,

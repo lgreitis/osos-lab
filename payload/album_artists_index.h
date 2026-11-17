@@ -83,26 +83,6 @@ static inline void album_artist_reorder(struct artist_group *rows,
     }
 }
 
-/* Explicit Sort As values bypass article removal. */
-static inline uint32_t album_artist_skip_article(const uint16_t **text, uint32_t units)
-{
-    while (units && **text <= ' ') {
-        (*text)++;
-        units--;
-    }
-    const uint16_t *p = *text;
-    uint32_t skip = 0;
-    if (units > 4 && (p[0] | 32) == 't' && (p[1] | 32) == 'h' && (p[2] | 32) == 'e' &&
-        p[3] == ' ')
-        skip = 4;
-    else if (units > 3 && (p[0] | 32) == 'a' && (p[1] | 32) == 'n' && p[2] == ' ')
-        skip = 3;
-    else if (units > 2 && (p[0] | 32) == 'a' && p[1] == ' ')
-        skip = 2;
-    *text += skip;
-    return units - skip;
-}
-
 static inline int album_artist_valid_jumps(const uint32_t *jump, uint32_t tracks)
 {
     if (!jump || !jump[0] || jump[0] > tracks || jump[2] != 0)
