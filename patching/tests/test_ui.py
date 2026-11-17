@@ -54,14 +54,6 @@ def event_resource(resources, kind, resource_id):
     return resources.added[kind, resource_id]
 
 
-def menu(rows):
-    return (
-        '<ui><values id="choices">'
-        '<value number="0" label="Off"/><value number="1" label="On"/>'
-        '</values><menu id="TEST" title="Test">' + "".join(rows) + "</menu></ui>"
-    )
-
-
 def canvas(settings):
     return (
         '<ui><values id="choices">'
@@ -71,6 +63,43 @@ def canvas(settings):
 
 
 class UiTests(unittest.TestCase):
+    def test_generated_actions_register_only_the_names_they_resolve(self):
+        root = Path(__file__).resolve().parents[2]
+        metadata = json.loads((root / "firmware/ui.json").read_text())
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
+        resources = Resources(metadata["resources"], bindings)
+        with tempfile.TemporaryDirectory() as directory:
+            code = generate(
+                resources,
+                sorted((root / "payload").glob("*.ui")),
+                Path(directory),
+                "test",
+            ).read_text()
+        expected = {
+            "CFW_Info_Screen",
+            "CFW_Info_Layout",
+            "CFW_EQ_Screen",
+            "CFW_EQ_Layout",
+            *[
+                f"CFW_{name}_Preview"
+                for name in (
+                    "Info",
+                    "EQ",
+                    "Crossfeed",
+                    "NightShift",
+                    "DarkMode",
+                    "PlaybackLog",
+                    "UpNext",
+                )
+            ],
+        }
+        self.assertEqual(resources.runtime_names, expected)
+        table = code.split("cfw_resource_names[] = {", 1)[1].split("};", 1)[0]
+        self.assertEqual(set(re.findall(r'"([^"]+)"', table)), expected)
+        self.assertIn("CFW_FileInfo_Screen", resources.names)
+        with self.assertRaisesRegex(ValueError, "Unknown runtime resource"):
+            resources.runtime_name("missing")
+
     def test_runtime_list_uses_native_rows_and_returns_to_parent(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
@@ -190,20 +219,6 @@ class UiTests(unittest.TestCase):
         self.assertIn(b"TEST_Screen", events)
         self.assertIn("TEST_Rows", compiled.string_ids)
         self.assertFalse(document.fields)
-
-    def test_menus_contain_only_submenus_and_info_rows(self):
-        for row in (
-            setting("FIELD", 0),
-            '<selector id="FIELD" title="Field" values="choices" slot="0" default="0"/>',
-            '<action id="SAVE" title="Save" values="choices"/>',
-            '<canvas id="PAGE" title="Page"/>',
-        ):
-            with self.subTest(row=row), self.assertRaises(ValueError):
-                parser.parse(menu([row]))
-        document = parser.parse(
-            menu(['<menu id="SUB" title="Sub"><info id="INFO" title="Info"/></menu>'])
-        )
-        self.assertEqual(document.root.items[0].items[0].kind, "info")
 
     def test_canvas_has_fixed_extents_without_scroll_or_brightness_bindings(self):
         root = Path(__file__).resolve().parents[2]
@@ -780,7 +795,7 @@ class UiTests(unittest.TestCase):
                 parser.parse(canvas(settings))
         for root in (
             '<string id="NAME" text="Text"/>',
-            '<menu id="MENU" title="Menu"><info id="INFO" title="Info"/></menu>',
+            '<list id="LIST" title="List"/>',
         ):
             with self.subTest(root=root), self.assertRaises(ValueError):
                 parser.parse(
@@ -793,8 +808,9 @@ class UiTests(unittest.TestCase):
     def test_malformed_or_unknown_xml_fails(self):
         for data in (
             "bad",
-            "<ui><menu></ui>",
-            menu([]),
+            "<ui><text></ui>",
+            '<ui><menu id="MENU" title="Menu"><info id="INFO" title="Info"/></menu></ui>',
+            '<ui><info id="INFO" title="Info"/></ui>',
             "<ui/>",
             "<other/>",
             '<ui><string id="NAME" text="Text" typo="1"/></ui>',
@@ -804,7 +820,6 @@ class UiTests(unittest.TestCase):
             '<ui><string id="NAME" text="Text"/>unexpected</ui>',
             '<ui><text id="PAGE" title="Page" file="page.txt" body="bad-name"/></ui>',
             '<ui><text id="PAGE" title="Page" file="page.txt" body="PAGE"/></ui>',
-            '<ui><menu id="MENU" title="Menu"><string id="NAME" text="Text"/></menu></ui>',
             '<ui><text id="PAGE" title="Page" file="page.txt"/>'
             '<settings-entry menu="OTHER" after="1"/></ui>',
         ):

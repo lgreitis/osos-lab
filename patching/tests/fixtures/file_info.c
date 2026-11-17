@@ -38,10 +38,16 @@ static uint8_t record[0x100];
 static const char *path = "F21\\FMTAAC.m4a";
 
 static struct {
-    uint32_t year, duration, bitrate, file_size, play_count, skip_count, chapters;
+    uint32_t year, duration, bitrate, file_size, play_count, skip_count, chapters,
+        sample_rate;
     uint16_t track, disc;
     int32_t rating;
 } fake;
+
+static uint32_t osos_media_item_sample_rate(const struct osos_media_item *item)
+{
+    return item->record ? fake.sample_rate : 0;
+}
 
 static int osos_media_item_valid(struct osos_media_item *item)
 {
@@ -169,7 +175,7 @@ static void set_kind(uint32_t kind)
 
 static void set_sample_rate(float hertz)
 {
-    memcpy(record + 0x74, &hertz, sizeof(hertz));
+    fake.sample_rate = hertz > 0 ? (uint32_t)hertz : 0;
 }
 
 static uint32_t count(void)

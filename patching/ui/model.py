@@ -22,7 +22,6 @@ class Item:
     text_file: str = ""
     select: str = "return"
     layout: str = "inline"
-    items: list["Item"] = field(default_factory=list)
 
 
 @dataclass

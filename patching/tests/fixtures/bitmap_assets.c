@@ -31,6 +31,8 @@ struct osos_path {
     char text[258];
 };
 
+#include "../../../payload/native/path.h"
+
 static void *allocate(uint32_t size)
 {
     if (no_memory)

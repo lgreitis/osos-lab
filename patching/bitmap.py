@@ -61,7 +61,16 @@ def read_png(path):
             a = row[x - filter_bytes] if x >= filter_bytes else 0
             b = previous[x]
             c = previous[x - filter_bytes] if x >= filter_bytes else 0
-            predictor = (0, a, b, (a + b) // 2, paeth(a, b, c))[filter_type]
+            if filter_type == 0:
+                predictor = 0
+            elif filter_type == 1:
+                predictor = a
+            elif filter_type == 2:
+                predictor = b
+            elif filter_type == 3:
+                predictor = (a + b) // 2
+            else:
+                predictor = paeth(a, b, c)
             row[x] = (row[x] + predictor) & 255
         for x in range(width):
             p = tuple(row[x * channels : (x + 1) * channels])

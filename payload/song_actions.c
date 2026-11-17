@@ -109,8 +109,7 @@ PATCH_ARM int cfw_video_playlist_action(void *controller, const char *action,
 {
     if (song_action(controller, PLAYLIST, action, argument))
         return 1;
-    typedef int (*fn)(void *, const char *, uint32_t);
-    return ((fn)OSOS_VIDEO_PLAYLIST_ACTION)(controller, action, argument);
+    return osos_video_playlist_action(controller, action, argument);
 }
 
 PATCH_ARM int cfw_genius_action(void *controller, const char *action, uint32_t argument)

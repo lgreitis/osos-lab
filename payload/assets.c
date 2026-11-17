@@ -15,10 +15,6 @@ struct theme_record {
     unsigned char data[];
 };
 
-static const struct osos_path theme_paths[] = {
-    {0, "themes\\default\\theme.bin"},
-    {0, "themes\\dark\\theme.bin"},
-};
 static unsigned char *theme;
 static uint32_t record_count, record_layout;
 static int active;
@@ -138,7 +134,7 @@ static int valid_records(uint32_t size, uint32_t count)
     return 1;
 }
 
-void cfw_assets_cancel(void)
+static void cfw_assets_cancel(void)
 {
     if (theme) {
         osos_import_free(theme);
@@ -156,8 +152,11 @@ int cfw_assets_prepare(void)
 {
     if (theme)
         return 1;
+    struct osos_path path;
+    osos_path_init(&path,
+                   active ? "themes\\default\\theme.bin" : "themes\\dark\\theme.bin");
     void *handle;
-    if (osos_file_open(&theme_paths[!active], 1, &handle))
+    if (osos_file_open(&path, 1, &handle))
         return 0;
 
     struct theme_header header;

@@ -50,7 +50,7 @@ int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS])
 
 void cfw_store_delete_legacy(void)
 {
-    cfw_preferences_delete(CFW_EQ_LEGACY_FILE);
+    cfw_eq_delete_legacy();
 }
 
 #define checksum store_checksum
@@ -82,6 +82,9 @@ static void fresh_device(void)
     struct fake_file *file = fake_find(STORE_FILE, 0);
     if (file)
         file->exists = 0;
+    file = fake_find(STORE_FILE ".bak", 0);
+    if (file)
+        file->exists = 0;
 }
 
 int main(void)
@@ -104,7 +107,7 @@ int main(void)
     fresh_device();
     legacy(1, 21);
     boot();
-    assert(settings[0] == CFW_EQ_PRECUT_AUTO && !fake_find(CFW_EQ_LEGACY_FILE, 0));
+    assert(settings[0] == CFW_EQ_PRECUT_AUTO && fake_find(CFW_EQ_LEGACY_FILE, 0));
     fresh_device();
     legacy(2, 37);
     boot();
@@ -127,6 +130,14 @@ int main(void)
     fake_put(CFW_EQ_LEGACY_FILE, &v3, sizeof(v3));
     boot();
     assert(settings[0] == CFW_EQ_PRECUT_AUTO && settings[CFW_EQ_BAND5_GAIN] == 24);
+    fresh_device();
+    v3.values[0] = UINT32_MAX;
+    v3.values[1] = 0;
+    v3.checksum = checksum(&v3, sizeof(v3));
+    fake_put(CFW_EQ_LEGACY_FILE, &v3, sizeof(v3));
+    boot();
+    assert(settings[0] == CFW_EQ_PRECUT_AUTO && settings[CFW_EQ_BAND5_GAIN] == 24);
+    assert(fake_find(CFW_EQ_LEGACY_FILE, 0));
     /* v4 files already include Auto. */
     fresh_device();
     struct eq_file v4 = {.magic = 0x51455743, .version = 4};
@@ -151,7 +162,7 @@ int main(void)
     cfw_eq_model.change(0, 38);
     cfw_eq_model.commit();
     cfw_store_flush();
-    assert(fake_writes == writes + 1);
+    assert(fake_writes == writes + 2);
     boot();
     assert(settings[0] == 38);
 
@@ -217,9 +228,41 @@ int main(void)
     uint32_t kept = 0;
     assert(cfw_store_get(other_key, &kept, sizeof(kept)) == 4 && kept == other);
 
-    /* A corrupted store falls back to defaults. */
+    /* A corrupted primary recovers the previous valid store. */
     fake_find(STORE_FILE, 0)->data[20] ^= 1;
     boot();
-    assert(settings[0] == CFW_EQ_PRECUT_AUTO && !migrating);
+    assert(settings[0] == 45 && !migrating);
+
+    /* Accepted edits survive a sleep/USB flush without an editor commit callback. */
+    writes = fake_writes;
+    cfw_eq_model.change(0, 38);
+    assert(dirty && fake_writes == writes);
+    cfw_store_flush();
+    boot();
+    assert(settings[0] == 38);
+    filter_failure = 1;
+    writes = fake_writes;
+    cfw_eq_model.change(0, 39);
+    assert(settings[0] == 38 && !dirty && fake_writes == writes);
+    filter_failure = 0;
+
+    /* A legacy read error preserves the file and retries migration next boot. */
+    for (unsigned full_read = 0; full_read < 2; full_read++) {
+        fresh_device();
+        legacy(2, 37);
+        fake_fail_read = CFW_EQ_LEGACY_FILE;
+        fake_fail_read_size = full_read ? 16 : 0;
+        writes = fake_writes;
+        unsigned deletes = fake_deletes;
+        boot();
+        assert(blocked && migrating && fake_writes == writes &&
+               fake_deletes == deletes);
+        assert(fake_find(CFW_EQ_LEGACY_FILE, 0));
+        fake_fail_read = NULL;
+        fake_fail_read_size = 0;
+        boot();
+        assert(!blocked && !migrating && settings[0] == 38);
+        assert(!fake_find(CFW_EQ_LEGACY_FILE, 0));
+    }
     return 0;
 }

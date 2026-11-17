@@ -6,6 +6,7 @@
 #include "cfw.h"
 #include "patch.h"
 #include "up_next.h"
+#include "media_browser.h"
 
 #ifndef FIELD
 #define FIELD(type, object, offset) (*(type *)((uint8_t *)(object) + (offset)))
@@ -18,7 +19,7 @@ struct browser_context {
 };
 static struct browser_context contexts[4];
 static void *artwork_model_reference;
-static int custom_album_artwork;
+static unsigned custom_artwork_providers;
 
 struct artwork_model {
     uint8_t native[0x48];
@@ -49,6 +50,14 @@ static struct browser_context *context_for(void *browser)
         if (browser && contexts[i].browser == browser)
             return &contexts[i];
     return NULL;
+}
+
+int cfw_album_artists_owns_model(void *model)
+{
+    struct browser_context *context =
+        model ? context_for(FIELD(void *, model, 0x40)) : NULL;
+    return context && context->model_reference &&
+           osos_model_ref_get(&context->model_reference) == model;
 }
 
 static void *track_data_of(void *browser)
@@ -204,6 +213,7 @@ PATCH_ARM void *cfw_album_artists_destroy_model(void *model)
 {
     cfw_up_next_model_destroyed(model);
     if (FIELD(uint8_t, model, 0x45) == ARTWORK_MODEL_OWNERSHIP) {
+        custom_artwork_providers--;
         FIELD(uint8_t, model, 0x45) = 3;
         osos_model_ref_release(&((struct artwork_model *)model)->owner_reference);
         return cfw_browser_destroy_original(model);
@@ -442,15 +452,31 @@ PATCH_ARM int cfw_album_artists_album_group(void *browser, void *callback,
     return 1;
 }
 
+int cfw_album_artists_release_artwork(void)
+{
+    if (custom_artwork_providers) {
+        void *session = osos_list_artwork_session();
+        if (session) {
+            void *previous = artwork_model_reference;
+            artwork_model_reference = NULL;
+            osos_list_artwork_stop(session);
+            osos_list_artwork_set_source(session, 0x2711);
+            artwork_model_reference = previous;
+        }
+    }
+    return !custom_artwork_providers;
+}
+
 PATCH_ARM uint32_t cfw_album_artists_select_artwork(void *selection, uint32_t category)
 {
-    void *reference = (uint8_t *)selection + 0x18;
+    void *reference = osos_selection_reference(selection);
     void *model = osos_model_ref_get(reference);
     int custom = category == 3 && model && context_for(FIELD(void *, model, 0x40));
     /* Recreate the provider/cache even when both screens have category Albums. */
-    if (custom || custom_album_artwork)
+    if (custom || custom_artwork_providers)
         FIELD(uint8_t, selection, OSOS_SELECTION_ARTWORK_CATEGORY_OFFSET) = 0;
-    custom_album_artwork = custom;
+    if (!custom)
+        cfw_album_artists_release_artwork();
     void *previous = artwork_model_reference;
     artwork_model_reference = custom ? reference : NULL;
     uint32_t result = osos_select_artwork_source(selection, category);
@@ -469,6 +495,7 @@ PATCH_ARM void *cfw_album_artists_create_artwork(uint32_t kind, uint32_t selecto
     model->owner_reference = NULL;
     osos_model_ref_assign(&model->owner_reference, artwork_model_reference);
     FIELD(uint8_t, model, 0x45) = ARTWORK_MODEL_OWNERSHIP;
+    custom_artwork_providers++;
     void *original = FIELD(void *, provider, 0xc);
     FIELD(void *, provider, 0xc) = model;
     osos_model_destroy(original);
@@ -506,23 +533,10 @@ static void *acquire_browser(void **reference)
             return osos_model_ref_get(reference);
         }
     }
-    /* Reserve one browser for the whole navigation stack, including child screens. */
-    void **registry = (void **)OSOS_BROWSER_REGISTRY;
-    unsigned available = 0;
-    for (unsigned i = 0; i < 4; i++)
-        available += registry[i] == NULL;
-    /* Leave a slot for native auxiliary browsing. */
-    if (available < 2)
+    void *model = cfw_media_browser_create(reference);
+    if (!model)
         return NULL;
-    void *model = osos_model_create(0);
-    void *browser = NULL;
-    if (osos_browser_create(FIELD(void *, model, 0x40), &browser)) {
-        osos_model_destroy(model);
-        return NULL;
-    }
-    FIELD(void *, model, 0x40) = browser;
-    FIELD(uint8_t, model, 0x45) = 2;
-    osos_model_ref_init(reference, model, 0);
+    void *browser = FIELD(void *, model, 0x40);
     unsigned slot = FIELD(uint8_t, browser, 1);
     contexts[slot] =
         (struct browser_context){browser, track_data_of(browser), *reference};
@@ -535,6 +549,8 @@ static void open_browser(void *controller)
     void *model = acquire_browser(&reference);
     if (!model)
         return;
+    if (!cfw_album_artists_release_artwork())
+        goto done;
     void *browser = FIELD(void *, model, 0x40);
     osos_library_model_prepare_artists(model);
     if (!cfw_album_artists_build(browser))

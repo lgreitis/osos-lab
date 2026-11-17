@@ -14,9 +14,8 @@
 /* Native track session states: 5 = counted at the natural end, 6 = finished. */
 #define SESSION_PLAYED 5
 #define SESSION_FINISHED 6
-/* Song record fields: iTunes persistent ID (64-bit), sample rate (IEEE-754). */
+/* Song record field: iTunes persistent ID (64-bit). */
 #define RECORD_PERSISTENT_ID_OFFSET 0x110
-#define RECORD_SAMPLE_RATE_OFFSET 0x74
 /* Native file object: size in bytes. */
 #define FILE_SIZE_OFFSET 0x20
 #define MAC_EPOCH_OFFSET 2082844800u
@@ -36,11 +35,11 @@ enum {
     LOG_ON_RECORD = 0x31474f4c, /* LOG1 */
 };
 
-static struct osos_path log_path = {0, LOG_PATH};
+static char log_name[32] = LOG_PATH;
+static int imported_legacy;
 static const char settings_path[] = "iPod_Control\\Device\\CFWLog";
-static const struct osos_path scrobbler_path = {0, ".scrobbler.log"};
-static const struct osos_path config_path = {0,
-                                             "iPod_Control\\Device\\playback-log.cfg"};
+static const char scrobbler_path[] = ".scrobbler.log";
+static const char config_path[] = "iPod_Control\\Device\\playback-log.cfg";
 static const char scrobbler_header[] =
     "#AUDIOSCROBBLER/1.1\n#TZ/UTC\n#CLIENT/RepriseOS\n";
 static struct cfw_log_config config;
@@ -170,11 +169,10 @@ static void clock_now(uint32_t *local, uint32_t *utc)
     uint32_t clock[4];
     for (unsigned i = 0; i < 4; i++)
         clock[i] = 0;
-    ((void (*)(void *))OSOS_CLOCK_READ)(clock);
-    *local = ((uint32_t (*)(void *, int))OSOS_CLOCK_SECONDS)(clock, 1);
+    osos_clock_read(clock);
+    *local = osos_clock_seconds(clock);
     /* Mac-epoch seconds; the flag subtracts the configured time zone and DST. */
-    *utc = ((uint32_t (*)(void *, int))OSOS_CLOCK_MAC_SECONDS)(clock, 1) -
-           MAC_EPOCH_OFFSET;
+    *utc = osos_clock_mac_seconds(clock) - MAC_EPOCH_OFFSET;
 }
 
 static void utc_offset(uint32_t local, uint32_t utc)
@@ -187,15 +185,6 @@ static void utc_offset(uint32_t local, uint32_t utc)
     raw(':');
     decimal((uint32_t)minutes % 60, 2);
     raw('\t');
-}
-
-static uint32_t sample_rate_hz(struct osos_media_record *record)
-{
-    uint32_t bits = *(uint32_t *)((uint8_t *)record + RECORD_SAMPLE_RATE_OFFSET);
-    int exponent = (int)((bits >> 23) & 0xff) - 127;
-    if (bits >> 31 || exponent < 0 || exponent > 23)
-        return 0;
-    return ((bits & 0x7fffff) | 0x800000) >> (23 - exponent);
 }
 
 static void configure_output(void)
@@ -222,17 +211,17 @@ static void configure_output(void)
     }
     append(".tsv");
     for (unsigned i = 0; i < line.size; i++)
-        log_path.text[i] = line.data[i];
-    log_path.text[line.size] = 0;
+        log_name[i] = line.data[i];
+    log_name[line.size] = 0;
     line.size = 0;
 }
 
 /* A layout-specific filename keeps old reports; checking the header also
  * protects against collisions or a file replaced while connected over USB. */
-static int detailed_header_matches(void)
+static int detailed_header_matches(const struct osos_path *path)
 {
     void *handle;
-    if (osos_file_open(&log_path, 1, &handle) != 0)
+    if (osos_file_open(path, 1, &handle) != 0)
         return 0;
     if (!*(uint32_t *)((uint8_t *)handle + FILE_SIZE_OFFSET)) {
         osos_file_close(handle);
@@ -248,27 +237,28 @@ static int detailed_header_matches(void)
     return valid ? 1 : -1;
 }
 
-static void write_line(const struct osos_path *path, const char *header, uint32_t bytes)
+static void write_line(unsigned output, const char *header, uint32_t bytes)
 {
-    unsigned output = path == &scrobbler_path ? CFW_LOG_SCROBBLER : CFW_LOG_DETAILED;
     if (failed_outputs & output)
         return;
-    int header_matches = path == &log_path ? detailed_header_matches() : 1;
+    struct osos_path path;
+    osos_path_init(&path, output == CFW_LOG_SCROBBLER ? scrobbler_path : log_name);
+    int header_matches =
+        output == CFW_LOG_DETAILED ? detailed_header_matches(&path) : 1;
     if (header_matches < 0) {
         failed_outputs |= output;
         return;
     }
     void *handle;
     uint32_t written = 0;
-    if (osos_file_open(path, 2, &handle) != 0)
+    if (osos_file_open(&path, 2, &handle) != 0)
         return;
     if (!header_matches && *(uint32_t *)((uint8_t *)handle + FILE_SIZE_OFFSET)) {
         failed_outputs |= output;
         osos_file_close(handle);
         return;
     }
-    typedef int (*seek)(void *, uint64_t, int);
-    if (((seek)OSOS_FILE_SEEK)(handle, 0, 2) == 0) {
+    if (osos_file_seek(handle, 0, 2) == 0) {
         if (!*(uint32_t *)((uint8_t *)handle + FILE_SIZE_OFFSET) &&
             (osos_file_write(handle, header, bytes, &written) != 0 ||
              written != bytes)) {
@@ -301,16 +291,11 @@ static void tick(uint32_t now)
     listening.last_tick = now;
 }
 
-static uint32_t ticks(void)
-{
-    return ((uint32_t (*)(void))OSOS_PLAYBACK_CLOCK)();
-}
-
 static void observe(struct osos_player *player)
 {
     if (!enabled)
         return;
-    tick(ticks());
+    tick(osos_playback_clock());
     struct track_session *current = player->current;
     if (current != listening.object ||
         (current && current->item.record != listening.record) ||
@@ -349,10 +334,11 @@ static void scrobble(struct osos_media_item *item, uint32_t length, uint32_t ela
     field_text(qualified(length, elapsed) ? "L" : "S");
     field_number(listening.start_utc);
     raw('\n');
-    write_line(&scrobbler_path, scrobbler_header, sizeof(scrobbler_header) - 1);
+    write_line(CFW_LOG_SCROBBLER, scrobbler_header, sizeof(scrobbler_header) - 1);
 }
 
 struct log_record {
+    struct osos_player *player;
     struct osos_media_item *item;
     uint32_t length, position, local, utc, plays, skips, plays_before, skips_before;
     enum ending ending;
@@ -362,8 +348,7 @@ struct log_record {
 static void detailed_column(unsigned column, const struct log_record *record)
 {
     struct osos_media_item *item = record->item;
-    struct osos_player *player = osos_player_get();
-    typedef int (*player_flag)(struct osos_player *);
+    struct osos_player *player = record->player;
     switch (column) {
     case CFW_LOG_COLUMN_VERSION:
         field_text(LOG_VERSION);
@@ -439,7 +424,7 @@ static void detailed_column(unsigned column, const struct log_record *record)
         field_number(osos_media_item_bitrate(item));
         break;
     case CFW_LOG_COLUMN_SAMPLE_RATE:
-        field_number(item->record ? sample_rate_hz(item->record) : 0);
+        field_number(osos_media_item_sample_rate(item));
         break;
     case CFW_LOG_COLUMN_RATING:
         field_number((uint32_t)osos_media_item_rating(item) / 20);
@@ -451,12 +436,12 @@ static void detailed_column(unsigned column, const struct log_record *record)
         field_number(record->skips);
         break;
     case CFW_LOG_COLUMN_SHUFFLE:
-        field_text(((player_flag)OSOS_PLAYER_IS_SHUFFLED)(player) ? "on" : "off");
+        field_text(osos_player_is_shuffled(player) ? "on" : "off");
         break;
     case CFW_LOG_COLUMN_REPEAT:
-        field_text(((player_flag)OSOS_PLAYER_IS_REPEAT_ONE)(player)   ? "one"
-                   : ((player_flag)OSOS_PLAYER_IS_REPEAT_ALL)(player) ? "all"
-                                                                      : "off");
+        field_text(osos_player_is_repeat_one(player)   ? "one"
+                   : osos_player_is_repeat_all(player) ? "all"
+                                                       : "off");
         break;
     case CFW_LOG_COLUMN_QUEUE_POS:
         field_number(osos_playback_list_valid(&player->playback)
@@ -515,6 +500,7 @@ static void log_session(struct osos_media_item *item, uint8_t state, uint32_t po
     }
 
     const struct log_record record = {
+        .player = osos_player_get(),
         .item = item,
         .length = length,
         .position = position,
@@ -530,17 +516,16 @@ static void log_session(struct osos_media_item *item, uint8_t state, uint32_t po
     for (unsigned i = 0; i < config.column_count; i++)
         detailed_column(config.columns[i], &record);
     line.data[line.size - 1] = '\n';
-    write_line(&log_path, detailed_header, detailed_header_size);
+    write_line(CFW_LOG_DETAILED, detailed_header, detailed_header_size);
 }
 
 static void finish(struct track_session *session_object, uint32_t position,
                    enum ending ending)
 {
-    typedef void (*native_finish)(struct track_session *, uint32_t);
     struct osos_player *player = osos_player_get();
     struct osos_media_item *item = session_object ? &session_object->item : NULL;
     if (enabled)
-        tick(ticks());
+        tick(osos_playback_clock());
     int logged = enabled && session_object && session_object == player->current &&
                  session_object == listening.object && listening.started &&
                  !listening.finalized && session_object->state != SESSION_FINISHED &&
@@ -553,7 +538,7 @@ static void finish(struct track_session *session_object, uint32_t position,
     uint32_t plays = logged ? osos_media_item_play_count(item) : 0;
     uint32_t skips = logged ? osos_media_item_skip_count(item) : 0;
     /* The native finish updates the counters; the item outlives it in the caller. */
-    ((native_finish)OSOS_TRACK_SESSION_FINISH)(session_object, position);
+    osos_track_session_finish(session_object, position);
     if (logged)
         log_session(item, state, position, state == SESSION_PLAYED ? ENDED_END : ending,
                     plays, skips);
@@ -576,9 +561,8 @@ PATCH_ARM void cfw_playback_log_release(struct track_session *session_object,
 /* MediaPlayer_AdvanceTrack selects the next track, releasing the current one. */
 PATCH_ARM int cfw_playback_log_advance(struct osos_player *player, int index, int flags)
 {
-    typedef int (*select_track)(struct osos_player *, int, int);
     advancing = 1;
-    int result = ((select_track)OSOS_PLAYER_SELECT_TRACK)(player, index, flags);
+    int result = osos_player_select_track(player, index, flags);
     advancing = 0;
     return result;
 }
@@ -600,7 +584,7 @@ PATCH_ARM int cfw_playback_log_event(struct osos_player *player, void *event)
 PATCH_ARM void cfw_playback_log_complete(struct track_session *object)
 {
     if (enabled)
-        tick(ticks());
+        tick(osos_playback_clock());
     int logged = enabled && object && object == osos_player_get()->current &&
                  object == listening.object && listening.started &&
                  !listening.finalized && object->state == 4 &&
@@ -617,17 +601,28 @@ PATCH_ARM void cfw_playback_log_complete(struct track_session *object)
 void cfw_playback_log_load(void)
 {
     uint32_t record = 0;
+    imported_legacy = 0;
     /* Import the PR's legacy switch even when other settings already migrated. */
     if (!cfw_store_get(CFW_STORE_PLAYBACK_LOG, &record, sizeof(record))) {
         uint32_t legacy;
-        record = cfw_preferences_read(settings_path, &legacy, sizeof(legacy)) &&
-                 legacy == LOG_ON_RECORD;
-        cfw_store_set(CFW_STORE_PLAYBACK_LOG, &record, sizeof(record));
+        int status = cfw_store_read_legacy(settings_path, &legacy, sizeof(legacy));
+        imported_legacy = status == CFW_PREFERENCES_OK && legacy == LOG_ON_RECORD;
+        record = imported_legacy;
+        if (status != CFW_PREFERENCES_IO_ERROR) {
+            cfw_store_set(CFW_STORE_PLAYBACK_LOG, &record, sizeof(record));
+            uint32_t saved;
+            imported_legacy = imported_legacy &&
+                              cfw_store_get(CFW_STORE_PLAYBACK_LOG, &saved,
+                                            sizeof(saved)) == sizeof(saved) &&
+                              saved == record;
+        }
     }
     enabled = record == 1;
     cfw_log_config_parse(&config, NULL, 0);
     void *handle;
-    if (osos_file_open(&config_path, 1, &handle) == 0) {
+    struct osos_path path;
+    osos_path_init(&path, config_path);
+    if (osos_file_open(&path, 1, &handle) == 0) {
         char data[CFW_LOG_CONFIG_MAX + 1];
         uint32_t bytes = 0;
         if (osos_file_read(handle, data, sizeof(data), &bytes) == 0)
@@ -635,6 +630,14 @@ void cfw_playback_log_load(void)
         osos_file_close(handle);
     }
     configure_output();
+}
+
+void cfw_playback_log_delete_legacy(void)
+{
+    if (imported_legacy) {
+        cfw_preferences_delete(settings_path);
+        imported_legacy = 0;
+    }
 }
 
 void cfw_playback_log_reset(void)

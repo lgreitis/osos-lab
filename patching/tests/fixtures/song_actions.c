@@ -9,13 +9,10 @@
 #include "../../../payload/native/bindings.h"
 int cfw_song_action_original(void *, const char *, uint32_t);
 
-static int video_playlist_action(void *c, const char *a, uint32_t n)
+static int osos_video_playlist_action(void *c, const char *a, uint32_t n)
 {
     return cfw_song_action_original(c, a, n);
 }
-
-#undef OSOS_VIDEO_PLAYLIST_ACTION
-#define OSOS_VIDEO_PLAYLIST_ACTION ((uintptr_t)video_playlist_action)
 
 struct osos_media_item {
     void *record;

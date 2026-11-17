@@ -10,6 +10,8 @@ static struct osos_media_entry *insert_song(struct osos_player *player,
 {
     struct osos_media_list *list = player->playback.list;
     unsigned count = osos_list_root(list)->tracks;
+    if (count >= UINT16_MAX - 1)
+        return NULL;
     int reverse = osos_list_is_reversed(list);
     unsigned position = last ? count : (unsigned)player->current_index + 1;
     unsigned rank = reverse ? count - position : position;
@@ -35,11 +37,18 @@ static struct osos_media_entry *insert_song(struct osos_player *player,
     return inserted;
 }
 
-/* Caller holds the player lock. Rebinding the source invalidates cached track order. */
-static void invalidate_next(struct osos_player *player)
+void cfw_queue_edit_begin(struct osos_player *player)
 {
-    osos_player_clear_prepared(player);
-    osos_audio_set_playback_source(player->playback_source);
+    osos_player_stop_artwork(player);
+}
+
+void cfw_queue_edit_end(struct osos_player *player, int changed)
+{
+    osos_player_rebuild_artwork(player);
+    if (changed) {
+        osos_player_clear_prepared(player);
+        osos_audio_set_playback_source(player->playback_source);
+    }
 }
 
 static struct osos_media_entry *current_entry(struct osos_player *player)
@@ -74,24 +83,25 @@ void cfw_play_next_menu(struct osos_context_menu *menu)
     }
 }
 
+int cfw_play_next_insert(struct osos_player *player, struct osos_media_item *selected,
+                         int last)
+{
+    struct osos_media_entry *current = current_entry(player);
+    return current && selected && osos_media_item_is_music(selected) &&
+           insert_song(player, osos_media_item_entry(selected), current, last) != NULL;
+}
+
 int cfw_play_next_add(struct osos_player *player, struct osos_media_item *selected,
                       int last)
 {
     struct osos_media_entry *current = current_entry(player);
-    if (current) {
-        if (selected && osos_media_item_is_music(selected)) {
-            /* Artwork is indexed by queue position; stop its worker before mutation. */
-            osos_player_stop_artwork(player);
-            struct osos_media_entry *inserted =
-                insert_song(player, osos_media_item_entry(selected), current, last);
-            osos_player_rebuild_artwork(player);
-            if (inserted) {
-                invalidate_next(player);
-                return 1;
-            }
-        }
-    }
-    return 0;
+    if (!current || !selected || !osos_media_item_is_music(selected))
+        return 0;
+    cfw_queue_edit_begin(player);
+    int changed =
+        insert_song(player, osos_media_item_entry(selected), current, last) != NULL;
+    cfw_queue_edit_end(player, changed);
+    return changed;
 }
 
 void cfw_play_next_add_browser(struct osos_player *player, void *browser, int last)
@@ -108,7 +118,7 @@ void cfw_play_next_add_browser(struct osos_player *player, void *browser, int la
     uint32_t grouped = *((uint8_t *)browser + OSOS_BROWSER_ORDER_FLAG_OFFSET) != 0;
     unsigned count = osos_list_root(source)->tracks;
 
-    osos_player_stop_artwork(player);
+    cfw_queue_edit_begin(player);
     int inserted = 0;
     for (unsigned i = 0; i < count; i++) {
         /* Play Next inserts each song directly after the current one, so walk backwards. */
@@ -131,7 +141,5 @@ void cfw_play_next_add_browser(struct osos_player *player, void *browser, int la
         if (insert_song(player, entry, current, last))
             inserted = 1;
     }
-    osos_player_rebuild_artwork(player);
-    if (inserted)
-        invalidate_next(player);
+    cfw_queue_edit_end(player, inserted);
 }

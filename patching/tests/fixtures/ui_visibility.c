@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include <assert.h>
 #include "../../../payload/ui_visibility.h"
+#include "legacy_visibility.h"
 
 static uint32_t visible[4], available[4] = {3, 3, 3, 1};
 const struct cfw_ui_visibility cfw_ui_visibility[] = {

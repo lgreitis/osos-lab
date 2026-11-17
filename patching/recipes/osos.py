@@ -9,6 +9,7 @@ from .. import assets, declarations, ui
 from ..declarations import Copy, Kind
 from ..symbols import require
 from ..toolchain import compile_payload
+from ..ui.codegen import resource_symbols
 from .segments import Input, Recipe
 
 BASE = 0x08000000
@@ -98,12 +99,12 @@ def build_recipe(
         includes=(native, source / "patches"),
         thumb_symbols=True,
     )
-    for i, (kind, resource_id) in enumerate(resources.added):
-        if kind == "BMap" and require(symbols, f"resource_{i}") % 4:
+    for (kind, resource_id), symbol in resource_symbols(resources).items():
+        if kind == "BMap" and require(symbols, symbol) % 4:
             raise ValueError(f"Embedded bitmap {resource_id:#x} is not word-aligned")
     patches = declarations.collect(directory, "payload", prefix)
-    used = symbols["__payload_end"] - symbols["__payload_start"]
-    capacity = symbols["__payload_limit"] - symbols["__payload_start"]
+    used = require(symbols, "__payload_end") - require(symbols, "__payload_start")
+    capacity = require(symbols, "__payload_limit") - require(symbols, "__payload_start")
     print(
         f"CFW reservation: {used:,} / {capacity:,} bytes used; {capacity - used:,} free",
         flush=True,

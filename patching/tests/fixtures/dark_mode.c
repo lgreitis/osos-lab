@@ -17,16 +17,11 @@ static void fill(void *, const void *, const unsigned char *, uint32_t, void *);
 #define CFW_PATCH_H
 #define PATCH_ARM
 
-static int assets_ready = 1, assets_active, asset_cancellations;
+static int assets_ready = 1, assets_active;
 
 int cfw_assets_prepare(void)
 {
     return assets_ready;
-}
-
-void cfw_assets_cancel(void)
-{
-    asset_cancellations++;
 }
 
 void cfw_assets_set_enabled(int value)
@@ -83,14 +78,14 @@ int cfw_store_migrating(void)
     return migrating;
 }
 
-int cfw_preferences_read(const char *name, void *record, uint32_t size)
+int cfw_store_read_legacy(const char *name, void *record, uint32_t size)
 {
     assert(!strcmp(name, "iPod_Control\\Device\\CFWDark") && size == 4);
     legacy_reads++;
     if (missing)
-        return 0;
+        return CFW_PREFERENCES_MISSING;
     memcpy(record, &disk_record, 4);
-    return disk_size == 4;
+    return disk_size == 4 ? CFW_PREFERENCES_OK : CFW_PREFERENCES_SHORT;
 }
 
 static void *settings_model(void *value)
@@ -339,6 +334,7 @@ static char boot_calls[16];
 static unsigned boot_count, native_flushes, store_flushes;
 static const char *deleted[4];
 static unsigned delete_count;
+static unsigned eq_legacy_cleanups, log_legacy_cleanups;
 static int native_preferences_object;
 
 static void boot_step(char step)
@@ -355,6 +351,16 @@ void cfw_store_load(void)
 void cfw_eq_load_preferences(void)
 {
     boot_step('E');
+}
+
+void cfw_eq_delete_legacy(void)
+{
+    eq_legacy_cleanups++;
+}
+
+void cfw_playback_log_delete_legacy(void)
+{
+    log_legacy_cleanups++;
 }
 
 void cfw_crossfeed_load(void)
@@ -468,10 +474,10 @@ static void check_settings_lifecycle(void)
     assert(!strcmp(boot_calls, "SEXVF"));
     cfw_settings_sleep();
     assert(native_flushes == 1 && store_flushes == 2);
+    unsigned before = delete_count;
     cfw_store_delete_legacy();
-    assert(delete_count == 3 && !strcmp(deleted[0], "iPod_Control\\Device\\CFWEQ") &&
-           !strcmp(deleted[1], "iPod_Control\\Device\\CFWDark") &&
-           !strcmp(deleted[2], "menus"));
+    assert(eq_legacy_cleanups == 1 && log_legacy_cleanups == 1);
+    assert(delete_count == before + 1 && !strcmp(deleted[before], "menus"));
 }
 
 static void check_reset_all_settings(void)
@@ -625,6 +631,10 @@ int main(void)
     cfw_dark_mode_load();
     assert(cfw_dark_mode_enabled() && legacy_reads == 1 && stored);
     assert(stored_record == DARK_MODE_ON_RECORD && store_sets == 3);
+    cfw_dark_mode_delete_legacy();
+    assert(delete_count == 1 && !strcmp(deleted[0], CFW_DARK_MODE_LEGACY_FILE));
+    cfw_dark_mode_delete_legacy();
+    assert(delete_count == 1);
     stored_record = DARK_MODE_OFF_RECORD;
     cfw_dark_mode_load();
     assert(!cfw_dark_mode_enabled() && legacy_reads == 1);
@@ -638,6 +648,8 @@ int main(void)
     assert(!cfw_dark_mode_enabled() && !stored);
     disk_size = 4;
     migrating = 0;
+    cfw_dark_mode_delete_legacy();
+    assert(delete_count == 1);
 
     now_playing_available = 0;
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
@@ -651,7 +663,7 @@ int main(void)
     assets_ready = 1;
     assert(cfw_dark_mode_action(&controller, "CFW_DarkMode_Toggle", 0));
     assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
-    assert(redraws == 4 && notifications == 4 && !asset_cancellations);
+    assert(redraws == 4 && notifications == 4);
     assert(!preview_invalidations);
     check_clicker();
     check_settings_lifecycle();

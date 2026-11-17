@@ -47,10 +47,11 @@ int cfw_media_menu_action(void *controller, const char *action, uint32_t argumen
         return 0;
     if (argument == OSOS_ACTION_SUPPORT_QUERY)
         return 1;
+    if (controller != menu.controller)
+        return 1;
     struct osos_media_item item;
-    if (menu.available && controller == menu.controller &&
-        list_item(controller, menu.row, &item) && same_item(&item, &menu.item) &&
-        cfw_file_info_show(controller, &item))
+    if (menu.available && list_item(controller, menu.row, &item) &&
+        same_item(&item, &menu.item) && cfw_file_info_show(controller, &item))
         return 1;
     osos_controller_restore_layout(controller, menu.layout_offset);
     return 1;

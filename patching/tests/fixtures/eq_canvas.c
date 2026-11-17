@@ -14,13 +14,15 @@
 #define PATCH_CALL(...)
 
 /* Factories are linked but not executed by this input/drawing contract test. */
-#define OSOS_VIEW_INIT_OPTIONS 0
-#define OSOS_CPP_NEW 0
-#define OSOS_VIEW_CONSTRUCT 0
-#define OSOS_REGISTER_VIEW_FACTORY 0
-#define OSOS_GRAPHICS_CONSTRUCT construct_context
-#define OSOS_VIEW_BIND_GRAPHICS bind_context
-#define OSOS_VIEW_LOCAL_RECT local_rect
+#define osos_view_init_options(descriptor, options)                                    \
+    ((void)(descriptor), (void)(options))
+#define osos_cpp_new(bytes) ((void)(bytes), (void *)0)
+#define osos_view_construct(view, parent, target, options)                             \
+    ((void)(parent), (void)(target), (void)(options), (view))
+#define osos_register_view_factory(type, factory) ((void)(type), (void)(factory))
+#define osos_graphics_construct construct_context
+#define osos_view_bind_graphics bind_context
+#define osos_view_local_rect local_rect
 
 static unsigned forwarded, invalidated, decoded, rectangles;
 static unsigned text_draws;
@@ -203,7 +205,7 @@ static void *osos_resource_get(void *bank, uint32_t type, uint32_t id, uint32_t 
 static uintptr_t osos_ui_string(uint32_t id)
 {
     assert(id == 1);
-    return (uintptr_t) "Helvetica";
+    return (uintptr_t)"Helvetica";
 }
 
 static void osos_font_construct(uint32_t *font, const char *family, uint32_t size,

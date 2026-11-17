@@ -219,12 +219,8 @@ static void file_type(void)
     osos_native_string_destroy(&path);
 }
 
-/* The record keeps the sample rate as an IEEE single (2.0.5). */
-static void sample_rate(uint32_t bits)
+static void sample_rate(uint32_t hertz)
 {
-    uint32_t exponent = bits >> 23 & 0xff, hertz = 0;
-    if (!(bits >> 31) && exponent >= 127 && exponent < 150)
-        hertz = ((bits & 0x7fffff) | 0x800000) >> (150 - exponent);
     if (!hertz) {
         info.unknown = 1;
         return;
@@ -262,7 +258,7 @@ static const char *value(enum field field)
         file_type();
         break;
     case SAMPLE_RATE:
-        sample_rate(*(const uint32_t *)(record + 0x74));
+        sample_rate(osos_media_item_sample_rate(item));
         break;
     case BITRATE:
         number(osos_media_item_bitrate(item), " kbps");
@@ -327,7 +323,7 @@ int cfw_file_info_show(void *controller, struct osos_media_item *item)
     for (const uint8_t *row = rows_for(kind); *row != FIELDS; row++) {
         info.size = 0;
         info.unknown = 0;
-        value((enum field)*row);
+        value((enum field) * row);
         if (!info.unknown)
             info.rows[info.count++] = *row;
     }

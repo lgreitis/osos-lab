@@ -178,14 +178,14 @@ static void check_revalidation(void)
     reset();
     cfw_episode_menu(&controller, 1);
     assert(cfw_media_menu_action(&other_controller, "CFW_FileInfo", 0));
-    assert(!shown && restored == 1);
+    assert(!shown && !restored);
     generation++; /* A library reload replaces the selected record. */
     assert(cfw_media_menu_action(&controller, "CFW_FileInfo", 0));
-    assert(!shown && restored == 2);
+    assert(!shown && restored == 1);
     cfw_episode_menu(&controller, 1);
     valid = 0;
     assert(cfw_media_menu_action(&controller, "CFW_FileInfo", 0));
-    assert(!shown && restored == 3);
+    assert(!shown && restored == 2);
     valid = 1;
 }
 

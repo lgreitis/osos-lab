@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "playback_log_config.h"
+#include "cfw.h"
 
 _Static_assert(CFW_LOG_COLUMN_COUNT <= 32, "Column mask capacity");
 
@@ -38,15 +39,6 @@ const char *const cfw_log_column_names[CFW_LOG_COLUMN_COUNT] = {
     [CFW_LOG_COLUMN_POSITION_MS] = "position_ms",
 };
 
-static int equal(const char *a, const char *b)
-{
-    while (*a && *a == *b) {
-        a++;
-        b++;
-    }
-    return *a == *b;
-}
-
 static int space(char c)
 {
     return c == ' ' || c == '\t' || c == '\r';
@@ -78,7 +70,7 @@ static void columns(struct cfw_log_config *config, char *value)
         char *name = trim(value);
         unsigned column = 0;
         while (column < CFW_LOG_COLUMN_COUNT &&
-               !equal(name, cfw_log_column_names[column]))
+               !cfw_string_equal(name, cfw_log_column_names[column]))
             column++;
         if (column == CFW_LOG_COLUMN_COUNT || count == CFW_LOG_COLUMN_COUNT ||
             (seen & (1u << column)))
@@ -106,19 +98,19 @@ static void setting(struct cfw_log_config *config, char *line)
     *value++ = 0;
     key = trim(key);
     value = trim(value);
-    if (equal(key, "format")) {
-        if (equal(value, "scrobbler"))
+    if (cfw_string_equal(key, "format")) {
+        if (cfw_string_equal(value, "scrobbler"))
             config->format = CFW_LOG_SCROBBLER;
-        else if (equal(value, "detailed"))
+        else if (cfw_string_equal(value, "detailed"))
             config->format = CFW_LOG_DETAILED;
-        else if (equal(value, "both"))
+        else if (cfw_string_equal(value, "both"))
             config->format = CFW_LOG_BOTH;
-    } else if (equal(key, "columns")) {
+    } else if (cfw_string_equal(key, "columns")) {
         columns(config, value);
-    } else if (equal(value, "0") || equal(value, "1")) {
-        if (equal(key, "include_podcasts"))
+    } else if (cfw_string_equal(value, "0") || cfw_string_equal(value, "1")) {
+        if (cfw_string_equal(key, "include_podcasts"))
             config->podcasts = *value - '0';
-        else if (equal(key, "include_audiobooks"))
+        else if (cfw_string_equal(key, "include_audiobooks"))
             config->audiobooks = *value - '0';
     }
 }

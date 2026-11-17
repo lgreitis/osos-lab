@@ -89,25 +89,41 @@ def emit_resource_data(name, data, *, mutable=False, aligned=False):
     return lines
 
 
+def resource_symbols(resources):
+    symbols, bitmaps = {}, {}
+    for i, (key, data) in enumerate(resources.added.items()):
+        symbol = f"resource_{i}"
+        if key[0] == "BMap" and not any(data.origins):
+            symbol = bitmaps.setdefault(bytes(data.data), symbol)
+        symbols[key] = symbol
+    return symbols
+
+
 def emit_resources(resources):
     lines = []
     entries = []
-    for i, ((kind, resource_id), data) in enumerate(resources.added.items()):
-        # Native BMap readers load header fields and pixels as halfwords/words.
-        lines.extend(emit_resource_data(f"resource_{i}", data, aligned=kind == "BMap"))
+    symbols = resource_symbols(resources)
+    emitted = set()
+    for (kind, resource_id), data in resources.added.items():
+        symbol = symbols[kind, resource_id]
+        if symbol not in emitted:
+            # Native BMap readers load header fields and pixels as halfwords/words.
+            lines.extend(emit_resource_data(symbol, data, aligned=kind == "BMap"))
+            emitted.add(symbol)
         resource_type = int.from_bytes(kind.encode("ascii"), "big")
         entries.append(
-            f"    {{{resource_type:#x}, {resource_id:#x}, sizeof(resource_{i}), resource_{i}}},"
+            f"    {{{resource_type:#x}, {resource_id:#x}, sizeof({symbol}), {symbol}}},"
         )
 
     lines += ["", "const struct cfw_resource cfw_resources[] = {", *entries, "};"]
     lines.append(f"const uint32_t cfw_resource_count = {len(entries)};")
     lines.append("const struct cfw_resource_name cfw_resource_names[] = {")
     for name, resource_id in resources.names.items():
-        lines.append(f'    {{"{name}", {resource_id:#x}}},')
+        if name in resources.runtime_names:
+            lines.append(f'    {{"{name}", {resource_id:#x}}},')
     lines += [
         "};",
-        f"const uint32_t cfw_resource_name_count = {len(resources.names)};",
+        f"const uint32_t cfw_resource_name_count = {len(resources.runtime_names)};",
         "",
     ]
 

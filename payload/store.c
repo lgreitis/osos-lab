@@ -13,19 +13,20 @@ enum {
 };
 
 static const char file[] = "iPod_Control\\Device\\CFWPreferences";
+static const char backup[] = "iPod_Control\\Device\\CFWPreferences.bak";
 static uint32_t store[CAPACITY];
-static int dirty, migrating;
+static int dirty, migrating, blocked;
 
 static uint32_t words(uint32_t size)
 {
     return (size + 3) / 4;
 }
 
-static uint32_t checksum(void)
+static uint32_t checksum(const uint32_t *record)
 {
-    const unsigned char *data = (const unsigned char *)store;
+    const unsigned char *data = (const unsigned char *)record;
     uint32_t hash = 2166136261u;
-    for (uint32_t i = HEADER * 4; i < store[2]; i++)
+    for (uint32_t i = HEADER * 4; i < record[2]; i++)
         hash = (hash ^ data[i]) * 16777619u;
     return hash;
 }
@@ -39,27 +40,55 @@ static uint32_t find(uint32_t key)
     return i;
 }
 
-static int valid(void)
+static int valid(const uint32_t *record)
 {
-    uint32_t end = store[2] / 4;
-    if (store[0] != MAGIC || store[1] != VERSION || store[2] % 4 || end < HEADER ||
-        end > CAPACITY || store[3] != checksum())
+    uint32_t end = record[2] / 4;
+    if (record[0] != MAGIC || record[1] != VERSION || record[2] % 4 || end < HEADER ||
+        end > CAPACITY || record[3] != checksum(record))
         return 0;
-    for (uint32_t i = HEADER; i < end; i += 2 + words(store[i + 1]))
-        if (end - i < 2 || store[i + 1] > (end - i - 2) * 4)
+    for (uint32_t i = HEADER; i < end; i += 2 + words(record[i + 1]))
+        if (end - i < 2 || record[i + 1] > (end - i - 2) * 4)
             return 0;
     return 1;
 }
 
+static int read_store(const char *name, uint32_t *record)
+{
+    int status = cfw_preferences_read_status(name, record, HEADER * 4);
+    if (status != CFW_PREFERENCES_OK)
+        return status;
+    if (record[2] < HEADER * 4 || record[2] > CAPACITY * 4)
+        return CFW_PREFERENCES_SHORT;
+    status = cfw_preferences_read_status(name, record, record[2]);
+    return status == CFW_PREFERENCES_OK && !valid(record) ? CFW_PREFERENCES_SHORT
+                                                          : status;
+}
+
 void cfw_store_load(void)
 {
-    if (cfw_preferences_read(file, store, HEADER * 4) && store[2] <= CAPACITY * 4 &&
-        cfw_preferences_read(file, store, store[2]) && valid())
+    dirty = migrating = blocked = 0;
+    int status = read_store(file, store);
+    if (status == CFW_PREFERENCES_OK)
         return;
+    blocked = status == CFW_PREFERENCES_IO_ERROR;
+    status = read_store(backup, store);
+    blocked |= status == CFW_PREFERENCES_IO_ERROR;
+    if (status == CFW_PREFERENCES_OK) {
+        dirty = 1;
+        return;
+    }
     store[0] = MAGIC;
     store[1] = VERSION;
     store[2] = HEADER * 4;
     migrating = dirty = 1;
+}
+
+int cfw_store_read_legacy(const char *name, void *record, uint32_t size)
+{
+    int status = cfw_preferences_read_status(name, record, size);
+    if (status == CFW_PREFERENCES_IO_ERROR)
+        blocked = 1;
+    return status;
 }
 
 int cfw_store_migrating(void)
@@ -81,6 +110,8 @@ uint32_t cfw_store_get(uint32_t key, void *data, uint32_t capacity)
 
 void cfw_store_set(uint32_t key, const void *data, uint32_t size)
 {
+    if (size > (CAPACITY - HEADER - 2) * 4)
+        return;
     const unsigned char *from = data;
     uint32_t i = find(key), end = store[2] / 4, need = 2 + words(size);
     if (i < end && store[i + 1] == size) {
@@ -112,14 +143,20 @@ void cfw_store_set(uint32_t key, const void *data, uint32_t size)
 
 void cfw_store_flush(void)
 {
-    if (!dirty)
+    if (!dirty || blocked)
         return;
-    store[3] = checksum();
+    uint32_t previous[CAPACITY];
+    int status = read_store(file, previous);
+    if (status == CFW_PREFERENCES_IO_ERROR)
+        return;
+    /* A torn primary leaves the backup intact until recovery succeeds. */
+    if (status == CFW_PREFERENCES_OK &&
+        !cfw_preferences_write(backup, previous, previous[2]))
+        return;
+    store[3] = checksum(store);
     if (!cfw_preferences_write(file, store, store[2]))
         return;
     dirty = 0;
-    if (migrating) {
-        migrating = 0;
-        cfw_store_delete_legacy();
-    }
+    migrating = 0;
+    cfw_store_delete_legacy();
 }

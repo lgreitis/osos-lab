@@ -21,7 +21,7 @@ PATCH_COPY(cfw_eq_presets, 23 * 8 + 4, OSOS_EQ_PRESETS + 8 * 8 + 4, 4);
 PATCH_COPY(cfw_eq_preset_ids, 0, OSOS_EQ_PRESET_IDS, 23 * 4);
 
 static uint32_t settings[CFW_EQ_FIELDS];
-static int initialized;
+static int initialized, legacy_imported;
 
 /* The store record: the fields, then the precut choice layout. Records from builds
  * before Auto precut lack the layout word and index manual precuts from 0 dB. */
@@ -79,11 +79,13 @@ static void commit_values(void)
 static int load_legacy(uint32_t values[CFW_EQ_FIELDS])
 {
     struct eq_file file;
-    if (!cfw_preferences_read(CFW_EQ_LEGACY_FILE, &file, 8) || file.magic != 0x51455743)
+    if (cfw_store_read_legacy(CFW_EQ_LEGACY_FILE, &file, 8) != CFW_PREFERENCES_OK ||
+        file.magic != 0x51455743)
         return 0;
     if (file.version == 1 || file.version == 2) {
         struct legacy_eq_file legacy;
-        if (!cfw_preferences_read(CFW_EQ_LEGACY_FILE, &legacy, sizeof(legacy)) ||
+        if (cfw_store_read_legacy(CFW_EQ_LEGACY_FILE, &legacy, sizeof(legacy)) !=
+                CFW_PREFERENCES_OK ||
             legacy.checksum != checksum(&legacy, sizeof(legacy)))
             return 0;
         if (legacy.version == 1) {
@@ -96,7 +98,8 @@ static int load_legacy(uint32_t values[CFW_EQ_FIELDS])
         return 1;
     }
     if ((file.version != 3 && file.version != 4) ||
-        !cfw_preferences_read(CFW_EQ_LEGACY_FILE, &file, sizeof(file)) ||
+        cfw_store_read_legacy(CFW_EQ_LEGACY_FILE, &file, sizeof(file)) !=
+            CFW_PREFERENCES_OK ||
         file.checksum != checksum(&file, sizeof(file)))
         return 0;
     for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
@@ -107,6 +110,7 @@ static int load_legacy(uint32_t values[CFW_EQ_FIELDS])
 void cfw_eq_load_preferences(void)
 {
     struct eq_record record;
+    legacy_imported = 0;
     defaults();
     for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
         record.values[i] = settings[i];
@@ -121,8 +125,11 @@ void cfw_eq_load_preferences(void)
         record.layout = legacy == 2 ? EQ_LAYOUT_AUTO_PRECUT : 0;
     }
     /* Auto took precut index 0; earlier layouts start at 0 dB. */
-    if (record.layout < EQ_LAYOUT_AUTO_PRECUT)
+    if (record.layout < EQ_LAYOUT_AUTO_PRECUT) {
+        if (record.values[CFW_EQ_PRECUT] >= cfw_eq_fields[CFW_EQ_PRECUT].count - 1)
+            return;
         record.values[CFW_EQ_PRECUT]++;
+    }
     for (unsigned int i = 0; i < CFW_EQ_FIELDS; i++)
         if (record.values[i] >= cfw_eq_fields[i].count)
             return;
@@ -132,6 +139,16 @@ void cfw_eq_load_preferences(void)
         settings[i] = record.values[i];
     if (!stored || record.layout < EQ_LAYOUT_AUTO_PRECUT)
         commit_values();
+    legacy_imported = !stored && cfw_store_get(CFW_STORE_CUSTOM_EQ, &record,
+                                               sizeof(record)) == sizeof(record);
+}
+
+void cfw_eq_delete_legacy(void)
+{
+    if (legacy_imported) {
+        cfw_preferences_delete(CFW_EQ_LEGACY_FILE);
+        legacy_imported = 0;
+    }
 }
 
 static void change_value(uint32_t field, uint32_t value)
@@ -145,6 +162,8 @@ static void change_value(uint32_t field, uint32_t value)
     settings[field] = value;
     if (!cfw_eq_publish(settings))
         settings[field] = previous;
+    else
+        commit_values();
 }
 
 void cfw_eq_reset_preferences(void)

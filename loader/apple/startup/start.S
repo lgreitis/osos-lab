@@ -8,7 +8,6 @@
 .arm
 .section .text.entry,"ax",%progbits
 .equ RESULT, 0x2203c000
-.equ SCRATCH, 0x2203c100
 .equ STACK, 0x2203b000
 
 native_arm_jump apple_loader, 0, probe_start

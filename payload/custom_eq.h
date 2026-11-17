@@ -21,6 +21,7 @@ uint32_t cfw_eq_snapshot(int32_t coefficients[CFW_EQ_BANDS][5], uint32_t *rate,
                          uint32_t *precut);
 
 void cfw_eq_load_preferences(void);
+void cfw_eq_delete_legacy(void);
 /* Reset All Settings: restores and stores the default Custom EQ. */
 void cfw_eq_reset_preferences(void);
 int cfw_eq_publish(const uint32_t values[CFW_EQ_FIELDS]);

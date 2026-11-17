@@ -5,7 +5,8 @@
 
 /* Main menu "Up Next" row actions. */
 int cfw_up_next_action(void *controller, const char *action, uint32_t argument);
-/* Called before a media model is destroyed: forgets the Up Next browser if it is its. */
+int cfw_up_next_owns_model(void *model);
+/* Called before the owning model is destroyed. Borrowed wrappers do not own the browser. */
 void cfw_up_next_model_destroyed(void *model);
 /* Song-list actions on the Up Next screen (hold menu and selection). */
 int cfw_up_next_song_action(void *controller, const char *action, uint32_t argument);

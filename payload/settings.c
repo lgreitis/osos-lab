@@ -8,7 +8,6 @@
 #include "playback_log.h"
 #include "osos.h"
 #include "patch.h"
-#include "preferences.h"
 #include "resources.h"
 #include "sound.h"
 #include "store.h"
@@ -43,9 +42,10 @@ void cfw_settings_sleep(void)
 /* Legacy import: removes the pre-store files once the store holds their settings. */
 void cfw_store_delete_legacy(void)
 {
-    cfw_preferences_delete(CFW_EQ_LEGACY_FILE);
-    cfw_preferences_delete(CFW_DARK_MODE_LEGACY_FILE);
+    cfw_eq_delete_legacy();
+    cfw_dark_mode_delete_legacy();
     cfw_ui_visibility_delete_legacy();
+    cfw_playback_log_delete_legacy();
 }
 
 /* Menu visibility resets through the native menu-reset hooks. */

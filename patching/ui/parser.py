@@ -68,7 +68,6 @@ class Parser:
             children=(
                 "values",
                 "range",
-                "menu",
                 "text",
                 "canvas",
                 "list",
@@ -123,9 +122,9 @@ class Parser:
             )
             validate_values(value)
             document.values[value.name] = value
-        elif node.tag in ("menu", "text", "toggle", "canvas", "list"):
+        elif node.tag in ("text", "toggle", "canvas", "list"):
             if document.root is not None:
-                raise ValueError("Expected one root menu or page per UI declaration")
+                raise ValueError("Expected one root page per UI declaration")
             if node.tag in ("toggle", "canvas", "list"):
                 attributes(
                     node, "id title", "select layout" if node.tag == "list" else ""
@@ -141,11 +140,7 @@ class Parser:
                     if document.root.layout not in ("inline", "stacked"):
                         raise ValueError("<list> layout must be inline or stacked")
             else:
-                document.root = (
-                    self.parse_menu(node)
-                    if node.tag == "menu"
-                    else self.parse_text(node)
-                )
+                document.root = self.parse_text(node)
         elif node.tag == "setting":
             self.parse_setting(node)
         elif node.tag == "settings-entry":
@@ -243,20 +238,6 @@ class Parser:
             for number in numbers
         ]
         return value
-
-    def parse_menu(self, node):
-        attributes(node, "id title", children=("menu", "info"))
-        item = Item("menu", self.identifier(node), node.attrib["title"])
-        for child in node:
-            if child.tag == "menu":
-                row = self.parse_menu(child)
-            else:
-                attributes(child, "id title")
-                row = Item("info", self.identifier(child), child.attrib["title"])
-            item.items.append(row)
-        if not item.items:
-            raise ValueError(f"Empty UI menu: {item.name}")
-        return item
 
     def parse_setting(self, node):
         attributes(node, "id title values slot default")

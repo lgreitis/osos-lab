@@ -13,12 +13,18 @@ def read(elf, prefix, thumb_bits=True):
             value = int(parts[1], 16)
             if parts[3] == "FUNC" and not thumb_bits:
                 value &= ~1
-            symbols[parts[7]] = value
+            name = parts[7]
+            symbols[name] = (
+                value if name not in symbols or symbols[name] == value else None
+            )
     return symbols
 
 
 def require(symbols, name):
     try:
-        return symbols[name]
+        value = symbols[name]
+        if value is None:
+            raise ValueError(f"Ambiguous linked patch symbol: {name}")
+        return value
     except KeyError:
         raise ValueError(f"Missing linked patch symbol: {name}") from None

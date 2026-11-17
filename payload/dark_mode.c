@@ -29,25 +29,39 @@ int cfw_dark_mode_enabled(void)
     return cfw_assets_enabled();
 }
 
+static int legacy_imported;
+
 /* Legacy import: reads the pre-store CFWDark file. */
 static uint32_t load_legacy(void)
 {
     uint32_t record;
-    if (!cfw_preferences_read(CFW_DARK_MODE_LEGACY_FILE, &record, sizeof(record)) ||
+    if (cfw_store_read_legacy(CFW_DARK_MODE_LEGACY_FILE, &record, sizeof(record)) !=
+            CFW_PREFERENCES_OK ||
         (record != DARK_MODE_ON_RECORD && record != DARK_MODE_OFF_RECORD))
         return 0;
     cfw_store_set(CFW_STORE_DARK, &record, sizeof(record));
+    legacy_imported =
+        cfw_store_get(CFW_STORE_DARK, &record, sizeof(record)) == sizeof(record);
     return record;
 }
 
 void cfw_dark_mode_load(void)
 {
+    legacy_imported = 0;
     uint32_t record = 0;
     if (cfw_store_get(CFW_STORE_DARK, &record, sizeof(record)) != sizeof(record))
         record = cfw_store_migrating() ? load_legacy() : 0;
     int next = record == DARK_MODE_ON_RECORD;
     if (next != cfw_assets_enabled() && cfw_assets_prepare())
         cfw_assets_set_enabled(next);
+}
+
+void cfw_dark_mode_delete_legacy(void)
+{
+    if (legacy_imported) {
+        cfw_preferences_delete(CFW_DARK_MODE_LEGACY_FILE);
+        legacy_imported = 0;
+    }
 }
 
 static void save(unsigned int value)

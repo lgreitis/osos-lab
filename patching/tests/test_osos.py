@@ -3,8 +3,9 @@
 
 import struct
 import unittest
+from unittest.mock import patch
 
-from patching import declarations
+from patching import declarations, symbols
 from patching.declarations import Copy, Kind, Write
 from patching.recipes import fingerprint, osos
 
@@ -14,6 +15,29 @@ def word(kind, address, expected, symbol="", value=0):
 
 
 class OsosTests(unittest.TestCase):
+    def test_patch_symbols_preserve_local_targets_but_reject_ambiguous_names(self):
+        listing = "\n".join(
+            [
+                "1: 08b3c001 4 FUNC LOCAL DEFAULT 1 thumb_hook",
+                "2: 08b3c010 4 OBJECT LOCAL DEFAULT 1 table",
+                "3: 08b3c020 4 OBJECT LOCAL DEFAULT 1 table",
+                "4: 08b3c030 4 OBJECT LOCAL DEFAULT 1 unique_table",
+                "5: 08b3c040 4 OBJECT GLOBAL DEFAULT 1 global_table",
+                "6: 08b3c040 4 OBJECT GLOBAL DEFAULT 1 global_table",
+            ]
+        )
+        with patch("patching.symbols.subprocess.check_output", return_value=listing):
+            linked = symbols.read("payload.elf", "arm-")
+            self.assertEqual(symbols.require(linked, "thumb_hook"), 0x08B3C001)
+            self.assertEqual(symbols.require(linked, "unique_table"), 0x08B3C030)
+            self.assertEqual(symbols.require(linked, "global_table"), 0x08B3C040)
+            with self.assertRaisesRegex(ValueError, "Ambiguous.*table"):
+                symbols.require(linked, "table")
+            with self.assertRaisesRegex(ValueError, "Missing.*absent"):
+                symbols.require(linked, "absent")
+            linked = symbols.read("payload.elf", "arm-", thumb_bits=False)
+            self.assertEqual(symbols.require(linked, "thumb_hook"), 0x08B3C000)
+
     def setUp(self):
         self.load_offset = 0xB798
         self.original = bytearray(self.load_offset + 256)

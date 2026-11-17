@@ -7,6 +7,52 @@ enum {
     OSOS_RESOURCE_DRAW = 0x44726177,
 };
 
+static inline int osos_display_set_gamma(const uint32_t *red, const uint32_t *green,
+                                         const uint32_t *blue)
+{
+    typedef int (*fn)(const uint32_t *, const uint32_t *, const uint32_t *);
+    return ((fn)OSOS_DISPLAY_SET_GAMMA)(red, green, blue);
+}
+
+static inline void *osos_graphics_construct(void *context)
+{
+    typedef void *(*fn)(void *);
+    return ((fn)OSOS_GRAPHICS_CONSTRUCT)(context);
+}
+
+static inline void osos_view_bind_graphics(void *view, void *context)
+{
+    typedef void (*fn)(void *, void *);
+    ((fn)OSOS_VIEW_BIND_GRAPHICS)(view, context);
+}
+
+static inline void osos_view_local_rect(void *view, int32_t *rect)
+{
+    typedef void (*fn)(void *, int32_t *);
+    ((fn)OSOS_VIEW_LOCAL_RECT)(view, rect);
+}
+
+static inline void osos_view_init_options(const void *descriptor, void *options)
+{
+    typedef void (*fn)(const void *, void *);
+    ((fn)OSOS_VIEW_INIT_OPTIONS)(descriptor, options);
+}
+
+static inline void *osos_view_construct(void *view, void *parent, void *target,
+                                        const void *options)
+{
+    typedef void *(*fn)(void *, void *, void *, void *, const void *);
+    return ((fn)OSOS_VIEW_CONSTRUCT)(view, NULL, parent, target, options);
+}
+
+typedef void *(*osos_view_factory)(void *, void *, void *, const void *);
+
+static inline void osos_register_view_factory(uint32_t type, osos_view_factory factory)
+{
+    typedef void (*fn)(uint32_t, osos_view_factory);
+    ((fn)OSOS_REGISTER_VIEW_FACTORY)(type, factory);
+}
+
 /* Descriptor identity is retained separately from the changing model property ID. */
 static inline uint32_t osos_view_id(const void *view)
 {

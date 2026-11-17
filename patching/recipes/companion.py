@@ -14,7 +14,7 @@ COMPANION_SIZE = 0x2B800
 @dataclass
 class LinkedImage:
     code: bytes
-    symbols: dict[str, int]
+    symbols: dict[str, int | None]
     declarations: list[native.Declaration] = field(default_factory=list)
 
 

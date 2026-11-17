@@ -9,15 +9,15 @@
 #include "up_next_ui.h"
 #include "play_next.h"
 #include "up_next.h"
+#include "media_browser.h"
 #include "ui_visibility.h"
 
 #define FIELD(type, object, offset) (*(type *)((uint8_t *)(object) + (offset)))
 
 enum {
-    LIST_VIEW_SET_ROW = 0x184, /* on OSOS_UI_SELECTION's view: move the highlight */
-    BROWSER_SONGS = 0xeec,
-    BROWSER_SONGS_JUMP = 0xef0,
-    BROWSER_SONGS_COUNT = 0xef4,
+    BROWSER_SONGS = OSOS_BROWSER_SONGS_OFFSET,
+    BROWSER_SONGS_JUMP = OSOS_BROWSER_SONGS_JUMP_OFFSET,
+    BROWSER_SONGS_COUNT = OSOS_BROWSER_SONGS_COUNT_OFFSET,
 };
 
 uint32_t cfw_build_songs_original(void *browser);
@@ -32,36 +32,26 @@ static struct {
     void *model;           /* that model, to tell the list its rows changed */
     struct osos_media_entry **rows; /* playback entries behind the rows (same order) */
     unsigned count;
-    unsigned shown;   /* last count written to the main menu */
-    unsigned top;     /* 1 when row 0 is the playing song (not part of the queue) */
-    void *controller; /* its song controller, while its screen exists */
-    int stale;        /* queue changed while Up Next was covered/away */
-    int jumping;      /* a row was selected: Apple opens Now Playing next */
-    void *screen;     /* its screen as Apple's navigator holds it */
+    unsigned shown; /* last count written to the main menu */
+    unsigned top;   /* 1 when row 0 is the playing song (not part of the queue) */
+    int stale;      /* queue changed while Up Next was covered/away */
+    int jumping;    /* a row was selected: Apple opens Now Playing next */
+    void *screen;   /* its screen as Apple's navigator holds it */
     void *list_view;
 } up_next = {.shown = ~0u};
 
 static void *main_view; /* the main menu's list (seen on its Up Next row actions) */
 
-/* Navigator vtable +0x14 returns its top screen; screen +0x68 returns the ID. */
-static void *navigator_top(void)
-{
-    void *navigator = ((void *(*)(void))OSOS_NAVIGATOR)();
-    return navigator ? ((void *(*)(void *))osos_method(navigator, 0x14))(navigator)
-                     : NULL;
-}
-
 static uint32_t top_screen(void)
 {
-    void *top = navigator_top();
-    return top ? ((uint32_t (*)(void *))osos_method(top, 0x68))(top) : 0;
+    return osos_screen_id(osos_navigator_top());
 }
 
 static int showing_up_next(void)
 {
-    void *selection = ((void *(*)(void))OSOS_SELECTION_GET)();
-    return selection && ((void *(*)(void *))OSOS_SONG_CONTROLLER_MODEL)(
-                            (uint8_t *)selection + 0x18) == up_next.model;
+    void *selection = osos_selection_get();
+    return selection &&
+           osos_model_ref_get(osos_selection_reference(selection)) == up_next.model;
 }
 
 /* True only while the Up Next list is the screen on top (not covered by Now Playing, not the
@@ -77,7 +67,7 @@ static int up_next_on_screen(void)
 static void note_screen(void)
 {
     if (top_screen() == OSOS_SONGS_SCREEN && showing_up_next())
-        up_next.screen = navigator_top();
+        up_next.screen = osos_navigator_top();
 }
 
 /* Stopping playback drops the current track and its playback list. */
@@ -99,8 +89,8 @@ static int up_next_on_top(void)
    to the Up Next controller after this. */
 static void leave_up_next(void)
 {
-    up_next.controller = up_next.screen = NULL;
-    ((void (*)(void))OSOS_POP_TO_MAIN_SCREEN)();
+    up_next.screen = NULL;
+    osos_pop_to_main_screen();
 }
 
 /* Songs after the current one. Read without the player lock (word reads only); callers that
@@ -141,6 +131,15 @@ static int queue_changed;
 static uint32_t queue_generation, menu_generation;
 static void *settings_model; /* captured from the Settings property getter */
 
+static void publish_queue_count(unsigned count)
+{
+    write_message(count);
+    if (settings_model)
+        osos_model_notify(settings_model, OSOS_NOTIFY_ALL, CFW_UpNext_Count);
+    cfw_ui_visibility_set_available(CFW_UpNext_MainItem, count != 0);
+    osos_menu_item_changed(CFW_UpNext_MainItem);
+}
+
 /* Settings-model property behind the preview's "n Songs" line. */
 int cfw_up_next_property(void *model, uint32_t type, uint32_t property, uintptr_t *out)
 {
@@ -156,8 +155,7 @@ static void post_action(void *controller, const char *name)
 {
     struct osos_string action;
     osos_string_init(&action, name);
-    ((void (*)(void *, struct osos_string *))osos_method(controller, 0x11c))(controller,
-                                                                             &action);
+    osos_controller_post_action(controller, &action);
     osos_string_destroy(&action);
 }
 
@@ -167,16 +165,22 @@ enum { RELOAD_KEEP = 0x7fffffff };
 static void set_highlight(void *selection, int row)
 {
     if (selection)
-        ((void (*)(void *, int))OSOS_SELECTION_SET_ROW)(selection, row);
-    void *view = ((void *(*)(void))OSOS_UI_SELECTION)();
+        osos_selection_set_row(selection, row);
+    void *view = osos_ui_selection();
     if (view)
-        ((void (*)(void *, int))osos_method(view, LIST_VIEW_SET_ROW))(view, row);
+        osos_list_view_set_row(view, row);
 }
 
 static int highlight_row(void)
 {
-    void *selection = ((void *(*)(void))OSOS_SELECTION_GET)();
+    void *selection = osos_selection_get();
     return selection ? FIELD(int, selection, 0x2c) : 0;
+}
+
+static void forget_rows(void)
+{
+    up_next.rows = NULL; /* owned by the browser's song vector */
+    up_next.count = 0;
 }
 
 /* The queue changed: drop the cached rows and tell the open list to re-read them, so it never
@@ -187,23 +191,20 @@ static void reload_list(int highlight, int blink)
         return;
     /* Close the queue screen before reading a playback list that has been dropped. */
     if (playback_dropped() && up_next_on_top()) {
-        ((void (*)(void *))OSOS_BROWSER_CLEAR_SONGS)(up_next.browser);
-        up_next.rows = NULL;
-        up_next.count = 0;
+        osos_browser_clear_songs(up_next.browser);
+        forget_rows();
         leave_up_next();
         return;
     }
     /* Drop the rows so the list re-reads the live queue when it is drawn again (e.g. back from
        Now Playing after skipping back). */
-    ((void (*)(void *))OSOS_BROWSER_CLEAR_SONGS)(up_next.browser);
-    up_next.rows = NULL;
-    up_next.count = 0;
+    osos_browser_clear_songs(up_next.browser);
+    forget_rows();
     /* Native playlist edits re-announce the selection title and row count (0x0822f59c).
        Reload only our focused list: this API otherwise resets another screen's selection. */
-    void *selection = ((void *(*)(void))OSOS_SELECTION_GET)();
-    void *shown = selection ? ((void *(*)(void *))OSOS_SONG_CONTROLLER_MODEL)(
-                                  (uint8_t *)selection + 0x18)
-                            : NULL;
+    void *selection = osos_selection_get();
+    void *shown =
+        selection ? osos_model_ref_get(osos_selection_reference(selection)) : NULL;
     if (shown != up_next.model) {
         up_next.stale =
             1; /* e.g. Now Playing on top: refresh on the next Up Next action */
@@ -217,7 +218,7 @@ static void reload_list(int highlight, int blink)
     up_next.stale = 0;
     /* Reloading puts the highlight back on the first row: keep it where the user was. */
     int previous = FIELD(int, selection, 0x2c);
-    ((void (*)(void *))OSOS_SELECTION_RELOAD)(selection);
+    osos_selection_reload(selection);
     unsigned count = queued(osos_player_get());
     count += count ? 1 : 0; /* the playing song's row on top */
     if (highlight == RELOAD_KEEP)
@@ -234,7 +235,7 @@ static void reload_list(int highlight, int blink)
         highlight = (int)count - 1;
     set_highlight(selection, highlight);
     if (blink == 1)
-        ((void (*)(int))OSOS_ROW_BLINK)(highlight);
+        osos_row_blink(highlight);
 }
 
 void cfw_up_next_refresh(void)
@@ -250,11 +251,7 @@ void cfw_up_next_refresh(void)
         highlight = highlight_row() - (int)(up_next.shown - count);
     up_next.shown = count;
     reload_list(highlight, 0);
-    write_message(count);
-    if (settings_model)
-        osos_model_notify(settings_model, OSOS_NOTIFY_ALL, CFW_UpNext_Count);
-    cfw_ui_visibility_set_available(CFW_UpNext_MainItem, count != 0);
-    osos_menu_item_changed(CFW_UpNext_MainItem);
+    publish_queue_count(count);
 }
 
 /* Now Playing receives track/order changes from every screen.
@@ -283,28 +280,16 @@ PATCH_ARM int cfw_up_next_now_playing_visible(uint32_t item, uint32_t visible)
     return result;
 }
 
-/* Preserve native skip/resume dispatch, then refresh the queue after button skips. */
-static void skip(unsigned slot)
-{
-    uint8_t *player = ((uint8_t *(*)(void))OSOS_PLAYER_INTERFACE_GET)();
-    if (player)
-        player -= 20;
-    if (!((int (*)(void *))osos_method(player, 0x1a0))(player))
-        ((void (*)(void *, int))osos_method(player, slot))(player, 1);
-    else
-        ((void (*)(void *))osos_method(player, 0xfc))(player);
-    cfw_up_next_refresh();
-}
-
-/* HandleNext uses the same path with the next-track vtable slot. */
 PATCH_ARM void cfw_up_next_next(void)
 {
-    skip(0x108);
+    osos_player_skip(0);
+    cfw_up_next_refresh();
 }
 
 PATCH_ARM void cfw_up_next_previous(void)
 {
-    skip(0x10c);
+    osos_player_skip(1);
+    cfw_up_next_refresh();
 }
 
 /* Refresh Up Next when Menu uncovers it. */
@@ -313,7 +298,7 @@ PATCH_ARM void cfw_up_next_pop_top(uint32_t transition)
     cfw_pop_top_original(transition);
     /* Now Playing shares this navigator screen, but its hidden list ignores reloads.
        Refresh synchronously on return; posted actions are not delivered here. */
-    if (up_next.screen && navigator_top() == up_next.screen) {
+    if (up_next.screen && osos_navigator_top() == up_next.screen) {
         if (playback_dropped() || !queued(osos_player_get()))
             leave_up_next();
         else
@@ -322,12 +307,6 @@ PATCH_ARM void cfw_up_next_pop_top(uint32_t transition)
 }
 
 /* ---- the list --------------------------------------------------------------------------- */
-
-static void forget_rows(void)
-{
-    up_next.rows = NULL; /* owned by the browser's song vector */
-    up_next.count = 0;
-}
 
 PATCH_ARM uint32_t cfw_up_next_build_songs(void *browser)
 {
@@ -340,8 +319,7 @@ PATCH_ARM uint32_t cfw_up_next_build_songs(void *browser)
     osos_player_lock(player);
     unsigned count = queued(player), first = (unsigned)player->current_index + 1,
              used = 0;
-    struct osos_media_entry **rows =
-        ((void *(*)(uint32_t))OSOS_SONGS_ALLOC)((count + 1) * sizeof(*rows));
+    struct osos_media_entry **rows = osos_songs_alloc((count + 1) * sizeof(*rows));
     up_next.top = 0;
     if (rows) {
         /* Row 0: the song playing now (selecting it just shows Now Playing). */
@@ -375,18 +353,23 @@ PATCH_ARM void cfw_up_next_song_item(struct osos_media_item *out, void *model, i
 {
     if (model == up_next.model && up_next.browser)
         cfw_up_next_build_songs(up_next.browser);
-    typedef void (*fn)(struct osos_media_item *, void *, int);
-    ((fn)OSOS_LIBRARY_READ_SONG_ITEM)(out, model, row);
+    osos_library_read_song_item(out, model, row);
 }
 
-/* Called from the model destructor (cfw_album_artists_destroy_model) before Apple frees the browser. */
+int cfw_up_next_owns_model(void *model)
+{
+    return model && model == up_next.model;
+}
+
+/* Called from the model destructor before Apple unregisters and frees the browser. */
 void cfw_up_next_model_destroyed(void *model)
 {
-    if (model && up_next.browser && FIELD(void *, model, 0x40) == up_next.browser) {
+    if (cfw_up_next_owns_model(model)) {
+        osos_browser_clear_songs(up_next.browser);
         up_next.browser = NULL;
         up_next.model_reference = NULL;
         up_next.model = NULL;
-        up_next.controller = up_next.screen = up_next.list_view = NULL;
+        up_next.screen = up_next.list_view = NULL;
         forget_rows();
     }
 }
@@ -395,35 +378,18 @@ static void *create_model(void **reference)
 {
     /* The selection keeps the last model alive after its screen closes: reuse it. */
     if (up_next.model_reference && up_next.browser) {
-        ((void (*)(void **, void **))OSOS_MODEL_REF_ASSIGN)(reference,
-                                                            &up_next.model_reference);
-        void *model = ((void *(*)(void **))OSOS_MODEL_REF_GET)(reference);
+        osos_model_ref_assign(reference, &up_next.model_reference);
+        void *model = osos_model_ref_get(reference);
         if (model && FIELD(void *, model, 0x40) == up_next.browser) {
             up_next.model = model;
             return model;
         }
-        ((void (*)(void **))OSOS_MODEL_REF_RELEASE)(reference);
+        osos_model_ref_release(reference);
         *reference = NULL;
     }
-    void **registry = (void **)OSOS_BROWSER_REGISTRY;
-    unsigned available = 0;
-    for (unsigned i = 0; i < 4; i++)
-        available += registry[i] == NULL;
-    if (available < 1)
-        return NULL;
-    void *model = ((void *(*)(uint32_t))OSOS_MODEL_CREATE)(0);
+    void *model = cfw_media_browser_create(reference);
     if (!model)
         return NULL;
-    void *browser = NULL;
-    if (((int (*)(void *, void **))OSOS_BROWSER_CREATE)(FIELD(void *, model, 0x40),
-                                                        &browser) ||
-        !browser) {
-        ((void (*)(void *))osos_method(model, 0x04))(model);
-        return NULL;
-    }
-    FIELD(void *, model, 0x40) = browser;
-    FIELD(uint8_t, model, 0x45) = 2;
-    ((void (*)(void **, void *, int))OSOS_MODEL_REF_INIT)(reference, model, 0);
     up_next.model_reference = *reference;
     up_next.model = model;
     return model;
@@ -437,35 +403,24 @@ static void open_up_next(void *controller)
     void *model = create_model(&reference);
     if (!model)
         return;
-    /* The configuration Apple's "HandleSongsSelected" applies (MusicMenu_ConfigureLibraryBrowser
-       with songs arguments). */
-    ((void (*)(void *))osos_method(model, 0x38))(model);
-    ((void (*)(void *))osos_method(model, 0xec))(model);
-    ((void (*)(void *, uint32_t, uint32_t))osos_method(model, 0x5c))(model, 0x11, 0);
-    ((void (*)(void *, uint32_t))osos_method(model, 0x100))(model, 0);
+    osos_library_model_prepare_songs(model);
     up_next.browser = FIELD(void *, model, 0x40);
-    ((void (*)(void *))OSOS_BROWSER_CLEAR_SONGS)(
-        up_next.browser); /* rebuild from the queue */
+    osos_browser_clear_songs(up_next.browser); /* rebuild from the queue */
     forget_rows();
-    void *selection = ((void *(*)(void))OSOS_SELECTION_GET)();
-    ((void (*)(void *, uint32_t, uint32_t))OSOS_SELECTION_SET_TITLE)(selection, 0x80,
-                                                                     CFW_UpNext_Title);
-    ((void (*)(void *, int))OSOS_SELECTION_SET_ROW)(selection, 0); /* open at the top */
-    up_next.controller = up_next.screen = up_next.list_view = NULL;
+    void *selection = osos_selection_get();
+    osos_selection_set_title(selection, 0x80, CFW_UpNext_Title);
+    osos_selection_set_row(selection, 0); /* open at the top */
+    up_next.screen = up_next.list_view = NULL;
     up_next.stale = 0;
-    void *screen = ((
-        void *(*)(void *, uint32_t, uint32_t, uint32_t))OSOS_CREATE_SCREEN_CONTROLLER)(
-        ((void *(*)(void))OSOS_CONTROLLER_REGISTRY)(), OSOS_SONGS_SCREEN,
-        OSOS_SONGS_LAYOUT, 2);
+    void *screen = osos_create_screen_controller(
+        osos_controller_registry(), OSOS_SONGS_SCREEN, OSOS_SONGS_LAYOUT, 2);
     if (screen) {
-        ((void (*)(void *, void *))OSOS_MODEL_REF_ASSIGN)((uint8_t *)screen + 0xb4,
-                                                          &reference);
+        osos_model_ref_assign((uint8_t *)screen + 0xb4, &reference);
         FIELD(uint8_t, screen, 0xb2) = 0;
-        ((void (*)(void *, void *))osos_method(controller, 0xd0))(controller, screen);
-        up_next.controller = screen;
+        osos_controller_push(controller, screen);
         note_screen();
     }
-    ((void (*)(void *))OSOS_MODEL_REF_RELEASE)(&reference);
+    osos_model_ref_release(&reference);
 }
 
 /* Main / Music menu actions (called first from cfw_album_artists_action). */
@@ -476,7 +431,7 @@ int cfw_up_next_action(void *controller, const char *action, uint32_t argument)
         return 0;
     if (argument == OSOS_ACTION_SUPPORT_QUERY)
         return 1;
-    main_view = ((void *(*)(void))OSOS_UI_SELECTION)();
+    main_view = osos_ui_selection();
     if (open)
         open_up_next(controller);
     else {
@@ -504,7 +459,6 @@ PATCH_ARM int cfw_up_next_song_menu(void *controller, int row)
         leave_up_next(); /* back on Up Next after playback stopped: nothing left */
         return 1;
     }
-    up_next.controller = controller;
     up_next.list_view = osos_ui_selection();
     note_screen();
     if (up_next.stale) {
@@ -518,8 +472,8 @@ PATCH_ARM int cfw_up_next_song_menu(void *controller, int row)
        Next model that index can lag behind, so prefer the row the list passed in). */
     int selected = row;
     if (selected < 0) {
-        void *selection = ((void *(*)(void))OSOS_UI_SELECTION)();
-        selected = ((int (*)(void *))osos_method(selection, 0x168))(selection);
+        void *selection = osos_ui_selection();
+        selected = osos_list_view_row(selection);
     }
     int playing = up_next.top && selected == 0;
     if (!playing) {
@@ -551,13 +505,9 @@ static int delete_entry(struct osos_player *player, struct osos_media_entry *ent
         found = osos_playback_entry(&player->playback, first + i) == entry;
     if (!found)
         return 0;
-    osos_player_stop_artwork(player);
     osos_database_begin_update(osos_list_database(list));
-    int result = ((int (*)(struct osos_media_entry *))OSOS_MEDIA_ENTRY_DELETE)(entry);
+    int result = osos_media_entry_delete(entry);
     osos_database_end_update(osos_list_database(list));
-    osos_player_rebuild_artwork(player);
-    osos_player_clear_prepared(player);
-    osos_audio_set_playback_source(player->playback_source);
     return result == 0;
 }
 
@@ -582,19 +532,24 @@ static void jump_to_row(int row)
     unsigned first = (unsigned)player->current_index + 1;
     struct osos_media_entry *target =
         osos_playback_entry(&player->playback, first + row - up_next.top);
-    for (int i = (int)up_next.top; i < row; i++)
-        if (!delete_entry(player, osos_playback_entry(&player->playback, first)))
-            break;
+    int changed = 0;
+    if (row > (int)up_next.top) {
+        cfw_queue_edit_begin(player);
+        for (int i = (int)up_next.top; i < row; i++) {
+            if (!delete_entry(player, osos_playback_entry(&player->playback, first)))
+                break;
+            changed = 1;
+        }
+        cfw_queue_edit_end(player, changed);
+    }
     int ready = target && queued(player) &&
                 osos_playback_entry(&player->playback, first) == target;
     osos_player_unlock(player);
-    up_next.rows = NULL; /* entries above were freed; rebuilt on the next read */
-    up_next.count = 0;
+    forget_rows();
     if (up_next.browser)
-        ((void (*)(void *))OSOS_BROWSER_CLEAR_SONGS)(up_next.browser);
+        osos_browser_clear_songs(up_next.browser);
     if (ready)
-        ((int (*)(void *, int, int, unsigned, unsigned))osos_method(player, 0xe0))(
-            player, (int)first, 0, 0, 0);
+        osos_player_play_index(player, (int)first);
     up_next.shown = ~0u;
     cfw_up_next_refresh();
     up_next.jumping = 0;
@@ -617,7 +572,7 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
     /* Closing controllers still receive actions; never reload the newly focused main menu. */
     /* Hold-menu actions arrive while the menu is the focused list: the Up Next list was already
        seen when the menu opened, and the menu refused to open on stale rows. */
-    void *focused = ((void *(*)(void))OSOS_UI_SELECTION)();
+    void *focused = osos_ui_selection();
     int menu_action = cfw_string_equal(action, "CFW_RemoveFromQueue") ||
                       cfw_string_equal(action, "CFW_PlayNext") ||
                       cfw_string_equal(action, "CFW_PlayLast") ||
@@ -638,7 +593,6 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
             leave_up_next(); /* back on Up Next after playback stopped: nothing left */
             return 1;
         }
-        up_next.controller = controller;
         note_screen();
         if (up_next.stale) {
             /* Back on Up Next after the queue moved on: show it fresh. A select would act on the
@@ -650,11 +604,10 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
     }
     if (cfw_string_equal(action, "HandleSelect") && is_up_next(controller)) {
         if (argument != OSOS_ACTION_SUPPORT_QUERY) {
-            void *selection = ((void *(*)(void))OSOS_UI_SELECTION)();
-            int row = ((int (*)(void *))osos_method(selection, 0x168))(selection);
+            void *selection = osos_ui_selection();
+            int row = osos_list_view_row(selection);
             if (row != -1)
-                row = ((int (*)(void *, int))osos_method(controller, 0x130))(controller,
-                                                                             row);
+                row = osos_song_controller_map_row(controller, row);
             jump_to_row(row); /* the list itself then shows Now Playing */
         }
         return 1;
@@ -662,7 +615,7 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
     if (cfw_string_equal(action, "CFW_UpNextHighlight") && is_up_next(controller)) {
         if (argument != OSOS_ACTION_SUPPORT_QUERY && pending_highlight >= 0 &&
             up_next_on_screen()) {
-            void *selection = ((void *(*)(void))OSOS_SELECTION_GET)();
+            void *selection = osos_selection_get();
             unsigned count = up_next.count;
             int row = pending_highlight;
             pending_highlight = -1;
@@ -676,7 +629,7 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
     }
     if (cfw_string_equal(action, "HandlePlayPause") && is_up_next(controller)) {
         if (argument != OSOS_ACTION_SUPPORT_QUERY)
-            ((void (*)(void))OSOS_PLAYER_PLAY_PAUSE)();
+            osos_player_play_pause();
         return 1;
     }
     int remove = cfw_string_equal(action, "CFW_RemoveFromQueue");
@@ -709,12 +662,17 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
         struct osos_media_entry *old = osos_playback_entry(
             &player->playback, player->current_index + 1 + row - top);
         osos_media_item_init_record(&item, old ? old->song.record : NULL);
-        if (osos_media_item_valid(&item) && cfw_play_next_add(player, &item, last)) {
-            /* Remove the original by identity after insertion succeeds. */
-            changed = delete_entry(player, old);
+        if (osos_media_item_valid(&item)) {
+            cfw_queue_edit_begin(player);
+            int inserted = cfw_play_next_insert(player, &item, last);
+            if (inserted)
+                changed = delete_entry(player, old);
+            cfw_queue_edit_end(player, inserted);
         }
     } else if (remove) {
+        cfw_queue_edit_begin(player);
         changed = remove_row(player, row);
+        cfw_queue_edit_end(player, changed);
     }
     osos_player_unlock(player);
     /* Highlight: after a remove, the song above it; after a move, where the song went. Then
@@ -731,10 +689,6 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
         pending_highlight = highlight < 0 ? 0 : highlight;
         post_action(controller, "CFW_UpNextHighlight");
     }
-    write_message(count);
-    if (settings_model)
-        osos_model_notify(settings_model, OSOS_NOTIFY_ALL, CFW_UpNext_Count);
-    cfw_ui_visibility_set_available(CFW_UpNext_MainItem, count != 0);
-    osos_menu_item_changed(CFW_UpNext_MainItem);
+    publish_queue_count(count);
     return 1;
 }

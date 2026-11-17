@@ -178,6 +178,7 @@ class Resources:
         }
         self.added = {}
         self.names = {}
+        self.runtime_names = set()
         self.event_aliases = {}
         self.event_extensions = {}
         self.menu_items = []
@@ -200,6 +201,12 @@ class Resources:
                 raise ValueError(f"Duplicate UI resource name: {name}")
             self.names[name] = resource_id
         return resource_id
+
+    def runtime_name(self, name):
+        if name not in self.names:
+            raise ValueError(f"Unknown runtime resource name: {name}")
+        self.runtime_names.add(name)
+        return name
 
     def add(self, kind, resource_id, data):
         key = (kind, resource_id)

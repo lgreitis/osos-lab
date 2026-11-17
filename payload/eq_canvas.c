@@ -2,6 +2,7 @@
 
 #include "osos.h"
 #include "patch.h"
+#include "patches/sites.h"
 #include "ui.h"
 #include "custom_eq.h"
 #include "eq_coefficients.h"
@@ -53,11 +54,8 @@ static struct {
 } editor;
 
 static const unsigned int canvas_fields[] = {
-    CFW_EQ_BAND1_TYPE,
-    CFW_EQ_PRECUT,
-    CFW_EQ_BAND1_GAIN,
-    CFW_EQ_BAND1_FREQUENCY,
-    CFW_EQ_BAND1_Q,
+    CFW_EQ_BAND1_TYPE,      CFW_EQ_PRECUT,  CFW_EQ_BAND1_GAIN,
+    CFW_EQ_BAND1_FREQUENCY, CFW_EQ_BAND1_Q,
 };
 
 /* Precut applies to the whole EQ; the other parameters belong to the selected band. */
@@ -113,7 +111,8 @@ PATCH_ARM void cfw_eq_canvas_hold_changed(void *system, int locked)
     }
 }
 
-PATCH_CALL(0x0810af14, OSOS_SYSTEM_HOLD_CHANGED, cfw_eq_canvas_hold_changed);
+PATCH_CALL(OSOS_SYSTEM_HOLD_CHANGED_CALL, OSOS_SYSTEM_HOLD_CHANGED,
+           cfw_eq_canvas_hold_changed);
 
 static PATCH_ARM int canvas_event(void *controller, void *event)
 {
@@ -269,9 +268,7 @@ static void canvas_text(void *context, const int32_t *bounds, int x, int y, int 
                         color, background);
 }
 
-enum { RESPONSE_POINTS = 261 };
-
-static int16_t response_curve[RESPONSE_POINTS];
+static int16_t response_curve[CFW_EQ_RESPONSE_POINTS];
 static uint32_t response_version, response_sample_rate;
 static int response_valid, response_extent;
 
@@ -291,14 +288,12 @@ static void canvas_response(void *context, const int32_t *bounds,
     uint32_t version = cfw_eq_snapshot(coefficients, &rate, &applied_precut);
     if (!response_valid || version != response_version ||
         rate != response_sample_rate) {
-        double hz = 20.0;
+        cfw_eq_response_curve(coefficients, rate, response_curve);
         response_extent = 60;
-        for (unsigned int i = 0; i < RESPONSE_POINTS; i++) {
-            int value = cfw_eq_response(coefficients, hz, rate);
-            response_curve[i] = value;
+        for (unsigned int i = 0; i < CFW_EQ_RESPONSE_POINTS; i++) {
+            int value = response_curve[i];
             while (value < -response_extent || value > response_extent)
                 response_extent *= 2;
-            hz *= 1.0269243730546767;
         }
         response_version = version;
         response_sample_rate = rate;
@@ -351,7 +346,7 @@ static void canvas_response(void *context, const int32_t *bounds,
                                          : "-48",
                 0, colors[COLOR_MUTED], colors[COLOR_BACKGROUND]);
     int previous = response_y(response_curve[0]);
-    for (unsigned int i = 0; i < RESPONSE_POINTS; i++) {
+    for (unsigned int i = 0; i < CFW_EQ_RESPONSE_POINTS; i++) {
         int y = response_y(response_curve[i]);
         int top = y < previous ? y : previous;
         int bottom = y > previous ? y : previous;
@@ -490,12 +485,10 @@ static PATCH_ARM void canvas_draw(void *view, void *draw_argument, const int32_t
     (void)clip;
     uint32_t context[0x44 / 4];
     int32_t bounds[4]; /* top, left, bottom, right; bottom/right are exclusive. */
-    typedef void (*view_context_fn)(void *, void *);
-    typedef void (*rect_fn)(void *, int32_t *);
-    ((void *(*)(void *))OSOS_GRAPHICS_CONSTRUCT)(context);
-    ((view_context_fn)OSOS_VIEW_BIND_GRAPHICS)(view, context);
-    ((rect_fn)OSOS_VIEW_LOCAL_RECT)(view, bounds);
-    const unsigned char(*colors)[4] = canvas_palettes[!!cfw_dark_mode_enabled()];
+    osos_graphics_construct(context);
+    osos_view_bind_graphics(view, context);
+    osos_view_local_rect(view, bounds);
+    const unsigned char (*colors)[4] = canvas_palettes[!!cfw_dark_mode_enabled()];
     canvas_rect(context, bounds, 0, 0, bounds[3] - bounds[1], bounds[2] - bounds[0],
                 colors[COLOR_BACKGROUND]);
     if (bounds[2] - bounds[0] < CANVAS_HEIGHT || bounds[3] - bounds[1] < CANVAS_WIDTH)
@@ -525,13 +518,11 @@ static PATCH_ARM void *canvas_create(void *owner, void *parent, void *event_targ
 {
     (void)owner;
     uint32_t options[VIEW_OPTIONS_BYTES / 4];
-    typedef void (*options_fn)(const void *, void *);
-    typedef void *(*construct_fn)(void *, void *, void *, void *, const void *);
     for (unsigned int i = 0; i < VIEW_OPTIONS_BYTES / 4; i++)
         options[i] = 0;
-    ((options_fn)OSOS_VIEW_INIT_OPTIONS)(descriptor, options);
-    void *view = ((void *(*)(uint32_t))OSOS_CPP_NEW)(VIEW_BYTES);
-    view = ((construct_fn)OSOS_VIEW_CONSTRUCT)(view, 0, parent, event_target, options);
+    osos_view_init_options(descriptor, options);
+    void *view = osos_cpp_new(VIEW_BYTES);
+    view = osos_view_construct(view, parent, event_target, options);
     *(const uintptr_t **)view = canvas_vtable + VIEW_VTABLE_PREFIX / 4;
     return view;
 }
@@ -574,8 +565,7 @@ static PATCH_ARM void *canvas_controller_create(const char *name, uint32_t scree
 
 void cfw_ui_register_canvas(void)
 {
-    typedef void (*register_fn)(uint32_t, void *);
-    ((register_fn)OSOS_REGISTER_VIEW_FACTORY)(CANVAS_TYPE, canvas_create);
+    osos_register_view_factory(CANVAS_TYPE, canvas_create);
     osos_ui_register_controllers(osos_controller_registry(), "CFWCanvas", 0,
                                  canvas_controller_create);
 }

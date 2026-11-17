@@ -64,13 +64,13 @@ class EqCoefficientsTests(unittest.TestCase):
                                     self.assertAlmostEqual(a, b, delta=1 / scale)
             out = (ctypes.c_int32 * 5)()
             self.assertEqual(fn(out, 0, 60, 7, 0, 101, 44100), 0)
-            response = dll.cfw_eq_response
+            response = dll.cfw_eq_response_curve
             response.argtypes = [
                 ctypes.POINTER(ctypes.c_int32 * 5),
-                ctypes.c_double,
                 ctypes.c_uint,
+                ctypes.POINTER(ctypes.c_int16),
             ]
-            response.restype = ctypes.c_int
+            response.restype = None
             for rate in (44100, 48000):
                 for q in (3, 7, 40):
                     for gain in (-120, 0, 120):
@@ -90,8 +90,10 @@ class EqCoefficientsTests(unittest.TestCase):
                                 ),
                                 1,
                             )
-                        for i in range(81):
-                            hz = 20 * 1000 ** (i / 80)
+                        curve = (ctypes.c_int16 * 261)()
+                        response(bank, rate, curve)
+                        for i in range(261):
+                            hz = 20 * 1000 ** (i / 260)
                             z = cmath.exp(-2j * math.pi * hz / rate)
                             power = 1.0
                             for coefficients in bank:
@@ -104,9 +106,10 @@ class EqCoefficientsTests(unittest.TestCase):
                                     ** 2
                                 )
                             expected = max(-480, min(480, 100 * math.log10(power)))
-                            self.assertAlmostEqual(
-                                response(bank, hz, rate), expected, delta=0.51
-                            )
+                            self.assertAlmostEqual(curve[i], expected, delta=0.51)
+
+            response(bank, 0, curve)
+            self.assertEqual(list(curve), [0] * 261)
 
             self.check_peak(dll, fn, scale)
 

@@ -18,12 +18,14 @@ void cfw_store_load(void);
 /* Nonzero until the first successful write when no valid store file existed:
  * features then import their legacy files. */
 int cfw_store_migrating(void);
+/* Like read_status; an I/O error defers migration writes until the next boot. */
+int cfw_store_read_legacy(const char *name, void *record, uint32_t size);
 /* Copies at most capacity bytes of the record and returns the bytes copied, or 0 if
  * absent: a record written by a newer build may be longer, so readers take its prefix. */
 uint32_t cfw_store_get(uint32_t key, void *data, uint32_t capacity);
 void cfw_store_set(uint32_t key, const void *data, uint32_t size);
-/* Keeps the store dirty on failure so the next flush retries. */
+/* Preserves the last valid file in .bak before writing. Failed writes stay dirty. */
 void cfw_store_flush(void);
 
-/* Legacy import: called once after the first successful write of a migrated store. */
+/* After a successful write, delete only files marked as successfully imported. */
 void cfw_store_delete_legacy(void);

@@ -28,7 +28,6 @@ class DocumentCompiler:
         )
         if self.prototype is None:
             raise ValueError("Native Settings menu is missing the Legal row template")
-        self.sources = {}
         self.string_ids = {}
 
     def text_page(self, text):
@@ -136,11 +135,6 @@ class DocumentCompiler:
         views.append((kind, margin))
         return views
 
-    def source(self, text):
-        if text not in self.sources:
-            self.sources[text] = self.resources.source(text)
-        return self.sources[text]
-
     def row(self, title):
         data = Resource(self.prototype)
         item = self.resources.allocate()
@@ -178,7 +172,6 @@ class DocumentCompiler:
             + event("button.menu.up", "navigator.PopTopScreen")
             + event("button.menu.pressandhold", "navigator.PopToMainScreen"),
         )
-        return table
 
     def push(self, item, name, handler=""):
         return menu_event(
@@ -186,7 +179,11 @@ class DocumentCompiler:
             "chosen",
             handler,
             "navigator.PushScreen",
-            [name + "_Screen", name + "_Layout", "foregroundpush"],
+            [
+                self.resources.runtime_name(name + "_Screen"),
+                self.resources.runtime_name(name + "_Layout"),
+                "foregroundpush",
+            ],
         )
 
     def list_page(self, item):
@@ -220,30 +217,6 @@ class DocumentCompiler:
         for suffix in ("_Rows", "_Detail", "_Screen", "_Layout"):
             name = item.name + suffix
             self.string_ids[name] = resources.names[name]
-
-    def menu(self, menu):
-        rows, events = [], []
-        for item in menu.items:
-            row, chosen = self.menu_item(item)
-            rows.append(row)
-            if chosen is not None:
-                events.append(chosen)
-        return self.page(menu.name, menu.title, rows, events)
-
-    def menu_item(self, item):
-        if item.kind == "info":
-            string_id = self.resources.allocate()
-            self.string_ids[item.name] = string_id
-            _, row = self.row(
-                self.resources.source(item.title + ": Unknown", string_id)
-            )
-            # Native text rows omit the submenu arrow; no chosen event is bound.
-            put(row[1], 0x60, 2)
-            return row, None
-        row_id, row = self.row(self.source(item.title))
-        chosen = self.push(row_id, item.name)
-        self.menu(item)
-        return row, chosen
 
     def insert_settings(self):
         if not self.document.after:
@@ -380,7 +353,7 @@ class DocumentCompiler:
                 "delayedselected",
                 "" if document.preview == "image" else "ShowSetting_Legal",
                 "navigator.SwitchLayout",
-                [document.root.name + "_Preview"],
+                [self.resources.runtime_name(document.root.name + "_Preview")],
             ),
         ]
         self.resources.extend_events(
@@ -399,11 +372,6 @@ def compile_document(resources, document, text=""):
     builder = None
     if document.root:
         builder = DocumentCompiler(resources, document)
-        if document.root.kind == "menu":
-            builder.menu(document.root)
-            for suffix in ("_Screen", "_Layout"):
-                name = document.root.name + suffix
-                compiled.string_ids[name] = resources.names[name]
         if document.root.kind == "text":
             builder.text_page(text)
         if document.root.kind == "list":
@@ -612,7 +580,7 @@ def compile_main_entry(resources, entry, compiled):
                 "delayedselected",
                 entry["hilite"],
                 "navigator.SwitchLayout",
-                [name + "_Preview"],
+                [resources.runtime_name(name + "_Preview")],
             ),
         ],
     )

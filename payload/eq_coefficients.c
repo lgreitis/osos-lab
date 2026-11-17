@@ -183,17 +183,21 @@ static double stage_power(const struct peak_stage *stages, unsigned int count, d
     return denominator > 0.0 ? numerator / denominator : 1e30;
 }
 
-int cfw_eq_response(const int32_t coefficients[CFW_EQ_BANDS][5], double hz,
-                    unsigned int rate)
+void cfw_eq_response_curve(const int32_t coefficients[CFW_EQ_BANDS][5],
+                           unsigned int rate, int16_t out[CFW_EQ_RESPONSE_POINTS])
 {
-    if (!(hz >= 20.0 && hz <= 20000.01) || (rate != 44100 && rate != 48000))
-        return 0;
     struct peak_stage stages[CFW_EQ_BANDS];
-    double s, c;
     peak_stages(stages, coefficients, CFW_EQ_BANDS);
-    sine_cosine(6.283185307179586477 * hz / rate, &s, &c);
-    /* Bound the plot, including singular or underflowed responses. */
-    return power_tenths(stage_power(stages, CFW_EQ_BANDS, c), 0);
+    double hz = 20.0;
+    for (unsigned i = 0; i < CFW_EQ_RESPONSE_POINTS; i++) {
+        out[i] = 0;
+        if (rate == 44100 || rate == 48000) {
+            double s, c;
+            sine_cosine(6.283185307179586477 * hz / rate, &s, &c);
+            out[i] = power_tenths(stage_power(stages, CFW_EQ_BANDS, c), 0);
+        }
+        hz *= 1.0269243730546767;
+    }
 }
 
 /* Evaluate at u = tan(w / 2), where cos(w) = (1 - u^2) / (1 + u^2). */

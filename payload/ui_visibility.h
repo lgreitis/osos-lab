@@ -50,13 +50,6 @@ struct cfw_ui_visibility_file {
     uint32_t magic, version, key, visible, check;
 };
 
-static inline struct cfw_ui_visibility_file cfw_ui_visibility_encode(uint32_t key,
-                                                                     uint32_t visible)
-{
-    return (struct cfw_ui_visibility_file){0x554e4d43, 2, key, visible,
-                                           ~(key ^ visible)};
-}
-
 static inline int cfw_ui_visibility_valid(const struct cfw_ui_visibility_file *file,
                                           uint32_t key)
 {

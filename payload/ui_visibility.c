@@ -9,10 +9,11 @@ static const uint32_t settings_items[] = {OSOS_SETTINGS_MAIN_MENU_ITEM,
                                           OSOS_SETTINGS_MUSIC_MENU_ITEM};
 void *cfw_main_menu_reset_original(void *model);
 void *cfw_music_menu_reset_original(void *model);
+static uint32_t legacy_imported;
 
 /* MVIS record: one {key, visible} pair per entry, keyed so entries can be added.
  * Reprise rows only; Apple's rows live in its Preferences. */
-static void save_preferences(void)
+static int save_preferences(void)
 {
     uint32_t pairs[2 * cfw_ui_visibility_count];
     for (uint32_t i = 0; i < cfw_ui_visibility_count; i++) {
@@ -20,6 +21,8 @@ static void save_preferences(void)
         pairs[2 * i + 1] = *cfw_ui_visibility[i].visible;
     }
     cfw_store_set(CFW_STORE_MENU_VISIBILITY, pairs, sizeof(pairs));
+    return cfw_store_get(CFW_STORE_MENU_VISIBILITY, pairs, sizeof(pairs)) ==
+           sizeof(pairs);
 }
 
 /* Legacy import: reads the pre-store CFWMenu_<key> files. */
@@ -28,16 +31,22 @@ static void load_legacy(void)
     for (uint32_t i = 0; i < cfw_ui_visibility_count; i++) {
         const struct cfw_ui_visibility *entry = &cfw_ui_visibility[i];
         struct cfw_ui_visibility_file file;
-        if (cfw_preferences_read(entry->filename, &file, sizeof(file)) &&
-            cfw_ui_visibility_valid(&file, entry->key))
+        if (cfw_store_read_legacy(entry->filename, &file, sizeof(file)) ==
+                CFW_PREFERENCES_OK &&
+            cfw_ui_visibility_valid(&file, entry->key)) {
             *entry->visible = file.visible;
+            if (i < 32)
+                legacy_imported |= 1u << i;
+        }
     }
-    save_preferences();
+    if (!save_preferences())
+        legacy_imported = 0;
 }
 
 /* Runs at boot from the native Preferences load, before the menus are built. */
 void cfw_ui_visibility_load_preferences(void)
 {
+    legacy_imported = 0;
     uint32_t pairs[2 * cfw_ui_visibility_count];
     uint32_t size = cfw_store_get(CFW_STORE_MENU_VISIBILITY, pairs, sizeof(pairs));
     if (!size) {
@@ -54,7 +63,9 @@ void cfw_ui_visibility_load_preferences(void)
 void cfw_ui_visibility_delete_legacy(void)
 {
     for (uint32_t i = 0; i < cfw_ui_visibility_count; i++)
-        cfw_preferences_delete(cfw_ui_visibility[i].filename);
+        if (i < 32 && (legacy_imported & (1u << i)))
+            cfw_preferences_delete(cfw_ui_visibility[i].filename);
+    legacy_imported = 0;
 }
 
 static void apply(const struct cfw_ui_visibility *entry, unsigned menu)

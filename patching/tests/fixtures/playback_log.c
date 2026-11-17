@@ -38,10 +38,10 @@ static uint32_t mock_mac(void *p, int f)
 #undef OSOS_CLOCK_READ
 #undef OSOS_CLOCK_SECONDS
 #undef OSOS_CLOCK_MAC_SECONDS
-#define OSOS_PLAYBACK_CLOCK ((uintptr_t)mock_ticks)
-#define OSOS_CLOCK_READ ((uintptr_t)mock_clock)
-#define OSOS_CLOCK_SECONDS ((uintptr_t)mock_local)
-#define OSOS_CLOCK_MAC_SECONDS ((uintptr_t)mock_mac)
+#define osos_playback_clock mock_ticks
+#define osos_clock_read mock_clock
+#define osos_clock_seconds(p) mock_local(p, 1)
+#define osos_clock_mac_seconds(p) mock_mac(p, 1)
 static unsigned char player_data[0xb00] __attribute__((aligned(16)));
 #define osos_player_get() ((struct osos_player *)player_data)
 static uint32_t track_length = 180000;
@@ -65,9 +65,9 @@ static int flag(struct osos_player *p)
 #undef OSOS_PLAYER_IS_SHUFFLED
 #undef OSOS_PLAYER_IS_REPEAT_ONE
 #undef OSOS_PLAYER_IS_REPEAT_ALL
-#define OSOS_PLAYER_IS_SHUFFLED ((uintptr_t)flag)
-#define OSOS_PLAYER_IS_REPEAT_ONE ((uintptr_t)flag)
-#define OSOS_PLAYER_IS_REPEAT_ALL ((uintptr_t)flag)
+#define osos_player_is_shuffled flag
+#define osos_player_is_repeat_one flag
+#define osos_player_is_repeat_all flag
 static const char *tag = "A\tB\nC";
 #define osos_native_string_init(s) ((void)(s))
 #define osos_media_item_text(i, f, s) ((void)(i), (void)(f), (void)(s))
@@ -148,11 +148,11 @@ static int mock_seek(void *h, uint64_t n, int w)
 #define osos_file_read mock_read
 #define osos_file_close(h) ((void)(h))
 #undef OSOS_FILE_SEEK
-#define OSOS_FILE_SEEK ((uintptr_t)mock_seek)
+#define osos_file_seek mock_seek
 struct track_session;
 static void mock_finish(struct track_session *, uint32_t);
 #undef OSOS_TRACK_SESSION_FINISH
-#define OSOS_TRACK_SESSION_FINISH ((uintptr_t)mock_finish)
+#define osos_track_session_finish mock_finish
 static int notifications;
 #define osos_settings_model(c) (c)
 #define osos_model_notify(c, n, p) ((void)(c), (void)(n), (void)(p), notifications++)
@@ -197,13 +197,19 @@ uint32_t cfw_album_artist_read(struct osos_media_record *r, uint16_t *s, uint32_
 static int stored, legacy_present, legacy_reads;
 static uint32_t stored_value, legacy_value;
 
-int cfw_preferences_read(const char *path, void *out, uint32_t size)
+int cfw_store_read_legacy(const char *path, void *out, uint32_t size)
 {
     assert(!strcmp(path, "iPod_Control\\Device\\CFWLog") && size == 4);
     legacy_reads++;
-    if (legacy_present)
+    if (legacy_present == CFW_PREFERENCES_OK)
         memcpy(out, &legacy_value, size);
     return legacy_present;
+}
+
+void cfw_preferences_delete(const char *path)
+{
+    assert(!strcmp(path, "iPod_Control\\Device\\CFWLog"));
+    legacy_present = 0;
 }
 
 uint32_t cfw_store_get(uint32_t key, void *out, uint32_t size)
@@ -241,10 +247,15 @@ int main(void)
     cfw_playback_log_load();
     assert(!enabled && stored && !stored_value);
     stored = 0;
+    legacy_present = CFW_PREFERENCES_IO_ERROR;
+    cfw_playback_log_load();
+    assert(!enabled && !stored && !imported_legacy);
     legacy_present = 1;
     legacy_value = LOG_ON_RECORD;
     cfw_playback_log_load();
     assert(enabled && stored_value == 1);
+    cfw_playback_log_delete_legacy();
+    assert(!legacy_present && !imported_legacy);
     int reads = legacy_reads;
     stored_value = 0;
     cfw_playback_log_load();
@@ -295,16 +306,16 @@ int main(void)
            config.columns[1] == CFW_LOG_COLUMN_ARTIST &&
            config.columns[2] == CFW_LOG_COLUMN_START_UTC);
     char ordered_path[260];
-    strcpy(ordered_path, log_path.text);
+    strcpy(ordered_path, log_name);
     configure("columns=artist,title,start_utc");
-    assert(strcmp(ordered_path, log_path.text));
+    assert(strcmp(ordered_path, log_name));
     const char *invalid[] = {
         "columns=title,title", "columns=title,unknown", "columns=",
         "columns=title,",      "columns=,title",        "columns=title,,artist"};
     for (unsigned i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
         configure(invalid[i]);
         assert(config.column_count == CFW_LOG_COLUMN_COUNT);
-        assert(!strcmp(log_path.text, "playback-v3.tsv"));
+        assert(!strcmp(log_name, "playback-v3.tsv"));
     }
     configure("columns=title\ncolumns=artist,unknown");
     assert(config.column_count == 1 && config.columns[0] == CFW_LOG_COLUMN_TITLE);
@@ -317,7 +328,7 @@ int main(void)
     assert(strlen(all) > 96);
     configure(all);
     assert(config.column_count == CFW_LOG_COLUMN_COUNT);
-    assert(!strcmp(log_path.text, "playback-v3.tsv"));
+    assert(!strcmp(log_name, "playback-v3.tsv"));
     assert(detailed_header_size < CFW_LOG_HEADER_MAX);
     for (unsigned i = 0; i < CFW_LOG_COLUMN_COUNT; i++)
         assert(config.columns[i] == i);
@@ -412,7 +423,7 @@ int main(void)
     listening.start_utc = 1700000000;
     listening.listened_ms = 30000;
     log_session(&current.item, 4, 170000, ENDED_SKIP, 0, 0);
-    int custom = file_index(log_path.text);
+    int custom = file_index(log_name);
     assert(custom >= 2);
     const char *row = "1700000000\tA B C\tA B C\tA B C\t30000\t180000\tskip\n";
     assert(sizes[custom] == detailed_header_size + strlen(row));
@@ -424,12 +435,12 @@ int main(void)
     uint32_t preserved = sizes[custom];
     configure("format=detailed\ncolumns=title,artist");
     log_session(&current.item, 4, 1, ENDED_CHANGE, 0, 0);
-    int reordered = file_index(log_path.text);
+    int reordered = file_index(log_name);
     assert(reordered != custom && sizes[custom] == preserved);
     assert(!strcmp(output[reordered], "title\tartist\nA B C\tA B C\n"));
     configure("format=detailed\ncolumns=title");
     log_session(&current.item, 4, 1, ENDED_CHANGE, 0, 0);
-    int single = file_index(log_path.text);
+    int single = file_index(log_name);
     assert(!strcmp(output[single], "title\nA B C\n"));
     /* A conflicting or unreadable header must leave the existing file intact. */
     output[single][0] = 'X';

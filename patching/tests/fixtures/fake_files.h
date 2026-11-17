@@ -14,6 +14,9 @@ struct fake_file {
 static struct fake_file fake_files[8];
 static unsigned fake_writes, fake_deletes;
 static int fake_fail_write;
+static const char *fake_fail_open_read, *fake_fail_read, *fake_write_fault_name;
+static int fake_partial_write = -1;
+static uint32_t fake_fail_read_size;
 
 static struct fake_file *fake_find(const char *name, int create)
 {
@@ -44,6 +47,8 @@ static void fake_put(const char *name, const void *data, uint32_t size)
 static int fake_open(const struct osos_path *path, uint32_t mode, void **handle)
 {
     assert(path->volume == 0 && (mode == 1 || mode == 2));
+    if (mode == 1 && fake_fail_open_read && !strcmp(path->text, fake_fail_open_read))
+        return -1;
     struct fake_file *file = fake_find(path->text, mode == 2);
     if (!file)
         return -43;
@@ -54,9 +59,12 @@ static int fake_open(const struct osos_path *path, uint32_t mode, void **handle)
 static int fake_read(void *handle, void *out, uint32_t size, uint32_t *count)
 {
     struct fake_file *file = handle;
+    if (fake_fail_read && !strcmp(file->name, fake_fail_read) &&
+        size >= fake_fail_read_size)
+        return -1;
     *count = file->size < size ? file->size : size;
     memcpy(out, file->data, *count);
-    return 0;
+    return size && !*count ? -39 : 0;
 }
 
 /* Like the native writer this does not truncate: a shorter write keeps the tail. */
@@ -64,8 +72,11 @@ static int fake_write(void *handle, const void *data, uint32_t size, uint32_t *c
 {
     struct fake_file *file = handle;
     fake_writes++;
-    if (fake_fail_write)
+    int fault = !fake_write_fault_name || !strcmp(file->name, fake_write_fault_name);
+    if (fake_fail_write && fault)
         return -1;
+    if (fault && fake_partial_write >= 0 && size > (unsigned)fake_partial_write)
+        size = fake_partial_write;
     assert(size <= sizeof(file->data));
     memcpy(file->data, data, size);
     if (size > file->size)

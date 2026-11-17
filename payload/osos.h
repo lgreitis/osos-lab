@@ -109,11 +109,16 @@ static inline void osos_model_notify(void *model, uint32_t type, uint32_t proper
     ((fn)vtable[0x58 / 4])(model, type, property);
 }
 
+static inline void *osos_ui_service_get(uint32_t id)
+{
+    typedef void *(*fn)(uint32_t);
+    return ((fn)OSOS_UI_SERVICE_GET)(id);
+}
+
 static inline void *osos_now_playing_model(void)
 {
-    typedef void *(*lookup_fn)(uint32_t);
     typedef void *(*interface_fn)(void *, uint32_t);
-    void *service = ((lookup_fn)OSOS_UI_SERVICE_GET)(0x7f00);
+    void *service = osos_ui_service_get(0x7f00);
     if (!service)
         return 0;
     uintptr_t *vtable = *(uintptr_t **)service;
@@ -531,6 +536,8 @@ struct osos_path {
     char text[258];
 };
 
+#include "native/path.h"
+
 /* Native file modes: 1 reads; 2 opens or creates for writing. */
 static inline int osos_file_open(const struct osos_path *path, uint32_t mode,
                                  void **handle)
@@ -551,6 +558,12 @@ static inline int osos_file_write(void *handle, const void *data, uint32_t bytes
 {
     typedef int (*fn)(void *, const void *, uint32_t, uint32_t, uint32_t *);
     return ((fn)OSOS_FILE_WRITE)(handle, data, bytes, 1, written);
+}
+
+static inline int osos_file_seek(void *handle, uint64_t offset, int origin)
+{
+    typedef int (*fn)(void *, uint64_t, int);
+    return ((fn)OSOS_FILE_SEEK)(handle, offset, origin);
 }
 
 static inline void osos_file_close(void *handle)
@@ -709,12 +722,6 @@ static inline void osos_resource_block_append(void *list, void *data, uint32_t s
 {
     typedef void (*fn)(void *, void *, uint32_t, uint32_t);
     ((fn)OSOS_RESOURCE_BLOCK_APPEND)(list, data, size, metadata);
-}
-
-static inline void *osos_ui_service_get(uint32_t id)
-{
-    typedef void *(*fn)(uint32_t);
-    return ((fn)OSOS_UI_SERVICE_GET)(id);
 }
 
 static inline void *osos_ui_selection(void)
@@ -999,6 +1006,12 @@ static inline void *osos_model_ref_get(void *reference)
     return ((fn)OSOS_MODEL_REF_GET)(reference);
 }
 
+static inline int osos_model_ref_unique(void *reference)
+{
+    const uint32_t *block = *(const uint32_t **)reference;
+    return block && block[1] == 1;
+}
+
 static inline void *osos_model_init_borrowed(void *model, uint8_t item_flags,
                                              void *browser)
 {
@@ -1017,6 +1030,24 @@ static inline uint32_t osos_select_artwork_source(void *selection, uint32_t cate
 {
     typedef uint32_t (*fn)(void *, uint32_t);
     return ((fn)OSOS_SELECT_ARTWORK_SOURCE)(selection, category);
+}
+
+static inline void *osos_list_artwork_session(void)
+{
+    typedef void *(*fn)(void);
+    return ((fn)OSOS_LIST_ARTWORK_SESSION)();
+}
+
+static inline void osos_list_artwork_stop(void *session)
+{
+    typedef void (*fn)(void *);
+    ((fn)OSOS_LIST_ARTWORK_STOP)(session);
+}
+
+static inline int osos_list_artwork_set_source(void *session, uint32_t selector)
+{
+    typedef int (*fn)(void *, uint32_t);
+    return ((fn)OSOS_LIST_ARTWORK_SET_SOURCE)(session, selector);
 }
 
 static inline void *osos_album_artwork_create(uint32_t kind, uint32_t selector)
@@ -1074,6 +1105,9 @@ static inline void osos_controller_push(void *controller, void *screen)
     typedef void (*fn)(void *, void *);
     ((fn)osos_method(controller, 0xd0))(controller, screen);
 }
+
+#include "native/player.h"
+#include "native/playback.h"
 
 #endif
 #endif

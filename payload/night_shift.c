@@ -30,8 +30,6 @@ static const uint16_t warm_gain[3] = {256, 216, 150};
 static unsigned int enabled;
 static uint32_t gamma_tables[3][GAMMA_ENTRIES];
 
-typedef int (*set_gamma_fn)(const uint32_t *, const uint32_t *, const uint32_t *);
-
 static int apply(void)
 {
     for (int channel = 0; channel < 3; channel++) {
@@ -39,8 +37,7 @@ static int apply(void)
         for (uint32_t i = 0; i < GAMMA_ENTRIES; i++)
             gamma_tables[channel][i] = (i * 4 * gain) >> 8;
     }
-    return ((set_gamma_fn)OSOS_DISPLAY_SET_GAMMA)(gamma_tables[0], gamma_tables[1],
-                                                  gamma_tables[2]);
+    return osos_display_set_gamma(gamma_tables[0], gamma_tables[1], gamma_tables[2]);
 }
 
 void cfw_night_shift_load(void)
@@ -87,7 +84,8 @@ int cfw_night_shift_property(uint32_t type, uint32_t property, uintptr_t *out)
         return 1;
     }
     if (property == CFW_NightShift_PreviewText) {
-        *out = osos_ui_string(enabled ? CFW_NightShift_OnLabel : CFW_NightShift_OffLabel);
+        *out =
+            osos_ui_string(enabled ? CFW_NightShift_OnLabel : CFW_NightShift_OffLabel);
         return 1;
     }
     return 0;
