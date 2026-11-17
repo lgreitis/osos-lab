@@ -59,7 +59,23 @@ void cfw_ui_visibility_delete_legacy(void)
 
 static void apply(const struct cfw_ui_visibility *entry, unsigned menu)
 {
-    osos_menu_item_set_visible(entry->items[menu], (*entry->visible >> menu) & 1);
+    if (entry->items[menu])
+        osos_menu_item_set_visible(entry->items[menu],
+                                   ((*entry->visible & *entry->available) >> menu) & 1);
+}
+
+void cfw_ui_visibility_set_available(uint32_t item, int available)
+{
+    for (uint32_t i = 0; i < cfw_ui_visibility_count; i++) {
+        const struct cfw_ui_visibility *entry = &cfw_ui_visibility[i];
+        for (unsigned menu = 0; menu < 2; menu++) {
+            if (!item || entry->items[menu] != item)
+                continue;
+            uint32_t mask = 1u << menu;
+            *entry->available = (*entry->available & ~mask) | (available ? mask : 0);
+            apply(entry, menu);
+        }
+    }
 }
 
 static const uint32_t *native_rows(unsigned menu)

@@ -3,6 +3,7 @@
 #include "cfw.h"
 #include "patch.h"
 #include "play_next.h"
+#include "up_next.h"
 #include "file_info.h"
 #include "file_info_ui.h"
 
@@ -70,8 +71,10 @@ static int song_action(void *controller, enum song_source source, const char *ac
         } else {
             cfw_play_next_add(player, selected, last);
         }
-        if (!info)
+        if (!info) {
             osos_player_unlock(player);
+            cfw_up_next_refresh();
+        }
     }
     return 1;
 }
@@ -86,7 +89,8 @@ PATCH_ARM void cfw_song_menu_cancel(struct osos_context_menu *menu, uint32_t lab
 
 PATCH_ARM int cfw_song_action(void *controller, const char *action, uint32_t argument)
 {
-    if (song_action(controller, SONG_LIST, action, argument))
+    if (cfw_up_next_song_action(controller, action, argument) ||
+        song_action(controller, SONG_LIST, action, argument))
         return 1;
     return cfw_song_action_original(controller, action, argument);
 }

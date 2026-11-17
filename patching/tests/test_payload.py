@@ -61,6 +61,7 @@ class PayloadTests(unittest.TestCase):
                     root / "payload/crossfeed.ui",
                     root / "payload/cfw_info.ui",
                     root / "payload/album_artists.ui",
+                    root / "payload/play_next.ui",
                 ],
                 directory,
                 "test",
@@ -68,6 +69,7 @@ class PayloadTests(unittest.TestCase):
             for name in (
                 "context_menu",
                 "song_actions",
+                "play_next",
                 "file_info",
                 "playback_log",
                 "media_menus",

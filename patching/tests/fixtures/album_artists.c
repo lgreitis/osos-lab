@@ -277,3 +277,16 @@ int main(void)
     reset_groups();
     return 0;
 }
+
+void cfw_up_next_model_destroyed(void *model)
+{
+    (void)model;
+}
+
+int cfw_up_next_action(void *controller, const char *action, uint32_t argument)
+{
+    (void)controller;
+    (void)action;
+    (void)argument;
+    return 0;
+}

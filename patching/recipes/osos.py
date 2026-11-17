@@ -73,6 +73,7 @@ def build_recipe(
                 "dark_mode.ui",
                 "queue_selection.ui",
                 "playback_log.ui",
+                "up_next.ui",
             )
         ],
         directory,
