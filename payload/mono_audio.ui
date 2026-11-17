@@ -1,6 +1,9 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <ui>
 	<toggle id="CFW_MonoAudio" title="Mono Audio"/>
-	<bitmap id="CFW_MonoAudio_Icon" file="assets/settings-headphones.png" format="gray8"/>
-	<settings-entry menu="CFW_MonoAudio" after="SettingsMenu_ListItem_SoundCheck" preview="image" image="CFW_MonoAudio_Icon" caption="Left and Right Headphones Play the Same Audio"/>
+	<bitmap id="CFW_MonoAudio_Icon" file="assets/settings-mono-audio.png" format="gray8"/>
+	<bitmap id="CFW_StereoAudio_Icon" file="assets/settings-stereo-audio.png" format="gray8"/>
+	<string id="CFW_MonoAudio_OffLabel" text="Left and Right Speakers Play the Original Audio"/>
+	<string id="CFW_MonoAudio_OnLabel" text="Left and Right Speakers Play the Same Audio"/>
+	<settings-entry menu="CFW_MonoAudio" after="SettingsMenu_ListItem_SoundCheck" preview="image"/>
 </ui>

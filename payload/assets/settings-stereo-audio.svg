@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="78" height="121" viewBox="0 0 78 121">
+  <rect width="78" height="121" fill="black"/>
+  <!-- speaker 1 -->
+  <rect width="28" height="40" x="10" y="18" rx="4" ry="4" fill="white"/>
+  <circle cx="24" cy="28" r="6" fill="black"/>
+  <circle cx="24" cy="28" r="3" fill="white"/>
+  <circle cx="24" cy="45" r="8" fill="black"/>
+  <circle cx="24" cy="45" r="5" fill="white"/>
+  <!-- speaker 2 -->
+  <rect width="28" height="40" x="40" y="18" rx="4" ry="4" fill="white"/>
+  <circle cx="54" cy="28" r="6" fill="black"/>
+  <circle cx="54" cy="28" r="3" fill="white"/>
+  <circle cx="54" cy="45" r="8" fill="black"/>
+  <circle cx="54" cy="45" r="5" fill="white"/>
+</svg>

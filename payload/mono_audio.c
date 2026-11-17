@@ -6,6 +6,7 @@
 #include "patch.h"
 #include "store.h"
 #include "mono_audio_ui.h"
+#include "resources.h"
 
 enum {
 	MONO_AUDIO_OFF_RECORD = 0x304f4e4d, /* MNO0 */
@@ -43,10 +44,25 @@ void cfw_mono_audio_reset(void)
 
 int cfw_mono_audio_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
-	if (type != OSOS_PROPERTY_STRING || property != CFW_MonoAudio_Value)
+	if (type == OSOS_RESOURCE_BMAP && property == CFW_MonoAudio_PreviewImage) {
+		*out = enabled ? (uintptr_t) cfw_resource_bitmap(CFW_MonoAudio_Icon) : (uintptr_t) cfw_resource_bitmap(CFW_StereoAudio_Icon);
+		return 1;
+	}
+
+	if (type != OSOS_PROPERTY_STRING)
 		return 0;
-	*out = osos_settings_on_off(enabled);
-	return 1;
+	
+	if (property == CFW_MonoAudio_Value) {
+		*out = osos_settings_on_off(enabled);
+		return 1;
+	}
+	
+	if (property == CFW_MonoAudio_PreviewText) {
+		*out = osos_ui_string(enabled ? CFW_MonoAudio_OnLabel : CFW_MonoAudio_OffLabel);
+		return 1;
+	}
+
+	return 0;
 }
 
 /* Toggles the active state of the mono audio setting */
@@ -60,5 +76,7 @@ int cfw_mono_audio_action(void *controller, const char *action, uint32_t argumen
 	uint32_t record = enabled ? MONO_AUDIO_ON_RECORD : MONO_AUDIO_OFF_RECORD;
 	cfw_store_set(CFW_STORE_MONO_AUDIO, &record, sizeof(record));
 	osos_model_notify(osos_settings_model(controller), OSOS_NOTIFY_ALL, CFW_MonoAudio_Value);
+	osos_model_notify(osos_settings_model(controller), OSOS_NOTIFY_ALL, CFW_MonoAudio_PreviewImage);
+	osos_model_notify(osos_settings_model(controller), OSOS_NOTIFY_ALL, CFW_MonoAudio_PreviewText);
 	return 1;
 }
