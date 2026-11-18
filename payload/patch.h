@@ -25,6 +25,9 @@ _Static_assert(sizeof(struct cfw_patch) == 84, "Patch metadata layout changed");
     PATCH_RECORD(1, address, expected, 0, value, "")
 #define PATCH_POINTER(address, expected, symbol)                                       \
     PATCH_RECORD(2, address, expected, 0, 0, #symbol)
+#define PATCH_POINTER_PAIR(primary, secondary, expected, symbol)                       \
+    PATCH_POINTER(primary, expected, symbol);                                          \
+    PATCH_POINTER(secondary, expected, symbol)
 #define PATCH_CALL_WORD(address, expected, symbol)                                     \
     PATCH_RECORD(3, address, expected, 0, 0, #symbol)
 #define PATCH_CALL(address, original, symbol)                                          \

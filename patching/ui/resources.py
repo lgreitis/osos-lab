@@ -127,6 +127,13 @@ def blocks(data):
     return result
 
 
+def menu_row(rows, item_id, missing):
+    for kind, row in rows:
+        if word(row, 0x30) == item_id:
+            return kind, row
+    raise ValueError(missing)
+
+
 def pack_blocks(items):
     result = Resource(struct.pack("<I", len(items)))
     for kind, data in items:
@@ -264,8 +271,7 @@ class Resources:
 
     def insert_menu_item(self, table, after, item):
         rows = blocks(self.stock("ITEM", table))
-        if not any(word(row, 0x30) == after for _, row in rows):
-            raise ValueError(f"Menu anchor {after:#x} missing from {table:#x}")
+        menu_row(rows, after, f"Menu anchor {after:#x} missing from {table:#x}")
         kind, data = item
         self.menu_items.append((table, after, kind, Resource(data)))
 

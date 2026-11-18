@@ -9,6 +9,7 @@ from .resources import (
     blocks,
     event,
     menu_event,
+    menu_row,
     pack_blocks,
     put,
     word,
@@ -18,16 +19,11 @@ from .resources import (
 class DocumentCompiler:
     def __init__(self, resources, document):
         self.resources, self.document = resources, document
-        self.prototype = next(
-            (
-                data
-                for _, data in blocks(resources.stock("ITEM", "SettingsMenu_Items"))
-                if word(data, 0x30) == resources.native("SettingsMenu_ListItem_Legal")
-            ),
-            None,
+        _, self.prototype = menu_row(
+            blocks(resources.stock("ITEM", "SettingsMenu_Items")),
+            resources.native("SettingsMenu_ListItem_Legal"),
+            "Native Settings menu is missing the Legal row template",
         )
-        if self.prototype is None:
-            raise ValueError("Native Settings menu is missing the Legal row template")
         self.string_ids = {}
 
     def text_page(self, text):
@@ -232,21 +228,11 @@ class DocumentCompiler:
 
     def sound_check_row(self, bindings, value):
         resources = self.resources
-        prototype = next(
-            (
-                (kind, data)
-                for kind, data in blocks(resources.stock("ITEM", "SettingsMenu_Items"))
-                if word(data, 0x30)
-                == resources.native("SettingsMenu_ListItem_SoundCheck")
-            ),
-            None,
+        kind, row = menu_row(
+            blocks(resources.stock("ITEM", "SettingsMenu_Items")),
+            resources.native("SettingsMenu_ListItem_SoundCheck"),
+            "Native Settings menu is missing the Sound Check row template",
         )
-        if prototype is None:
-            raise ValueError(
-                "Native Settings menu is missing the Sound Check row template"
-            )
-        kind, data = prototype
-        row = Resource(data)
         item_id = resources.allocate()
         source = resources.allocate()
         # Sound Check's second source binds the blue inline text (destination 10).
@@ -427,28 +413,20 @@ def compile_music_entry(resources, entry, compiled):
     ):
         table = resources.native(menu + "Menu_Items")
         rows = blocks(resources.stock("ITEM", table))
-        anchor = next(
-            (
-                i
-                for i, (_, row) in enumerate(rows)
-                if word(row, 0x30) == resources.native(anchor_name)
-            ),
-            None,
+        anchor = resources.native(anchor_name)
+        kind, row = menu_row(
+            rows, anchor, f"{menu} anchor {anchor_name} missing for {name}"
         )
-        if anchor is None:
-            raise ValueError(f"{menu} anchor {anchor_name} missing for {name}")
-        kind, prototype = rows[anchor]
-        row = Resource(prototype)
         item = resources.allocate(name + "_" + menu + "Item")
         visibility["items"][menu] = item
-        visibility["anchors"][menu] = resources.native(anchor_name)
+        visibility["anchors"][menu] = anchor
         visibility["defaults"] |= int(visible) << (menu == "Music")
         compiled.string_ids[name + "_" + menu + "Item"] = item
         put(row, 0x30, item)
         put(row, 0x60, 5)
         put(row, 0x64, visible)
         put(row, 0x68, title)
-        resources.insert_menu_item(table, resources.native(anchor_name), (kind, row))
+        resources.insert_menu_item(table, anchor, (kind, row))
         events = []
         for event_name, handler in (
             ("chosen", entry["open"]),
@@ -485,12 +463,7 @@ def compile_main_entry(resources, entry, compiled):
     message_id = resources.allocate(name + "_Message")
     resources.add("Str ", message_id, entry.get("message", "").encode("utf-8") + b"\0")
     count = resources.allocate(name + "_Count")
-    message = resources.allocate()
-    resources.add(
-        "SORC",
-        message,
-        pack_blocks([(0x534F5243, struct.pack("<III", 0x8900, count, 1))]),
-    )
+    message = resources.property_source(0x8900, count)
     empty = resources.source("")
     preview = resources.allocate(name + "_Preview")
     compiled.string_ids.update(
@@ -507,13 +480,9 @@ def compile_main_entry(resources, entry, compiled):
     table = resources.native("MainMenu_Items")
     rows = blocks(resources.current("ITEM", table))
     after = native_id(resources, entry["after"])
-    anchor = next(
-        (i for i, (_, row) in enumerate(rows) if word(row, 0x30) == after), None
+    kind, row = menu_row(
+        rows, after, f"Main menu anchor {entry['after']} missing for {name}"
     )
-    if anchor is None:
-        raise ValueError(f"Main menu anchor {entry['after']} missing for {name}")
-    kind, prototype = rows[anchor]
-    row = Resource(prototype)
     put(row, 0x30, item)
     put(row, 0x64, 0)
     # The low half of +0x5c is the row's native index. Now Playing's is special-cased by Apple
