@@ -126,6 +126,7 @@ def build_rockbox(config, out, rockbox):
     makefile = directory / "Makefile"
     configuration = {
         "source": str(rockbox.resolve()),
+        "loader_include": str(ROOT / "loader"),
         "prefix": prefix,
         "version": target["rockbox_version"],
     }
@@ -147,7 +148,8 @@ def build_rockbox(config, out, rockbox):
             for line in text.splitlines()
             if line.startswith("export EXTRA_DEFINES=")
         )
-        makefile.write_text(text.replace(line, line + " -DIPOD_CFW_FILE_BOOT", 1))
+        flags = f' -DIPOD_CFW_FILE_BOOT -I"{ROOT / "loader"}"'
+        makefile.write_text(text.replace(line, line + flags, 1))
     stamp.write_text(json.dumps(configuration, sort_keys=True) + "\n")
     (directory / "build.log").write_text(run(["make", f"-j{jobs}"], directory, env))
     shutil.copyfile(

@@ -185,7 +185,7 @@ def prepare_source(out, rockbox):
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
     (source / "bootloader/SOURCES").write_text(
-        "common.c\nformat.c\nsnprintf.c\nipod-s5l87xx.c\nupload-file.c\nsha256.c\nlayout.c\n"
+        "common.c\nformat.c\nsnprintf.c\nipod-s5l87xx.c\nupload-file.c\nsha256.c\nlayout.c\nhfs-upload.c\nreader.c\n"
     )
     for src, dst in [
         ("main.c", "ipod-s5l87xx.c"),
@@ -200,6 +200,12 @@ def prepare_source(out, rockbox):
         ("return_blob.h", "return_blob.h"),
     ]:
         shutil.copyfile(out / src, source / "bootloader" / dst)
+    for name in ("hfs-upload.c", "hfs-upload.h"):
+        shutil.copyfile(HERE / name, source / "bootloader" / name)
+    for name in ("reader.c", "reader.h"):
+        shutil.copyfile(
+            HERE.parent / "loader/hfsplus" / name, source / "bootloader" / name
+        )
     (source / "firmware/usb.c").write_text(
         '#include "usb.h"\nvoid usb_acknowledge(long id, intptr_t seqnum) { (void)id; (void)seqnum; }\n'
     )
