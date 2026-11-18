@@ -3,6 +3,10 @@
 C11 runtime for the Apple 2.0.5 base. See [Doom](../doom/) for a newlib port and
 [NES](../nes/) for a freestanding port.
 
+The headers in `include/` and all files in `runtime/` are [MIT-licensed](LICENSE-MIT).
+Include a copy of `LICENSE-MIT` when distributing the runtime or an app that links it.
+The build tools, packager, and tests use [GPL-3.0-only](../COPYING).
+
 ## App and build
 
 Define `game_application` from [game_api.h](include/game_api.h) with a package ID

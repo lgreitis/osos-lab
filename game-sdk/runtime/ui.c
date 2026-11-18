@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: MIT */
 #include "game_ui.h"
 
 void game_clear(const struct game_framebuffer *fb, uint16_t color)

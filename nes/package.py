@@ -29,6 +29,7 @@ def package(output, rom_directory=None):
         "COPYING.LUCIDE": (ROOT / "assets/COPYING.LUCIDE").read_bytes(),
         "COPYING.INFONES": (ROOT / "vendor/infones/LICENSE").read_bytes(),
         "COPYING.REPRISEOS": (ROOT.parent / "COPYING").read_bytes(),
+        "COPYING.GAME-SDK": (ROOT.parent / "game-sdk/LICENSE-MIT").read_bytes(),
         "SOURCES.txt": (
             f"InfoNES: {URL}\nCommit: {COMMIT}\nSHA-256: {SHA256}\n"
             "Icon: https://lucide.dev/icons/gamepad (ISC, recolored)\n"

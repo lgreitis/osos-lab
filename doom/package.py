@@ -51,6 +51,7 @@ def package(image_path, output, wad_path, artwork_path):
         "doom1.wad": wad,
         "Doom.raw.lcd5": artwork,
         "COPYING.REPRISEOS": (ROOT.parent / "COPYING").read_bytes(),
+        "COPYING.GAME-SDK": (ROOT.parent / "game-sdk/LICENSE-MIT").read_bytes(),
         "COPYING.DOOM": (ROOT / "vendor/doomgeneric/LICENSE").read_bytes(),
         "COPYING.NEWLIB": (ROOT / "vendor/newlib/COPYING.NEWLIB").read_bytes(),
         "SOURCES.txt": (

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: MIT */
 #ifndef OSOS_GAME_UI_H
 #define OSOS_GAME_UI_H
 

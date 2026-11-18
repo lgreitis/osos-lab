@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: MIT */
 
 #ifndef OSOS_GAME_LIBC_H
 #define OSOS_GAME_LIBC_H
