@@ -65,6 +65,7 @@ def build_recipe(
             for name in (
                 "cfw_info.ui",
                 "custom_eq.ui",
+                "mono_audio.ui",
                 "crossfeed.ui",
                 "play_next.ui",
                 "file_info.ui",

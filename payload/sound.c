@@ -15,5 +15,6 @@ PATCH_ARM void cfw_sound_process(int16_t *samples, uint32_t frames, const void *
         *(const uint32_t *)(context + OSOS_AUDIO_OUTPUT_CHANNELS_OFFSET);
     if (!frames || bits != 16 || channels != 2 || rate < 8000 || rate > 48000)
         return;
+    cfw_mono_audio_process(samples, frames);
     cfw_crossfeed_process(samples, frames, rate);
 }
