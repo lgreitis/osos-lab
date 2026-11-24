@@ -93,7 +93,8 @@ PATCH_ARM int cfw_settings_indexed_property(void *model, uint32_t type,
                                             uint32_t property, uint32_t index,
                                             uintptr_t *out)
 {
-    if (cfw_file_info_indexed_property(type, property, index, out))
+    if (cfw_rvx_indexed_property(type, property, index, out) ||
+        cfw_file_info_indexed_property(type, property, index, out))
         return 1;
 
     return cfw_ui_visibility_property(model, type, property, index, out);

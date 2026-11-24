@@ -1,0 +1,341 @@
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Adapted from RevolaOS, copyright 2026 The RevolaOS Authors,
+ * based on RepriseOS UI resources by lgreitis.
+ */
+#include "native_ui.h"
+
+static const void *stock(uint32_t type, uint32_t id, uint32_t *bytes)
+{
+    return osos_resource_get(rvx_bank, type, id, bytes);
+}
+
+static void set(uint32_t type, uint32_t id, const void *data, uint32_t bytes)
+{
+    native_set(type, id, data, bytes);
+}
+
+uint32_t core_clone_ids(const struct screen *d)
+{
+    switch (d->kind) {
+    case RV_SCREEN_KIND_LIST:
+        if (d->list.count > 0x100000)
+            return 0;
+        /* screen, layout, title, items, 4 for layout clones, 2 per row, the
+         * long-press menu, then the split layout's screen, layout and 5 clones */
+        return 8 + 2 * d->list.count + core_lists_context_ids(d) + CORE_LIST_SPLIT_IDS;
+    case RV_SCREEN_KIND_TEXT:
+        if (d->text.count > 0x100000)
+            return 0;
+        /* screen, layout, title, 5 for layout clones, one source per paragraph */
+        return 8 + d->text.count;
+    case RV_SCREEN_KIND_SLIDER:
+        /* screen, layout, title, 5 for layout clones, the bar's and the value's source */
+        return 10;
+    case RV_SCREEN_KIND_STOCK:
+        /* screen, layout, title, 5 for layout clones */
+        return 8;
+    case RV_SCREEN_KIND_CHOICE:
+    case RV_SCREEN_KIND_MULTI_CHOICE:
+    case RV_SCREEN_KIND_DYNAMIC_LIST:
+        /* screen, layout, title, items, 4 for layout clones, the row and its source,
+         * the long-press menu, then the split layout's ids */
+        return 10 + core_lists_context_ids(d) + CORE_LIST_SPLIT_IDS;
+    default:
+        return 8;
+    }
+}
+
+static void put_word(uint8_t *at, uint32_t value)
+{
+    for (unsigned b = 0; b < 4; b++)
+        at[b] = (uint8_t)(value >> (8 * b));
+}
+
+/* The VCvs of one instance with the title view's source and the item table
+ * rebound and `extra` sources applied: a block per view holding option blocks,
+ * or one ViewBinding_ItemTable block naming the ITEM table. `vcvs` may be NULL
+ * when the instance has none. Returns the bytes written, 0 when nothing changed. */
+static uint32_t rebind_views(struct core_writer *w, const void *vcvs,
+                             const struct layout_clone *c,
+                             const struct view_sources *extra)
+{
+    uint32_t start = w->at, changed = 0, count = vcvs ? core_blocks_count(vcvs) : 0;
+    uint32_t bound = 0,
+             added = 0; /* extra views the stock VCvs gives a source, as a bit each */
+    struct core_block view, option;
+    for (uint32_t i = 0; extra && i < count && core_block_at(vcvs, i, &view); i++)
+        for (uint32_t o = 0; view.kind - extra->view < extra->count &&
+                             core_block_at(view.data, o, &option);
+             o++)
+            if (option.kind == Resource_SORC)
+                bound |= 1u << (view.kind - extra->view);
+    for (uint32_t i = 0; extra && i < extra->count; i++)
+        added += !(bound >> i & 1);
+    core_write_word(w, count + added);
+    for (uint32_t i = 0; i < count; i++) {
+        if (!core_block_at(vcvs, i, &view))
+            break;
+        uint32_t begin = core_write_block_begin(w, view.kind);
+        if (view.kind == ViewBinding_ItemTable) {
+            uint32_t words[2] = {ItemTableBinding_item_table, c->items};
+            core_write_copy(w, view.data, view.bytes, words,
+                            c->items && view.bytes >= 8);
+            changed |= c->items != 0;
+            core_write_block_end(w, begin);
+            continue;
+        }
+        uint32_t source = view.kind == c->title_view ? c->title : 0;
+        if (extra && view.kind - extra->view < extra->count)
+            source = extra->source + (view.kind - extra->view);
+        core_write_word(w, core_blocks_count(view.data));
+        for (uint32_t o = 0;; o++) {
+            struct core_block option;
+            if (!core_block_at(view.data, o, &option))
+                break;
+            uint32_t b = core_write_block_begin(w, option.kind);
+            if (option.kind == Resource_SORC && source) {
+                core_write_word(w, source);
+                changed = 1;
+            } else {
+                core_write_bytes(w, option.data, option.bytes);
+            }
+            core_write_block_end(w, b);
+        }
+        core_write_block_end(w, begin);
+    }
+    for (uint32_t i = 0; extra && i < extra->count; i++) {
+        if (bound >> i & 1)
+            continue;
+        uint32_t begin = core_write_block_begin(w, extra->view + i);
+        core_write_word(w, 1);
+        uint32_t option = core_write_block_begin(w, Resource_SORC);
+        core_write_word(w, extra->source + i);
+        core_write_block_end(w, option);
+        core_write_block_end(w, begin);
+        changed = 1;
+    }
+    return changed ? w->at - start : 0;
+}
+
+/* Clones a stock layout: every SSin list and the VCvs of instances whose
+ * bindings change. Uses ids from `next`. The clone is stored as it is built, so
+ * the scratch holds one layout, one SSin and one VCvs. */
+int core_clone_layout(const struct layout_clone *c, uint32_t *next, uint8_t *scratch,
+                      uint32_t scratch_bytes)
+{
+    uint32_t bytes, lists;
+    const void *slyt = stock(Resource_SLyt, c->stock, &bytes);
+    if (!slyt || bytes > scratch_bytes)
+        return 0;
+    uint8_t *layout_copy = scratch;
+    for (uint32_t i = 0; i < bytes; i++)
+        layout_copy[i] = ((const uint8_t *)slyt)[i];
+    lists = core_blocks_count(slyt);
+    for (uint32_t l = 0; l < lists; l++) {
+        struct core_block list;
+        if (!core_block_at(layout_copy, l, &list))
+            return 0;
+        uint32_t ssin_bytes;
+        const void *ssin =
+            stock(Resource_SSin, core_word_at(list.data, 0), &ssin_bytes);
+        if (!ssin || bytes + ssin_bytes > scratch_bytes)
+            return 0;
+        uint8_t *ssin_copy = scratch + bytes;
+        for (uint32_t i = 0; i < ssin_bytes; i++)
+            ssin_copy[i] = ((const uint8_t *)ssin)[i];
+        for (uint32_t n = 0;; n++) {
+            struct core_block instance;
+            if (!core_block_at(ssin_copy, n, &instance))
+                break;
+            uint8_t *words = (uint8_t *)instance.data;
+            uint32_t template = core_word_at(words, SsinInstance_template);
+            uint32_t view_id = core_word_at(words, SsinInstance_view_bindings),
+                     vcvs_bytes;
+            const void *vcvs =
+                view_id ? stock(Resource_VCvs, view_id, &vcvs_bytes) : NULL;
+            const struct view_sources *sources =
+                c->from && template == c->from ? c->extra : NULL;
+            if (vcvs || sources) {
+                struct core_writer measure = {NULL, 0};
+                if (rebind_views(&measure, vcvs, c, sources)) {
+                    uint8_t *out = scratch + bytes + ssin_bytes;
+                    if (bytes + ssin_bytes + measure.at > scratch_bytes)
+                        return 0;
+                    struct core_writer w = {out, 0};
+                    rebind_views(&w, vcvs, c, sources);
+                    uint32_t id = (*next)++;
+                    set(Resource_VCvs, id, out, w.at);
+                    /* The stock instance's frame, keyed by its VCvs id. */
+                    uint32_t vcrv_bytes;
+                    const void *vcrv =
+                        view_id ? stock(Resource_VCrv, view_id, &vcrv_bytes) : NULL;
+                    if (vcrv)
+                        set(Resource_VCrv, id, vcrv, vcrv_bytes);
+                    put_word(words + SsinInstance_view_bindings, id);
+                }
+            }
+            for (uint32_t offset = SsinInstance_template;
+                 offset <= SsinInstance_layout_events_id; offset += 4)
+                if (c->from && core_word_at(words, offset) == c->from)
+                    put_word(words + offset, c->to);
+            if (c->bindings && template == c->from)
+                put_word(words + SsinInstance_layout_events_id, c->bindings);
+        }
+        uint32_t list_id = (*next)++;
+        set(Resource_SSin, list_id, ssin_copy, ssin_bytes);
+        put_word((uint8_t *)list.data, list_id);
+    }
+    set(Resource_SLyt, c->layout, layout_copy, bytes);
+    return 1;
+}
+
+/* The screen's own resources: SCST from `controller_screen`, SLst from
+ * `layouts_screen` with the first layout replaced, CEVT from `events`. */
+int core_clone_screen(uint32_t screen, uint32_t layout, uint32_t controller_screen,
+                      uint32_t layouts_screen, const void *events, uint32_t event_bytes,
+                      uint8_t *scratch, uint32_t scratch_bytes)
+{
+    uint32_t bytes;
+    const void *scst = stock(Resource_SCST, controller_screen, &bytes);
+    if (!scst)
+        return 0;
+    set(Resource_SCST, screen, scst, bytes);
+    const void *slst = stock(Resource_SLst, layouts_screen, &bytes);
+    if (!slst || bytes > scratch_bytes)
+        return 0;
+    struct core_writer w = {scratch, 0};
+    uint32_t words[2] = {
+        12, layout}; /* word 0 of the first block: count, bytes, kind before it */
+    core_write_copy(&w, slst, bytes, words, 1);
+    set(Resource_SLst, screen, scratch, bytes);
+    set(Resource_CEVT, screen, events, event_bytes);
+    return 1;
+}
+
+void core_clone_set_style(uint32_t layout, uint32_t template, int16_t style)
+{
+    uint32_t bytes;
+    const void *slyt = stock(Resource_SLyt, layout, &bytes);
+    for (uint32_t l = 0; slyt && l < core_blocks_count(slyt); l++) {
+        struct core_block list, instance;
+        if (!core_block_at(slyt, l, &list))
+            return;
+        const void *ssin = stock(Resource_SSin, core_word_at(list.data, 0), &bytes);
+        for (uint32_t n = 0; ssin && core_block_at(ssin, n, &instance); n++) {
+            uint8_t *words = (uint8_t *)instance.data;
+            if (core_word_at(words, SsinInstance_template) != template)
+                continue;
+            for (uint32_t b = 0; b < 2; b++) {
+                words[SsinInstance_enter_style + b] =
+                    (uint8_t)((uint16_t)style >> (8 * b));
+                words[SsinInstance_leave_style + b] =
+                    (uint8_t)((uint16_t)style >> (8 * b));
+            }
+        }
+    }
+}
+
+/* Menu pops the screen, holding it returns to the main menu. */
+void core_clone_layout_events(struct core_writer *w)
+{
+    core_write_word(w, 2);
+    core_write_event(w, "button.menu.up", "", "navigator.PopTopScreen", NULL, 0);
+    core_write_event(w, "button.menu.pressandhold", "", "navigator.PopToMainScreen",
+                     NULL, 0);
+}
+
+/* Ids of a text page: id screen, +1 layout, +2 title, +3.. layout clones, +8..
+ * one source per paragraph, bound to the text template's views by the layout. */
+int core_clone_text(struct core_screen *s)
+{
+    uint32_t next = s->id + 3, rows = CORE_SCREEN_ROWS(s);
+    uint8_t *scratch = osos_import_alloc(CORE_CLONE_SCRATCH_BYTES);
+    if (!scratch)
+        return 0;
+
+    for (uint32_t i = 0; i < s->declaration->text.count; i++)
+        core_set_source(rows + i, rows + i, 1);
+    if (!s->text_template)
+        s->text_template = core_text_template(s);
+    uint32_t template = s->text_template;
+    if (!template) {
+        osos_import_free(scratch);
+        return 0;
+    }
+    core_set_source(s->id + 2, s->id + 2, 1);
+
+    uint32_t none = 0; /* the Legal controller handles Menu itself: no layout events */
+    struct layout_clone c = {RES_Settings_Legal_Layout,
+                             s->id + 1,
+                             RES_StatusBarWhite_Text,
+                             s->id + 2,
+                             0,
+                             RES_Settings_Legal_Template,
+                             template,
+                             NULL,
+                             0};
+    int built =
+        core_clone_layout(&c, &next, scratch, CORE_CLONE_SCRATCH_BYTES) && next <= rows;
+    if (built) {
+        set(Resource_SEVT, s->id + 1, &none, 4);
+        built = core_clone_screen(s->id, s->id + 1, RES_Settings_Legal_Screen,
+                                  RES_Settings_Legal_Screen, &none, 4, scratch,
+                                  CORE_CLONE_SCRATCH_BYTES);
+    }
+    osos_import_free(scratch);
+    return built;
+}
+
+/* Ids of a slider or canvas: id screen, +1 layout, +2 title, +3.. layout clones,
+ * +8 the bar's source, +9 the value text's. Both are the Brightness layout over
+ * a plain resource screen controller, whose event slot canvas.c replaces. The
+ * full-screen background stays under a canvas too: Settings shares it, so it
+ * holds still when the screen opens or closes. Otherwise it enters into the
+ * window on a pop, in front of the layer the leaving screen slides out on. */
+static int clone_brightness(struct core_screen *s, uint32_t template,
+                            const struct view_sources *views, const void *events,
+                            uint32_t event_bytes)
+{
+    uint32_t next = s->id + 3;
+    if (!template)
+        return 0;
+    uint8_t *scratch = osos_import_alloc(CORE_CLONE_SCRATCH_BYTES);
+    if (!scratch)
+        return 0;
+    core_set_source(s->id + 2, s->id + 2, 1);
+    struct layout_clone c = {RES_Settings_Brightness_Screen_Default,
+                             s->id + 1,
+                             RES_StatusBar_Title_Text,
+                             s->id + 2,
+                             0,
+                             RES_Settings_Brightness_Template,
+                             template,
+                             views,
+                             0};
+    int built = core_clone_layout(&c, &next, scratch, CORE_CLONE_SCRATCH_BYTES) &&
+                next <= CORE_SCREEN_ROWS(s);
+    if (built) {
+        uint32_t none = 0;
+        set(Resource_SEVT, s->id + 1, events, event_bytes);
+        built = core_clone_screen(s->id, s->id + 1, RES_Settings_Legal_Screen,
+                                  RES_Settings_Brightness_Screen, &none, 4, scratch,
+                                  CORE_CLONE_SCRATCH_BYTES);
+    }
+    osos_import_free(scratch);
+    return built;
+}
+
+/* The stock layout's events: Select pops, as on the Brightness page. */
+int core_clone_slider(struct core_screen *s)
+{
+    uint32_t rows = CORE_SCREEN_ROWS(s), bytes,
+             template = core_template(CORE_TEMPLATE_SLIDER);
+    const void *events =
+        stock(Resource_SEVT, RES_Settings_Brightness_Screen_Default, &bytes);
+    struct view_sources views = {template + 1, rows, 2};
+    if (!events)
+        return 0;
+    core_set_source(rows, rows, 1);
+    core_set_source(rows + 1, rows + 1, 1);
+    return clone_brightness(s, template, &views, events, bytes);
+}

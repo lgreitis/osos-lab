@@ -37,6 +37,8 @@ def build_trailer(source, directory, resident, prefix, jobs):
         path for path in (source / "rvx").glob("*.c") if path.name != "gate.c"
     )
 
+    sources.append(source.parent / "rvx-sdk/rv_libc.c")
+
     def compile_unit(path):
         obj = path.with_suffix(".o").name
         run(
@@ -44,6 +46,11 @@ def build_trailer(source, directory, resident, prefix, jobs):
                 prefix + "gcc",
                 *FLAGS,
                 *RUNTIME_CFLAGS,
+                *(
+                    ["-fno-tree-loop-distribute-patterns"]
+                    if path.name == "rv_libc.c"
+                    else []
+                ),
                 "-mthumb",
                 "-std=c99",
                 "-I",
@@ -106,7 +113,7 @@ def build_trailer(source, directory, resident, prefix, jobs):
         + """
 SECTIONS {
     . = RVX_BASE;
-    .image : { KEEP(*(.rvx.exports)) *(.text*) *(.rodata*) *(.data*) . = ALIGN(4); }
+    .image : { KEEP(*(.rvx.exports)) *(.text*) *(.rodata*) __rvx_data_start = .; *(.data*) __rvx_data_end = .; . = ALIGN(4); }
     .bss (NOLOAD) : { *(.bss*) *(COMMON) . = ALIGN(4); }
     __runtime_end = .;
     /DISCARD/ : { *(.comment) *(.ARM.attributes) *(.ARM.exidx*) *(.ARM.extab*) }
@@ -124,6 +131,7 @@ SECTIONS {
                 "-mthumb-interwork",
                 *RUNTIME_CFLAGS,
                 "-nostdlib",
+                "-Wl,-u,memset",
                 f"-Wl,--defsym,RVX_BASE={base}",
                 "-Wl,-T,image.lds",
                 *objects,
