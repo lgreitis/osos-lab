@@ -13,7 +13,7 @@ index 8510479739..891edbca82 100644
  ipod.c
  #elif defined(GIGABEAT_F)
 diff --git a/bootloader/ipod-s5l87xx.c b/bootloader/ipod-s5l87xx.c
-index 077fa1d3e6..576c444abc 100644
+index 077fa1d3e6..0f034c3f64 100644
 --- a/bootloader/ipod-s5l87xx.c
 +++ b/bootloader/ipod-s5l87xx.c
 @@ -770,9 +770,16 @@ static void devel_menu(void)
@@ -21,7 +21,7 @@ index 077fa1d3e6..576c444abc 100644
  #endif /* S5L87XX_DEVELOPMENT_BOOTLOADER */
  
 +#ifdef IPOD_CFW_FILE_BOOT
-+extern void cfw_run_file(void) __attribute__((noreturn));
++extern void cfw_run_file(bool hfs);
 +#endif
 +
  void main(void)
@@ -43,18 +43,17 @@ index 077fa1d3e6..576c444abc 100644
          /* Enter OF, diagmode and diskmode using ONB */
          if ((btn == BUTTON_MENU)
                  || (btn == (BUTTON_SELECT|BUTTON_LEFT))
-@@ -967,6 +977,11 @@ void main(void)
-         fatal_error(ERR_RB);
-     }
+@@ -946,6 +956,10 @@ void main(void)
+ #endif
  
+     rc = disk_mount_all();
 +#ifdef IPOD_CFW_FILE_BOOT
 +    if (cfw_requested)
-+        cfw_run_file();
++        cfw_run_file(rc <= 0);
 +#endif
-+
-     printf("Loading Rockbox...");
-     unsigned char *loadbuffer = (unsigned char *)DRAM_ORIG;
-     rc = load_firmware(loadbuffer, BOOTFILE, MAX_LOADSIZE);
+     if (rc <= 0) {
+ #ifdef STORAGE_GET_INFO
+         struct storage_info sinfo;
 diff --git a/firmware/target/arm/s5l8702/boot.lds b/firmware/target/arm/s5l8702/boot.lds
 index 534e91b858..3ffe7f2517 100644
 --- a/firmware/target/arm/s5l8702/boot.lds
@@ -95,9 +94,10 @@ index 534e91b858..3ffe7f2517 100644
  }
 diff --git a/bootloader/cfw-file-ipod6g.c b/bootloader/cfw-file-ipod6g.c
 new file mode 100644
+index 0000000000..538de1eb3e
 --- /dev/null
 +++ b/bootloader/cfw-file-ipod6g.c
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,144 @@
 +/* Load CFW files and enter the companion's ARM bootstrap.
 + * SPDX-License-Identifier: GPL-2.0-or-later
 + */
@@ -110,6 +110,8 @@ new file mode 100644
 +#include "kernel.h"
 +#include "lcd.h"
 +#include "common.h"
++#include "storage.h"
++#include "hfsplus/reader.c"
 +#include "string.h"
 +
 +static unsigned char io_buffer[16384] CACHEALIGN_ATTR;
@@ -154,14 +156,71 @@ new file mode 100644
 +    return position;
 +}
 +
-+void cfw_run_file(void) __attribute__((noreturn));
-+void cfw_run_file(void)
++static unsigned char node_scratch[32768];
++static bool read_bytes(void *context, uint64_t offset, void *dst, size_t length)
 +{
++    const struct storage_info *info = context;
++    unsigned shift = info->sector_size == 4096 ? 12 : 9;
++    unsigned mask = info->sector_size - 1;
++    unsigned char *out = dst;
++    while (length) {
++        unsigned skip = offset & mask;
++        size_t chunk = MIN(length, sizeof(io_buffer) - skip);
++        int sectors = (skip + chunk + mask) >> shift;
++        if (storage_read_sectors(IF_MD(0,) offset >> shift, sectors, io_buffer))
++            return false;
++        memcpy(out, io_buffer + skip, chunk);
++        offset += chunk;
++        out += chunk;
++        length -= chunk;
++    }
++    return true;
++}
++
++static uint32_t load_hfs_file(const char *path, uint32_t destination,
++                              uint32_t minimum, uint32_t capacity)
++{
++    struct storage_info info;
++    storage_get_info(0, &info);
++    if (info.sector_size != 512 && info.sector_size != 4096)
++        stop("Unsupported sector size");
++    struct hfs_disk disk = {read_bytes, &info,
++                            (uint64_t)info.sector_size * info.num_sectors};
++    size_t length;
++    enum hfs_result rc = hfs_read_root(&disk, path + 1,
++        S5L8702_UNCACHED_ADDR((void *)destination), capacity, &length,
++        node_scratch, sizeof(node_scratch));
++    if (rc != HFS_OK) {
++        printf("HFS+ error %d", (int)rc);
++        stop(path);
++    }
++    if (length < minimum)
++        stop("File too small");
++    return length;
++}
++
++void cfw_run_file(bool hfs);
++void cfw_run_file(bool hfs)
++{
++    if (hfs) {
++        struct storage_info info;
++        storage_get_info(0, &info);
++        if (info.sector_size != 512 && info.sector_size != 4096)
++            return;
++        struct hfs_disk disk = {read_bytes, &info,
++                                (uint64_t)info.sector_size * info.num_sectors};
++        struct hfs_volume volume;
++        if (hfs_open(&volume, &disk) == HFS_NOT_FOUND)
++            return;
++    }
++
++    uint32_t (*load)(const char *, uint32_t, uint32_t, uint32_t) =
++        hfs ? load_hfs_file : load_file;
 +    printf("Loading /osos-cfw.bin");
-+    uint32_t osos_bytes = load_file("/osos-cfw.bin", CFW_STAGE_START,
++    uint32_t osos_bytes = load("/osos-cfw.bin", CFW_STAGE_START,
 +                                    1, CFW_COMPANION_START - CFW_STAGE_START);
 +    printf("Loading /cfw-loader.bin");
-+    uint32_t companion_bytes = load_file("/cfw-loader.bin", CFW_COMPANION_START,
++    uint32_t companion_bytes = load("/cfw-loader.bin", CFW_COMPANION_START,
 +                                         CFW_BOOTSTRAP_BYTES,
 +                                         CFW_STAGE_END - CFW_COMPANION_START);
 +    const void *companion = S5L8702_UNCACHED_ADDR((void *)CFW_COMPANION_START);
@@ -185,6 +244,7 @@ new file mode 100644
 +}
 diff --git a/firmware/target/arm/s5l8702/cfw-target.h b/firmware/target/arm/s5l8702/cfw-target.h
 new file mode 100644
+index 0000000000..84e5d67983
 --- /dev/null
 +++ b/firmware/target/arm/s5l8702/cfw-target.h
 @@ -0,0 +1,14 @@

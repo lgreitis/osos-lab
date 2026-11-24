@@ -37,6 +37,7 @@ unsigned fat_get_bytes_per_sector(void);
 bool fat_size(sector_t *, sector_t *);
 unsigned fat_get_cluster_size(void);
 void ata_sleepnow(void);
+int ata_flush(void);
 bool file_exists(const char *);
 bool dir_exists(const char *);
 int test_mkdir(const char *);
@@ -78,6 +79,12 @@ static int sizes;
 bool fat_size(sector_t *s, sector_t *f) {(void)s; sizes++; *f=fault==8 || (fault==15 && sizes>1) ? 0 : 1000000; return true;}
 unsigned fat_get_cluster_size(void) {return 16384;}
 void ata_sleepnow(void) {sleeps++;}
+int ata_flush(void) {return 0;}
+int hfs_upload_mount(uint64_t s, uint64_t *a, uint64_t *b, uint64_t *f) {(void)s;(void)a;(void)b;(void)f;abort();}
+int hfs_upload_exists(const char *p) {(void)p;abort();}
+int hfs_upload_plan(const char *p, uint32_t s, bool o) {(void)p;(void)s;(void)o;abort();}
+int hfs_upload_data(uint32_t o, void *p, unsigned n, bool w) {(void)o;(void)p;(void)n;(void)w;abort();}
+int hfs_upload_commit(void) {abort();}
 bool file_exists(const char *p) {return access(p+1,F_OK)==0;}
 bool dir_exists(const char *p) {struct stat s; return !stat(p+1,&s) && S_ISDIR(s.st_mode);}
 int test_mkdir(const char *p) {assert(upload_write_allowed(394224,1));return mkdir(p+1,0700);}

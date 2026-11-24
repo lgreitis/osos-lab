@@ -338,9 +338,14 @@ void main(void)
             UPLOAD_RESULT->nonce[i] = nonce[i];
         uint64_t start = 0, end = 0;
         unsigned bytes = 0;
-        if (!file_layout_ok(
-                &layout, ((uint64_t)RECORD->sectors_high << 32) | RECORD->sectors_low,
-                &start, &end, &bytes))
+        if (layout.error == LAYOUT_APPLE_PARTITION_MAP) {
+            upload_prepare_hfs(info.num_sectors);
+            if (!UPLOAD_RESULT->rc)
+                layout.error = LAYOUT_OK;
+        } else if (!file_layout_ok(&layout,
+                                   ((uint64_t)RECORD->sectors_high << 32) |
+                                       RECORD->sectors_low,
+                                   &start, &end, &bytes))
             upload_fail(layout.error == LAYOUT_APPLE_PARTITION_MAP ? -323 : -301);
         else
             upload_prepare(start, end, bytes);

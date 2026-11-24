@@ -11,13 +11,14 @@
 #include "errno.h"
 #include "string.h"
 #include "upload.h"
+#include "hfs-upload.h"
 #include "sha256.h"
 
 UPLOAD_CONFIG_QUALIFIER struct upload_config upload_config = {.tag = "REPRISE-UPLOAD2"};
 /* The file being handled: the image config first, then each NEXT request. */
 static struct upload_config current;
 static int fd = -1;
-static bool mounted, writes_enabled, closed;
+static bool hfs, mounted, writes_enabled, closed;
 static uint64_t data_start, data_end;
 static char temporary[64];
 static struct sha256 hash;
@@ -95,6 +96,14 @@ static bool current_valid(void)
 
 static void prepare_file(void)
 {
+    if (hfs) {
+        int rc = hfs_upload_plan(current.path, current.size, current.overwrite);
+        if (rc)
+            upload_fail(rc);
+        else
+            UPLOAD_RESULT->state = 1;
+        return;
+    }
     sector_t free_kib;
     if (!fat_size(IF_MV(0, ) NULL, &free_kib) ||
         (uint64_t)free_kib * 1024 < (uint64_t)current.size + fat_get_cluster_size(IF_MV(0))) {
@@ -108,16 +117,50 @@ static void prepare_file(void)
     UPLOAD_RESULT->state = 1;
 }
 
-/* Layout is checked by the helper before calling this function. */
-void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
+static bool load_config(void)
 {
     const volatile uint8_t *source = (const volatile uint8_t *)&upload_config;
     for (unsigned i = 0; i < sizeof(current); ++i)
         ((uint8_t *)&current)[i] = source[i];
-    if (!current_valid() || current.overwrite > 2) {
-        upload_fail(-302);
+    if (current_valid() && current.overwrite <= 2)
+        return true;
+    upload_fail(-302);
+    return false;
+}
+
+void upload_prepare_hfs(uint64_t sectors)
+{
+    if (!load_config())
+        return;
+    uint64_t free_bytes;
+    int rc = hfs_upload_mount(sectors, &data_start, &data_end, &free_bytes);
+    if (rc) {
+        upload_fail(rc);
         return;
     }
+    hfs = true;
+    if (current.overwrite < 2) {
+        prepare_file();
+        return;
+    }
+    int companion = hfs_upload_exists("/cfw-loader.bin");
+    int osos = hfs_upload_exists("/osos-cfw.bin");
+    if (companion < 0 || osos < 0 || free_bytes < current.size) {
+        upload_fail(companion < 0 ? companion : osos < 0 ? osos : -322);
+        return;
+    }
+    STORAGE_RESULT->start = data_start;
+    STORAGE_RESULT->end = data_end;
+    STORAGE_RESULT->sector_bytes = 512;
+    STORAGE_RESULT->free_bytes = free_bytes;
+    STORAGE_RESULT->existing_files = companion | (osos << 1);
+    UPLOAD_RESULT->state = 4;
+}
+
+void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
+{
+    if (!load_config())
+        return;
     const char hex[] = "0123456789abcdef";
     memcpy(temporary, "/.reprise-", 10);
     for (unsigned i = 0; i < 16; ++i) {
@@ -189,6 +232,15 @@ static void begin_readback(void)
             upload_fail(-305);
             return;
         }
+    if (hfs) {
+        if (ata_flush()) {
+            upload_fail(-306);
+            return;
+        }
+        sha256_init(&hash);
+        UPLOAD_RESULT->state = 3;
+        return;
+    }
     if (fsync(fd)) {
         upload_fail(-306);
         return;
@@ -221,6 +273,12 @@ static void begin_readback(void)
 void upload_start(void)
 {
     writes_enabled = true;
+    if (hfs) {
+        sha256_init(&hash);
+        if (!current.size)
+            begin_readback();
+        return;
+    }
     fd = open(temporary, O_WRONLY | O_CREAT | O_EXCL, 0666);
     if (fd < 0) {
         upload_fail(-310);
@@ -233,13 +291,19 @@ void upload_start(void)
 
 void upload_write(unsigned bytes)
 {
-    if (fd < 0 || bytes > UPLOAD_CHUNK ||
+    if ((!hfs && fd < 0) || bytes > UPLOAD_CHUNK ||
         bytes > current.size - UPLOAD_RESULT->written) {
         upload_fail(-311);
         return;
     }
     sha256_update(&hash, UPLOAD_DATA, bytes);
-    ssize_t n = write(fd, UPLOAD_DATA, bytes);
+    ssize_t n = bytes;
+    if (hfs) {
+        if (hfs_upload_data(UPLOAD_RESULT->written, UPLOAD_DATA, bytes, true))
+            n = -1;
+    } else {
+        n = write(fd, UPLOAD_DATA, bytes);
+    }
     if (n > 0)
         UPLOAD_RESULT->written += n;
     if (n != (ssize_t)bytes) {
@@ -268,7 +332,13 @@ void upload_verify_step(void)
     unsigned left = current.size - UPLOAD_RESULT->verified;
     unsigned count = MIN(left, UPLOAD_CHUNK);
     if (count) {
-        ssize_t n = read(fd, UPLOAD_DATA, count);
+        ssize_t n = count;
+        if (hfs) {
+            if (hfs_upload_data(UPLOAD_RESULT->verified, UPLOAD_DATA, count, false))
+                n = -1;
+        } else {
+            n = read(fd, UPLOAD_DATA, count);
+        }
         if (n != (ssize_t)count) {
             upload_fail(-313);
             return;
@@ -280,6 +350,15 @@ void upload_verify_step(void)
     sha256_final(&hash, UPLOAD_RESULT->disk_sha256);
     if (memcmp(UPLOAD_RESULT->disk_sha256, UPLOAD_RESULT->source_sha256, 32)) {
         upload_fail(-314);
+        return;
+    }
+    if (hfs) {
+        int rc = hfs_upload_commit();
+        writes_enabled = false;
+        if (rc)
+            upload_fail(rc);
+        else
+            UPLOAD_RESULT->state = 4;
         return;
     }
     int rc = close(fd);
