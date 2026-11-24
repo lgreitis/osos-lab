@@ -4,8 +4,6 @@
 #include <stdint.h>
 
 struct album_artist_track {
-    struct osos_media_entry *entry;
-
     union {
         uint32_t token;
         uint32_t group_index;

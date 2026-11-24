@@ -250,6 +250,15 @@ static void import_one(struct reader *reader)
 static uint32_t library_size, library_fields;
 static int fail_compaction;
 
+static uint32_t row_count(void)
+{
+    uint32_t rows = 0;
+    if (buckets)
+        for (unsigned i = 0; i < BUCKET_COUNT; i++)
+            rows += buckets[i].count;
+    return rows;
+}
+
 static struct osos_media_record library_record(void *library, uint32_t index)
 {
     return record(library, index * 0x9e3779b9u, index >> 4);
@@ -285,14 +294,13 @@ static void check_library(struct reader *reader, uint32_t size, uint32_t fields)
         uint32_t present = fields ? fields : i % 7 + 1;
         refs += !!(present & 1) + !!(present & 2) + !!(present & 4);
     }
-    assert(count == size && live_refs == refs);
-    if (fail_compaction) {
-        assert(!packed && entries && capacity >= size);
-        assert(live_bytes == capacity * sizeof(*entries));
-    } else {
-        assert(packed && !entries && !capacity);
-        assert(packed_stride == 2 + columns);
-        assert(live_bytes == size * (2 + columns) * sizeof(uint32_t));
+    assert(row_count() == size && live_refs == refs);
+    if (fail_compaction)
+        for (unsigned i = 0; i < BUCKET_COUNT; i++)
+            assert(!buckets[i].count || buckets[i].capacity);
+    if (size >= 10000) {
+        assert(peak_bytes < size * 24u + 100000u);
+        assert(live_bytes < size * (8u + columns * 4u));
     }
     for (uint32_t i = 0; i < size; i++) {
         uint32_t index = (i * 7919u) % size;
@@ -320,11 +328,35 @@ static void check_library(struct reader *reader, uint32_t size, uint32_t fields)
                "bytes\n",
                size, columns, live_bytes, peak_bytes);
     cfw_album_artist_destroy_tracks(reader->owner);
-    assert(!live_refs && !live_bytes && !packed && !entries);
+    assert(!live_refs && !live_bytes && !buckets);
+}
+
+/* Tokens are opaque 32-bit values. Exercise every encoded width with a nonzero base. */
+static void check_packed_columns(void)
+{
+    struct bucket b = {0};
+    struct artist_row original[12];
+    for (uint32_t i = 0; i < 12; i++) {
+        const uint32_t id[] = {0xa1234560u + i, 0x88888888};
+        struct artist_row *row = insert_row(&b, i, id);
+        assert(row);
+        row->values[ALBUM_ARTIST] = 0xf0000000u ^ (i << 8);
+        row->values[SORT_ALBUM_ARTIST] = 0xd0000000u ^ (i << 16);
+        row->values[SORT_ARTIST] = 0x70000000u ^ (i << 24);
+        original[i] = *row;
+    }
+    pack_bucket(&b);
+    assert(!b.capacity && b.count == 12 && b.packed->offsets[COLUMN_COUNT] == 10);
+    for (uint32_t i = 0; i < b.count; i++)
+        for (unsigned c = 0; c < COLUMN_COUNT; c++)
+            assert(value_at(&b, i, c) == original[i].values[c]);
+    osos_import_free(b.packed);
+    assert(!live_bytes);
 }
 
 int main(void)
 {
+    check_packed_columns();
     struct file file = {0};
     struct reader reader = {&file, &library_a};
     imported = record(&library_a, 42, 1);
@@ -334,7 +366,7 @@ int main(void)
     expect(&imported, artist, 6);
     assert(live_refs == 1);
     assert(string_cache == library_a + OSOS_TRACKDATA_ARTIST_CACHE_OFFSET);
-    assert(packed && packed_stride == 3 && live_bytes == 12);
+    assert(finalized && row_count() == 1);
     assert(!cfw_album_artist_sort_token(&imported, 0));
     assert(!cfw_album_artist_import_tracks(&reader));
     retain(&reader, &imported, artist, 6, 3);
@@ -350,10 +382,10 @@ int main(void)
     /* Repeated and empty fields replace the same ID without leaking references. */
     retain(&reader, &imported, other, 5, 0);
     expect(&imported, other, 5);
-    assert(live_refs == 1 && count == 1);
+    assert(live_refs == 1 && row_count() == 1);
     retain(&reader, &imported, NULL, 0, 0);
     expect(&imported, NULL, 0);
-    assert(live_refs == 0 && count == 1);
+    assert(live_refs == 0 && row_count() == 1);
 
     /* Force collisions and growth; low halves alone must not identify songs. */
     struct osos_media_record records[700];
@@ -361,21 +393,21 @@ int main(void)
         records[i] = record(&library_a, 42, i + 2);
         retain(&reader, &records[i], artist, 6, i % 4);
     }
-    assert(capacity >= 1024 && count == 701 && live_refs == 700);
+    assert(row_count() == 701 && live_refs == 700);
     for (uint32_t i = 0; i < 700; i++)
         expect(&records[i], artist, 6);
     retain(&reader, &records[5], NULL, 0, 0);
     for (uint32_t i = 0; i < 700; i++)
         expect(&records[i], i == 5 ? NULL : artist, i == 5 ? 0 : 6);
     compact();
-    assert(packed && !capacity && count == 699 && live_bytes == 699 * 12);
+    assert(finalized && row_count() == 699);
     for (uint32_t i = 0; i < 700; i++)
         expect(&records[i], i == 5 ? NULL : artist, i == 5 ? 0 : 6);
 
     /* A fresh library import releases all retained tokens and hides old IDs. */
     reader.owner = &library_b;
     assert(cfw_album_artist_import_tracks(&reader) == 0);
-    assert(live_refs == 0 && !capacity);
+    assert(live_refs == 0 && !buckets);
     expect(&records[0], NULL, 0);
     struct osos_media_record next = record(&library_b, 42, 2);
     fail_alloc = 1;
@@ -422,14 +454,14 @@ int main(void)
     assert(cfw_album_artist_read(&next, full, 256) == 256);
     assert(!memcmp(full, long_name, sizeof(full)));
     cfw_album_artist_destroy_tracks(&library_b);
-    assert(!owner && !string_cache && !capacity && !live_refs);
+    assert(!owner && !string_cache && !buckets && !live_refs);
     expect(&next, NULL, 0);
     assert(cfw_album_artist_import_tracks(&reader) == 0);
 
     /* Sort fields can arrive before the display name and own separate references. */
     retain_field(&reader, &next, artist, 6, 2, 29);
     retain_field(&reader, &next, other, 5, 1, 23);
-    assert(live_refs == 2 && count == 1);
+    assert(live_refs == 2 && row_count() == 1);
     uint32_t album_sort = cfw_album_artist_sort_token(&next, 1);
     uint32_t artist_sort = cfw_album_artist_sort_token(&next, 0);
     assert(album_sort && artist_sort && album_sort != artist_sort);
@@ -445,7 +477,7 @@ int main(void)
     assert(!cfw_album_artist_sort_token(&next, 1) && live_refs == 2);
     assert(cfw_album_artist_sort_token(&next, 0) == artist_sort);
     compact();
-    assert(packed && packed_stride == 4 && count == 1 && live_bytes == 16);
+    assert(finalized && row_count() == 1);
     expect(&next, artist, 6);
     assert(!cfw_album_artist_sort_token(&next, 1));
     assert(cfw_album_artist_sort_token(&next, 0) == artist_sort);
@@ -459,7 +491,7 @@ int main(void)
     frozen = 1;
     expect(&next, artist, 6);
     cfw_album_artist_destroy_tracks(&library_b);
-    assert(!live_refs && !owner && !capacity);
+    assert(!live_refs && !owner && !buckets);
     assert(cfw_album_artist_import_tracks(&reader) == 0);
 
     /* Import failure drops partial metadata; the next import starts empty. */
@@ -467,24 +499,33 @@ int main(void)
     during_import = import_one;
     track_status = -208;
     assert(cfw_album_artist_import_tracks(&reader) == -208);
-    assert(!owner && !capacity && live_refs == 0);
+    assert(!owner && !buckets && live_refs == 0);
     during_import = NULL;
     track_status = 0;
     assert(cfw_album_artist_import_tracks(&reader) == 0);
     clear();
     assert(live_refs == 0 && live_bytes == 0);
     assert(!cfw_album_artist_import_tracks(&reader));
-    library_size = 192;
-    library_fields = 1;
-    import_library(&reader);
-    assert(count == 192 && capacity == 256);
+    /* Fill one bucket, then fail its next growth while retaining its old rows. */
+    struct osos_media_record kept = library_record(reader.owner, 0);
+    retain(&reader, &kept, artist, 6, 0);
+    struct bucket *full_bucket = bucket_for(persistent_id(&kept));
+    struct osos_media_record skipped;
+    for (uint32_t i = 1;; i++) {
+        skipped = library_record(reader.owner, i);
+        if (bucket_for(persistent_id(&skipped)) != full_bucket)
+            continue;
+        if (full_bucket->count == full_bucket->capacity)
+            break;
+        retain(&reader, &skipped, artist, 6, 0);
+    }
+    uint32_t before = live_refs;
     fail_alloc = 1;
-    struct osos_media_record skipped = library_record(reader.owner, 192);
     retain(&reader, &skipped, other, 5, 0);
-    assert(count == 192 && live_refs == 192 && !cfw_album_artist_token(&skipped));
+    assert(row_count() == before && live_refs == before &&
+           !cfw_album_artist_token(&skipped));
     fail_alloc = 0;
     compact();
-    struct osos_media_record kept = library_record(reader.owner, 0);
     expect(&kept, artist, 6);
     clear();
     assert(!live_bytes && !live_refs);
@@ -501,7 +542,7 @@ int main(void)
     assert(!cfw_album_artist_import_tracks(&reader));
     retain(&reader, &next, NULL, 0, 0);
     compact();
-    assert(!count && !packed && !live_bytes);
+    assert(!row_count() && !buckets && !live_bytes);
     puts("Album Artist: lookup, collisions, deduplication, reloads, failures and "
          "Unicode bounds passed");
 }

@@ -37,17 +37,14 @@ static void check(uint32_t count, uint32_t groups)
     assert(actual && expected);
     actual[0].token = actual[count + 1].token = 0xfeedbeef;
     for (uint32_t i = 0; i < count; i++) {
-        actual[i + 1] = (struct album_artist_track){
-            .entry = (struct osos_media_entry *)(uintptr_t)(i + 1),
-            .token = random_value() % groups,
-            .order = i};
+        actual[i + 1] =
+            (struct album_artist_track){.token = random_value() % groups, .order = i};
         expected[i] = actual[i + 1];
     }
     qsort(expected, count, sizeof(*expected), reference);
     album_artist_sort(actual + 1, count, compare, (void *)0x1234);
     assert(actual[0].token == 0xfeedbeef && actual[count + 1].token == 0xfeedbeef);
     for (uint32_t i = 0; i < count; i++) {
-        assert(actual[i + 1].entry == expected[i].entry);
         assert(actual[i + 1].token == expected[i].token);
         assert(actual[i + 1].order == expected[i].order);
     }

@@ -408,6 +408,33 @@ static void check_artwork_lifetime(void)
     assert(source_stops == source_resets && contexts[0].browser == &browser);
 }
 
+static void check_album_runs(void)
+{
+    const struct track_source source = {media_list, NULL};
+    struct album_artist_track tracks[6];
+    const uint32_t albums[] = {1, 1, 2, 1, 3, 1};
+    for (unsigned i = 0; i < 6; i++)
+        records[i].album = albums[i];
+    records[1].accepted = 0;
+    records[2].accepted = 0;
+    cache_access(&library, 1);
+    assert(collect_album_runs(&browser, &source, 6, NULL, 0) == 3);
+    assert(collect_album_runs(&browser, &source, 6, tracks, 3) == 3);
+    assert(tracks[0].order == 0 && tracks[1].order == 4 && tracks[2].order == 5);
+    records[0].accepted = 0;
+    records[1].accepted = 1;
+    assert(collect_album_runs(&browser, &source, 6, tracks, 3) == 3);
+    assert(tracks[0].order == 1);
+    cache_access(&library, 0);
+    assert(cfw_album_artists_build(&browser) == 1);
+    assert(((struct artist_group *)group_begin)->albums == 3);
+    reset_groups();
+    for (unsigned i = 0; i < 6; i++) {
+        records[i].album = i + 1;
+        records[i].accepted = 1;
+    }
+}
+
 int main(void)
 {
     contexts[0].browser = &browser;
@@ -418,6 +445,7 @@ int main(void)
         records[i].artist = 4;
         records[i].album = i + 1;
     }
+    check_album_runs();
     records[0].album_artist = records[4].album_artist = 1;
     records[1].album_artist = 2;
     records[2].album_artist = 3;
