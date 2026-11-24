@@ -76,6 +76,10 @@ def build_trailer(source, directory, resident, prefix, jobs):
     # Keep the fixed firmware addresses in local veneers so the compiler
     # can use normal relative calls within the loadable code.
     functions = [
+        "__aeabi_idiv",
+        "__aeabi_idivmod",
+        "__aeabi_uidiv",
+        "__aeabi_uidivmod",
         "cfw_dark_mode_enabled",
         "cfw_album_artist_read",
         "cfw_store_get",
@@ -96,6 +100,9 @@ def build_trailer(source, directory, resident, prefix, jobs):
                 f".word {require(resident, name):#x}",
             ]
         )
+    # GCC can request either the AEABI or the libgcc name before LTO completes.
+    for alias, target in [("__divsi3", "__aeabi_idiv"), ("__udivsi3", "__aeabi_uidiv")]:
+        assembly.extend([f".global {alias}", f".set {alias}, {target}"])
     (out / "imports.S").write_text("\n".join(assembly) + "\n")
     run([prefix + "gcc", *FLAGS, "-c", "imports.S", "-o", "imports.o"], out)
     absolute = [
