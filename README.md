@@ -20,6 +20,7 @@ The Reprise copy takes priority when both folders contain the same extension.
 ## Repository layout
 
 - `payload/`: OSOS features, C patch declarations, and UI definitions.
+- [`rvx-sdk/`](rvx-sdk/README.md): headers, build tools, and an example for RVX extensions.
 - `game-sdk/`: deferred, incomplete homebrew runtime for the stock Games loader; it does not support sound.
 - `doom/`: deferred, incomplete Doom port.
 - `nes/`: deferred, incomplete InfoNES port built on the game SDK.

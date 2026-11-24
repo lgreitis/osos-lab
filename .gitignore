@@ -3,6 +3,7 @@
 /vendor/
 /inputs/
 /build/
+/rvx-sdk/examples/*/build/
 /.build/
 /toolchains/
 __pycache__/

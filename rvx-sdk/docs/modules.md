@@ -1,0 +1,107 @@
+# Modules
+
+A module is one ELF, linked at 0 with `rvx.lds` and relocated into the Apple heap by the loader. Every module exports `rv_module_entry` (type `rv_module_entry_fn`), which returns a `struct rv_descriptor`. Modules other than `main` may return NULL if they declare no hooks or screens.
+
+## Descriptor
+
+| Field | |
+|---|---|
+| `size` | `sizeof(struct rv_descriptor)` as built; the core refuses another size |
+| `hooks`, `hook_count` | `RV_HOOKS(array)`; bound in order, a conflict fails the load with the site named in Settings > Extensions |
+| `settings`, `setting_count` | `RV_SETTINGS(array)` |
+| `screens`, `screen_count` | `RV_SCREENS(array)` |
+| `entries`, `entry_count` | `RV_ENTRIES(array)` |
+| `unload` | called before the hooks are unbound; may be NULL |
+| `setting_changed` | see [Settings](settings.md); may be NULL |
+| `service` | a table of the module's own functions for the extension's other modules, see Services below; may be NULL |
+
+## Versions
+
+`RV_API_MAJOR` and `RV_API_MINOR` in `rv_api.h` name the SDK. The manifest's `api` is the oldest core the extension runs on: the core leaves an extension asking for a newer minor off, and `rvx-pack` refuses one newer than the SDK it builds with or of another major. From the first release the `rv_api`, `rv_gfx` and `rv_debug_info` tables only grow at the end within a major, and the major stays 1 until then, so a minor before it may change a layout; `RV_HAS(api, entry)` says whether the core's table has an entry, for an extension that runs on older cores and calls a newer one when it is there.
+
+## Triggers
+
+| `trigger` in the manifest | Loaded | Unloaded |
+|---|---|---|
+| `always` | while the extension is enabled; only the first module, `main` | when the extension is disabled |
+| `screen` | when a push looks up one of the ids in its `screens` list | ten seconds (ten grace ticks) after the last of its screens was popped, unless its `preload` class keeps it |
+| `manual` | `api->module_load` | `api->module_unload`, or when Optimize stops keeping it and the extension does not hold it |
+
+A non-main module's hooks and screens are bound when it loads and dropped when it unloads.
+
+`preload` on a module after `main` (`always`, `optional` or `never`, default `optional`) decides whether the core keeps it loaded: always with `always`, and with `optional` when Settings > Extensions > Optimize is Performance, or Auto on a hard disk. A kept module loads with `main` and stays loaded with the extension. If it does not fit in memory, it loads on request instead.
+
+For a kept module, `module_load` returns RV_OK without running anything. After `module_unload`, it unloads once none of its screens is open and Optimize does not keep it. The entry runs once per load, so statics persist across `module_load` calls while the module is kept; reset per-use state yourself. Always call `module_load` before using a module, even if `module_service` already returns its table.
+
+## Services
+
+Modules share no symbols. A module exposes functions by pointing its descriptor's `service` at a table. `api->module_service(self, module)` returns that pointer (module 0 is `main`), or NULL while the module is not loaded. A manual module can fetch `main`'s table in its entry; it stays valid while the extension is loaded. `module_unload` keeps no count, so one module should own each load and unload pair.
+
+On extension unload, `main`'s `unload` callback runs first, while other modules are still loaded and can still be loaded. Then the other modules unload, highest manifest index first, and `main` last.
+
+```c
+struct worker_service { int (*run)(const struct job *job); };
+/* in the manual module */
+static const struct worker_service service = {run};
+static const struct rv_descriptor module = {.size = sizeof module, .service = &service};
+/* in main, after api->module_load(self, 1) */
+const struct worker_service *worker = api->module_service(self, 1);
+```
+
+## Libraries
+
+A library is an extension whose functions other extensions call directly. Its manifest says `category = "library"` and lists the functions in `exports`; it has one module, no sites and no content folders, and its entry may return NULL. An extension that calls them lists the library's id in `requires` (at most four) and `rv.mk` finds the library's directory under `LIBRARY_PATH` (`..` by default), adds it to the include path, links its exports as 0 and tells `rvx-pack` which words are imports. The core loads a required library before the extension, points every import at the export of the same name, and unloads the library when no loaded extension requires it. Library code runs on whatever task calls it; a static inside the library is shared by every caller.
+
+```toml
+# dsp/manifest.toml
+category = "library"
+exports = ["rv_dsp_biquad", "rv_limiter_run"]
+
+# equalizer/manifest.toml
+requires = ["dsp"]
+```
+
+Declare the exports in the library's header without `RV_MODULE_CALL`; a call into a library is a long call through an address the core fills in. Imports resolve by name alone. An extension whose library is missing shows "Needs dsp" in Settings > Extensions; one whose library lacks a function it calls shows "Needs a newer dsp". A changed export signature gets a new name; the old one stays.
+
+A library has no Enabled setting. Its page lists the extensions using it, and Select on it only clears its crash mark after a crash in library code. The `dsp` extension of the extensions repository is a library, and the audio effects there call it.
+
+## Build rules
+
+`rv.mk` builds Thumb with `-mlong-calls -fno-pic -fno-jump-tables` and no C library beyond `rv_libc.h`. It reads the id, the modules in their order, the required libraries and the asset files from `manifest.toml`. `rvx-pack` checks the manifest first, matches each ELF to its module by name, refuses a manifest `api` newer than the SDK or of another major, and refuses any relocation the loader cannot apply: everything but `R_ARM_ABS32` words and branches within the module, and any relocation outside the text and data sections the linker script loads, debug information aside. A branch to a firmware function only holds where the module is linked, so firmware calls are long calls. Memory from `api->alloc` counts against the extension and shows in Settings > Extensions.
+
+| Variable | |
+|---|---|
+| `<module>_SOURCES` | C and assembly sources, built as Thumb |
+| `<module>_ARM_SOURCES` | sources built as ARM with `-marm -fno-optimize-sibling-calls` |
+| `EXTRA_CFLAGS` | more compiler flags; set before the include |
+| `LIBRARY_PATH` | the directory holding the required libraries' directories, each with its `manifest.toml` and header; `..` by default |
+| `ASSETS` | the asset files the package depends on; the manifest's by default |
+
+`make check` runs `tests/run.py` with the SDK when the extension has one.
+
+## ARM
+
+Thumb is the default because it saves RAM. Use ARM only in these cases, with a comment saying why:
+
+| Case | Why |
+|---|---|
+| DSP and hot loops | the ARMv5TE multiply-accumulate and saturating instructions (SMULxy, SMLAxy, QADD) exist only in ARM state |
+| Calls into Apple routines that return with `mov pc, lr` | such a return lands in ARM state, so a Thumb caller crashes; the call must come from an ARM function and must not be a tail call |
+
+Mark single functions `RV_ARM`, or list whole files in `<module>_ARM_SOURCES`.
+
+## Hooks
+
+| Declaration | |
+|---|---|
+| `RV_HOOK_FILTER(site, fn)` | a handler that may call `api->hook_next` to continue |
+| `RV_HOOK_FILTER_AT(site, fn, priority)` | the same at an explicit priority; an audio effect on the output PCM site passes its `RV_AUDIO_STAGE_*` value |
+| `RV_HOOK_REPLACE(site, fn)` | an exclusive handler; a second claim on the site is a conflict |
+| `RV_HOOK_WORD(site, word)` | an exclusive instruction replacement at a word site |
+| `RV_HOOK_POINTER(site, object)` | the address of the module's own `object` at a word site that holds one |
+
+`api->hook_bind(self, &hook)` and `api->hook_unbind(self, &hook)` bind and unbind a hook beyond the descriptor's at run time, for a group of sites an extension switches on and off. A handler the extension already has at the site, from a descriptor or bound before, returns `RV_ALREADY_BOUND`. When a module unloads, the core unbinds the bound hooks whose handler or pointer lies in its image; a word patch stays until the main module unloads. `api->hook_next7` continues a site with seven values, four in registers, two Apple passes on the stack and one the site adds, such as the view a blit handler needs.
+
+`site` is an `RV_SITE_*` id from `rv_sites.h`. A handler receives the Apple arguments followed by `next`, which it passes to `api->hook_next` with the arguments for the rest of the chain. See [Hook sites](https://github.com/paviro/revola/blob/main/docs/core/hook-sites.md) for the calling convention.
+
+`api->string_resource(self, text)` returns a string resource id for `text`, for tables Apple reads by resource id, such as a row added with `RV_HOOK_POINTER`.

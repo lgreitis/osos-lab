@@ -1,0 +1,45 @@
+RevolaOS
+Copyright (C) 2026 The RevolaOS Authors. GPL-3.0-only.
+The authors are the contributors recorded in each repository's git history.
+
+Derived from RepriseOS (https://github.com/lgreitis/osos-lab), forked at
+commit 8fc840d591f48aef8b7a0ff8ff20c35cb0d91475, November 2026. Later
+upstream changes are ported individually; each port names its upstream
+commit in the commit message.
+Copyright (C) lgreitis and RepriseOS contributors. GPL-3.0-only.
+Modified by the RevolaOS authors since 2026-11-08.
+RepriseOS's history at the fork point is archived in
+https://github.com/paviro/revola-repriseos-heritage.
+
+Files that carry an "Adapted from" or copyright header keep that header.
+
+The release bundle also carries the extensions, games, apps and USB helper
+built from their repositories, with the eApp SDK runtime (adapted from the
+RepriseOS game SDK) linked into the games and apps. Third-party work in this
+repository and the bundle, summarised from those repositories' NOTICE files:
+
+- Rockbox (https://github.com/Rockbox/rockbox): the bootloader, dual-boot
+  installer and hardware drivers, built from source at the commit in
+  boot/dependencies.lock; the panic screen's I2C sequence; the flash markers
+  of the disk check; the USB helper; the crossfeed filters, channel modes and
+  compressor of the extensions; the 2048 game with its tile artwork by Franklin
+  Wei and the high score table by Linus Nielsen Feltzing; the Dice app by
+  Brandon Low. GPL-2.0-or-later.
+- Cupertino Icons (https://github.com/flutter/packages): the Settings glyphs
+  and the Appearance extension's glyphs. MIT, see
+  core/assets/LICENSE.cupertino-icons.
+- The Classic theme's dark background, carried by the Appearance extension, is
+  RepriseOS's themes/dark/background-dark-image.png by lgreitis (5ec8799). Its
+  dark palette comes from RepriseOS's payload/dark_mode.c (01c89f6) by lgreitis
+  and Alex Ball (alexballvideos-netizen). GPL-3.0-only.
+- Khronos OpenGL ES 1.1 and KHR platform headers
+  (https://github.com/KhronosGroup/OpenGL-Registry,
+  https://github.com/KhronosGroup/EGL-Registry): the GL headers of the eApp
+  SDK, compiled into the games and apps. MIT and Apache-2.0.
+- giek2000 (https://github.com/giek2000/ipod-classic-firmware-research): iPod
+  firmware research.
+
+Each release publishes the source of everything in the bundle alongside it.
+
+No Apple firmware ships in this repository or its builds. Building reads the
+firmware from an IPSW the user supplies.
