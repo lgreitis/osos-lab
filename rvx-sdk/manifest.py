@@ -35,9 +35,8 @@ manifest.toml:
     name = "editor"
     trigger = "screen"           # loaded while one of its screens is on the stack
     screens = ["editor"]         # ids of the extension's screens
-    preload = "optional"         # kept loaded with main: always, optional (the default,
-                                 # when Optimize allows) or never (loads as the trigger
-                                 # says); not for main
+    preload = "optional"         # always loads with main; optional and never load
+                                 # on their trigger in RepriseOS; not for main
 
     [[site]]                     # a raw hook site, bound as RV_RAW_SITE(0)
     name = "coverflow_clear"     # a label for the site
@@ -53,7 +52,7 @@ manifest.toml:
                                  # the system colour), picture (one of the pane sizes, which
                                  # picks the pane's shape) or badge (20 x 16, beside a count line)
     preload = "optional"         # read into RAM as stored with the main module:
-                                 # always, optional (the default, when Optimize allows)
+                                 # always, optional (the default, read on request)
                                  # or never (the default with compress = false)
 
     [[asset]]

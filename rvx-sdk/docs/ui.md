@@ -84,7 +84,7 @@ An empty list has no selection.
 
 ## Canvases
 
-A canvas draws with the `rv_gfx` table: fills, text in the stock fonts, colour roles and mixes between them, wrapped paragraphs, list rows, the selection bar (`bar`, across any rectangle), bitmaps (whole, the top rows, or tiled) and the Settings > About card. A fill with alpha below 0xff blends, and `bmap_rows_blend` draws the top rows of a picture at an opacity. One extension at a time may replace the colour roles for every canvas with `api->ui_set_colors`, as a theme does; the `RV_COLOR_BAR_*` roles are the bar's top line, gradient and bottom line. The [canvas kit](canvas.md) adds palettes, plots, value cells and [computed pictures](canvas.md#pictures).
+A canvas draws with the `rv_gfx` table: fills, text in the stock fonts, colour roles and mixes between them, wrapped paragraphs, list rows, the selection bar (`bar`, across any rectangle), and bitmaps (whole, the top rows, or tiled). A fill with alpha below 0xff blends, and `bmap_rows_blend` draws the top rows of a picture at an opacity. One extension at a time may replace the colour roles for every canvas with `api->ui_set_colors`, as a theme does; the `RV_COLOR_BAR_*` roles are the bar's top line, gradient and bottom line. The [canvas kit](canvas.md) adds palettes, plots, value cells and [computed pictures](canvas.md#pictures).
 
 Input is wheel and key events, `RV_INPUT_LONG_PRESS` after a key is held for about a second (no release follows), and `RV_INPUT_HOLD` when the hold switch moves. The input callback returns 1 for a consumed event. A release goes where its press went, whatever the callback returns.
 

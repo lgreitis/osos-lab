@@ -1,6 +1,6 @@
-# RevolaOS SDK
+# RepriseOS RVX SDK
 
-An extension is a set of modules built against one revola release and packed into one `.rvx` file. The SDK holds the headers, linker script, Make include and packer it needs. Apps and games run on Apple's eApp host and build against the [eApp SDK](https://github.com/paviro/revola-eapp-sdk).
+An extension is a set of modules built for a firmware target and packed into one `.rvx` file. The SDK holds the headers, linker script, Make include and packer it needs. Apps and games run on Apple's eApp host and build against the [eApp SDK](https://github.com/paviro/revola-eapp-sdk).
 
 | Page | Contents |
 |---|---|
@@ -21,13 +21,13 @@ An extension is a set of modules built against one revola release and packed int
 | File | Contents |
 |---|---|
 | `rv_api.h` | The `rv_api` table the core passes to a module's entry, the descriptor it returns, hook, setting, screen, row and entry structs, `RV_API_MAJOR` and `RV_API_MINOR` |
-| `rv_debug.h`, `rv_theme.h` | What `api->debug_info` hands a debugger; the asset provider a theme sets with `api->asset_set_provider` |
+| `rv_debug.h`, `rv_theme.h` | Debugger structures (`api->debug_info()` returns `NULL` on RepriseOS) and the asset provider a theme sets with `api->asset_set_provider` |
 | `rv_ui.h` | One-line declarations over those structs: `RV_ROW_PUSH`, `RV_SCREEN_LIST`, `RV_MENU_ENTRY`, `RV_SETTING_CHOICE` and the rest |
 | `rv_libc.h`, `rv_libc.c` | The C library `rv.mk` links into every module; a module carries only what it calls |
 | `rv_canvas.h`, `rv_canvas.c` | The [canvas kit](canvas.md), linked like `rv_libc` |
 | `rv_audio.h` | Shared [audio effect](audio.md) helpers: format check, `rv_fracmul`, `rv_saturate16`, handoff, fade and `struct rv_effect`; the limiter is in the `dsp` library |
 | `rv_media.h` | [Media items](media.md): the item, the player and a song model's rows |
-| `rv_sites.h` | `RV_SITE_*` ids of every hook site in this core, generated from the site table |
+| `rv_sites.h` | Named hook IDs. RepriseOS supports all listed IDs except `RV_SITE_IRQ_Dispatch_entry` |
 | `rv_menus.h` | The stock rows of the Main, Music, Extras and Settings menus that an entry anchors on, generated from the symbols header |
 | `rv_firmware.h`, `rv_firmware.mk` | `RV_FIRMWARE_ID` of the Apple firmware the symbols describe; the loader refuses a module built for another |
 | `osos-2.0.5.h`, `osos-2.0.5.ld` | Apple functions, data, constants and struct offsets by name; modules call Apple directly |
@@ -64,7 +64,7 @@ An installed extension is off until the listener turns it on in Settings > Exten
 
 ```make
 main_SOURCES := main.c
-include $(or $(SDK),$(error set SDK to an unpacked revola SDK))/rv.mk
+include $(or $(SDK),$(error set SDK to the unpacked RepriseOS RVX SDK))/rv.mk
 ```
 
 `main.c` exports `rv_module_entry`, keeps the API table and its handle, and returns a descriptor:
@@ -101,16 +101,7 @@ const struct rv_descriptor *rv_module_entry(const struct rv_api *core, rv_extens
 ```
 
 ```sh
-make SDK=/path/to/revola-sdk
+make SDK=/path/to/rvx-sdk
 ```
 
-Copy `build/hello.rvx` to `/Revola/Extensions/hello.rvx` on the iPod, or onto an emulator disk with `ipodvm disk --copy`. Settings gets a Hello row after Legal. The revola repository's `sdk/examples/` holds this extension and more:
-
-| Example | Shows |
-|---|---|
-| `hello` | the extension above |
-| `gain` | an audio effect: a filter on the output PCM site at its own stage, the handoff and the fade, a labelled setting as the pane caption, an editor screen module on the [canvas kit](canvas.md) and a host test |
-| `fortune` | a manual module main loads on request and calls through its `service` table |
-| `uishowcase` | every screen kind and row kind, entries in the stock menus and in context menus, and one entry for several menus through a mask |
-
-`sdk/fixtures/` holds the extensions the emulator tests load, such as a hook conflict and a library with a user; they are tests, not examples. First-party extensions in the extensions repository are the larger examples: `dsp` is a library, `appearance` an asset provider.
+Copy `build/hello.rvx` to `/Reprise/Extensions/` on the iPod, reboot, and open **Settings → Hello**. The [extensions repository](https://github.com/RepriseOS/repriseos-extensions) has larger examples, including Balance’s screen module and Crossfeed’s DSP library dependency.

@@ -24,14 +24,12 @@ A module is one ELF, linked at 0 with `rvx.lds` and relocated into the Apple hea
 | `trigger` in the manifest | Loaded | Unloaded |
 |---|---|---|
 | `always` | while the extension is enabled; only the first module, `main` | when the extension is disabled |
-| `screen` | when a push looks up one of the ids in its `screens` list | ten seconds (ten grace ticks) after the last of its screens was popped, unless its `preload` class keeps it |
-| `manual` | `api->module_load` | `api->module_unload`, or when Optimize stops keeping it and the extension does not hold it |
+| `screen` | when a push looks up one of the ids in its `screens` list | as soon as its last screen closes, unless `preload = "always"` |
+| `manual` | `api->module_load` | on `api->module_unload` once its last screen closes, unless `preload = "always"` |
 
 A non-main module's hooks and screens are bound when it loads and dropped when it unloads.
 
-`preload` on a module after `main` (`always`, `optional` or `never`, default `optional`) decides whether the core keeps it loaded: always with `always`, and with `optional` when Settings > Extensions > Optimize is Performance, or Auto on a hard disk. A kept module loads with `main` and stays loaded with the extension. If it does not fit in memory, it loads on request instead.
-
-For a kept module, `module_load` returns RV_OK without running anything. After `module_unload`, it unloads once none of its screens is open and Optimize does not keep it. The entry runs once per load, so statics persist across `module_load` calls while the module is kept; reset per-use state yourself. Always call `module_load` before using a module, even if `module_service` already returns its table.
+On RepriseOS, `preload = "always"` loads a module with `main` and keeps it resident. An `optional` (default) or `never` module loads on its trigger. Reopening an unloaded screen immediately runs its module entry again with fresh static storage. Keep state that must survive closing the screen in `main` or in an extension setting.
 
 ## Services
 

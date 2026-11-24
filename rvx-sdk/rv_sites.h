@@ -78,6 +78,7 @@
 #define RV_SITE_USB_DispatchNoDataRequest_call 0xe33b3715
 #define RV_SITE_DiskClient_Yield_slot 0x0321740a
 #define RV_SITE_DiskModeExit_PopToMainScreen_call 0x5b4b8520
+/* Upstream ID, unsupported on RepriseOS 2.0.5. */
 #define RV_SITE_IRQ_Dispatch_entry 0x3b916f07
 #define RV_SITE_TextView_DrawString_entry 0x52587f80
 #define RV_SITE_MarqueeTextView_DrawColor_call 0xa08204f0

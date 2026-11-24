@@ -6,7 +6,7 @@
 |---|---|
 | `name` | how the extension refers to it, `[a-z0-9_-]{1,31}` |
 | `file` | the source file |
-| `preload` | when the asset is read into RAM with the main module: `always`, for what a hook needs without disk access; `optional` (the default), when Settings > Extensions > Optimize is Performance, or Auto on a hard disk; `never` (the default with `compress = false`), read on request, for large or rarely used assets |
+| `preload` | when the asset is read into RAM with the main module: `always`, for what a hook needs without disk access; `optional` (the default), read on request on RepriseOS; `never` (the default with `compress = false`), read on request, for large or rarely used assets |
 | `pane` | the bitmap's role in a menu pane, a pane's `.bitmap` or `.badge`: `"icon"`, a 78 x 121 Settings icon mask the system draws in its own colour, from the PNG's alpha or, if opaque grayscale, its gray level; `"picture"`, a colour picture of 119 x 119, 142 x 87, 130 x 128, 146 x 110 or 132 x 145, which picks the pane's shape (see [Menu placement](menus.md)); `"badge"`, the 20 x 16 badge before the 146 x 110 pane's count line. The packer rejects other sizes |
 | `compress = false` | data only: stored raw so `asset_read` can seek in it; `preload` must be `never`. Bitmaps are always compressed |
 

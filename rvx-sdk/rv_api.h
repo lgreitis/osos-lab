@@ -296,11 +296,7 @@ struct rv_gfx {
     void (*bmap_rows_blend)(int x, int y, const void *bmap, int rows, uint8_t alpha);
     /* A BMap repeated across `width` columns from (x, y), the last copy cut to fit. */
     void (*bmap_tile)(int x, int y, int width, const void *bmap);
-    /* A page in the style of Settings > About: the background, `icon` (a menu
-     * bitmap of the extension, NULL for none) on the box of the Settings icons,
-     * and `left` and `right` on either side of it. */
-    void (*card)(int width, int height, const char *left, const char *right,
-                 const struct rv_bitmap *icon);
+    void *reserved; /* Published RVX ABI slot. */
     /* `utf8` on one line in `rect`: vertically centred, across it by `align`
      * (rv_align). Nothing is clipped to the rectangle. */
     void (*text_in)(const struct rv_rect *rect, uint8_t font, rv_color color,
@@ -595,8 +591,7 @@ struct rv_api {
 
     /* Manual-trigger modules by their index in the manifest. module_load
      * returns RV_OK at once for a loaded module; module_unload releases it,
-     * and it unloads once no screen of it is open and its preload class under
-     * Settings > Extensions > Optimize does not keep it (docs/sdk/modules.md). */
+     * and it unloads after its last screen closes unless preload is always. */
     int (*module_load)(rv_extension_handle self, uint32_t module);
     void (*module_unload)(rv_extension_handle self, uint32_t module);
 
@@ -614,7 +609,7 @@ struct rv_api {
     void (*ui_refresh)(rv_extension_handle self, const char *screen);
     void (*ui_invalidate)(rv_extension_handle self);
 
-    const struct rv_debug_info *(*debug_info)(void); /* rv_debug.h */
+    const struct rv_debug_info *(*debug_info)(void); /* RepriseOS returns NULL. */
 
     /* Assets from manifest.toml by name. asset_load returns the decoded asset in
      * a block from alloc, *bytes its size, or NULL when it is missing, damaged or
