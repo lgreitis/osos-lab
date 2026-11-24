@@ -7,13 +7,6 @@ enum {
     OSOS_RESOURCE_DRAW = 0x44726177,
 };
 
-static inline int osos_display_set_gamma(const uint32_t *red, const uint32_t *green,
-                                         const uint32_t *blue)
-{
-    typedef int (*fn)(const uint32_t *, const uint32_t *, const uint32_t *);
-    return ((fn)OSOS_DISPLAY_SET_GAMMA)(red, green, blue);
-}
-
 static inline void *osos_graphics_construct(void *context)
 {
     typedef void *(*fn)(void *);

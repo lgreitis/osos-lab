@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 #define RV_API_MAJOR 1
-#define RV_API_MINOR 81
+#define RV_API_MINOR 82
 #define RV_API_VERSION ((RV_API_MAJOR << 16) | RV_API_MINOR)
 
 /* A field of an Apple struct at an offset of the symbols header:
@@ -754,7 +754,19 @@ struct rv_api {
      * like a data file: where a theme reads the stock artwork from.
      * RV_NOT_FOUND when the file layer refuses. UI task. */
     int (*firmware_open)(rv_extension_handle self, struct rv_file **file);
+    /* Identifies the RepriseOS services that follow the common 1.81 table. */
+    uint32_t reprise_id;
+    uint32_t (*legacy_preference)(uint32_t key, void *data, uint32_t capacity);
+    /* RepriseOS 1.82: copy the library record's album artist as UTF-16 units. */
+    uint32_t (*album_artist_read)(void *record, uint16_t *text, uint32_t capacity);
 };
+
+#define RV_REPRISE_ID 0x52505253u
+
+static inline int rv_has_reprise_services(const struct rv_api *api)
+{
+    return RV_HAS(api, album_artist_read) && api->reprise_id == RV_REPRISE_ID;
+}
 
 /* Stops `*timer` when it runs and clears it; for a timer the extension keeps. */
 static inline void rv_timer_cancel(const struct rv_api *api, rv_extension_handle self,

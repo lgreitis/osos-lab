@@ -3,14 +3,11 @@
 #include "clicker.h"
 #include "custom_eq.h"
 #include "dark_mode.h"
-#include "night_shift.h"
 #include "file_info.h"
-#include "playback_log.h"
 #include "osos.h"
 #include "patch.h"
 #include "resources.h"
 #include "rvx/runtime.h"
-#include "sound.h"
 #include "store.h"
 #include "up_next.h"
 
@@ -22,11 +19,8 @@ void cfw_settings_boot(void *preferences)
 {
     native_preferences = preferences;
     cfw_store_load();
-    cfw_playback_log_load();
     cfw_eq_load_preferences();
     cfw_dark_mode_load();
-    cfw_night_shift_load();
-    cfw_crossfeed_load();
     cfw_ui_visibility_load_preferences();
     cfw_rvx_boot();
     cfw_store_flush();
@@ -48,7 +42,6 @@ void cfw_store_delete_legacy(void)
     cfw_eq_delete_legacy();
     cfw_dark_mode_delete_legacy();
     cfw_ui_visibility_delete_legacy();
-    cfw_playback_log_delete_legacy();
 }
 
 /* Menu visibility resets through the native menu-reset hooks. */
@@ -58,20 +51,14 @@ PATCH_ARM void cfw_settings_reset(void *model)
     cfw_rvx_reset();
     cfw_eq_reset_preferences();
     cfw_dark_mode_reset();
-    cfw_night_shift_reset();
-    cfw_crossfeed_reset();
-    cfw_playback_log_reset();
 }
 
 PATCH_ARM int cfw_settings_action(void *controller, const char *action,
                                   uint32_t argument)
 {
-    if (cfw_playback_log_action(controller, action, argument) ||
-        cfw_file_info_action(action, argument) ||
+    if (cfw_file_info_action(action, argument) ||
         cfw_clicker_action(controller, action, argument) ||
-        cfw_dark_mode_action(controller, action, argument) ||
-        cfw_night_shift_action(controller, action, argument) ||
-        cfw_crossfeed_action(controller, action, argument))
+        cfw_dark_mode_action(controller, action, argument))
         return 1;
 
     return osos_settings_action(controller, action, argument);
@@ -82,12 +69,9 @@ PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t propert
 {
     if (cfw_rvx_property(type, property, out) ||
         cfw_up_next_property(model, type, property, out) ||
-        cfw_playback_log_property(type, property, out) ||
         cfw_file_info_property(type, property, out) ||
         cfw_dark_mode_property(type, property, out) ||
-        cfw_night_shift_property(type, property, out) ||
-        cfw_clicker_property(model, type, property, out) ||
-        cfw_crossfeed_property(type, property, out))
+        cfw_clicker_property(model, type, property, out))
         return 1;
 
     if (type == OSOS_RESOURCE_BMAP) {

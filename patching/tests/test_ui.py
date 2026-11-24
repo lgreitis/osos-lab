@@ -85,10 +85,7 @@ class UiTests(unittest.TestCase):
                 for name in (
                     "Info",
                     "EQ",
-                    "Crossfeed",
-                    "NightShift",
                     "DarkMode",
-                    "PlaybackLog",
                     "UpNext",
                 )
             ],

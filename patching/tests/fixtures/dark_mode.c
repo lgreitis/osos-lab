@@ -314,27 +314,11 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
     return 0;
 }
 
-int cfw_crossfeed_action(void *owner, const char *action, uint32_t argument)
-{
-    (void)owner;
-    (void)action;
-    (void)argument;
-    return 0;
-}
-
-int cfw_crossfeed_property(uint32_t type, uint32_t property, uintptr_t *out)
-{
-    (void)type;
-    (void)property;
-    (void)out;
-    return 0;
-}
-
 static char boot_calls[16];
 static unsigned boot_count, native_flushes, store_flushes;
 static const char *deleted[4];
 static unsigned delete_count;
-static unsigned eq_legacy_cleanups, log_legacy_cleanups;
+static unsigned eq_legacy_cleanups;
 static int native_preferences_object;
 
 static void boot_step(char step)
@@ -356,21 +340,6 @@ void cfw_eq_load_preferences(void)
 void cfw_eq_delete_legacy(void)
 {
     eq_legacy_cleanups++;
-}
-
-void cfw_playback_log_delete_legacy(void)
-{
-    log_legacy_cleanups++;
-}
-
-void cfw_crossfeed_load(void)
-{
-    boot_step('X');
-}
-
-void cfw_crossfeed_reset(void)
-{
-    boot_step('C');
 }
 
 void cfw_ui_visibility_load_preferences(void)
@@ -465,39 +434,18 @@ int cfw_file_info_indexed_property(uint32_t type, uint32_t property, uint32_t in
 #define osos_preferences_flush native_flush
 #define osos_reset_all_settings native_reset
 
-/* Night Shift talks to the display hardware; its own entry points are stubbed. */
-void cfw_night_shift_load(void)
-{
-}
-
-void cfw_night_shift_reset(void)
-{
-}
-
-int cfw_night_shift_action(void *c, const char *a, uint32_t g)
-{
-    (void)c, (void)a, (void)g;
-    return 0;
-}
-
-int cfw_night_shift_property(uint32_t t, uint32_t p, uintptr_t *o)
-{
-    (void)t, (void)p, (void)o;
-    return 0;
-}
-
 #include "../../../payload/settings.c"
 
 static void check_settings_lifecycle(void)
 {
     boot_count = 0;
     cfw_settings_boot(&native_preferences_object);
-    assert(!strcmp(boot_calls, "SEXVRF"));
+    assert(!strcmp(boot_calls, "SEVRF"));
     cfw_settings_sleep();
     assert(native_flushes == 1 && store_flushes == 2);
     unsigned before = delete_count;
     cfw_store_delete_legacy();
-    assert(eq_legacy_cleanups == 1 && log_legacy_cleanups == 1);
+    assert(eq_legacy_cleanups == 1);
     assert(delete_count == before + 1 && !strcmp(deleted[before], "menus"));
 }
 
@@ -512,7 +460,7 @@ static void check_reset_all_settings(void)
     boot_count = 0;
     memset(boot_calls, 0, sizeof(boot_calls));
     cfw_settings_reset(&reset_model);
-    assert(!strcmp(boot_calls, "NQC"));
+    assert(!strcmp(boot_calls, "NQ"));
     assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
     assert(redraws == previous_redraws + 1 && notifications == previous_notifications);
     assert(icon_notifications == previous_icons + 2);
@@ -689,30 +637,6 @@ int main(void)
     check_clicker();
     check_settings_lifecycle();
     check_reset_all_settings();
-}
-
-void cfw_playback_log_load(void)
-{
-}
-
-int cfw_playback_log_action(void *c, const char *a, uint32_t v)
-{
-    (void)c;
-    (void)a;
-    (void)v;
-    return 0;
-}
-
-int cfw_playback_log_property(uint32_t t, uint32_t p, uintptr_t *o)
-{
-    (void)t;
-    (void)p;
-    (void)o;
-    return 0;
-}
-
-void cfw_playback_log_reset(void)
-{
 }
 
 int cfw_up_next_property(void *model, uint32_t type, uint32_t property, uintptr_t *out)

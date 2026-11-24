@@ -19,10 +19,6 @@ PATCH_CALL(OSOS_ARTWORK_REFLECTION_BLEND_CALL, OSOS_RGB565_BLEND_FIXED,
 PATCH_CALL(OSOS_VIEW_BACKGROUND_FILL_CALL, OSOS_GRAPHICS_FILL_RECT,
            cfw_dark_mode_background_fill_hook);
 
-/* Night Shift: display init loads the identity gamma ramp; load ours instead. */
-PATCH_CALL(OSOS_DISPLAY_INIT_GAMMA_CALL, OSOS_DISPLAY_SET_GAMMA,
-           cfw_night_shift_init_gamma);
-
 /* Shared Settings hooks */
 PATCH_POINTER(OSOS_SETTINGS_PROPERTY_SLOT, OSOS_SETTINGS_PROPERTY,
               cfw_settings_property);
@@ -189,9 +185,6 @@ PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_A, 0xe92d43f0, 0xe24dd06c, cfw_iap_auth_verify);
 /* stmdb sp!,{r2,r3,r4,lr}; cmp r1,#0 */
 PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_B, 0xe92d401c, 0xe3510000, cfw_iap_auth_verify);
 
-/* Sound effects on the native output */
-PATCH_CALL(OSOS_AUDIO_OUTPUT_BEGIN_CALL, OSOS_AUDIO_OUTPUT_BEGIN,
-           cfw_sound_output_hook);
 /* File Info in podcast, iTunes U, audiobook and video list menus. */
 PATCH_POINTER_PAIR(OSOS_EPISODE_MENU_SLOT, OSOS_EPISODE_SECONDARY_MENU_SLOT,
                    OSOS_EPISODE_CONTEXT_MENU, cfw_episode_menu);
@@ -216,17 +209,6 @@ PATCH_POINTER_PAIR(OSOS_TV_EPISODE_MENU_SLOT, OSOS_TV_EPISODE_SECONDARY_MENU_SLO
 PATCH_POINTER_PAIR(OSOS_VIDEO_PLAYLIST_ACTION_SLOT,
                    OSOS_VIDEO_PLAYLIST_SECONDARY_ACTION_SLOT,
                    OSOS_VIDEO_PLAYLIST_ACTION, cfw_video_playlist_action);
-
-PATCH_CALL(OSOS_ADVANCE_FINISH_CALL, OSOS_TRACK_SESSION_FINISH, cfw_playback_log_skip);
-PATCH_CALL(OSOS_RELEASE_FINISH_CALL, OSOS_TRACK_SESSION_FINISH,
-           cfw_playback_log_release);
-PATCH_CALL(OSOS_ADVANCE_SELECT_CALL, OSOS_PLAYER_SELECT_TRACK,
-           cfw_playback_log_advance);
-PATCH_JUMP(OSOS_TRACK_COMPLETE_ENTRY, 0xe92d4010, 0xe1a04000,
-           cfw_playback_log_complete);
-
-PATCH_JUMP(OSOS_PLAYER_NOTIFY_ENTRY, 0xe92d4038, 0xe1a05001, cfw_playback_log_notify);
-PATCH_JUMP(OSOS_PLAYER_EVENT_ENTRY, 0xe92d4070, 0xe1a05000, cfw_playback_log_event);
 
 /* Up Next queue list and player refresh. */
 PATCH_JUMP(OSOS_NOW_PLAYING_VISIBLE_TAIL, 0x33a01000, 0xea023c73,

@@ -154,3 +154,9 @@
     {0x0473038a, 0x081441bc, 0xebfd123e, CALL, 0, 3, 0x0}, /* DisplayPipe_Init_SetGammaTables_call */
     {0xd42f8481, 0x08998708, 0x081eda2c, VTABLE, 1, 4, 0x0}, /* NowPlayingModel_Property_slot */
     {0x7d80f227, 0x0808a868, 0xe58400f0, INSERT, 0, 2, 0x40}, /* TrackData_ArtworkId_word */
+    {0xa59ca761, 0x08172bfc, 0xeb0003b8, CALL, 1, 2, 0}, /* MediaPlayer_AdvanceFinish_call */
+    {0xf76b372c, 0x08173254, 0xeb000222, CALL, 1, 2, 0}, /* MediaPlayer_ReleaseFinish_call */
+    {0x108aed58, 0x08172ba4, 0xebfff12b, CALL, 1, 3, 0}, /* MediaPlayer_AdvanceSelect_call */
+    {0x7272a8e1, 0x08173924, 0xe92d4010, ENTRY, 1, 1, 0}, /* TrackSession_Complete_entry */
+    {0xa3e04931, 0x08172420, 0xe92d4038, ENTRY, 1, 2, 0}, /* MediaPlayer_Notify_entry */
+    {0x0afc5806, 0x08172894, 0xe92d4070, ENTRY, 1, 2, 0}, /* MediaPlayer_Event_entry */

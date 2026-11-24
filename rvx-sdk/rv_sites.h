@@ -158,3 +158,9 @@
 #define RV_SITE_ProgressBar_MarkerBlit_call 0xf7195d2e
 #define RV_SITE_DisplayPipe_Init_SetGammaTables_call 0x0473038a
 #define RV_SITE_NowPlayingModel_Property_slot 0xd42f8481
+#define RV_SITE_MediaPlayer_AdvanceFinish_call 0xa59ca761
+#define RV_SITE_MediaPlayer_ReleaseFinish_call 0xf76b372c
+#define RV_SITE_MediaPlayer_AdvanceSelect_call 0x108aed58
+#define RV_SITE_TrackSession_Complete_entry 0x7272a8e1
+#define RV_SITE_MediaPlayer_Notify_entry 0xa3e04931
+#define RV_SITE_MediaPlayer_Event_entry 0x0afc5806

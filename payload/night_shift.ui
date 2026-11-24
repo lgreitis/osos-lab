@@ -1,7 +1,0 @@
-<!-- SPDX-License-Identifier: GPL-3.0-only -->
-<ui>
-  <toggle id="CFW_NightShift" title="Night Shift"/>
-  <string id="CFW_NightShift_OffLabel" text="Neutral"/>
-  <string id="CFW_NightShift_OnLabel" text="Warm"/>
-  <settings-entry menu="CFW_NightShift" after="SettingsMenu_ListItem_Brightness" preview="image"/>
-</ui>

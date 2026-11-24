@@ -14,7 +14,7 @@ own identity in its companion.
 
 ## Revola extensions
 
-Copy trusted `.rvx` extensions built for OSOS 2.0.5 with [Paul-Vincent Roll’s](https://github.com/paviro) Revola SDK 1.81 to `/Reprise/Extensions/` or `/Revola/Extensions/` and reboot.
+Build extensions for OSOS 2.0.5 with the [RepriseOS RVX SDK](rvx-sdk/README.md), based on [Paul-Vincent Roll’s](https://github.com/paviro) Revola SDK. Copy trusted `.rvx` files to `/Reprise/Extensions/` or `/Revola/Extensions/` and reboot.
 The Reprise copy takes priority when both folders contain the same extension.
 
 ## Repository layout
@@ -51,9 +51,6 @@ RepriseOS package and builds a companion using that iPod's identity.
   frequency, gain, Q and precut.
 - Clipping-free EQ: built-in presets and the custom EQ lower their gain by
   their peak boost and keep headroom between filter stages.
-- Crossfeed for headphones: Jan Meier's crossfeed from Rockbox blends a
-  filtered part of each channel into the other, so hard-panned stereo
-  recordings sound less separated. It applies after the EQ, to all audio.
 - Play Next and Play Last from song, album and artist context menus.
 - Apple's EU Volume Limit setting on every European iPod, with full volume
   and no volume warning when it is Off.
@@ -61,7 +58,6 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Dark Mode, with an On/Off toggle in Settings.
-- Night Shift, with an On/Off toggle below Brightness in Settings.
 
 Open **Settings → Custom EQ** to edit all five bands. Use the wheel to select a
 band, then Center to select and edit its Type, Gain, Frequency or Q, or the
@@ -79,14 +75,6 @@ reduction after long listening.
 **Album Artists** groups tracks by their Album Artist tag, using Artist when that
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →
 Music Menu.
-
-**Playback Log** adds an On/Off switch in Settings. It exports a standard
-`.scrobbler.log` by default, with optional detailed TSV reports and selectable
-columns configured in a small text file. Listening time excludes pauses and
-seek jumps. See the [configuration and column reference](docs/playback-log.md).
-
-**Night Shift** warms the whole screen through the display's gamma tables. It is
-off by default and the setting persists across reboots.
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
 
@@ -156,9 +144,7 @@ annotation directory. Logs are in `.build/ghidra-*.log`; all tools expose `--hel
 ## Credits
 
 - [Rockbox](https://github.com/Rockbox/rockbox) contributors: the bootloader,
-  dual-boot installer, and hardware drivers used by the USB helper, and the
-  Meier crossfeed (Thom Johansen, Bertrik Sikken and Michael Sevakis), ported
-  to `payload/crossfeed.c` under GPL-2.0-or-later.
+  dual-boot installer, and hardware drivers used by the USB helper.
 - [wInd3x](https://github.com/freemyipod/wInd3x) by Serge “q3k” Bazanski:
   the BootROM exploit, DFU protocol, and payload assembler code ported from Go
   to Rust in `reprise-device`, including `payload.rs` and `dfu.rs`.

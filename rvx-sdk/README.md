@@ -1,7 +1,7 @@
 # RVX extension SDK
 
-Build RepriseOS extensions for iPod Classic OSOS 2.0.5 with the Revola SDK 1.81.
-The SDK was imported from Revola revision `5c96ca75d138`. The upstream
+Build RepriseOS extensions for iPod Classic OSOS 2.0.5 with RepriseOS RVX API 1.82.
+The SDK was based on Revola SDK 1.81, revision `5c96ca75d138`. The upstream
 [license](COPYING), [notices](NOTICE) and [SDK reference](docs/README.md) are included.
 
 ## Build the Hello example

@@ -70,6 +70,8 @@ def build_trailer(source, directory, resident, prefix, jobs):
     # can use normal relative calls within the loadable code.
     functions = [
         "cfw_dark_mode_enabled",
+        "cfw_album_artist_read",
+        "cfw_store_get",
         "cfw_rvx_lock",
         "cfw_rvx_unlock",
         "cfw_rvx_sync",
