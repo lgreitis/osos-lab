@@ -179,6 +179,7 @@ pub(super) fn helper_error(rc: i32, errno: u32) -> Error {
         -322 => "Not enough free space on the data partition",
         -324 => "Unsupported or inconsistent HFS+ volume or catalog",
         -325 => "HFS+ disk read, write, or verification failed",
+        -326 => "The HFS+ volume was not cleanly unmounted. Mount it on the Mac, then eject it before entering DFU",
         -323 => "Mac-formatted disk detected (Apple Partition Map). Use FAT32 with Master Boot Record (MBR); HFS/HFS+ is not supported",
         -316 => "Failed to replace the destination",
         -411 => "USB disconnected during upload",

@@ -20,7 +20,8 @@ enum hfs_result {
     HFS_INVALID,
     HFS_UNSUPPORTED,
     HFS_IO,
-    HFS_TOO_LARGE
+    HFS_TOO_LARGE,
+    HFS_NOT_UNMOUNTED
 };
 
 struct hfs_volume {

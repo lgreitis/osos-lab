@@ -13,6 +13,7 @@
 #define NO_SPACE (-322)
 #define UNSUPPORTED (-324)
 #define BAD_IO (-325)
+#define NOT_UNMOUNTED (-326)
 #define CATALOG 272
 #define BITMAP 112
 #define ROOT_FOLDER 2
@@ -136,11 +137,16 @@ static bool journal_clean(void)
     uint8_t b[64];
     if (jib >= vol.blocks ||
         !read_disk(NULL, vol.offset + (uint64_t)jib * vol.block_size, b, 52) ||
-        u32(b) != 1)
+        (u32(b) != 1 && u32(b) != 5))
         return false;
+    uint32_t flags = u32(b);
     uint64_t off = u64(b + 36), n = u64(b + 44);
-    if (n < 512 || off > vol.bytes || n > vol.bytes - off ||
-        !read_disk(NULL, vol.offset + off, b, 48))
+    if (n < 512 || off > vol.bytes || n > vol.bytes - off)
+        return false;
+    /* TN1150: kJIJournalNeedInitMask means there are no valid transactions. */
+    if (flags & 4)
+        return true;
+    if (!read_disk(NULL, vol.offset + off, b, 48))
         return false;
     bool little = !memcmp(b, "xLNJ\x78\x56\x34\x12", 8);
     if ((!little && memcmp(b, "JNLx\x12\x34\x56\x78", 8)) || memcmp(b + 8, b + 16, 8))
@@ -195,8 +201,10 @@ int hfs_upload_mount(uint64_t sectors, uint64_t *start, uint64_t *end,
                      uint64_t *free_bytes)
 {
     disk = (struct hfs_disk){read_disk, NULL, sectors * 512};
-    if (hfs_open(&vol, &disk) != HFS_OK || vol.block_size > (1u << 30) ||
-        vol.bytes < 2048 ||
+    enum hfs_result opened = hfs_open(&vol, &disk);
+    if (opened == HFS_NOT_UNMOUNTED)
+        return NOT_UNMOUNTED;
+    if (opened != HFS_OK || vol.block_size > (1u << 30) || vol.bytes < 2048 ||
         vol.bytes - (uint64_t)vol.blocks * vol.block_size >= vol.block_size ||
         !read_disk(NULL, vol.offset + 1024, header, 512))
         return UNSUPPORTED;

@@ -146,8 +146,10 @@ enum hfs_result hfs_open(struct hfs_volume *v, const struct hfs_disk *d)
     if (memcmp(header, "H+", 2) || be16(header + 2) != 4)
         return HFS_UNSUPPORTED;
     uint32_t attributes = be32(header + 4);
-    if (!(attributes & (1u << 8)) || (attributes & ((1u << 11) | (1u << 14))))
+    if (attributes & ((1u << 11) | (1u << 14)))
         return HFS_UNSUPPORTED;
+    if (!(attributes & (1u << 8)))
+        return HFS_NOT_UNMOUNTED;
     v->block_size = be32(header + 40);
     v->bytes = partition_bytes;
     v->blocks = be32(header + 44);
