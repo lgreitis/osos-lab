@@ -59,6 +59,7 @@ class PayloadTests(unittest.TestCase):
                     root / "payload/playback_log.ui",
                     root / "payload/custom_eq.ui",
                     root / "payload/crossfeed.ui",
+                    root / "payload/mono_audio.ui",
                     root / "payload/cfw_info.ui",
                     root / "payload/album_artists.ui",
                     root / "payload/play_next.ui",

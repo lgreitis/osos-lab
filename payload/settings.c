@@ -25,6 +25,7 @@ void cfw_settings_boot(void *preferences)
     cfw_eq_load_preferences();
     cfw_dark_mode_load();
     cfw_night_shift_load();
+	cfw_mono_audio_load();
     cfw_crossfeed_load();
     cfw_ui_visibility_load_preferences();
     cfw_store_flush();
@@ -55,6 +56,7 @@ PATCH_ARM void cfw_settings_reset(void *model)
     cfw_eq_reset_preferences();
     cfw_dark_mode_reset();
     cfw_night_shift_reset();
+	cfw_mono_audio_reset();
     cfw_crossfeed_reset();
     cfw_playback_log_reset();
 }
@@ -66,8 +68,9 @@ PATCH_ARM int cfw_settings_action(void *controller, const char *action,
         cfw_file_info_action(action, argument) ||
         cfw_clicker_action(controller, action, argument) ||
         cfw_dark_mode_action(controller, action, argument) ||
-        cfw_night_shift_action(controller, action, argument) ||
-        cfw_crossfeed_action(controller, action, argument))
+		cfw_mono_audio_action(controller, action, argument) ||
+        cfw_crossfeed_action(controller, action, argument) ||
+        cfw_night_shift_action(controller, action, argument))
         return 1;
 
     return osos_settings_action(controller, action, argument);
@@ -82,6 +85,7 @@ PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t propert
         cfw_dark_mode_property(type, property, out) ||
         cfw_night_shift_property(type, property, out) ||
         cfw_clicker_property(model, type, property, out) ||
+		cfw_mono_audio_property(type, property, out) ||
         cfw_crossfeed_property(type, property, out))
         return 1;
 
