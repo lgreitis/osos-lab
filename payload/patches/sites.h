@@ -6,6 +6,7 @@
 
 #define OSOS_RESOURCE_BLOCK_APPEND_CALL 0x0817a88c
 
+#define OSOS_DISK_MODE_RELOAD_CALL 0x081aec20
 #define OSOS_PREFERENCES_LOAD_CALL 0x08058808
 /* Native save-all; it runs only around USB disk mode. */
 #define OSOS_PREFERENCES_FLUSH_CALL 0x0806392c
