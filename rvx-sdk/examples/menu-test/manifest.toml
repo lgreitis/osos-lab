@@ -1,0 +1,17 @@
+id = "menu-test"
+name = "Menu Test"
+description = "Exercise RVX screens, rows and menu input on the iPod."
+version = "0.1.0"
+author = "RepriseOS"
+license = "GPL-3.0-only"
+api = "1.82"
+category = "other"
+
+[[module]]
+name = "main"
+trigger = "always"
+
+[[asset]]
+name = "info"
+file = "assets/info.png"
+pane = "icon"
