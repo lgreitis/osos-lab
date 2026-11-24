@@ -1,4 +1,4 @@
-# osos-lab
+# RepriseOS
 
 RepriseOS adds features to Apple's original iPod firmware while retaining its
 familiar interface and playback system. This repository contains the patches,
@@ -10,12 +10,22 @@ own identity in its companion.
 ## Compatibility
 
 - iPod Classic 6G, 6.5G and 7G.
-- FAT32 storage required.
+- FAT32 or clean, case-insensitive HFS+ on a supported iPod disk layout.
 
-## Revola extensions
+<a id="revola-extensions"></a>
 
-Build extensions for OSOS 2.0.5 with the [RepriseOS RVX SDK](rvx-sdk/README.md), based on [Paul-Vincent Roll’s](https://github.com/paviro) Revola SDK. Copy trusted `.rvx` files to `/Reprise/Extensions/` or `/Revola/Extensions/` and reboot.
-The Reprise copy takes priority when both folders contain the same extension.
+## RVX extensions
+
+RepriseOS 0.4.0 supports RVX API 1.82. Connect the iPod, let it mount, then choose
+**Manage extensions** in RepriseOS Installer 0.3.0 to install from the
+[extension catalog](https://repriseos.com/extensions/). Choose **Restart iPod** to load your changes.
+
+For a manual install, copy the trusted `.rvx` and its dependencies to `/Reprise/Extensions/`,
+eject and restart. RepriseOS also reads `/Revola/Extensions/`. The Reprise copy takes
+priority when both folders contain the same extension ID.
+
+Developers can build extensions for Apple 2.0.5 with the [RepriseOS RVX SDK](rvx-sdk/README.md),
+based on the Revola SDK.
 
 ## Repository layout
 
@@ -27,7 +37,7 @@ The Reprise copy takes priority when both folders contain the same extension.
 - `patching/`: Python recipe builder, native UI generation, and framework tests.
 - `firmware/`: pinned Apple inputs, hardware eligibility and native UI metadata.
 - `loader/` and `patches/`: Apple companion loader and Rockbox bootloader patches.
-- `usb-helper/`: FAT32 transfer, readback verification, and DFU return.
+- `usb-helper/`: FAT32 and HFS+ transfer, readback verification, and DFU return.
 - `host/`: Rust device library, IPSW/AUPD preparation, bundle assembly, and CLI.
 - `tools/`: firmware builds, release bundle export, and Ghidra import/export.
 - `ghidra/`: tracked firmware analysis.
@@ -40,7 +50,7 @@ and [host tools](host/README.md).
 ## Install
 
 Download RepriseOS Installer from [the website](https://repriseos.com/download/)
-or [GitHub releases](https://github.com/lgreitis/repriseos-installer/releases).
+or [GitHub releases](https://github.com/RepriseOS/installer/releases).
 Use **`iPod_38.2.0.5.ipsw`** for every supported Classic. The installed Apple
 firmware can be older. Follow the app's DFU instructions; it downloads the
 RepriseOS package and builds a companion using that iPod's identity.
@@ -51,7 +61,8 @@ RepriseOS package and builds a companion using that iPod's identity.
   frequency, gain, Q and precut.
 - Clipping-free EQ: built-in presets and the custom EQ lower their gain by
   their peak boost and keep headroom between filter stages.
-- Play Next and Play Last from song, album and artist context menus.
+- Play Next and Play Last from song, album and artist context menus. Open **Up Next**
+  in the main menu to see the queue.
 - Apple's EU Volume Limit setting on every European iPod, with full volume
   and no volume warning when it is Off.
 - File Info from song, podcast, iTunes U, audiobook, movie, TV episode, video playlist and Now Playing context menus.
@@ -113,9 +124,9 @@ python3.11 tools/release.py --cross-prefix /path/to/bin/arm-elf-eabi- --jobs 8
 This builds `build/releases/classic/repriseos.zip` without Apple firmware inputs.
 Bundles contain compiled patches, assembly recipes, the NOR installer, and the
 USB helper. Assembly combines them with the 2.0.5 IPSW-derived inputs and the
-device's NOR identity. Schema 2 bundles require installer **0.2.0 or newer**;
-installer 0.1.x does not support this format. Local ZIPs use compatibility
-and hash checks; downloaded releases use signed manifests. Never copy a
+device's NOR identity. Installer 0.2.0 introduced schema 2. The 0.4.0 firmware
+bundle requires Installer 0.2.8 or later. Use Installer 0.3.0 or later to manage extensions.
+Local ZIPs use compatibility and hash checks. Downloaded releases use signed manifests. Never copy a
 personalized companion between devices. Resources currently come from the
 installed Apple resource partition; dedicated resources are deferred.
 
