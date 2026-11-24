@@ -141,7 +141,7 @@ static unsigned menu_events(const struct installed *i, unsigned slot, uint8_t *b
     return w.at;
 }
 
-void rvx_refresh_pane(Pkg *p)
+static void refresh_menu_pane(Pkg *p, int caption_change)
 {
     if (rvx_top && rvx_top->ctx.self == p)
         osos_ui_invalidate();
@@ -159,29 +159,43 @@ void rvx_refresh_pane(Pkg *p)
                       : (n ? "On" : "Off");
     }
     preview_text = caption ? caption : "";
-    const struct bitmap *b =
-        pane ? (pane->image ? pane->image(&ctx) : pane->bitmap) : NULL;
-    void *old = preview_image;
-    preview_image = b ? rvx_bitmap_load(p, b->name, &preview_bytes) : NULL;
-    if (update_menu_icon(preview_image, preview_bytes)) {
-        rvx_free(p, preview_image);
-        preview_image = native_icon;
+    int refresh_image = !caption_change || (pane && pane->image) ||
+                        (pane && pane->bitmap && !preview_image);
+    if (refresh_image) {
+        const struct bitmap *b =
+            pane ? (pane->image ? pane->image(&ctx) : pane->bitmap) : NULL;
+        void *old = preview_image;
+        preview_image = b ? rvx_bitmap_load(p, b->name, &preview_bytes) : NULL;
+        if (update_menu_icon(preview_image, preview_bytes)) {
+            rvx_free(p, preview_image);
+            preview_image = native_icon;
+        }
+        if (old && old != native_icon)
+            rvx_free(p, old);
     }
     const struct pane_extra *extra = entry->extra;
     for (unsigned j = 0; j < 2; j++)
         preview_lines[j] =
             extra ? (extra->text ? extra->text(&ctx, j) : extra->lines[j]) : NULL;
-    b = extra ? (extra->image ? extra->image(&ctx) : extra->badge) : NULL;
-    if (preview_badge)
-        rvx_free(p, preview_badge);
-    preview_badge = b ? rvx_bitmap_load(p, b->name, &badge_bytes) : NULL;
-    if (old && old != native_icon)
-        rvx_free(p, old);
+    if (!caption_change ||
+        (extra && (extra->image || (extra->badge && !preview_badge)))) {
+        const struct bitmap *b =
+            extra ? (extra->image ? extra->image(&ctx) : extra->badge) : NULL;
+        if (preview_badge)
+            rvx_free(p, preview_badge);
+        preview_badge = b ? rvx_bitmap_load(p, b->name, &badge_bytes) : NULL;
+    }
     void *model = ((void *(*)(void))0x081e0ff4)();
     if (model) {
-        osos_model_notify(model, OSOS_NOTIFY_ALL, RVX_PreviewImage);
+        if (refresh_image)
+            osos_model_notify(model, OSOS_NOTIFY_ALL, RVX_PreviewImage);
         osos_model_notify(model, OSOS_NOTIFY_ALL, RVX_PreviewText);
     }
+}
+
+void rvx_refresh_pane(Pkg *p)
+{
+    refresh_menu_pane(p, 0);
 }
 
 void rvx_theme_changed(void)
@@ -604,5 +618,5 @@ void rvx_setting_updated(Pkg *p, uint16_t key)
             }
         }
     if (highlight && highlight->pkg == p && highlight->entry->caption == key)
-        rvx_refresh_pane(p);
+        refresh_menu_pane(p, 1);
 }
