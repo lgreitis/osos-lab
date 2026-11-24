@@ -351,6 +351,16 @@ void cfw_rvx_reset(void)
 {
 }
 
+int cfw_rvx_indexed_property(uint32_t type, uint32_t property, uint32_t index,
+                             uintptr_t *out)
+{
+    (void)type;
+    (void)property;
+    (void)index;
+    (void)out;
+    return 0;
+}
+
 int cfw_rvx_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
     (void)type;

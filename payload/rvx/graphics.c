@@ -261,6 +261,8 @@ struct cached_bitmap {
     struct cached_bitmap *next;
     u32 id;
     void *data;
+    int dark;
+    u32 size;
 };
 
 void rvx_clear_bitmaps(struct frame *f)
@@ -273,41 +275,52 @@ void rvx_clear_bitmaps(struct frame *f)
     }
 }
 
-static void bitmap(int x, int y, const struct bitmap *bitmap)
+const void *rvx_frame_bitmap(struct frame *f, const struct bitmap *bitmap, u32 *size)
 {
-    if (!bitmap || !bitmap->name || !rvx_top)
-        return;
+    if (!bitmap || !bitmap->name || !f)
+        return NULL;
     u32 id = rvx_hash(bitmap->name);
-    for (struct cached_bitmap *b = rvx_top->bitmaps; b; b = b->next)
-        if (b->id == id) {
-            bmap(x, y, b->data);
-            return;
+    int dark = cfw_dark_mode_enabled();
+    for (struct cached_bitmap *b = f->bitmaps; b; b = b->next)
+        if (b->id == id && b->dark == dark) {
+            if (size)
+                *size = b->size;
+            return b->data;
         }
-    Pkg *p = rvx_top->ctx.self;
-    u32 n;
-    void *data = rvx_bitmap_load(p, bitmap->name, &n);
+    u32 bytes;
+    void *data = rvx_bitmap_load(f->ctx.self, bitmap->name, &bytes);
     if (!data)
-        return;
-    if (n >= 28) {
-        bmap(x, y, data);
-        struct cached_bitmap *b = osos_import_alloc(sizeof *b);
-        if (b) {
-            b->id = id;
-            b->data = data;
-            b->next = rvx_top->bitmaps;
-            rvx_top->bitmaps = b;
-            return;
-        }
+        return NULL;
+    struct cached_bitmap *b = bytes >= 28 ? osos_import_alloc(sizeof *b) : NULL;
+    if (!b) {
+        rvx_free(f->ctx.self, data);
+        return NULL;
     }
-    rvx_free(p, data);
+    b->size = bytes;
+    if (size)
+        *size = bytes;
+    b->dark = dark;
+    b->id = id;
+    b->data = data;
+    b->next = f->bitmaps;
+    f->bitmaps = b;
+    return data;
 }
 
-static void card(int w, int h, const char *l, const char *r, const struct bitmap *b)
+static void bitmap(int x, int y, const struct bitmap *bitmap)
 {
-    fill(&(struct rect){0, 0, w, h}, color(0));
-    bitmap((w - 78) / 2, (h - 121) / 2, b);
-    text_in(&(struct rect){6, 0, w / 3 - 8, h}, 1, color(1), l, -1);
-    text_in(&(struct rect){w * 2 / 3, 0, w / 3 - 8, h}, 1, color(1), r, 1);
+    bmap(x, y, rvx_frame_bitmap(rvx_top, bitmap, NULL));
+}
+
+/* Older binaries can still call the retired graphics slot. */
+static void retired_draw(int w, int h, const char *left_text, const char *right_text,
+                         const struct bitmap *image)
+{
+    (void)w;
+    (void)h;
+    (void)left_text;
+    (void)right_text;
+    (void)image;
 }
 
 static const struct rect *clip(void)
@@ -327,7 +340,7 @@ const struct graphics rvx_graphics = {sizeof(struct graphics),
                                       rows,
                                       blend,
                                       tile,
-                                      card,
+                                      retired_draw,
                                       text_in,
                                       mix,
                                       clip,

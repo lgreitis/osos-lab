@@ -60,7 +60,7 @@ static int locate(Pkg *p, u32 id, struct site *out)
         return -1;
     }
     unsigned index = id - 0xffffff00u;
-    if (index >= p->manifest->sites)
+    if (!p || index >= p->manifest->sites)
         return -1;
     const struct rvx_site *s = p->sites + index;
     if (s->address < 0x08000000 || s->address >= 0x08b3b1b0 || (s->address & 3) ||
@@ -89,9 +89,6 @@ static int locate(Pkg *p, u32 id, struct site *out)
 
 static int owned(Pkg *p, u32 fn)
 {
-    extern Pkg rvx_menu_owner;
-    if (p == &rvx_menu_owner)
-        return 1;
     for (unsigned i = 0; i < p->manifest->modules; i++) {
         struct rvx_module *m = p->modules + i;
         if (m->image && (fn & ~1u) - (uintptr_t)m->image < m->text && (fn & 3) != 2)
@@ -178,7 +175,8 @@ static int grow(void *volatile *slot, u32 bytes)
     return available;
 }
 
-int rvx_bind(Pkg *p, const struct rvx_hook *h)
+/* Core menu hooks have no owning extension and use only named sites. */
+static int bind_hook(Pkg *p, const struct rvx_hook *h)
 {
     if (!h || h->reserved || h->mode > 1)
         return BAD_ARGUMENT;
@@ -189,7 +187,7 @@ retry:;
     if (slot < 0)
         goto done;
     result = BAD_ARGUMENT;
-    if (s.kind == WORD ? !h->mode : !owned(p, h->value))
+    if (s.kind == WORD ? !h->mode : (p && !owned(p, h->value)))
         goto done;
     struct chain *c = rvx_chains[slot];
     if (!c) {
@@ -221,7 +219,7 @@ retry:;
             return NO_MEMORY;
         }
         for (unsigned i = 0; i < BINDING_PAGE; i++)
-            if (!first[i].pkg && (!active || !first[i].retired)) {
+            if (!first[i].hook && (!active || !first[i].retired)) {
                 b = first + i;
                 break;
             }
@@ -245,19 +243,29 @@ done:
     return result;
 }
 
+int rvx_bind(Pkg *p, const struct rvx_hook *h)
+{
+    return p ? bind_hook(p, h) : BAD_ARGUMENT;
+}
+
+void rvx_bind_menu(const struct rvx_hook *h)
+{
+    bind_hook(NULL, h);
+}
+
 static void remove_binding(struct chain *c, struct binding **it)
 {
     struct binding *b = *it;
     *it = b->next;
     b->retired = 1;
-    b->pkg = NULL;
+    b->hook = NULL;
     if (!c->head && *(volatile u32 *)c->address == c->patched)
         cfw_rvx_write(c->address, c->previous);
 }
 
 int rvx_unbind(Pkg *p, const struct rvx_hook *h)
 {
-    if (!h)
+    if (!p || !h)
         return BAD_ARGUMENT;
     for (unsigned j = 0; j < p->manifest->modules; j++) {
         const struct rvx_descriptor *d = p->modules[j].desc;

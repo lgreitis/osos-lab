@@ -22,5 +22,6 @@ struct rvx_host {
     /* On-disk capability record for mounted-volume extension managers. */
     char capability_magic[12];
     uint32_t api, firmware_id;
+    int (*indexed_property)(uint32_t, uint32_t, uint32_t, uintptr_t *);
 };
 #endif

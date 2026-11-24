@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#include "screen.h"
+#include "native_ui.h"
 #include "runtime.h"
 #include "osos.h"
 #include "cfw.h"
 #include "screen_ui.h"
 
 void *rvx_bank;
-Pkg rvx_menu_owner;
 
 static struct installed {
     struct installed *next;
     const struct menu_entry *entry;
     Pkg *pkg;
-    u32 item, source_id, source[6];
+    u32 item, source_id;
     void *row[5];
     char action[16];
 } *installed;
@@ -38,42 +37,40 @@ enum {
 
 static const u32 tables[] = {0x1a, 0x1b, 2, 0x41, 0x33};
 static u32 last[5], menu_mask;
+static const void *sound_check_row;
+static u32 sound_check_size;
 static struct installed *highlight;
 static void *highlight_controller, *preview_image;
 static const char *preview_text, *preview_lines[2];
 static void *preview_badge;
 static u32 preview_bytes, badge_bytes;
+
+/* The native image view retains its BMap between property notifications. */
+enum { ICON_WORDS = (28 + 80 * 121) / 4 };
+
+static u32 *native_icon;
+const u32 rvx_clear_bitmap[] = {0x1888, 0x00200004, 0, 0, 1, 1, 4, 0};
+
+int rvx_is_pane_icon(const u32 *image, u32 bytes)
+{
+    return image && bytes == ICON_WORDS * 4 && image[0] == 8 &&
+           image[1] == 0x00080050 && image[2] == 0 && image[3] == 0 &&
+           image[4] == 121 && image[5] == 78 && image[6] == bytes - 28;
+}
+
+static int update_menu_icon(const u32 *image, u32 bytes)
+{
+    if (!rvx_is_pane_icon(image, bytes))
+        return 0;
+    if (!native_icon)
+        native_icon = osos_import_alloc(bytes);
+    if (native_icon)
+        for (unsigned j = 0; j < ICON_WORDS; j++)
+            native_icon[j] = image[j];
+    return native_icon != NULL;
+}
 static struct context media;
 static struct osos_media_item media_item;
-
-static unsigned decimal(char *dest, u32 n)
-{
-    if (n < 10) {
-        *dest = '0' + n;
-        return 1;
-    }
-    unsigned i = decimal(dest, n / 10);
-    dest[i] = '0' + n % 10;
-    return i + 1;
-}
-
-static void word(uint8_t **cursor, u32 n)
-{
-    for (unsigned i = 0; i < 4; i++) {
-        *(*cursor)++ = n;
-        n >>= 8;
-    }
-}
-
-static void string(uint8_t **cursor, const char *s)
-{
-    unsigned n = 0;
-    while (s[n])
-        n++;
-    word(cursor, n);
-    while (n--)
-        *(*cursor)++ = *s++;
-}
 
 static void install(Pkg *p, const struct menu_entry *e, u32 id)
 {
@@ -88,22 +85,30 @@ static void install(Pkg *p, const struct menu_entry *e, u32 id)
     i->entry = e;
     i->item = id;
     i->source_id = id + 1;
-    i->source[0] = 1;
-    i->source[1] = 12;
-    i->source[2] = 0x534f5243;
-    i->source[3] = 0x80;
-    i->source[4] = id + 2;
-    i->source[5] = 1;
+    u32 source[] = {1,
+                    12,
+                    Resource_SORC,
+                    Service_String,
+                    id + 2,
+                    SourceDestination_Title,
+                    12,
+                    Resource_SORC,
+                    Service_Settings,
+                    i->source_id,
+                    SourceDestination_InlineValue};
+    if ((e->menus & MENU_SETTINGS) && e->row.kind == RV_ROW_KIND_SETTING)
+        source[0] = 2;
     const char *label = e->row.label ? e->row.label : "";
     unsigned len = 0;
     while (label[len])
         len++;
     osos_resource_set(rvx_bank, 0x53747220, id + 2, label, len + 1);
-    osos_resource_set(rvx_bank, 0x534f5243, i->source_id, i->source, sizeof i->source);
+    osos_resource_set(rvx_bank, 0x534f5243, i->source_id, source,
+                      (1 + 5 * source[0]) * sizeof(u32));
     i->action[0] = 'R';
     i->action[1] = 'V';
     i->action[2] = 'X';
-    decimal(i->action + 3, id);
+    core_put_number(i->action + 3, i->action + sizeof i->action, id);
     i->next = installed;
     installed = i;
 }
@@ -114,43 +119,26 @@ static unsigned menu_events(const struct installed *i, unsigned slot, uint8_t *b
                                           "RVX_ExtrasPane", "RVX_Preview",
                                           "RVX_VideosPane"};
     char name[48];
-    const char *prefix = "list.pid.";
-    for (unsigned j = 0; prefix[j]; j++)
-        name[j] = prefix[j];
-    unsigned pos = 9 + decimal(name + 9, i->item);
-    const char *suffix = ".chosen";
-    for (unsigned j = 0; (name[pos + j] = suffix[j]); j++) {
-    }
-    uint8_t *cur = buffer;
-    word(&cur, 2);
-    string(&cur, name);
-    *cur++ = '1';
-    string(&cur, i->action);
-    word(&cur, 0);
-    suffix = ".delayedselected";
-    for (unsigned j = 0; (name[pos + j] = suffix[j]); j++) {
-    }
-    string(&cur, name);
-    *cur++ = '1';
+    struct core_writer w = {buffer, 0};
+    core_write_word(&w, 2);
+    core_row_event_name(name, sizeof name, i->item, ".chosen");
+    core_write_event(&w, name, i->action, NULL, NULL, 0);
+    core_row_event_name(name, sizeof name, i->item, ".delayedselected");
     const struct menu_entry *entry = i->entry;
     if (!entry->pane && !entry->extra && !entry->caption &&
         (slot == 1 || slot == 4 || (slot == 0 && entry->preview))) {
-        string(&cur, slot == 4 || (slot == 0 && entry->preview == 2)
-                         ? "HandleVideosHilited"
-                         : "HandleMusicHilited");
-        word(&cur, 0);
+        const char *handler = slot == 4 || (slot == 0 && entry->preview == 2)
+                                  ? "HandleVideosHilited"
+                                  : "HandleMusicHilited";
+        core_write_event(&w, name, handler, NULL, NULL, 0);
     } else {
-        char handler[16];
-        handler[0] = 'P';
-        handler[1] = 'R';
-        handler[2 + decimal(handler + 2, i->item)] = 0;
-        string(&cur, handler);
-        word(&cur, 1);
-        string(&cur, "navigator.SwitchLayout");
-        word(&cur, 1);
-        string(&cur, slot == 3 && entry->plain ? "RVX_PlainPane" : layouts[slot]);
+        char handler[16] = "PR";
+        core_put_number(handler + 2, handler + sizeof handler, i->item);
+        const char *layout =
+            slot == 3 && entry->plain ? "RVX_PlainPane" : layouts[slot];
+        core_write_event(&w, name, handler, "navigator.SwitchLayout", &layout, 1);
     }
-    return cur - buffer;
+    return w.at;
 }
 
 void rvx_refresh_pane(Pkg *p)
@@ -175,6 +163,10 @@ void rvx_refresh_pane(Pkg *p)
         pane ? (pane->image ? pane->image(&ctx) : pane->bitmap) : NULL;
     void *old = preview_image;
     preview_image = b ? rvx_bitmap_load(p, b->name, &preview_bytes) : NULL;
+    if (update_menu_icon(preview_image, preview_bytes)) {
+        rvx_free(p, preview_image);
+        preview_image = native_icon;
+    }
     const struct pane_extra *extra = entry->extra;
     for (unsigned j = 0; j < 2; j++)
         preview_lines[j] =
@@ -183,19 +175,19 @@ void rvx_refresh_pane(Pkg *p)
     if (preview_badge)
         rvx_free(p, preview_badge);
     preview_badge = b ? rvx_bitmap_load(p, b->name, &badge_bytes) : NULL;
-    if (old)
+    if (old && old != native_icon)
         rvx_free(p, old);
     void *model = ((void *(*)(void))0x081e0ff4)();
     if (model) {
-        osos_model_notify(model, OSOS_NOTIFY_NONE, RVX_PreviewImage);
-        osos_model_notify(model, OSOS_NOTIFY_NONE, RVX_PreviewText);
+        osos_model_notify(model, OSOS_NOTIFY_ALL, RVX_PreviewImage);
+        osos_model_notify(model, OSOS_NOTIFY_ALL, RVX_PreviewText);
     }
 }
 
 void rvx_theme_changed(void)
 {
     for (struct frame *f = rvx_top; f; f = f->parent)
-        rvx_clear_bitmaps(f);
+        rvx_native_refresh(f);
     if (highlight)
         rvx_refresh_pane(highlight->pkg);
     osos_ui_invalidate();
@@ -232,8 +224,36 @@ void rvx_draw_menu_pane(int width, int height)
 
 int cfw_rvx_property(u32 type, u32 property, uintptr_t *out)
 {
+    if (type == OSOS_PROPERTY_STRING && property == RVX_Title && rvx_top) {
+        *out = (uintptr_t)(rvx_top->screen->title ? rvx_top->screen->title : "");
+        return 1;
+    }
+    if (type == OSOS_PROPERTY_STRING && property >= 0x72500000) {
+        for (struct installed *i = installed; i; i = i->next) {
+            if (property != i->source_id || i->entry->row.kind != 2)
+                continue;
+            uint16_t key = i->entry->row.key;
+            const struct rvx_setting *setting = rvx_declaration(i->pkg, key);
+            int n = rvx_get_int(i->pkg, key);
+            const char *label =
+                setting && setting->labels && (u32)n < setting->label_count
+                    ? setting->labels[n]
+                    : NULL;
+            if (label)
+                *out = (uintptr_t)label;
+            else if (setting && setting->type == 1)
+                *out = osos_settings_on_off(n);
+            else
+                return 0;
+            return 1;
+        }
+    }
+    if (rvx_native_property(type, property, out))
+        return 1;
     if (type == OSOS_RESOURCE_BMAP && property == RVX_PreviewImage) {
-        *out = (uintptr_t)preview_image;
+        *out = (uintptr_t)(preview_image && preview_image == native_icon
+                               ? native_icon
+                               : rvx_clear_bitmap);
         return 1;
     }
     if (type == OSOS_PROPERTY_STRING && property == RVX_PreviewText) {
@@ -250,7 +270,8 @@ static u32 action(void *controller, const char *action, u32 arg, const void *nex
             if (cfw_string_equal(i->action + 3, action + 2)) {
                 if (arg != OSOS_ACTION_SUPPORT_QUERY) {
                     if (highlight && preview_image) {
-                        rvx_free(highlight->pkg, preview_image);
+                        if (preview_image != native_icon)
+                            rvx_free(highlight->pkg, preview_image);
                         preview_image = NULL;
                     }
                     if (highlight && preview_badge) {
@@ -428,7 +449,7 @@ void rvx_install_menus(void)
         return;
     for (unsigned j = 0; j < sizeof actions / sizeof actions[0]; j++)
         if (menu_mask & actions[j].menus)
-            rvx_bind(&rvx_menu_owner, &actions[j].hook);
+            rvx_bind_menu(&actions[j].hook);
     for (unsigned j = 0; j < 5; j++) {
         u32 n;
         const u32 *src = osos_resource_get(rvx_bank, 0x4954454d, tables[j], &n);
@@ -443,6 +464,10 @@ void rvx_install_menus(void)
             if (size < 0x34 || size > n)
                 break;
             last[j] = src[12];
+            if (j == 3 && src[12] == 0x0dad0c76 && size >= 0x6c) {
+                sound_check_row = src;
+                sound_check_size = size;
+            }
             size = (size + 3) & ~3u;
             if (size > n)
                 break;
@@ -473,12 +498,15 @@ void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 byte
         if (!(e->menus & (1u << slot)) || (e->after ? e->after : last[slot]) != item ||
             (slot >= 2 && e->shown && !rvx_get_int(i->pkg, e->shown)))
             continue;
+        int inline_value = slot == 3 && e->row.kind == 2 && sound_check_row;
+        const void *prototype = inline_value ? sound_check_row : row;
+        u32 size = inline_value ? sound_check_size : bytes;
         if (!i->row[slot]) {
-            uint8_t *copy = osos_import_alloc(bytes);
+            uint8_t *copy = osos_import_alloc(size);
             if (!copy)
                 continue;
-            for (unsigned j = 0; j < bytes; j++)
-                copy[j] = ((const uint8_t *)row)[j];
+            for (unsigned j = 0; j < size; j++)
+                copy[j] = ((const uint8_t *)prototype)[j];
             u32 *words = (void *)copy;
             words[12] = i->item;
             words[0x68 / 4] = i->source_id;
@@ -489,7 +517,7 @@ void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 byte
             }
             i->row[slot] = copy;
         }
-        osos_resource_block_append(list, i->row[slot], bytes, metadata);
+        osos_resource_block_append(list, i->row[slot], size, metadata);
     }
 }
 
@@ -562,9 +590,19 @@ void cfw_rvx_toggle_row(unsigned menu, unsigned row)
 
 void rvx_setting_updated(Pkg *p, uint16_t key)
 {
+    if (rvx_top && rvx_top->ctx.self == p)
+        rvx_native_refresh(rvx_top);
     for (struct installed *i = installed; i; i = i->next)
-        if (i->pkg == p && key == i->entry->shown && (i->entry->menus & 3))
-            osos_menu_item_set_visible(i->item, rvx_get_int(p, key) != 0);
+        if (i->pkg == p) {
+            if (key == i->entry->shown && (i->entry->menus & 3))
+                osos_menu_item_set_visible(i->item, rvx_get_int(p, key) != 0);
+            if (i->entry->row.kind == 2 && i->entry->row.key == key &&
+                (i->entry->menus & MENU_SETTINGS)) {
+                void *model = ((void *(*)(void))0x081e0ff4)();
+                if (model)
+                    osos_model_notify(model, OSOS_NOTIFY_ALL, i->source_id);
+            }
+        }
     if (highlight && highlight->pkg == p && highlight->entry->caption == key)
         rvx_refresh_pane(p);
 }

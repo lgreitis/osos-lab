@@ -74,8 +74,8 @@ struct graphics {
     void (*row)(int, int, const char *, const char *, int);
     void (*rows)(int, int, const void *, int, u32),
         (*blend)(int, int, const void *, int, uint8_t);
-    void (*tile)(int, int, int, const void *),
-        (*card)(int, int, const char *, const char *, const struct bitmap *);
+    void (*tile)(int, int, int, const void *);
+    void (*reserved)(int, int, const char *, const char *, const struct bitmap *);
     void (*text_in)(const struct rect *, uint8_t, u32, const char *, int8_t);
     u32 (*mix)(u32, u32, uint8_t);
     const struct rect *(*clip)(void);
@@ -138,11 +138,13 @@ struct frame {
     struct screen setting_screen;
     u32 selected, module;
     u32 media_item[6];
-    uint8_t context_index[16], context_count, context_selection;
+    struct core_screen *native;
+    char (*context_actions)[11];
+    int32_t range[3];
     void *view;
     struct cached_bitmap *bitmaps;
     uintptr_t *stock_methods;
-    uintptr_t stock_destroy;
+    const uintptr_t *native_methods;
     struct rect damage;
     int consumed, held_button, split;
 };
@@ -151,8 +153,14 @@ extern void *rvx_bank;
 extern const struct graphics rvx_graphics;
 void rvx_register_controller(void);
 void rvx_begin_draw(void *context, const int32_t *bounds, const struct rect *dirty);
-void rvx_draw_page(struct frame *, int, int);
-int rvx_input(struct frame *, const struct input *);
+int rvx_prepare_native(struct frame *, u32 *screen, u32 *layout);
+int rvx_native_property(u32, u32, uintptr_t *);
+int rvx_native_action(void *, const char *, u32);
+void rvx_native_refresh(struct frame *);
+u32 rvx_row_count(struct frame *);
+const char *rvx_setting_label(Pkg *, uint16_t);
+const void *rvx_frame_bitmap(struct frame *, const struct bitmap *, u32 *size);
+int rvx_is_pane_icon(const u32 *image, u32 bytes);
 int rvx_push(Pkg *, const char *, void *);
 void rvx_pop(Pkg *);
 void rvx_select(Pkg *, const char *, u32);

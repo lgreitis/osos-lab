@@ -12,6 +12,8 @@ void cfw_rvx_menu_events(void *map, uint32_t screen);
 void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
                         int tv);
 
+int cfw_rvx_indexed_property(uint32_t type, uint32_t property, uint32_t index,
+                             uintptr_t *out);
 int cfw_rvx_property(uint32_t type, uint32_t property, uintptr_t *out);
 void cfw_rvx_reset(void);
 void cfw_rvx_hold(int locked);

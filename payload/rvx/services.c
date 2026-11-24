@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "screen.h"
+#include "cfw.h"
 #include "osos.h"
 #include "album_artist.h"
 #include "store.h"
@@ -188,7 +189,10 @@ static void redraw(Pkg *p)
 
 static void refresh(Pkg *p, const char *s)
 {
-    (void)s;
+    for (struct frame *f = rvx_top; f; f = f->parent)
+        if (f->ctx.self == p &&
+            (!s || (f->screen->id && cfw_string_equal(f->screen->id, s))))
+            rvx_native_refresh(f);
     redraw(p);
 }
 

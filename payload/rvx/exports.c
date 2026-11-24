@@ -11,6 +11,7 @@ const struct rvx_host rvx_exports __attribute__((used, section(".rvx.exports")))
     .row = cfw_rvx_menu_row,
     .events = cfw_rvx_menu_events,
     .video = cfw_rvx_video_menu,
+    .indexed_property = cfw_rvx_indexed_property,
     .property = cfw_rvx_property,
     .visible = cfw_rvx_visible_rows,
     .visibility = cfw_rvx_visible_property,

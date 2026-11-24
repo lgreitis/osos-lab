@@ -137,6 +137,12 @@ void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
         host->video(menu, controller, row, item, tv);
 }
 
+int cfw_rvx_indexed_property(uint32_t type, uint32_t property, uint32_t index,
+                             uintptr_t *out)
+{
+    return host && host->indexed_property(type, property, index, out);
+}
+
 int cfw_rvx_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
     return host && host->property(type, property, out);

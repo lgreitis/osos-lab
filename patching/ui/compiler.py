@@ -86,7 +86,9 @@ class DocumentCompiler:
         resources.clone_layout(
             resources.native("Settings_Brightness_Screen_Default"),
             layout,
-            resources.source(root.title, title),
+            resources.source(root.title, title)
+            if root.title
+            else resources.property_source(0x8900, title),
             {resources.native("Settings_Brightness_Template"): template},
             view_bindings={
                 resources.native("Settings_Brightness_Template"): pack_blocks([])
@@ -347,23 +349,23 @@ class DocumentCompiler:
             "SLst", resources.native("SettingsMenus_Main_Screen"), pack_blocks(layouts)
         )
 
-    def image_preview(self, data):
+    def image_preview(self, data, name=None):
         document, resources = self.document, self.resources
         sources = {}
         for view, suffix in (
             ("Settings_Icon_View", "Image"),
             ("Settings_InfoDetail_View", "Text"),
         ):
-            if suffix == "Text" and document.preview_caption:
+            if name is None and suffix == "Text" and document.preview_caption:
                 sources[resources.native(view)] = resources.source(
                     document.preview_caption
                 )
                 continue
-            if suffix == "Image" and document.preview_image:
+            if name is None and suffix == "Image" and document.preview_image:
                 property_id = resources.names[document.preview_image]
             else:
-                name = document.root.name + "_Preview" + suffix
-                self.string_ids[name] = property_id = resources.allocate(name)
+                key = (name or document.root.name) + "_Preview" + suffix
+                self.string_ids[key] = property_id = resources.allocate(key)
             sources[resources.native(view)] = resources.property_source(
                 0x8900, property_id
             )
