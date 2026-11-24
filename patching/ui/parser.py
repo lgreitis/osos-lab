@@ -74,6 +74,8 @@ class Parser:
                 "toggle",
                 "setting",
                 "settings-entry",
+                "settings-preview",
+                "menu-preview",
                 "string",
                 "screen-event",
                 "layout-event",
@@ -127,11 +129,24 @@ class Parser:
                 raise ValueError("Expected one root page per UI declaration")
             if node.tag in ("toggle", "canvas", "list"):
                 attributes(
-                    node, "id title", "select layout" if node.tag == "list" else ""
+                    node,
+                    "id title",
+                    "select layout"
+                    if node.tag == "list"
+                    else "factory view-type"
+                    if node.tag == "canvas"
+                    else "",
                 )
                 document.root = Item(
                     node.tag, self.identifier(node), node.attrib["title"]
                 )
+                if node.tag == "canvas":
+                    document.root.factory = node.get("factory", "CFWCanvas")
+                    document.root.view_type = node.get("view-type", "cfwc")
+                    if len(document.root.view_type.encode("ascii")) != 4:
+                        raise ValueError(
+                            "A canvas view type needs four ASCII characters"
+                        )
                 if node.tag == "list":
                     document.root.select = node.get("select", "return")
                     document.root.layout = node.get("layout", "inline")
@@ -143,6 +158,18 @@ class Parser:
                 document.root = self.parse_text(node)
         elif node.tag == "setting":
             self.parse_setting(node)
+        elif node.tag == "menu-preview":
+            attributes(node, "id screen layout")
+            document.menu_previews.append(
+                (
+                    self.identifier(node),
+                    int(node.attrib["screen"], 0),
+                    int(node.attrib["layout"], 0),
+                )
+            )
+        elif node.tag == "settings-preview":
+            attributes(node)
+            document.preview = "image"
         elif node.tag == "settings-entry":
             attributes(node, "menu after", "open preview image caption")
             if self.entry is not None:

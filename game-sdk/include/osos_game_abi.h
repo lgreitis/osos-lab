@@ -3,6 +3,7 @@
 #ifndef OSOS_GAME_ABI_H
 #define OSOS_GAME_ABI_H
 
+#include "osos_directory_types.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -16,19 +17,6 @@ struct osos_path {
     uint16_t volume;
     char text[258];
 };
-
-struct osos_native_path_string {
-    uint32_t vtable_address;
-    uint32_t data_address;
-};
-
-struct osos_directory_iterator {
-    uint32_t state[0x44 / 4];
-};
-
-_Static_assert(sizeof(struct osos_native_path_string) == 8, "native path string size");
-_Static_assert(sizeof(struct osos_directory_iterator) == 0x44,
-               "directory iterator size");
 
 enum osos_game_entry_slot {
     OSOS_GAME_ENTRY_INIT = 0,

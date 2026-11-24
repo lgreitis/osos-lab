@@ -5,7 +5,7 @@ import struct
 import unittest
 from unittest.mock import patch
 
-from patching import declarations, symbols
+from patching import declarations, rvx_runtime, symbols
 from patching.declarations import Copy, Kind, Write
 from patching.recipes import fingerprint, osos
 
@@ -123,6 +123,37 @@ class OsosTests(unittest.TestCase):
         self.assertEqual(
             image[len(self.original) + len(self.code) :],
             bytes(328 * 1024 - len(self.code)),
+        )
+        for offset in osos.IMAGE_SIZE_FIELDS:
+            self.assertEqual(
+                struct.unpack_from("<I", image, offset)[0], len(image) - 0x800
+            )
+
+    def test_runtime_relocations_preserve_thumb_bits_and_fixed_addresses(self):
+        base = 0x10000
+        raw = struct.pack("<3I", 5, 16, 0x08000000)
+        mirror = struct.pack("<3I", base + 5, base + 16, 0x08000000)
+        self.assertEqual(rvx_runtime.relocation_words(raw, mirror, base, 16), [0, 1])
+        with self.assertRaisesRegex(ValueError, "Non-relocatable"):
+            rvx_runtime.relocation_words(raw, mirror, base, 15)
+
+    def test_runtime_relocation_index_must_fit_in_trailer(self):
+        padding = bytes(0x10000 * 4)
+        raw = padding + struct.pack("<I", 4)
+        mirror = padding + struct.pack("<I", 0x10004)
+        with self.assertRaisesRegex(ValueError, "16-bit index"):
+            rvx_runtime.relocation_words(raw, mirror, 0x10000, len(raw))
+
+    def test_runtime_trailer_follows_the_resident_reservation(self):
+        trailer = b"runtime"
+        patches = [word(Kind.POINTER, osos.BASE, 0, "__payload_limit")]
+        recipe = osos.build(self.code, patches, self.symbols, self.fingerprint, trailer)
+        image = self.replay(recipe)
+        resident = self.symbols["__payload_limit"] - self.symbols["__payload_start"]
+        self.assertEqual(image[len(self.original) + resident :], trailer)
+        self.assertEqual(
+            struct.unpack_from("<I", image, self.load_offset)[0],
+            self.symbols["__payload_limit"],
         )
         for offset in osos.IMAGE_SIZE_FIELDS:
             self.assertEqual(

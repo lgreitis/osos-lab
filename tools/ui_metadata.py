@@ -104,7 +104,11 @@ def main():
         "input": fingerprint,
         "resources": extract(
             firmware,
-            [*sorted((ROOT / "payload").glob("*.ui")), *sorted(shim_path.glob("*.ui"))],
+            [
+                *sorted((ROOT / "payload").glob("*.ui")),
+                ROOT / "payload/rvx/screen.ui",
+                *sorted(shim_path.glob("*.ui")),
+            ],
             shim,
         ),
     }

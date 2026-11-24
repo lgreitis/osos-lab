@@ -5,7 +5,7 @@ import json
 import struct
 from dataclasses import dataclass
 
-from .. import assets, declarations, ui
+from .. import assets, declarations, rvx_runtime, ui
 from ..declarations import Copy, Kind
 from ..symbols import require
 from ..toolchain import compile_payload
@@ -42,7 +42,7 @@ def payload_units(source, generated_ui):
         for path in sorted(source.iterdir())
         if path.suffix in (".c", ".S") and not path.name.endswith(".lds.S")
     ]
-    return [*units, (str(generated_ui), [])]
+    return [*units, ("rvx/arm.S", []), ("rvx/gate.c", []), (str(generated_ui), [])]
 
 
 def build_recipe(
@@ -75,6 +75,7 @@ def build_recipe(
                 "queue_selection.ui",
                 "playback_log.ui",
                 "up_next.ui",
+                "rvx/screen.ui",
             )
         ],
         directory,
@@ -109,7 +110,14 @@ def build_recipe(
         f"CFW reservation: {used:,} / {capacity:,} bytes used; {capacity - used:,} free",
         flush=True,
     )
-    return build(code, patches, symbols, fingerprint)
+    trailer, spec = rvx_runtime.build_trailer(source, directory, symbols, prefix, jobs)
+    if capacity + len(trailer) > require(symbols, "__payload_capacity"):
+        raise ValueError("RVX runtime exceeds the companion load limit")
+    header = require(symbols, "rvx_trailer") - require(symbols, "__payload_start")
+    if code[header : header + len(spec)] != bytes(len(spec)):
+        raise ValueError("Invalid embedded runtime descriptor")
+    code = code[:header] + spec + code[header + len(spec) :]
+    return build(code, patches, symbols, fingerprint, trailer)
 
 
 def payload_layout(code, symbols, original_size):
@@ -187,15 +195,19 @@ def size_header_writes(recipe, original_size, output_size):
     return writes
 
 
-def build(code, patches, symbols, fingerprint):
+def build(code, patches, symbols, fingerprint, trailer=b""):
     original_size = fingerprint["bytes"]
     layout = payload_layout(code, symbols, original_size)
     recipe = Recipe({"osos": fingerprint})
     writes, copies = resolve_patches(recipe, patches, symbols, layout)
     writes.extend(
-        size_header_writes(recipe, original_size, original_size + layout.reserved_size)
+        size_header_writes(
+            recipe, original_size, original_size + layout.reserved_size + len(trailer)
+        )
     )
     recipe.overlay(Input("osos", 0, original_size), writes)
     recipe.overlay(code, copies)
     recipe.zero(layout.reserved_size - len(code))
+    if trailer:
+        recipe.overlay(trailer, [])
     return recipe

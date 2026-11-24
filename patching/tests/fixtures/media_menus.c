@@ -231,3 +231,12 @@ int main(void)
     check_forwarding();
     return 0;
 }
+
+void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item, int tv)
+{
+    (void)menu;
+    (void)controller;
+    (void)row;
+    (void)item;
+    (void)tv;
+}

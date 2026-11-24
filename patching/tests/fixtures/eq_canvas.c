@@ -572,3 +572,8 @@ int main(void)
     puts("EQ canvas: model edits, Hold response, commit boundaries and drawing passed");
     return 0;
 }
+
+void cfw_rvx_hold(int locked)
+{
+    (void)locked;
+}

@@ -52,6 +52,22 @@ void cfw_ui_register_controllers(void)
 {
 }
 
+void cfw_rvx_register_ui(void *bank)
+{
+    (void)bank;
+}
+
+void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *data,
+                      uint32_t bytes, uint32_t metadata)
+{
+    (void)list;
+    (void)table;
+    (void)item;
+    (void)data;
+    (void)bytes;
+    (void)metadata;
+}
+
 void cfw_ui_register_canvas(void)
 {
 }
@@ -107,8 +123,11 @@ static const unsigned char label[] = "Albums";
 const struct cfw_resource cfw_resources[] = {
     {0x53747220, 99, sizeof(label), label},
     {OSOS_RESOURCE_BMAP, 26, sizeof(icon), icon},
+    {0x56696577, RVX_CanvasTemplate, sizeof(icon), icon},
+    {0x56696577, RVX_MenuPaneTemplate, sizeof(icon), icon},
+    {0x56696577, 28, sizeof(icon), icon},
 };
-const uint32_t cfw_resource_count = 2;
+const uint32_t cfw_resource_count = sizeof cfw_resources / sizeof *cfw_resources;
 const struct cfw_resource_name cfw_resource_names[] = {{"AlbumArtists", ALBUM_ARTISTS}};
 const uint32_t cfw_resource_name_count = 1;
 static unsigned installed;
@@ -117,7 +136,12 @@ static int bank;
 static void osos_resource_set(void *target, uint32_t type, uint32_t id,
                               const void *data, uint32_t size)
 {
-    assert(target == &bank && type == 0x53747220 && id == 99);
+    assert(target == &bank);
+    if (type == 0x56696577) {
+        assert(data == icon && size == sizeof(icon));
+        return;
+    }
+    assert(type == 0x53747220 && id == 99);
     assert(data == label && size == sizeof(label));
     installed++;
 }
@@ -142,6 +166,18 @@ int main(void)
     }
     destroy(&registration);
     assert(!allocations);
+    uint32_t id = 0, bytes = 0;
+    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == 28);
+    assert(!cfw_next_template(&bank, &id, &bytes));
+    cfw_rvx_has_canvas = 1;
+    id = 0;
+    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_CanvasTemplate);
+    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == 28);
+    cfw_rvx_has_menu_pane = 1;
+    id = 0;
+    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_CanvasTemplate);
+    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_MenuPaneTemplate);
+    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == 28);
     cfw_install_resources(&bank);
     assert(installed == 1 && name_id == ALBUM_ARTISTS);
     assert(cfw_resource_bitmap(26) == icon && !cfw_resource_bitmap(99));

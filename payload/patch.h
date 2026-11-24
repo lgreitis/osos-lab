@@ -21,20 +21,26 @@ _Static_assert(sizeof(struct cfw_patch) == 84, "Patch metadata layout changed");
         __attribute__((used, section(".cfw.patch"), aligned(4))) = {                   \
             kind, address, expected, extra, value, symbol}
 
+/* Runtime raw hooks must leave every RepriseOS patch alone, including both jump words. */
+#define PATCH_WRITE(kind, address, expected, extra, value, symbol)                     \
+    static const uint32_t PATCH_NAME(cfw_reserved_, __COUNTER__)                       \
+        __attribute__((used, section(".cfw.reserved"))) = (address) | ((kind) == 4);   \
+    PATCH_RECORD(kind, address, expected, extra, value, symbol)
+
 #define PATCH_WORD(address, expected, value)                                           \
-    PATCH_RECORD(1, address, expected, 0, value, "")
+    PATCH_WRITE(1, address, expected, 0, value, "")
 #define PATCH_POINTER(address, expected, symbol)                                       \
-    PATCH_RECORD(2, address, expected, 0, 0, #symbol)
+    PATCH_WRITE(2, address, expected, 0, 0, #symbol)
 #define PATCH_POINTER_PAIR(primary, secondary, expected, symbol)                       \
     PATCH_POINTER(primary, expected, symbol);                                          \
     PATCH_POINTER(secondary, expected, symbol)
 #define PATCH_CALL_WORD(address, expected, symbol)                                     \
-    PATCH_RECORD(3, address, expected, 0, 0, #symbol)
+    PATCH_WRITE(3, address, expected, 0, 0, #symbol)
 #define PATCH_CALL(address, original, symbol)                                          \
     PATCH_CALL_WORD(                                                                   \
         address, 0xEB000000u | (((original - address - 8u) >> 2) & 0xFFFFFFu), symbol)
 #define PATCH_JUMP(address, first, second, symbol)                                     \
-    PATCH_RECORD(4, address, first, second, 0, #symbol)
+    PATCH_WRITE(4, address, first, second, 0, #symbol)
 /* Fill an ordinary C array from the pinned native firmware at assembly time. */
 #define PATCH_COPY(array, offset, source, bytes)                                       \
     _Static_assert((offset) + (bytes) <= sizeof(array), "Copy exceeds array");         \

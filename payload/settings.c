@@ -9,6 +9,7 @@
 #include "osos.h"
 #include "patch.h"
 #include "resources.h"
+#include "rvx/runtime.h"
 #include "sound.h"
 #include "store.h"
 #include "up_next.h"
@@ -27,6 +28,7 @@ void cfw_settings_boot(void *preferences)
     cfw_night_shift_load();
     cfw_crossfeed_load();
     cfw_ui_visibility_load_preferences();
+    cfw_rvx_boot();
     cfw_store_flush();
 }
 
@@ -34,6 +36,7 @@ void cfw_settings_boot(void *preferences)
  * written before every light sleep, while the disk can still spin. */
 void cfw_settings_sleep(void)
 {
+    cfw_rvx_flush();
     if (native_preferences)
         osos_preferences_flush(native_preferences);
     cfw_store_flush();
@@ -52,6 +55,7 @@ void cfw_store_delete_legacy(void)
 PATCH_ARM void cfw_settings_reset(void *model)
 {
     osos_reset_all_settings(model);
+    cfw_rvx_reset();
     cfw_eq_reset_preferences();
     cfw_dark_mode_reset();
     cfw_night_shift_reset();
@@ -76,7 +80,8 @@ PATCH_ARM int cfw_settings_action(void *controller, const char *action,
 PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t property,
                                     uintptr_t *out)
 {
-    if (cfw_up_next_property(model, type, property, out) ||
+    if (cfw_rvx_property(type, property, out) ||
+        cfw_up_next_property(model, type, property, out) ||
         cfw_playback_log_property(type, property, out) ||
         cfw_file_info_property(type, property, out) ||
         cfw_dark_mode_property(type, property, out) ||

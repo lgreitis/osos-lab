@@ -4,6 +4,7 @@
 #include "patch.h"
 #include "preferences.h"
 #include "store.h"
+#include "rvx/runtime.h"
 
 static const uint32_t settings_items[] = {OSOS_SETTINGS_MAIN_MENU_ITEM,
                                           OSOS_SETTINGS_MUSIC_MENU_ITEM};
@@ -100,12 +101,29 @@ static uint32_t native_count(unsigned menu)
     return menu ? OSOS_MUSIC_MENU_SETTINGS_COUNT : OSOS_MAIN_MENU_SETTINGS_COUNT;
 }
 
+enum { RVX_VISIBILITY_ROW = 0x40000000 };
+
+static uint32_t displayed_index(unsigned menu, uint32_t row)
+{
+    const uint32_t *rows = native_rows(menu);
+    uint32_t n = native_count(menu);
+    uint32_t last = n + cfw_ui_visibility_extra_count(menu, rows, n) - 1;
+    if (row >= last) {
+        unsigned added = cfw_rvx_visible_rows(menu);
+        if (row - last < added)
+            return RVX_VISIBILITY_ROW + (row - last);
+        row -= added;
+    }
+    return cfw_ui_visibility_index(menu, row, rows, n);
+}
+
 void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
     if (type == OSOS_PROPERTY_COUNT && (property == 0x8909 || property == 0x890a)) {
         unsigned menu = property == 0x890a;
         *out +=
-            cfw_ui_visibility_extra_count(menu, native_rows(menu), native_count(menu));
+            cfw_ui_visibility_extra_count(menu, native_rows(menu), native_count(menu)) +
+            cfw_rvx_visible_rows(menu);
     }
 }
 
@@ -116,9 +134,16 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
         return osos_settings_indexed_property(model, type, property, index, out);
     unsigned menu = property == 0x890a;
     const uint32_t *rows = native_rows(menu);
-    uint32_t original = cfw_ui_visibility_index(menu, index, rows, native_count(menu));
+    uint32_t original = displayed_index(menu, index);
     if (original == UINT32_MAX)
         return 0;
+    if (original & RVX_VISIBILITY_ROW) {
+        unsigned selected = index == osos_selection_index(osos_ui_selection());
+        if (cfw_rvx_visible_property(menu, original - RVX_VISIBILITY_ROW, type,
+                                     selected, out))
+            return 1;
+        return osos_settings_indexed_property(model, type, property, 0, out);
+    }
     const struct cfw_ui_visibility *entry = 0;
     if (original & CFW_UI_CUSTOM_ROW) {
         entry = &cfw_ui_visibility[original & ~CFW_UI_CUSTOM_ROW];
@@ -147,18 +172,21 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
 
 PATCH_ARM uint32_t cfw_ui_main_menu_index(void *selection)
 {
-    return cfw_ui_visibility_index(0, osos_selection_index(selection), native_rows(0),
-                                   native_count(0));
+    return displayed_index(0, osos_selection_index(selection));
 }
 
 PATCH_ARM uint32_t cfw_ui_music_menu_index(void *selection)
 {
-    return cfw_ui_visibility_index(1, osos_selection_index(selection), native_rows(1),
-                                   native_count(1));
+    return displayed_index(1, osos_selection_index(selection));
 }
 
 static void toggle(void *model, unsigned menu, uint32_t index)
 {
+    if (index != UINT32_MAX && (index & RVX_VISIBILITY_ROW)) {
+        cfw_rvx_toggle_row(menu, index - RVX_VISIBILITY_ROW);
+        osos_model_notify(model, OSOS_NOTIFY_ALL, settings_items[menu]);
+        return;
+    }
     if (!(index & CFW_UI_CUSTOM_ROW)) {
         if (index < native_count(menu) - 1)
             osos_menu_toggle(model, menu, index);

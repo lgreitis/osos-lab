@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ui.h"
+#include "rvx/runtime.h"
 #include "osos.h"
 #include "patch.h"
 
@@ -48,6 +49,8 @@ PATCH_ARM void cfw_ui_load_events(void *layout)
         append_events(map, 0x54455654, (*instance)[2]);
     append_events(map, 0x53455654, *(uint32_t *)(object + 8));
     uint32_t *screen = *(uint32_t **)(object + 0x58);
-    if (screen)
+    if (screen) {
         append_events(map, 0x43455654, screen[1]);
+        cfw_rvx_menu_events(map, screen[1]);
+    }
 }

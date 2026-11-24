@@ -22,6 +22,8 @@ class Item:
     text_file: str = ""
     select: str = "return"
     layout: str = "inline"
+    factory: str = "CFWCanvas"
+    view_type: str = "cfwc"
 
 
 @dataclass
@@ -44,6 +46,7 @@ class Document:
     music_entry: dict[str, str] | None = None
     main_entry: dict[str, str] | None = None
     preview: str = ""
+    menu_previews: list[tuple[str, int, int]] = field(default_factory=list)
     preview_image: str = ""
     preview_caption: str = ""
     bitmaps: dict[str, tuple[str, str]] = field(default_factory=dict)

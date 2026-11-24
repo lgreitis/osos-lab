@@ -560,6 +560,12 @@ static inline int osos_file_write(void *handle, const void *data, uint32_t bytes
     return ((fn)OSOS_FILE_WRITE)(handle, data, bytes, 1, written);
 }
 
+static inline int osos_file_size(void *handle, uint32_t *size)
+{
+    typedef int (*fn)(void *, uint32_t *);
+    return ((fn)OSOS_FILE_SIZE)(handle, size);
+}
+
 static inline int osos_file_seek(void *handle, uint64_t offset, int origin)
 {
     typedef int (*fn)(void *, uint64_t, int);

@@ -4,6 +4,10 @@
 #include "osos.h"
 #include "patch.h"
 #include "ui.h"
+#include "rvx/runtime.h"
+#include "screen_ui.h"
+
+uint8_t cfw_rvx_has_canvas, cfw_rvx_has_menu_pane;
 
 PATCH_ARM void cfw_ui_append_resource_block(void *list, void *data, uint32_t size,
                                             uint32_t metadata)
@@ -14,6 +18,7 @@ PATCH_ARM void cfw_ui_append_resource_block(void *list, void *data, uint32_t siz
         return;
     /* Registration and live menus borrow the same mutable row payloads. */
     uint32_t item = ((const uint32_t *)data)[0x30 / 4];
+    cfw_rvx_menu_row(list, selectors[3], item, data, size, metadata);
     for (uint32_t i = 0; i < cfw_ui_menu_item_count; i++) {
         const struct cfw_ui_menu_item *entry = &cfw_ui_menu_items[i];
         if (entry->table == selectors[3] && entry->after == item)
@@ -47,6 +52,9 @@ PATCH_ARM const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size
     }
     for (uint32_t i = start; i < cfw_resource_count; i++) {
         const struct cfw_resource *resource = &cfw_resources[i];
+        if ((resource->id == RVX_CanvasTemplate && !cfw_rvx_has_canvas) ||
+            (resource->id == RVX_MenuPaneTemplate && !cfw_rvx_has_menu_pane))
+            continue;
         if (resource->type == 0x56696577) { /* View */
             *id = resource->id;
             *size = resource->size;
@@ -59,6 +67,7 @@ PATCH_ARM const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size
 void cfw_install_resources(void *bank)
 {
     cfw_ui_register_canvas();
+    cfw_rvx_register_ui(bank);
     for (uint32_t i = 0; i < cfw_resource_name_count; i++) {
         struct osos_string name;
         osos_string_init(&name, cfw_resource_names[i].name);

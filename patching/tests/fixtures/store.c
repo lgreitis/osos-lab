@@ -53,6 +53,30 @@ static const uint32_t native_rows_table[5];
 #include "../../../payload/preferences.c"
 #include "../../../payload/store.c"
 #include "../../../payload/ui_visibility.c"
+
+unsigned cfw_rvx_visible_rows(unsigned menu)
+{
+    (void)menu;
+    return 0;
+}
+
+int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int selected,
+                             uintptr_t *out)
+{
+    (void)menu;
+    (void)row;
+    (void)type;
+    (void)selected;
+    (void)out;
+    return 0;
+}
+
+void cfw_rvx_toggle_row(unsigned menu, unsigned row)
+{
+    (void)menu;
+    (void)row;
+}
+
 #include "legacy_visibility.h"
 
 static uint32_t visible[2], available[2] = {3, 3};

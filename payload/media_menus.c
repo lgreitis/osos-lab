@@ -5,6 +5,7 @@
 #include "file_info.h"
 #include "file_info_ui.h"
 #include "media_menus.h"
+#include "rvx/runtime.h"
 #include "patch.h"
 
 /* Menus receive an already mapped model row. Capture the item before the menu
@@ -99,6 +100,8 @@ static int video_menu(void *controller, int row, unsigned layout_offset)
     uint32_t storage[6]; /* Native menus live on the caller's stack (24 bytes). */
     struct osos_context_menu *list = (struct osos_context_menu *)storage;
     osos_context_menu_init(list);
+    cfw_rvx_video_menu(list, controller, row, &menu.item,
+                       layout_offset == OSOS_TV_EPISODE_LAYOUT_OFFSET);
     osos_context_menu_append(list, CFW_FILE_INFO_LABEL, "CFW_FileInfo", 1);
     osos_context_menu_append(list, OSOS_CANCEL_LABEL, "HandleCancel", 0);
     osos_context_menu_show(controller, list);

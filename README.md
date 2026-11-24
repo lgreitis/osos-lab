@@ -12,6 +12,11 @@ own identity in its companion.
 - iPod Classic 6G, 6.5G and 7G.
 - FAT32 storage required.
 
+## Revola extensions
+
+Copy trusted `.rvx` extensions built for OSOS 2.0.5 with [Paul-Vincent Roll’s](https://github.com/paviro) Revola SDK 1.81 to `/Reprise/Extensions/` or `/Revola/Extensions/` and reboot.
+The Reprise copy takes priority when both folders contain the same extension.
+
 ## Repository layout
 
 - `payload/`: OSOS features, C patch declarations, and UI definitions.

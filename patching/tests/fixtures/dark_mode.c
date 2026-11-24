@@ -378,6 +378,27 @@ void cfw_ui_visibility_load_preferences(void)
     boot_step('V');
 }
 
+void cfw_rvx_reset(void)
+{
+}
+
+int cfw_rvx_property(uint32_t type, uint32_t property, uintptr_t *out)
+{
+    (void)type;
+    (void)property;
+    (void)out;
+    return 0;
+}
+
+void cfw_rvx_flush(void)
+{
+}
+
+void cfw_rvx_boot(void)
+{
+    boot_step('R');
+}
+
 void cfw_store_flush(void)
 {
     boot_step('F');
@@ -471,7 +492,7 @@ static void check_settings_lifecycle(void)
 {
     boot_count = 0;
     cfw_settings_boot(&native_preferences_object);
-    assert(!strcmp(boot_calls, "SEXVF"));
+    assert(!strcmp(boot_calls, "SEXVRF"));
     cfw_settings_sleep();
     assert(native_flushes == 1 && store_flushes == 2);
     unsigned before = delete_count;

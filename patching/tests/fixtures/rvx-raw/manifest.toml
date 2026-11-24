@@ -1,0 +1,32 @@
+id = "raw-probe"
+name = "Raw hook probe"
+description = "Exercises the RepriseVM hook loader on OSOS 2.0.5."
+version = "1.0"
+author = "RepriseOS"
+license = "GPL-3.0-only"
+api = "1.81"
+category = "other"
+
+[[module]]
+name = "main"
+trigger = "always"
+
+[[site]]
+name = "timezone_offset_call"
+kind = "call"
+address = 0x080f50b4
+expected = 0xebffff85
+argc = 1
+
+[[site]]
+name = "game_image_thumb_slot"
+kind = "vtable"
+address = 0x08a18ab8
+expected = 0x082be86c
+argc = 4
+
+[[site]]
+name = "game_time_format_key"
+kind = "word"
+address = 0x089d297c
+expected = 0x60a9

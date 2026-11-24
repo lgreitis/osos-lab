@@ -7,6 +7,7 @@
 #include "custom_eq.h"
 #include "eq_coefficients.h"
 #include "dark_mode.h"
+#include "rvx/runtime.h"
 
 enum {
     CANVAS_TYPE = 0x63667763, /* cfwc */
@@ -104,6 +105,7 @@ PATCH_ARM void cfw_eq_canvas_hold_changed(void *system, int locked)
         editor.response = !!locked;
         canvas_reset_wheel();
     }
+    cfw_rvx_hold(locked);
     osos_system_hold_changed(system, locked);
     if (canvas_active) {
         cfw_eq_model.commit();

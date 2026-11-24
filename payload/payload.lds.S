@@ -7,9 +7,15 @@ ENTRY(__payload_start)
 SECTIONS {
     . = CFW_PAYLOAD_BASE;
     __payload_start = .;
+    __payload_capacity = CFW_PAYLOAD_BYTES;
     __payload_file_offset = CFW_PAYLOAD_FILE_OFFSET;
     __osos_load_offset = OSOS_LOAD_OFFSET;
     .text : { *(.text.entry) *(.text*) *(.rodata*) }
+    .cfw.reserved : {
+        __rvx_reserved_start = .;
+        *(.cfw.reserved)
+        __rvx_reserved_end = .;
+    }
     .data : { *(.data*) }
     . = ALIGN(4);
     .bss (NOLOAD) : {

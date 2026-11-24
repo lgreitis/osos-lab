@@ -1,0 +1,24 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+#pragma once
+#include <stdint.h>
+
+void cfw_rvx_boot(void);
+void cfw_rvx_flush(void);
+void cfw_rvx_register_ui(void *bank);
+void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row,
+                      uint32_t bytes, uint32_t metadata);
+void cfw_rvx_menu_events(void *map, uint32_t screen);
+
+void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
+                        int tv);
+
+int cfw_rvx_property(uint32_t type, uint32_t property, uintptr_t *out);
+void cfw_rvx_reset(void);
+void cfw_rvx_hold(int locked);
+
+unsigned cfw_rvx_visible_rows(unsigned menu);
+int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int selected,
+                             uintptr_t *out);
+void cfw_rvx_toggle_row(unsigned menu, unsigned row);
+
+extern uint8_t cfw_rvx_has_canvas, cfw_rvx_has_menu_pane;
