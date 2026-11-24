@@ -106,7 +106,7 @@ static int inspect(Pkg *p, void *f)
     struct rvx_header h;
     u32 bytes;
     if (!read_exact(f, &h, sizeof h) || h.magic != 0x30585652 || h.format != 1 ||
-        h.firmware != 0x660eb6ff || (h.sdk_api >> 16) != RVX_API_MAJOR ||
+        h.firmware != RVX_FIRMWARE_ID || (h.sdk_api >> 16) != RVX_API_MAJOR ||
         h.manifest_bytes < sizeof(struct rvx_manifest) ||
         h.manifest_bytes > MAX_MANIFEST || !h.entries || h.entries > 4096 ||
         osos_file_size(f, &bytes))

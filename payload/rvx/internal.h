@@ -47,6 +47,7 @@ struct rvx_site {
 enum {
     RVX_RAW_MAX = 8,
     RVX_MODULES = 15,
+    RVX_FIRMWARE_ID = 0x660eb6ff,
     RVX_API_MAJOR = 1,
     RVX_API = (RVX_API_MAJOR << 16) | 82
 };

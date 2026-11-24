@@ -19,5 +19,8 @@ struct rvx_host {
     int (*visibility)(unsigned, unsigned, uint32_t, int, uintptr_t *);
     void (*toggle)(unsigned, unsigned);
     uint32_t (*dispatch)(uint32_t *, unsigned);
+    /* On-disk capability record for mounted-volume extension managers. */
+    char capability_magic[12];
+    uint32_t api, firmware_id;
 };
 #endif

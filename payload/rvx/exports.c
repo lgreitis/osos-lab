@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "host.h"
+#include "internal.h"
 
 const struct rvx_host rvx_exports __attribute__((used, section(".rvx.exports"))) = {
     .boot = cfw_rvx_boot,
@@ -15,4 +16,7 @@ const struct rvx_host rvx_exports __attribute__((used, section(".rvx.exports")))
     .visibility = cfw_rvx_visible_property,
     .toggle = cfw_rvx_toggle_row,
     .dispatch = rvx_dispatch,
+    .capability_magic = "RepriseRVX1",
+    .api = RVX_API,
+    .firmware_id = RVX_FIRMWARE_ID,
 };
