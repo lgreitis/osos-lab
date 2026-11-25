@@ -62,7 +62,7 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Clipping-free EQ: built-in presets and the custom EQ lower their gain by
   their peak boost and keep headroom between filter stages.
 - Play Next and Play Last from song, album and artist context menus. Open **Up Next**
-  in the main menu to see the queue.
+  in the main menu to see the queue, edit it with a hold menu, or clear it.
 - Apple's EU Volume Limit setting on every European iPod, with full volume
   and no volume warning when it is Off.
 - File Info from song, podcast, iTunes U, audiobook, movie, TV episode, video playlist and Now Playing context menus.
@@ -86,6 +86,12 @@ reduction after long listening.
 **Album Artists** groups tracks by their Album Artist tag, using Artist when that
 field is empty. Show or hide the entry through Settings → Main Menu and Settings →
 Music Menu.
+
+**Up Next** lists the songs still queued behind the one playing, in the order they
+will play. Hold Select on a row to remove that song, move it to the front or the back
+of the queue, or **Clear Up Next**, which drops every queued song and leaves the
+current one playing. The entry and its "n Songs" count disappear while nothing is
+queued.
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
 

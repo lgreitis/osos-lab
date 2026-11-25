@@ -481,6 +481,7 @@ PATCH_ARM int cfw_up_next_song_menu(void *controller, int row)
         osos_context_menu_append(m, CFW_PLAY_NEXT, "CFW_PlayNext", 1);
         osos_context_menu_append(m, CFW_PLAY_LAST, "CFW_PlayLast", 1);
     }
+    osos_context_menu_append(m, CFW_UPNEXT_CLEAR, "CFW_ClearUpNext", 1);
     osos_context_menu_append(m, CFW_UPNEXT_ALBUM, "HandleViewAlbum", 1);
     osos_context_menu_append(m, CFW_UPNEXT_ARTIST, "HandleViewArtist", 1);
     osos_context_menu_append(m, CFW_FILE_INFO_LABEL, "CFW_FileInfo", 1);
@@ -518,6 +519,21 @@ static int remove_row(struct osos_player *player, int row)
     struct osos_media_entry *entry = osos_playback_entry(
         &player->playback, player->current_index + 1 + row - (int)up_next.top);
     return delete_entry(player, entry);
+}
+
+/* Drop every song queued behind the current one, leaving an empty queue. The player lock must
+   be held. The song at current index + 1 is deleted repeatedly: each delete shifts the songs
+   after it down, so this drains the queue. A failed delete stops early; the return says
+   whether anything went. */
+static int clear_queued(struct osos_player *player)
+{
+    int first = player->current_index + 1, changed = 0;
+    while (queued(player)) {
+        if (!delete_entry(player, osos_playback_entry(&player->playback, first)))
+            break;
+        changed = 1;
+    }
+    return changed;
 }
 
 /* Selecting a queued song removes intervening entries, then starts its playback-list index.
@@ -574,6 +590,7 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
        seen when the menu opened, and the menu refused to open on stale rows. */
     void *focused = osos_ui_selection();
     int menu_action = cfw_string_equal(action, "CFW_RemoveFromQueue") ||
+                      cfw_string_equal(action, "CFW_ClearUpNext") ||
                       cfw_string_equal(action, "CFW_PlayNext") ||
                       cfw_string_equal(action, "CFW_PlayLast") ||
                       cfw_string_equal(action, "CFW_FileInfo") ||
@@ -633,9 +650,10 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
         return 1;
     }
     int remove = cfw_string_equal(action, "CFW_RemoveFromQueue");
+    int clear = cfw_string_equal(action, "CFW_ClearUpNext");
     int next = cfw_string_equal(action, "CFW_PlayNext");
     int last = cfw_string_equal(action, "CFW_PlayLast");
-    if (!remove && !next && !last)
+    if (!remove && !clear && !next && !last)
         return 0;
     if (!is_up_next(controller))
         return 0; /* Play Next elsewhere: osos-lab's own handler */
@@ -652,7 +670,11 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
     osos_player_lock(player);
     int top = (int)up_next.top;
     int changed = 0;
-    if (row < top) {
+    if (clear) { /* every song still queued behind the current one */
+        cfw_queue_edit_begin(player);
+        changed = clear_queued(player);
+        cfw_queue_edit_end(player, changed);
+    } else if (row < top) {
         /* the playing song: nothing to move or remove */
     } else if ((next && row > top && (unsigned)row < up_next.count) ||
                (last && (unsigned)row + 1 < up_next.count)) {
@@ -675,10 +697,12 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
         cfw_queue_edit_end(player, changed);
     }
     osos_player_unlock(player);
-    /* Highlight: after a remove, the song above it; after a move, where the song went. Then
-       the double blink Apple uses to confirm Add to On-The-Go. */
     unsigned count = queued(player);
+    /* Highlight: after a remove, the song above it; after a move, where the song went; after a
+       clear, the top row, which only matters if a delete failed and rows were kept. Then the
+       double blink Apple uses to confirm Add to On-The-Go. */
     int highlight = !changed ? row
+                    : clear  ? 0
                     : remove ? row - 1
                     : next   ? (int)up_next.top
                              : (int)(count + up_next.top) - 1;
