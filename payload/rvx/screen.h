@@ -75,7 +75,7 @@ struct graphics {
     void (*rows)(int, int, const void *, int, u32),
         (*blend)(int, int, const void *, int, uint8_t);
     void (*tile)(int, int, int, const void *);
-    void (*reserved)(int, int, const char *, const char *, const struct bitmap *);
+    void (*card)(int, int, const char *, const char *, const struct bitmap *);
     void (*text_in)(const struct rect *, uint8_t, u32, const char *, int8_t);
     u32 (*mix)(u32, u32, uint8_t);
     const struct rect *(*clip)(void);
