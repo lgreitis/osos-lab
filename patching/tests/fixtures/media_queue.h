@@ -19,9 +19,10 @@ struct test_queue {
 };
 static struct test_queue queue, source;
 static struct osos_media_entry entries[128];
-static struct osos_media_record records[32];
+static struct osos_media_record records[128];
 static struct osos_player player;
 static unsigned allocated, copies, deletes, stops, rebuilds, prepared, rebound, locks;
+static unsigned lookups; /* playback-list entry reads, to watch a drain's cost */
 static int artwork_stopped, update_depth, music = 1, fail_copy, fail_delete;
 static unsigned filtered_id = UINT32_MAX;
 static uint8_t browser_selection[OSOS_BROWSER_ORDER_FLAG_OFFSET + 1];
@@ -96,6 +97,7 @@ static inline struct osos_media_entry *queue_entry(struct osos_playback_list *vi
                                                    int index)
 {
     struct test_queue *list = test_list(view->list);
+    lookups++;
     if (!list || index < 0 || (unsigned)index >= list->root.tracks)
         return NULL;
     if (list->shuffled && !list->order_valid)
@@ -283,6 +285,7 @@ static inline void reset_queue(int shuffled, int reversed)
     memset(entries, 0, sizeof(entries));
     memset(records, 0, sizeof(records));
     allocated = copies = deletes = stops = rebuilds = prepared = rebound = locks = 0;
+    lookups = 0;
     artwork_stopped = update_depth = fail_copy = fail_delete = 0;
     music = 1;
     filtered_id = UINT32_MAX;
@@ -307,6 +310,24 @@ static inline void reset_queue(int shuffled, int reversed)
     player.playback.list = (void *)&queue;
     player.current_index = 1;
     player.current = queue_entry(&player.playback, player.current_index);
+}
+
+/* Extend the queue behind the current song, as a long Play Next buildup would. */
+static inline void grow_queue(unsigned extra)
+{
+    while (extra && queue.root.tracks < 64 && allocated < 128) {
+        struct osos_media_entry *entry = &entries[allocated];
+        memset(entry, 0, sizeof(*entry));
+        entry->id = 100 + allocated;
+        entry->song.record = &records[allocated];
+        records[allocated].entries = entry;
+        entry->song.shuffle_rank = allocated;
+        queue.physical[queue.root.tracks++] = entry;
+        allocated++;
+        extra--;
+    }
+    relink(&queue);
+    rebuild_order(&queue);
 }
 
 #define osos_list_root queue_root

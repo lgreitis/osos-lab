@@ -22,8 +22,13 @@ static void *focused_view = &view;
 static uint32_t screen_id = OSOS_SONGS_SCREEN;
 static unsigned reloads, restores, pops, blinks, posts, menu_changes, notifications;
 static unsigned play_calls, pause_calls, skip_calls, original_calls, menu_rows;
-static const char *menu_actions[8];
-static uint32_t menu_labels[8];
+
+/* Headroom over the rows the Up Next hold menu offers today, so one more legal row is
+   not a false failure. The row counts below pin the menu's actual contents. */
+enum { MENU_ROWS_MAX = 12 };
+
+static const char *menu_actions[MENU_ROWS_MAX];
+static uint32_t menu_labels[MENU_ROWS_MAX];
 static int highlighted, played_index, available, allocation_fails;
 static char message[40];
 static void *registry[4];
@@ -205,7 +210,7 @@ static void menu_init(struct osos_context_menu *m)
 static void menu_append(struct osos_context_menu *m, uint32_t label, const char *action,
                         uint32_t flags)
 {
-    assert(m && action && menu_rows < 8);
+    assert(m && action && menu_rows < MENU_ROWS_MAX);
     (void)flags;
     menu_labels[menu_rows] = label;
     menu_actions[menu_rows] = action;
@@ -476,7 +481,8 @@ static void check_clear(int shuffled, int reversed)
            notifications == 1);
 
     setup(shuffled, reversed);
-    action("CFW_ClearUpNext", 0); /* opened on the playing song, which has no row actions */
+    /* Opened on the playing song, which has no other queue actions. */
+    action("CFW_ClearUpNext", 0);
     assert(deletes == 3 && queue.root.tracks == 2 && pops == 1);
     assert(player.current == queue_entry(&player.playback, 1));
 }
@@ -512,6 +518,25 @@ static void check_failures_and_stale(void)
 }
 
 /* Clear only acts on the Up Next screen, on rows the menu really offered. */
+/* Clearing a long queue is one pass over it: it must not rescan the queue per song. */
+static void check_clear_cost(void)
+{
+    setup(0, 0);
+    grow_queue(37); /* 40 songs queued behind the current one */
+    clear_songs(browser.data);
+    cfw_up_next_build_songs(browser.data);
+    assert(queued(&player) == 40 && up_next.count == 41);
+    unsigned before = lookups, songs = queued(&player);
+    action("CFW_ClearUpNext", (int)up_next.count - 1);
+    assert(deletes == songs && queue.root.tracks == 2 && !queued(&player));
+    assert(stops == 1 && rebuilds == 1); /* one artwork cycle for the whole drain */
+    /* Two reads per song: the drain's own, plus the check that the song is still
+       queued. That check hits at once, since deleting shifts the next song onto the
+       slot just freed. Scanning the rest of the queue per song would cost about ten
+       times this. */
+    assert(lookups - before <= 3 * songs);
+}
+
 static void check_clear_guards(void)
 {
     assert(!cfw_up_next_song_action(other_model.data, "CFW_ClearUpNext", 0));
@@ -531,8 +556,7 @@ static void check_clear_guards(void)
     fail_delete = 2; /* the second song refuses to go: keep the rest of the queue */
     action("CFW_ClearUpNext", 2);
     assert(deletes == 1 && queue.root.tracks == 4 && stops == 1 && rebound == 1);
-    assert(!pops && highlighted == 0 && available &&
-           !strcmp(message, "2 Songs"));
+    assert(!pops && highlighted == 0 && available && !strcmp(message, "2 Songs"));
 }
 
 static void check_refresh_and_lifecycle(void)
@@ -588,6 +612,7 @@ int main(void)
         }
     check_failures_and_stale();
     check_clear_guards();
+    check_clear_cost();
     check_refresh_and_lifecycle();
     return 0;
 }
