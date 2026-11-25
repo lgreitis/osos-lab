@@ -48,7 +48,7 @@ const struct worker_service *worker = api->module_service(self, 1);
 
 ## Libraries
 
-A library is an extension whose functions other extensions call directly. Its manifest says `category = "library"` and lists the functions in `exports`; it has one module, no sites and no content folders, and its entry may return NULL. An extension that calls them lists the library's id in `requires` (at most four) and `rv.mk` finds the library's directory under `LIBRARY_PATH` (`..` by default), adds it to the include path, links its exports as 0 and tells `rvx-pack` which words are imports. The core loads a required library before the extension, points every import at the export of the same name, and unloads the library when no loaded extension requires it. Library code runs on whatever task calls it; a static inside the library is shared by every caller.
+A library is an extension whose functions other extensions call directly. Its manifest says `category = "library"` and lists the functions in `exports`; it has one module, no sites and no content folders, and its entry may return NULL. An extension that calls them lists the library's id under `[libraries]`, as `required` or `optional` (at most four ids in all), and `rv.mk` finds the library's directory under `LIBRARY_PATH` (`..` by default), adds it to the include path, links its exports as 0 and tells `rvx-pack` which words are imports. The core starts the listed libraries before the extension and points every import at the export of the same name. Library code runs on whatever task calls it; a static inside the library is shared by every caller.
 
 ```toml
 # dsp/manifest.toml
@@ -56,10 +56,23 @@ category = "library"
 exports = ["rv_dsp_biquad", "rv_limiter_run"]
 
 # equalizer/manifest.toml
-requires = ["dsp"]
+[libraries]
+required = ["dsp"]
 ```
 
-Declare the exports in the library's header without `RV_MODULE_CALL`; a call into a library is a long call through an address the core fills in. Imports resolve by name alone. An extension whose library is missing shows "Needs dsp" in Settings > Extensions; one whose library lacks a function it calls shows "Needs a newer dsp". A changed export signature gets a new name; the old one stays.
+Declare the exports in the library's header without `RV_MODULE_CALL` and with the name in parentheses, `int32_t (example_double)(int32_t value);`: a call into a library is a long call through an address the core fills in, and the parentheses keep the guard below out of the declaration. Imports resolve by name alone. An extension whose library is missing shows "Needs dsp" in Settings > Extensions; one whose library lacks a function it calls shows "Needs a newer dsp". A changed export signature gets a new name; the old one stays.
+
+An optional library (API 1.84) lets the extension run without it. When it is not installed, failed to load, or lacks a function, the core leaves that import NULL and the extension loads anyway. `rv.mk` declares every export of an optional library weak, so the compiler keeps a test against NULL, and turns a bare call to one into a compile error. Call it with `RV_OPTIONAL`, which gives the fallback when the function is missing, or test it and call it with the name in parentheses:
+
+```c
+value = RV_OPTIONAL(example_double, 0, 21);
+RV_OPTIONAL(example_log, (void)0, "text");
+
+if (example_double)
+    value = (example_double)(21);
+```
+
+On RepriseOS, extensions and their libraries start at boot, so an optional library installed later is used from the next boot. A library listed as `required` is never NULL, and a test against one does not compile.
 
 A library has no Enabled setting. Its page lists the extensions using it, and Select on it only clears its crash mark after a crash in library code. The `dsp` extension of the extensions repository is a library, and the audio effects there call it.
 

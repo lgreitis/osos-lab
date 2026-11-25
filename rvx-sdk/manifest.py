@@ -16,16 +16,18 @@ manifest.toml:
     category = "effects"         # where Settings > Extensions lists it: effects, media,
                                  # system, other, or library: one module, no sites or
                                  # content, nothing required, loaded while an extension
-                                 # that requires it is
+                                 # that lists it is
     note = "Adapted from X"      # optional: one line under the version, shown to listeners
     content = "Themes"           # optional: a folder under /Revola/ the extension reads, or a
                                  # list of them; [A-Z][a-z0-9]{1,15}. One owner per folder: a
                                  # second enabled extension naming it does not load
-    requires = ["dsp"]           # optional: ids of the library extensions whose functions
-                                 # the modules call, at most 4; the core loads them first
-
     exports = ["rv_dsp_biquad"]  # the functions a library offers, by C name; rvx-pack reads
                                  # them from here, they are not compiled into the manifest
+
+    [libraries]                  # optional: the library extensions whose functions the
+                                 # modules call, at most 4 ids in all; the core loads them first
+    required = ["dsp"]           # the extension stays off without one of these
+    optional = ["reprise"]       # absent, or without a function, its imports stay NULL
 
     [[module]]                   # the first module is main, trigger always
     name = "main"
@@ -65,14 +67,18 @@ sites only.
 
     python3 manifest.py imports LIB/manifest.toml ...
     python3 manifest.py exports manifest.toml
+    python3 manifest.py optional LIB/manifest.toml ...
     python3 manifest.py makefile manifest.toml
 
 print linker scripts: `imports` defines every export of the named libraries as
 0, so a module that calls them links, and rvx-pack turns the words that name
 them into imports the core fills in at load time; `exports` keeps a library's
 own exports through --gc-sections (nothing for any other extension).
-`makefile` prints the id, modules, required libraries and asset files as the
-Make variables rv.mk reads.
+`optional` prints the header an extension listing the named libraries as
+optional compiles with: every export weak, so that a test against NULL
+survives the compiler, and a bare call to one a compile error, so that every
+call goes through RV_OPTIONAL or a test. `makefile` prints the id, modules,
+libraries and asset files as the Make variables rv.mk reads.
 
 Ships in the SDK tarball with bitmap.py beside it and depends on nothing else.
 """
@@ -89,9 +95,10 @@ STABILITY = {"alpha": 1, "beta": 2, "stable": 3}  # flags bits 0-1
 # Settings > Extensions lists a category per row, in this order, libraries last.
 CATEGORIES = {"effects": 1, "media": 2, "system": 3, "other": 4, "library": 5}
 # Magic, version, api, flags, module and site counts and string bytes; the offsets
-# of the six texts, the note, the first content folder and the first required id;
-# the category; the folder and required counts.
-HEADER = struct.Struct("<7I10H2I")
+# of the six texts, the note, the first content folder and the first library id;
+# the category; the folder count; the library count and how many of those, last in
+# the list, are optional.
+HEADER = struct.Struct("<7I10HI2H")
 # Name, trigger, screen count and first screen, preload class, a reserved 0.
 MODULE = struct.Struct("<HBBHBB")
 SITE = struct.Struct("<IIBBH")
@@ -115,7 +122,10 @@ CONTENT_PATTERN = re.compile(r"[A-Z][a-z0-9]{1,15}")
 # The core's folders; the pattern fixes the case, so an exact match covers FAT's.
 CONTENT_RESERVED = {"Extensions", "Data", "Settings", "Firmware", "Crashes"}
 MAX_CONTENT = 4
-MAX_REQUIRES = 4
+MAX_LIBRARIES = 4
+LIBRARIES_KEYS = {"required", "optional"}
+# The first API minor whose core leaves an optional library's imports NULL.
+OPTIONAL_API = 1 << 16 | 84
 EXPORT_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 LICENSES = {
     "GPL-3.0-only",
@@ -140,7 +150,7 @@ MANIFEST_KEYS = {
     "api",
     "stability",
     "content",
-    "requires",
+    "libraries",
     "category",
     "exports",
     "module",
@@ -237,7 +247,7 @@ def compile_manifest(document):
     if library:
         if len(modules) != 1:
             raise ValueError("a library has one module")
-        for key in ("site", "content", "requires"):
+        for key in ("site", "content", "libraries"):
             if key in document:
                 raise ValueError(f"a library has no {key}")
     if modules[0].get("name") != "main" or modules[0].get("trigger") != "always":
@@ -250,9 +260,10 @@ def compile_manifest(document):
     content_offset = strings.add(content[0]) if content else 0
     for folder in content[1:]:
         strings.add(folder)
-    required = requires(document)
-    requires_offset = strings.add(required[0]) if required else 0
-    for identifier in required[1:]:
+    required, optional = libraries(document)
+    listed = required + optional
+    libraries_offset = strings.add(listed[0]) if listed else 0
+    for identifier in listed[1:]:
         strings.add(identifier)
     records = []
     for module in modules:
@@ -311,10 +322,11 @@ def compile_manifest(document):
         len(strings.data),
         *texts,
         content_offset,
-        requires_offset,
+        libraries_offset,
         CATEGORIES[category(document)],
         len(content),
-        len(required),
+        len(listed),
+        len(optional),
     )
     compiled = header + b"".join(site_records) + b"".join(records) + bytes(strings.data)
     if len(compiled) > MAX_BYTES:
@@ -341,20 +353,35 @@ def content_folders(document):
     return content
 
 
-def requires(document):
-    """The ids of the libraries the extension requires, checked; empty without
-    a requires field."""
-    required = document.get("requires", [])
-    if not isinstance(required, list) or not all(isinstance(r, str) for r in required):
-        raise ValueError("requires is a list of extension ids")
-    if len(required) > MAX_REQUIRES or len(set(required)) != len(required):
-        raise ValueError(f"requires lists at most {MAX_REQUIRES} distinct ids")
-    for identifier in required:
+def libraries(document):
+    """The ids of the required and of the optional libraries, checked; two empty
+    lists without a libraries table."""
+    table = document.get("libraries", {})
+    if not isinstance(table, dict):
+        raise ValueError("libraries is a table of required and optional ids")
+    if set(table) - LIBRARIES_KEYS:
+        raise ValueError(
+            f"libraries: unknown keys {sorted(set(table) - LIBRARIES_KEYS)}"
+        )
+    lists = []
+    for key in ("required", "optional"):
+        ids = table.get(key, [])
+        if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+            raise ValueError(f"libraries.{key} is a list of extension ids")
+        lists.append(ids)
+    listed = lists[0] + lists[1]
+    if len(listed) > MAX_LIBRARIES or len(set(listed)) != len(listed):
+        raise ValueError(f"libraries lists at most {MAX_LIBRARIES} distinct ids")
+    for identifier in listed:
         if not ID_PATTERN.fullmatch(identifier) or identifier in RESERVED_IDS:
-            raise ValueError(f"bad required id {identifier!r}")
+            raise ValueError(f"bad library id {identifier!r}")
         if identifier == document.get("id"):
-            raise ValueError("an extension cannot require itself")
-    return required
+            raise ValueError("an extension cannot list itself as a library")
+    if lists[1] and api_word(document.get("api")) < OPTIONAL_API:
+        raise ValueError(
+            f"optional libraries need api {OPTIONAL_API >> 16}.{OPTIONAL_API & 0xFFFF}"
+        )
+    return lists[0], lists[1]
 
 
 def category(document):
@@ -400,6 +427,26 @@ def imports_script(documents):
         if not is_library(document):
             raise ValueError(f"{document.get('id')} is not a library")
         lines += [f"{name} = 0;" for name in exports(document)]
+    return "".join(line + "\n" for line in lines)
+
+
+def optional_header(documents):
+    """The header for the exports of optional libraries: each weak, so the
+    compiler keeps a test against NULL, and a function-like macro of the same
+    name that fails a bare call. `if (name)`, `(name)(...)` and RV_OPTIONAL do
+    not expand it; the library header declares each export as
+    `type (name)(...)` for the same reason."""
+    lines = []
+    for document in documents:
+        if not is_library(document):
+            raise ValueError(f"{document.get('id')} is not a library")
+        for name in exports(document):
+            lines += [
+                f"#pragma weak {name}",
+                f"#define {name}(...) __extension__({{ _Static_assert(0, "
+                f'"{name} is from the optional library {document["id"]}: call it '
+                f'with RV_OPTIONAL, or as ({name})(...) after a test"); 0; }})',
+            ]
     return "".join(line + "\n" for line in lines)
 
 
@@ -468,12 +515,15 @@ def assets(document):
 
 def makefile(document):
     """The Make variables rv.mk takes from a checked manifest: the id, the
-    modules in their order, the required libraries and the asset files."""
+    modules in their order, every library, the optional ones and the asset
+    files."""
     compile_manifest(document)
+    required, optional = libraries(document)
     return (
         f"MANIFEST_ID := {document['id']}\n"
         f"MANIFEST_MODULES := {' '.join(m['name'] for m in document['module'])}\n"
-        f"MANIFEST_REQUIRES := {' '.join(requires(document))}\n"
+        f"MANIFEST_LIBRARIES := {' '.join(required + optional)}\n"
+        f"MANIFEST_OPTIONAL := {' '.join(optional)}\n"
         f"MANIFEST_ASSETS := {' '.join(a['file'] for a in assets(document))}\n"
     )
 
@@ -494,13 +544,18 @@ def main():
         "exports", help="print a linker script that keeps a library's exports"
     )
     exports_.add_argument("manifest", type=Path, metavar="manifest.toml")
+    optional = commands.add_parser(
+        "optional", help="print the header for the exports of optional libraries"
+    )
+    optional.add_argument("manifests", type=Path, nargs="+", metavar="manifest.toml")
     make = commands.add_parser("makefile", help="print the Make variables rv.mk reads")
     make.add_argument("manifest", type=Path, metavar="manifest.toml")
     args = parser.parse_args()
     try:
-        if args.command == "imports":
+        if args.command in ("imports", "optional"):
             documents = [tomllib.loads(path.read_text()) for path in args.manifests]
-            sys.stdout.write(imports_script(documents))
+            script = imports_script if args.command == "imports" else optional_header
+            sys.stdout.write(script(documents))
         elif args.command == "exports":
             sys.stdout.write(exports_script(tomllib.loads(args.manifest.read_text())))
         else:
