@@ -7,8 +7,11 @@
               open="CFW_UpNext" hilite="CFW_UpNextHilited"
               preview="MainMenu_Preview_Compilations" message="0 Songs"/>
   <string id="CFW_UPNEXT_REMOVE" text="Remove from Queue"/>
+  <string id="CFW_UPNEXT_CLEAR" text="Clear Up Next"/>
   <string id="CFW_UPNEXT_ALBUM" text="Go to Album"/>
   <string id="CFW_UPNEXT_ARTIST" text="Go to Artist"/>
   <screen-event screen="MediaLists_Songs_Screen" event="contextualMenu.CFW_RemoveFromQueue"
                 handler="CFW_RemoveFromQueue"/>
+  <screen-event screen="MediaLists_Songs_Screen" event="contextualMenu.CFW_ClearUpNext"
+                handler="CFW_ClearUpNext"/>
 </ui>

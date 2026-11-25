@@ -22,6 +22,13 @@ static void *focused_view = &view;
 static uint32_t screen_id = OSOS_SONGS_SCREEN;
 static unsigned reloads, restores, pops, blinks, posts, menu_changes, notifications;
 static unsigned play_calls, pause_calls, skip_calls, original_calls, menu_rows;
+
+/* Headroom over the rows the Up Next hold menu offers today, so one more legal row is
+   not a false failure. The row counts below pin the menu's actual contents. */
+enum { MENU_ROWS_MAX = 12 };
+
+static const char *menu_actions[MENU_ROWS_MAX];
+static uint32_t menu_labels[MENU_ROWS_MAX];
 static int highlighted, played_index, available, allocation_fails;
 static char message[40];
 static void *registry[4];
@@ -203,10 +210,20 @@ static void menu_init(struct osos_context_menu *m)
 static void menu_append(struct osos_context_menu *m, uint32_t label, const char *action,
                         uint32_t flags)
 {
-    assert(m && action);
-    (void)label;
+    assert(m && action && menu_rows < MENU_ROWS_MAX);
     (void)flags;
+    menu_labels[menu_rows] = label;
+    menu_actions[menu_rows] = action;
     menu_rows++;
+}
+
+/* The row the hold menu shows for this action, or -1 when it offers none. */
+static int menu_row_of(const char *name)
+{
+    for (unsigned i = 0; i < menu_rows; i++)
+        if (!strcmp(menu_actions[i], name))
+            return (int)i;
+    return -1;
 }
 
 static void menu_show(void *c, struct osos_context_menu *m)
@@ -418,7 +435,9 @@ static void check_edits(int shuffled, int reversed)
            prepared == 1 && rebound == 1);
     assert(highlighted == 1 && !up_next.stale);
     assert(cfw_up_next_song_menu(controller.data, 1));
-    assert(menu_rows == 7);
+    int clear = menu_row_of("CFW_ClearUpNext");
+    assert(menu_rows == 8 && clear == 3); /* after the per-song queue edits */
+    assert(menu_labels[clear] == CFW_UPNEXT_CLEAR);
     setup(shuffled, reversed);
     moved = up_next.rows[1]->id;
     action("CFW_PlayLast", 1);
@@ -443,6 +462,29 @@ static void check_edits(int shuffled, int reversed)
            rebound == 1);
     assert(play_calls == 1 && played_index == 2 &&
            queue_entry(&player.playback, 2)->id == moved);
+}
+
+/* Clearing empties the queue, closes the screen and reports an empty main-menu row. */
+static void check_clear(int shuffled, int reversed)
+{
+    struct osos_media_entry *played;
+    setup(shuffled, reversed);
+    played = queue_entry(&player.playback, 0); /* the song that already played */
+    action("CFW_ClearUpNext", 3);
+    assert(deletes == 3 && queue.root.tracks == 2 && !queued(&player));
+    assert(!queue_entry(&player.playback, 2));
+    assert(player.current == queue_entry(&player.playback, 1));
+    assert(queue_entry(&player.playback, 0) == played);
+    assert(stops == 1 && rebuilds == 1 && prepared == 1 && rebound == 1);
+    assert(pops == 1 && !up_next.count && !up_next.stale);
+    assert(!strcmp(message, "0 Songs") && !available && menu_changes == 1 &&
+           notifications == 1);
+
+    setup(shuffled, reversed);
+    /* Opened on the playing song, which has no other queue actions. */
+    action("CFW_ClearUpNext", 0);
+    assert(deletes == 3 && queue.root.tracks == 2 && pops == 1);
+    assert(player.current == queue_entry(&player.playback, 1));
 }
 
 static void check_failures_and_stale(void)
@@ -475,6 +517,48 @@ static void check_failures_and_stale(void)
     assert(pops == 1 && !play_calls);
 }
 
+/* Clear only acts on the Up Next screen, on rows the menu really offered. */
+/* Clearing a long queue is one pass over it: it must not rescan the queue per song. */
+static void check_clear_cost(void)
+{
+    setup(0, 0);
+    grow_queue(37); /* 40 songs queued behind the current one */
+    clear_songs(browser.data);
+    cfw_up_next_build_songs(browser.data);
+    assert(queued(&player) == 40 && up_next.count == 41);
+    unsigned before = lookups, songs = queued(&player);
+    action("CFW_ClearUpNext", (int)up_next.count - 1);
+    assert(deletes == songs && queue.root.tracks == 2 && !queued(&player));
+    assert(stops == 1 && rebuilds == 1); /* one artwork cycle for the whole drain */
+    /* Two reads per song: the drain's own, plus the check that the song is still
+       queued. That check hits at once, since deleting shifts the next song onto the
+       slot just freed. Scanning the rest of the queue per song would cost about ten
+       times this. */
+    assert(lookups - before <= 3 * songs);
+}
+
+static void check_clear_guards(void)
+{
+    assert(!cfw_up_next_song_action(other_model.data, "CFW_ClearUpNext", 0));
+    setup(0, 0);
+    assert(cfw_up_next_song_action(controller.data, "CFW_ClearUpNext",
+                                   OSOS_ACTION_SUPPORT_QUERY));
+    assert(!deletes && !stops && queue.root.tracks == 5);
+    setup(0, 0);
+    queue_generation++; /* the queue moved on while the menu was open */
+    action("CFW_ClearUpNext", 2);
+    assert(restores == 1 && !deletes && !stops && queue.root.tracks == 5);
+    setup(0, 0);
+    up_next.stale = 1; /* covered by Now Playing: refresh instead of acting */
+    action("CFW_ClearUpNext", 2);
+    assert(!deletes && !stops && reloads == 1 && !up_next.stale);
+    setup(0, 0);
+    fail_delete = 2; /* the second song refuses to go: keep the rest of the queue */
+    action("CFW_ClearUpNext", 2);
+    assert(deletes == 1 && queue.root.tracks == 4 && stops == 1 && rebound == 1);
+    assert(!pops && highlighted == 0 && available && !strcmp(message, "2 Songs"));
+}
+
 static void check_refresh_and_lifecycle(void)
 {
     setup(0, 0);
@@ -486,9 +570,9 @@ static void check_refresh_and_lifecycle(void)
                                    OSOS_ACTION_SUPPORT_QUERY));
     assert(!stops);
     cfw_up_next_song_menu(controller.data, 0);
-    assert(menu_rows == 4);
+    assert(menu_rows == 5 && menu_row_of("CFW_ClearUpNext") == 0);
     cfw_up_next_song_menu(controller.data, 1);
-    assert(menu_rows == 7);
+    assert(menu_rows == 8 && menu_row_of("CFW_RemoveFromQueue") == 0);
     action("HandlePlayPause", 1);
     assert(pause_calls == 1);
     up_next.shown = ~0u;
@@ -522,9 +606,13 @@ static void check_refresh_and_lifecycle(void)
 int main(void)
 {
     for (int shuffled = 0; shuffled < 2; shuffled++)
-        for (int reversed = 0; reversed < 2; reversed++)
+        for (int reversed = 0; reversed < 2; reversed++) {
             check_edits(shuffled, reversed);
+            check_clear(shuffled, reversed);
+        }
     check_failures_and_stale();
+    check_clear_guards();
+    check_clear_cost();
     check_refresh_and_lifecycle();
     return 0;
 }
