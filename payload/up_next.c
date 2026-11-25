@@ -521,14 +521,13 @@ static int remove_row(struct osos_player *player, int row)
     return delete_entry(player, entry);
 }
 
-/* Drop every song queued behind the current one, leaving an empty queue. The player lock must
-   be held. The song at current index + 1 is deleted repeatedly: each delete shifts the songs
-   after it down, so this drains the queue. A failed delete stops early; the return says
-   whether anything went. */
-static int clear_queued(struct osos_player *player)
+/* Drop the count songs queued behind the current one (the player lock must be held). Each
+   delete shifts the queue down onto current index + 1, so that slot is deleted again and
+   again. A failed delete stops early; the return says whether anything went. */
+static int drop_queued(struct osos_player *player, unsigned count)
 {
     int first = player->current_index + 1, changed = 0;
-    while (queued(player)) {
+    for (unsigned i = 0; i < count; i++) {
         if (!delete_entry(player, osos_playback_entry(&player->playback, first)))
             break;
         changed = 1;
@@ -551,11 +550,7 @@ static void jump_to_row(int row)
     int changed = 0;
     if (row > (int)up_next.top) {
         cfw_queue_edit_begin(player);
-        for (int i = (int)up_next.top; i < row; i++) {
-            if (!delete_entry(player, osos_playback_entry(&player->playback, first)))
-                break;
-            changed = 1;
-        }
+        changed = drop_queued(player, (unsigned)(row - (int)up_next.top));
         cfw_queue_edit_end(player, changed);
     }
     int ready = target && queued(player) &&
@@ -672,7 +667,7 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
     int changed = 0;
     if (clear) { /* every song still queued behind the current one */
         cfw_queue_edit_begin(player);
-        changed = clear_queued(player);
+        changed = drop_queued(player, queued(player));
         cfw_queue_edit_end(player, changed);
     } else if (row < top) {
         /* the playing song: nothing to move or remove */
@@ -699,13 +694,19 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
     osos_player_unlock(player);
     unsigned count = queued(player);
     /* Highlight: after a remove, the song above it; after a move, where the song went; after a
-       clear, the top row, which only matters if a delete failed and rows were kept. Then the
+       clear, the top row, which only survives if a delete failed and rows were kept. Then the
        double blink Apple uses to confirm Add to On-The-Go. */
-    int highlight = !changed ? row
-                    : clear  ? 0
-                    : remove ? row - 1
-                    : next   ? (int)up_next.top
-                             : (int)(count + up_next.top) - 1;
+    int highlight = row;
+    if (changed) {
+        if (clear)
+            highlight = 0;
+        else if (remove)
+            highlight = row - 1;
+        else if (next)
+            highlight = (int)up_next.top;
+        else
+            highlight = (int)(count + up_next.top) - 1;
+    }
     up_next.shown = count; /* reload once, here, with this highlight */
     reload_list(highlight, changed ? 1 : 2);
     if (remove && changed &&
