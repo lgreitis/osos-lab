@@ -222,8 +222,7 @@ fn sysinfo(cfg: &SysCfg) -> Result<[u8; SYSINFO_BYTES]> {
     ] {
         result[dest..dest + length].copy_from_slice(&entry(tag)?[start..start + length]);
     }
-    let region = entry("Regn")?;
-    if u16::from_le_bytes(region[..2].try_into().unwrap()) == 1 {
+    if let Some(region) = cfg.entries.get("Regn").filter(|r| r[..2] == [1, 0]) {
         result[0x92..0x96].copy_from_slice(&region[4..8]);
     }
     Ok(result)

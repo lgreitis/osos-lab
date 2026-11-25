@@ -121,6 +121,17 @@ fn component(bundle: &mut VerifiedBundle, name: &str, files: &[(&str, Vec<u8>)])
 }
 
 #[test]
+fn companion_accepts_a_missing_sales_region() {
+    let mut config = cfg();
+    config.entries.remove("Regn");
+    let image = personalize_companion(vec![0; 0x2b800], &config).unwrap();
+    assert_eq!(
+        &image[SYSINFO_OFFSET + 0x92..SYSINFO_OFFSET + 0x96],
+        &[0; 4]
+    );
+}
+
+#[test]
 fn companion_uses_the_supplied_device_and_rejects_incompatible_config() {
     let mut config = cfg();
     let first = personalize_companion(vec![0; 0x2b800], &config).unwrap();
