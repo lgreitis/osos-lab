@@ -93,6 +93,12 @@ static void leave_up_next(void)
     osos_pop_to_main_screen();
 }
 
+/* Playback-list index of the first song queued behind the current one. */
+static int queued_first(struct osos_player *player)
+{
+    return player->current_index + 1;
+}
+
 /* Songs after the current one. Read without the player lock (word reads only); callers that
    act on entries take the lock themselves. */
 static unsigned queued(struct osos_player *player)
@@ -103,7 +109,7 @@ static unsigned queued(struct osos_player *player)
     struct osos_media_entry *root = osos_list_root(player->playback.list);
     if (!root || root->groups || root->tracks == UINT16_MAX)
         return 0;
-    unsigned tracks = root->tracks, next = (unsigned)player->current_index + 1;
+    unsigned tracks = root->tracks, next = (unsigned)queued_first(player);
     return tracks > next ? tracks - next : 0;
 }
 
@@ -317,8 +323,7 @@ PATCH_ARM uint32_t cfw_up_next_build_songs(void *browser)
         return 0;
     struct osos_player *player = osos_player_get();
     osos_player_lock(player);
-    unsigned count = queued(player), first = (unsigned)player->current_index + 1,
-             used = 0;
+    unsigned count = queued(player), first = (unsigned)queued_first(player), used = 0;
     struct osos_media_entry **rows = osos_songs_alloc((count + 1) * sizeof(*rows));
     up_next.top = 0;
     if (rows) {
@@ -500,7 +505,7 @@ static int delete_entry(struct osos_player *player, struct osos_media_entry *ent
     if (!entry)
         return 0;
     struct osos_media_list *list = player->playback.list;
-    unsigned count = queued(player), first = (unsigned)player->current_index + 1;
+    unsigned count = queued(player), first = (unsigned)queued_first(player);
     int found = 0;
     for (unsigned i = 0; i < count && !found; i++)
         found = osos_playback_entry(&player->playback, first + i) == entry;
@@ -517,7 +522,7 @@ static int remove_row(struct osos_player *player, int row)
     if (row < 0 || (unsigned)row >= up_next.count || !up_next.rows)
         return 0;
     struct osos_media_entry *entry = osos_playback_entry(
-        &player->playback, player->current_index + 1 + row - (int)up_next.top);
+        &player->playback, queued_first(player) + row - (int)up_next.top);
     return delete_entry(player, entry);
 }
 
@@ -526,7 +531,7 @@ static int remove_row(struct osos_player *player, int row)
    again. A failed delete stops early; the return says whether anything went. */
 static int drop_queued(struct osos_player *player, unsigned count)
 {
-    int first = player->current_index + 1, changed = 0;
+    int first = queued_first(player), changed = 0;
     for (unsigned i = 0; i < count; i++) {
         if (!delete_entry(player, osos_playback_entry(&player->playback, first)))
             break;
@@ -544,7 +549,7 @@ static void jump_to_row(int row)
     up_next.jumping = 1;
     struct osos_player *player = osos_player_get();
     osos_player_lock(player);
-    unsigned first = (unsigned)player->current_index + 1;
+    unsigned first = (unsigned)queued_first(player);
     struct osos_media_entry *target =
         osos_playback_entry(&player->playback, first + row - up_next.top);
     int changed = 0;
@@ -676,8 +681,8 @@ int cfw_up_next_song_action(void *controller, const char *action, uint32_t argum
         /* Move: insert a copy right after the current song (Play Next) or at the end of the
            queue (Play Last), then drop the old position. */
         struct osos_media_item item;
-        struct osos_media_entry *old = osos_playback_entry(
-            &player->playback, player->current_index + 1 + row - top);
+        struct osos_media_entry *old =
+            osos_playback_entry(&player->playback, queued_first(player) + row - top);
         osos_media_item_init_record(&item, old ? old->song.record : NULL);
         if (osos_media_item_valid(&item)) {
             cfw_queue_edit_begin(player);
