@@ -90,7 +90,8 @@ Music Menu.
 **Up Next** lists the songs still queued behind the one playing, in the order they
 will play. Hold Select on a row to remove that song, move it to the front or the back
 of the queue, or **Clear Up Next**, which drops every queued song and leaves the
-current one playing. The entry and its "n Songs" count disappear while nothing is
+current one playing. Nothing asks for confirmation and there is no undo: the songs come
+out of the queue for good. The entry and its "n Songs" count disappear while nothing is
 queued.
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
