@@ -49,7 +49,7 @@ enum {
     RVX_MODULES = 15,
     RVX_FIRMWARE_ID = 0x660eb6ff,
     RVX_API_MAJOR = 1,
-    RVX_API = (RVX_API_MAJOR << 16) | 82
+    RVX_API = (RVX_API_MAJOR << 16) | 84
 };
 
 enum {
@@ -66,7 +66,8 @@ enum {
 struct rvx_manifest {
     u32 magic, version, minimum_api, flags, modules, sites, strings;
     uint16_t text[7], content, libraries, category;
-    u32 content_count, requires_count;
+    u32 content_count;
+    uint16_t library_count, optional_count; /* the optional ids come last */
 };
 
 struct module_record {

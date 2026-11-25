@@ -5,7 +5,7 @@
 #include "osos.h"
 #include "../../game-sdk/runtime/native_directory.h"
 
-/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.81. */
+/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.84. */
 struct rvx_header {
     uint32_t magic, format, sdk_api, firmware, manifest_bytes, entries, hash;
 };
@@ -132,7 +132,8 @@ static int inspect(Pkg *p, void *f)
         m->version != 4 || (m->minimum_api >> 16) != RVX_API_MAJOR ||
         m->minimum_api > RVX_API || m->category < 1 || m->category > 5 || !m->modules ||
         m->modules > RVX_MODULES || m->modules > h.entries || m->sites > RVX_RAW_MAX ||
-        m->content_count > 4 || m->requires_count > 4)
+        m->content_count > 4 || m->library_count > 4 ||
+        m->optional_count > m->library_count)
         return 0;
     p->sites = (const void *)(m + 1);
     p->records = (const void *)(p->sites + m->sites);
@@ -141,7 +142,7 @@ static int inspect(Pkg *p, void *f)
     if (table >= h.manifest_bytes || m->strings != h.manifest_bytes - table ||
         p->strings[m->strings - 1] || !strings_valid(p, m->text[0], 1) ||
         !strings_valid(p, m->content, m->content_count) ||
-        !strings_valid(p, m->libraries, m->requires_count))
+        !strings_valid(p, m->libraries, m->library_count))
         return 0;
     const char *id = p->strings + m->text[0];
     if (*id < 'a' || *id > 'z')
@@ -198,21 +199,29 @@ static Pkg *library(u32 hash)
     return NULL;
 }
 
+/* Whether the manifest's library at `index` is optional: its imports stay 0
+ * when it is missing, not running or lacks the function. */
+static int optional(const Pkg *p, unsigned index)
+{
+    return index >= (unsigned)(p->manifest->library_count - p->manifest->optional_count);
+}
+
 static int resolve(Pkg *p, const struct symbol_import *imp, u32 *value)
 {
     const char *s = p->strings + p->manifest->libraries;
-    for (unsigned i = 0; i < p->manifest->requires_count; i++) {
+    for (unsigned i = 0; i < p->manifest->library_count; i++) {
         if (rvx_hash(s) == imp->library) {
             Pkg *lib = library(imp->library);
-            if (!lib || lib->state != 2)
-                return 0;
-            const struct rvx_module *m = lib->modules;
-            for (unsigned j = 0; j < m->export_count; j++)
-                if (m->exports[j].name == imp->symbol) {
-                    *value = (u32)m->image + m->exports[j].offset;
-                    return 1;
-                }
-            return 0;
+            if (lib && lib->state == 2) {
+                const struct rvx_module *m = lib->modules;
+                for (unsigned j = 0; j < m->export_count; j++)
+                    if (m->exports[j].name == imp->symbol) {
+                        *value = (u32)m->image + m->exports[j].offset;
+                        return 1;
+                    }
+            }
+            *value = 0;
+            return optional(p, i);
         }
         while (*s++) {
         }
@@ -393,9 +402,9 @@ static int start(Pkg *p)
         }
     }
     const char *s = p->strings + p->manifest->libraries;
-    for (u32 i = 0; i < p->manifest->requires_count; i++) {
+    for (u32 i = 0; i < p->manifest->library_count; i++) {
         Pkg *lib = library(rvx_hash(s));
-        if (!lib || !start(lib))
+        if ((!lib || !start(lib)) && !optional(p, i))
             goto failed;
         while (*s++) {
         }
