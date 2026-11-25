@@ -2,8 +2,6 @@
 #include "screen.h"
 #include "cfw.h"
 #include "osos.h"
-#include "album_artist.h"
-#include "store.h"
 #include "patch.h"
 
 struct rvx_block {
@@ -246,11 +244,6 @@ static u32 string_id(Pkg *p, const char *s)
     return assigned;
 }
 
-static u32 album_artist_read(void *record, uint16_t *text, u32 capacity)
-{
-    return cfw_album_artist_read(record, text, capacity);
-}
-
 const struct rvx_api cfw_rvx_api = {
     .size = sizeof(struct rvx_api),
     .version = RVX_API,
@@ -300,7 +293,4 @@ const struct rvx_api cfw_rvx_api = {
     .service = rvx_service,
     .provider = rvx_provider,
     .firmware = rvx_firmware_open,
-    .reprise_id = 0x52505253,
-    .legacy_preference = cfw_store_get,
-    .album_artist_read = album_artist_read,
 };

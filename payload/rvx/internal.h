@@ -195,12 +195,9 @@ extern const struct rvx_api {
     u32 (*next7)(const void *, u32, u32, u32, u32, u32, u32, u32);
     const void *(*service)(Pkg *, u32);
     int (*provider)(Pkg *, const void *), (*firmware)(Pkg *, File **);
-    u32 reprise_id;
-    u32 (*legacy_preference)(u32, void *, u32);
-    u32 (*album_artist_read)(void *, uint16_t *, u32);
 } cfw_rvx_api;
 
-_Static_assert(sizeof(struct rvx_api) == 51 * 4 &&
+_Static_assert(sizeof(struct rvx_api) == 48 * 4 &&
                    sizeof(struct rvx_descriptor) == 48 &&
                    sizeof(struct rvx_manifest) == 56 && sizeof(struct entry) == 20,
                "RVX ABI");

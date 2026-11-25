@@ -3,6 +3,8 @@
 #include "runtime.h"
 #include "cfw.h"
 #include "osos.h"
+#include "album_artist.h"
+#include "store.h"
 #include "../../game-sdk/runtime/native_directory.h"
 
 /* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.84. */
@@ -199,6 +201,26 @@ static Pkg *library(u32 hash)
     return NULL;
 }
 
+/* The library `reprise` comes from the core: RepriseOS services outside the
+ * rv_api table. Extensions list it as optional, so they run on other cores. */
+static const struct {
+    const char *name;
+    const void *function;
+} reprise_exports[] = {
+    {"reprise_legacy_preference", cfw_store_get},
+    {"reprise_album_artist_read", cfw_album_artist_read},
+};
+
+static int reprise_export(u32 symbol, u32 *value)
+{
+    for (unsigned i = 0; i < sizeof reprise_exports / sizeof *reprise_exports; i++)
+        if (rvx_hash(reprise_exports[i].name) == symbol) {
+            *value = (u32)reprise_exports[i].function;
+            return 1;
+        }
+    return 0;
+}
+
 /* Whether the manifest's library at `index` is optional: its imports stay 0
  * when it is missing, not running or lacks the function. */
 static int optional(const Pkg *p, unsigned index)
@@ -211,6 +233,12 @@ static int resolve(Pkg *p, const struct symbol_import *imp, u32 *value)
     const char *s = p->strings + p->manifest->libraries;
     for (unsigned i = 0; i < p->manifest->library_count; i++) {
         if (rvx_hash(s) == imp->library) {
+            if (imp->library == rvx_hash("reprise")) {
+                if (reprise_export(imp->symbol, value))
+                    return 1;
+                *value = 0;
+                return optional(p, i);
+            }
             Pkg *lib = library(imp->library);
             if (lib && lib->state == 2) {
                 const struct rvx_module *m = lib->modules;
@@ -403,8 +431,9 @@ static int start(Pkg *p)
     }
     const char *s = p->strings + p->manifest->libraries;
     for (u32 i = 0; i < p->manifest->library_count; i++) {
-        Pkg *lib = library(rvx_hash(s));
-        if ((!lib || !start(lib)) && !optional(p, i))
+        u32 hash = rvx_hash(s);
+        Pkg *lib = library(hash);
+        if (hash != rvx_hash("reprise") && (!lib || !start(lib)) && !optional(p, i))
             goto failed;
         while (*s++) {
         }
