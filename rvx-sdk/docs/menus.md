@@ -44,3 +44,35 @@ An entry's pane, `.pane = RV_PANE(...)`, shows `.bitmap`, a picture from the ext
 | 132 x 145 | the picture in the clock's box over the World Clock pane's world map, the caption on the date line | Music, Videos, Extras |
 
 In the 119 x 119, 142 x 87 and 146 x 110 shapes a missing caption falls back to the label; the others show the label on a title line. A picture of a size the menu has no pane for, such as an icon outside Settings, or one an [asset provider](assets.md#asset-provider) serves at a different size, shows the caption alone. Panes are built the first time they are needed, so a newly enabled extension gets them at once. An Extras item mirrored onto Main uses the same picture in both.
+
+## Hosted entries
+
+An entry can put its row into another extension's list screen instead of a stock menu, after one of that screen's rows, the way a stock entry follows an anchor. The host needs no code and does not know its guests: it only gives the rows guests may follow an id.
+
+```c
+static const struct rv_row rows[] = {
+    RV_ROW_PUSH("Presets", "presets", .id = "presets"),
+    RV_ROW_SETTING("Limiter", KEY_LIMITER, .id = "limiter"),
+};
+```
+
+A guest names the host's manifest id, the screen id and the row id; its stock menu and anchor stay as the fallback:
+
+```c
+RV_MENU_ENTRY(RV_MENU_SETTINGS, RV_SETTINGS_EQ, RV_ROW_SETTING("Crossfeed", KEY_MODE),
+              .pane = RV_PANE(.caption_text = caption, .bitmap = RV_BITMAP("icon")),
+              .host = "equalizer", .host_screen = "equalizer", .host_after = "limiter"),
+```
+
+| While | The row is |
+|---|---|
+| the host runs and has the screen and row | in the host's list after that row; guests after the same row follow it in the order they loaded |
+| the host is missing or failed to start, or the screen or row id names nothing | in the stock menu after `after` |
+| `.host_after` is NULL | after the host list's last row, so a host that gives no row an id still takes guests at the end |
+| `menus` is 0 (`RV_MENUS_ENTRY(0, 0, row, .host = ..., ...)`) | nowhere without the host |
+
+The screen must be one of the host's main module. In both places the row behaves as a menu row: `.caption_setting` and `.shown_by` apply, and `RV_ROW_SETTING` shows its value inline. A host list declared with `RV_SCREEN_LIST_PANES` shows the guest's `.pane` caption and icon beside it like its own rows'; a list with one pane of its own keeps that. On a list with guests `ctx->row` is the highlighted position, which counts the guests before it, in the host's context menu rows and in `api->ui_select`'s row.
+
+The place is decided when the extensions start at boot: installing or removing the host takes effect after a restart. A guest with `.shown_by` appears and disappears in an open host list as the setting changes.
+
+A hosted entry costs one row record and, once the host's list has been built, one row copy of 152 bytes; the host pays nothing.

@@ -11,6 +11,8 @@ An extension declares its UI in the descriptor and the core draws it as stock sc
 | `RV_ROW_SETTING(label, key)` | shows a setting's value; flips a bool, steps a labelled int to its next label or opens the setting's screen |
 | `RV_ROW_INFO(label, text)` | shows `text` (or `label`); does nothing when chosen |
 
+`RV_ROW_PUSH`, `RV_ROW_ACTION` and `RV_ROW_SETTING` take `.id = "name"` after their arguments, the name other extensions anchor [hosted entries](menus.md#hosted-entries) on.
+
 ## Settings
 
 `RV_SETTING_BOOL`, `RV_SETTING_INT`, `RV_SETTING_LABELLED`, `RV_SETTING_CHOICE`, `RV_SETTING_SLIDER` and `RV_SETTING_MULTI` declare a setting, the last four with its labels. An `RV_ROW_SETTING` row shows it; choice, multi-choice and slider settings get a generated screen. See [Settings](settings.md).
@@ -53,6 +55,7 @@ The menus are `RV_MENU_MAIN`, `RV_MENU_MUSIC`, `RV_MENU_EXTRAS`, `RV_MENU_SETTIN
 | `.preview` | on a Main row, `RV_PREVIEW_MUSIC` or `RV_PREVIEW_VIDEOS`: without a pane, the row shows the stock Music or Videos pane |
 | `.shown_by` | a bool setting that shows the row; Settings > Main Menu and Music Menu flip it |
 | `.available` | decides whether a context menu offers the row, each time it opens |
+| `.host`, `.host_screen`, `.host_after` | an extension's manifest id, one of its list screens and a row id in it: the row goes after that row while that extension runs, into the entry's menu otherwise; see [Hosted entries](menus.md#hosted-entries) |
 
 ## Callbacks and `rv_context`
 
