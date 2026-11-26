@@ -109,8 +109,11 @@ static void install(Pkg *p, const struct menu_entry *e, u32 id)
     i->action[1] = 'V';
     i->action[2] = 'X';
     core_put_number(i->action + 3, i->action + sizeof i->action, id);
-    i->next = installed;
-    installed = i;
+    i->next = NULL;
+    struct installed **tail = &installed;
+    while (*tail)
+        tail = &(*tail)->next;
+    *tail = i; /* rows keep their declaration order */
 }
 
 static unsigned menu_events(const struct installed *i, unsigned slot, uint8_t *buffer)
