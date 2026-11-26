@@ -1,6 +1,6 @@
 # Possible CFW Features
 
-Implemented features, including Album Artists and WIP Dark Mode, are listed in the
+Implemented features, including WIP Dark Mode, are listed in the
 [README](README.md#features).
 
 ## Cover Flow song context menu

@@ -61,14 +61,13 @@ RepriseOS package and builds a companion using that iPod's identity.
   frequency, gain, Q and precut.
 - Clipping-free EQ: built-in presets and the custom EQ lower their gain by
   their peak boost and keep headroom between filter stages.
-- Play Next and Play Last from song, album and artist context menus. Open **Up Next**
-  in the main menu to see the queue.
 - Apple's EU Volume Limit setting on every European iPod, with full volume
   and no volume warning when it is Off.
-- File Info from song, podcast, iTunes U, audiobook, movie, TV episode, video playlist and Now Playing context menus.
-- Album Artists browsing with Artist fallback and configurable menu visibility.
 - Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Dark Mode, with an On/Off toggle in Settings.
+
+Album Artists, File Info and Playback Queue (Play Next, Play Last and Up Next) are
+extensions in the [extension catalog](https://repriseos.com/extensions/).
 
 Open **Settings → Custom EQ** to edit all five bands. Use the wheel to select a
 band, then Center to select and edit its Type, Gain, Frequency or Q, or the
@@ -82,10 +81,6 @@ included, get Apple's **Settings → Volume Limit** screen with **EU Volume Limi
 On limits headphone volume to the EU level. Off allows full volume without Apple's
 high-volume warning, the reduction to the EU level at startup or the automatic
 reduction after long listening.
-
-**Album Artists** groups tracks by their Album Artist tag, using Artist when that
-field is empty. Show or hide the entry through Settings → Main Menu and Settings →
-Music Menu.
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
 
