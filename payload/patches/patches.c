@@ -89,13 +89,6 @@ PATCH_WORD(OSOS_VOLUME_LISTENING_CHECK_WORD, 0x0a00000f, 0xea00000f);
 /* mov r0, #5 (post the volume reduction) -> bx lr */
 PATCH_WORD(OSOS_VOLUME_LISTENING_CALLBACK_WORD, 0xe3a00005, 0xe12fff1e);
 
-/* iAP accessory authentication bypass: force both device-signature verifiers to
- * report success so accessories authenticate without a Made-for-iPod coprocessor. */
-/* stmdb sp!,{r4-r9,lr}; sub sp,sp,#0x6c */
-PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_A, 0xe92d43f0, 0xe24dd06c, cfw_iap_auth_verify);
-/* stmdb sp!,{r2,r3,r4,lr}; cmp r1,#0 */
-PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_B, 0xe92d401c, 0xe3510000, cfw_iap_auth_verify);
-
 /* Movies and TV episodes have no native contextual menu. */
 PATCH_POINTER_PAIR(OSOS_MOVIE_MENU_SLOT, OSOS_MOVIE_SECONDARY_MENU_SLOT,
                    OSOS_LIST_NO_CONTEXT_MENU, cfw_movie_menu);

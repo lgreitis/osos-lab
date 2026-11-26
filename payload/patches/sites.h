@@ -51,10 +51,6 @@
 #define OSOS_MAIN_MENU_TOGGLE_CALL 0x081d225c
 #define OSOS_MUSIC_MENU_TOGGLE_CALL 0x081dd724
 
-/* iAP accessory authentication: device-signature verifier entries. */
-#define OSOS_IAP_AUTH_VERIFY_A 0x0812dca8
-#define OSOS_IAP_AUTH_VERIFY_B 0x081592fc
-
 /* Movie and TV episode lists: primary and secondary contextual-menu vtable slots. */
 #define OSOS_MOVIE_MENU_SLOT 0x089a3ac8
 #define OSOS_MOVIE_SECONDARY_MENU_SLOT 0x089a7b14
