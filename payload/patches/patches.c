@@ -67,28 +67,6 @@ PATCH_CALL(OSOS_RESOURCE_INIT_CALL, OSOS_RESOURCE_BANK_INIT_OVERRIDES,
            cfw_resource_hook);
 PATCH_CALL(OSOS_RESOURCE_NEXT_TEMPLATE_CALL, OSOS_RESOURCE_NEXT, cfw_next_template);
 
-/* EU volume policy. SysInfo+0x94 bit 0 marks European iPods; Apple's EU Settings
- * screen and high-volume warning test only bit 7. */
-/* tst r0, #0x80 -> tst r0, #0x81 */
-PATCH_WORD(OSOS_VOLUME_POLICY_REGION_TEST_WORD, 0xe3100080, 0xe3100081);
-/* EU Volume Limit Off: moveq r0, #222 -> moveq r0, #256 */
-PATCH_WORD(OSOS_VOLUME_EU_OFF_CEILING_WORD, 0x03a000de, 0x03a00c01);
-/* Default Volume Limit and volume: mov r0, #222 -> mov r0, #256 */
-PATCH_WORD(OSOS_VOLUME_EU_DEFAULT_LIMIT_WORD, 0xe3a000de, 0xe3a00c01);
-/* EU Volume Limit is the only limit. Apple's high-volume warning and its startup
- * cap test the region again: report a non-European iPod there, so the warning
- * counts as acknowledged and the saved volume is kept at startup. */
-/* bl region -> mov r0, #0 */
-PATCH_WORD(OSOS_VOLUME_WARNING_REGION_CALL, 0xebfbc66e, 0xe3a00000);
-PATCH_WORD(OSOS_VOLUME_BOOT_CLAMP_REGION_CALL, 0xebffba86, 0xe3a00000);
-/* Apple also lowers an EU iPod's volume to the EU level after long listening: an
- * 18-hour check on track changes and stops, and a 20-hour callback from the
- * audio output's listening counter. Both are removed. */
-/* beq skip -> b skip, past the 18-hour check */
-PATCH_WORD(OSOS_VOLUME_LISTENING_CHECK_WORD, 0x0a00000f, 0xea00000f);
-/* mov r0, #5 (post the volume reduction) -> bx lr */
-PATCH_WORD(OSOS_VOLUME_LISTENING_CALLBACK_WORD, 0xe3a00005, 0xe12fff1e);
-
 /* Movies and TV episodes have no native contextual menu. */
 PATCH_POINTER_PAIR(OSOS_MOVIE_MENU_SLOT, OSOS_MOVIE_SECONDARY_MENU_SLOT,
                    OSOS_LIST_NO_CONTEXT_MENU, cfw_movie_menu);
