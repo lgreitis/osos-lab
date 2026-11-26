@@ -98,6 +98,17 @@ static void check_records(void)
     boot();
     assert(cfw_store_get(1, &value, 4) == 4 && value == 9);
 
+    cfw_store_clear();
+    assert(dirty && store[2] == HEADER * 4);
+    assert(!cfw_store_get(1, &value, 4) && !cfw_store_get(2, text, sizeof(text)));
+    cfw_store_flush();
+    boot();
+    assert(!migrating && !cfw_store_get(1, &value, 4) && store[2] == HEADER * 4);
+    cfw_store_clear();
+    assert(!dirty);
+    value = 9;
+    cfw_store_set(1, &value, 4);
+
     static uint32_t big[CAPACITY];
     cfw_store_set(4, big, sizeof(big));
     cfw_store_set(4, big, UINT32_MAX);

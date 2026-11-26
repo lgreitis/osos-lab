@@ -77,6 +77,14 @@ void cfw_store_set(uint32_t key, const void *data, uint32_t size)
     store_sets++;
 }
 
+static int store_clears;
+
+void cfw_store_clear(void)
+{
+    stored = 0;
+    store_clears++;
+}
+
 int cfw_store_migrating(void)
 {
     return migrating;
@@ -402,6 +410,7 @@ static void check_reset_all_settings(void)
     memset(boot_calls, 0, sizeof(boot_calls));
     cfw_settings_reset(&reset_model);
     assert(!strcmp(boot_calls, "N"));
+    assert(store_clears == 1 && stored); /* Cleared, then Off written. */
     assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
     assert(redraws == previous_redraws + 1 && notifications == previous_notifications);
     assert(icon_notifications == previous_icons + 2);

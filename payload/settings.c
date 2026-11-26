@@ -39,6 +39,7 @@ void cfw_store_delete_legacy(void)
 PATCH_ARM void cfw_settings_reset(void *model)
 {
     osos_reset_all_settings(model);
+    cfw_store_clear();
     cfw_rvx_reset();
     cfw_dark_mode_reset();
 }
