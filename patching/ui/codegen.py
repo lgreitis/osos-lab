@@ -10,10 +10,6 @@ from .resources import Resource
 def emit_header(document, string_ids=None):
     if document.root:
         name = document.root.name
-    elif document.music_entry:
-        name = document.music_entry["id"]
-    elif document.main_entry:
-        name = document.main_entry["id"]
     else:
         name = next(iter(document.strings), None) or document.events[0].handler
     prefix = name.lower()
@@ -173,33 +169,5 @@ def emit_events(resources):
     lines += [
         "};",
         f"const uint32_t cfw_ui_event_alias_count = {len(resources.event_aliases)};",
-    ]
-    return lines
-
-
-def emit_visibility(resources):
-    lines, entries, keys = [], [], set()
-    for i, entry in enumerate(resources.visibility):
-        key = 2166136261
-        for byte in entry["id"].encode():
-            key = ((key ^ byte) * 16777619) & 0xFFFFFFFF
-        if key in keys:
-            raise ValueError("Duplicate menu visibility preference key")
-        keys.add(key)
-        lines.append(f"static uint32_t ui_visible_{i} = {entry['defaults']};")
-        lines.append(f"static uint32_t ui_available_{i} = {entry.get('available', 3)};")
-        # Legacy import: pre-store per-entry visibility file.
-        filename = f"iPod_Control\\Device\\CFWMenu_{key:08x}"
-        items = ", ".join(f"{entry['items'][m]:#x}" for m in ("Main", "Music"))
-        anchors = ", ".join(f"{entry['anchors'][m]:#x}" for m in ("Main", "Music"))
-        entries.append(
-            f"    {{{key:#x}, {entry['title']:#x}, {{{items}}}, {{{anchors}}}, "
-            f"{entry['defaults']}, {json.dumps(filename)}, &ui_visible_{i}, &ui_available_{i}}},"
-        )
-    lines += [
-        "const struct cfw_ui_visibility cfw_ui_visibility[] = {",
-        *entries,
-        "};",
-        f"const uint32_t cfw_ui_visibility_count = {len(entries)};",
     ]
     return lines

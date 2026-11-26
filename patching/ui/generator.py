@@ -8,7 +8,6 @@ from .codegen import (
     emit_header,
     emit_menu_items,
     emit_resources,
-    emit_visibility,
 )
 from .compiler import compile_document
 from .parser import read
@@ -27,7 +26,6 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
     lines = [
         '#include "resources.h"',
         '#include "ui.h"',
-        '#include "ui_visibility.h"',
         '#include "patch.h"',
         '#include "osos.h"',
         "",
@@ -54,7 +52,6 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
     lines.extend(emit_resources(resources))
     lines.extend(emit_menu_items(resources))
     lines.extend(emit_events(resources))
-    lines.extend(emit_visibility(resources))
     path = directory / "ui_resources.c"
     path.write_text("\n".join(lines))
     return path

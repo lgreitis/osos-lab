@@ -19,7 +19,6 @@ void cfw_settings_boot(void *preferences)
     cfw_store_load();
     cfw_eq_load_preferences();
     cfw_dark_mode_load();
-    cfw_ui_visibility_load_preferences();
     cfw_rvx_boot();
     cfw_store_flush();
 }
@@ -39,10 +38,8 @@ void cfw_store_delete_legacy(void)
 {
     cfw_eq_delete_legacy();
     cfw_dark_mode_delete_legacy();
-    cfw_ui_visibility_delete_legacy();
 }
 
-/* Menu visibility resets through the native menu-reset hooks. */
 PATCH_ARM void cfw_settings_reset(void *model)
 {
     osos_reset_all_settings(model);
