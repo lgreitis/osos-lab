@@ -347,11 +347,6 @@ void cfw_eq_delete_legacy(void)
     eq_legacy_cleanups++;
 }
 
-void cfw_ui_visibility_load_preferences(void)
-{
-    boot_step('V');
-}
-
 void cfw_rvx_reset(void)
 {
 }
@@ -395,11 +390,6 @@ void cfw_preferences_delete(const char *name)
     deleted[delete_count++] = name;
 }
 
-void cfw_ui_visibility_delete_legacy(void)
-{
-    cfw_preferences_delete("menus");
-}
-
 static int reset_model;
 
 static void native_reset(void *value)
@@ -430,13 +420,13 @@ static void check_settings_lifecycle(void)
 {
     boot_count = 0;
     cfw_settings_boot(&native_preferences_object);
-    assert(!strcmp(boot_calls, "SEVRF"));
+    assert(!strcmp(boot_calls, "SERF"));
     cfw_settings_sleep();
     assert(native_flushes == 1 && store_flushes == 2);
     unsigned before = delete_count;
     cfw_store_delete_legacy();
     assert(eq_legacy_cleanups == 1);
-    assert(delete_count == before + 1 && !strcmp(deleted[before], "menus"));
+    assert(delete_count == before);
 }
 
 static void check_reset_all_settings(void)

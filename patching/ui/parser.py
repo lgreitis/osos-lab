@@ -77,22 +77,14 @@ class Parser:
                 "string",
                 "screen-event",
                 "layout-event",
-                "music-entry",
                 "bitmap",
-                "main-entry",
             ),
         )
         for node in tree:
             self.parse_declaration(node)
         self.apply_settings_entry()
         document = self.document
-        if (
-            document.root is None
-            and not document.strings
-            and not document.events
-            and document.music_entry is None
-            and document.main_entry is None
-        ):
+        if document.root is None and not document.strings and not document.events:
             raise ValueError("Incomplete UI declaration")
         # Only canvas pages read settings; nothing else would emit their storage.
         if document.fields and (
@@ -187,30 +179,6 @@ class Parser:
                     "SEVT",
                 )
             )
-        elif node.tag == "music-entry":
-            attributes(
-                node,
-                "id title after screen layout open highlight",
-                "main-after main-visible music-visible",
-            )
-            if document.music_entry is not None:
-                raise ValueError("Duplicate Music menu entry")
-            self.identifier(node)
-            document.music_entry = dict(node.attrib)
-            for attribute, default in (
-                ("main-visible", "false"),
-                ("music-visible", "true"),
-            ):
-                value = node.get(attribute, default)
-                if value not in ("true", "false"):
-                    raise ValueError(f"Invalid {attribute} on <music-entry>")
-                document.music_entry[attribute] = value
-        elif node.tag == "main-entry":
-            attributes(node, "id title after open hilite preview", "message")
-            if document.main_entry is not None:
-                raise ValueError("Duplicate main menu entry")
-            self.identifier(node)
-            document.main_entry = dict(node.attrib)
 
     def parse_values(self, node):
         attributes(node, "id", children=("value",))
