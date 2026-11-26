@@ -11,7 +11,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from patching.ui import generate, parser
-from patching.ui.codegen import emit_bindings, emit_header
 from patching.ui.compiler import compile_document
 from patching.ui.model import ScreenEvent
 from patching.ui.resources import (
@@ -19,20 +18,12 @@ from patching.ui.resources import (
     Resources,
     blocks,
     event,
-    menu_event,
     pack_blocks,
     word,
 )
 
 LEGAL_ITEM = 100
 MAIN_SCREEN = 101
-
-
-def setting(name, slot, default=0, values="choices"):
-    return (
-        f'<setting id="{name}" title="{name}" values="{values}" '
-        f'slot="{slot}" default="{default}"/>'
-    )
 
 
 def menu_rows(resources, table):
@@ -54,14 +45,6 @@ def event_resource(resources, kind, resource_id):
     return resources.added[kind, resource_id]
 
 
-def canvas(settings):
-    return (
-        '<ui><values id="choices">'
-        '<value number="0" label="Off"/><value number="1" label="On"/>'
-        "</values>" + "".join(settings) + '<canvas id="TEST" title="Test"/></ui>'
-    )
-
-
 class UiTests(unittest.TestCase):
     def test_generated_actions_register_only_the_names_they_resolve(self):
         root = Path(__file__).resolve().parents[2]
@@ -78,16 +61,7 @@ class UiTests(unittest.TestCase):
         expected = {
             "CFW_Info_Screen",
             "CFW_Info_Layout",
-            "CFW_EQ_Screen",
-            "CFW_EQ_Layout",
-            *[
-                f"CFW_{name}_Preview"
-                for name in (
-                    "Info",
-                    "EQ",
-                    "DarkMode",
-                )
-            ],
+            *[f"CFW_{name}_Preview" for name in ("Info", "DarkMode")],
         }
         self.assertEqual(resources.runtime_names, expected)
         table = code.split("cfw_resource_names[] = {", 1)[1].split("};", 1)[0]
@@ -125,7 +99,6 @@ class UiTests(unittest.TestCase):
         events = bytes(resources.added["CEVT", screen].data)
         self.assertIn(b"CFW_List_Select", events)
         self.assertIn(b"navigator.PopTopScreen", events)
-        self.assertFalse(document.fields)  # Runtime rows are not preference slots.
 
     def test_runtime_list_can_stay_open_when_a_row_is_chosen(self):
         root = Path(__file__).resolve().parents[2]
@@ -213,7 +186,6 @@ class UiTests(unittest.TestCase):
         self.assertIn(b"navigator.PushScreen", events)
         self.assertIn(b"TEST_Screen", events)
         self.assertIn("TEST_Rows", compiled.string_ids)
-        self.assertFalse(document.fields)
 
     def test_canvas_has_fixed_extents_without_scroll_or_brightness_bindings(self):
         root = Path(__file__).resolve().parents[2]
@@ -222,23 +194,26 @@ class UiTests(unittest.TestCase):
         resources = Resources(metadata["resources"], bindings)
         compile_document(
             resources,
-            parser.parse('<ui><canvas id="CFW_EQCanvas" title="Graphic EQ"/></ui>'),
+            parser.parse(
+                '<ui><canvas id="TEST" title="Test" factory="TestCanvas" '
+                'view-type="tstc"/></ui>'
+            ),
         )
-        screen = resources.names["CFW_EQCanvas_Screen"]
-        self.assertEqual(resources.added["SCST", screen].data, b"CFWCanvas")
+        screen = resources.names["TEST_Screen"]
+        self.assertEqual(resources.added["SCST", screen].data, b"TestCanvas")
         [(template, views)] = [
             (resource_id, data)
             for (kind, resource_id), data in resources.added.items()
             if kind == "View"
         ]
         [(kind, view)] = blocks(views)
-        self.assertEqual((kind, word(view, 0x4C)), (0x63667763, 0x63667763))
+        self.assertEqual((kind, word(view, 0x4C)), (0x74737463, 0x74737463))
         # Overlap the header divider; extents remain independent of parent content.
         self.assertEqual(
             struct.unpack("<12i", view[:0x30].data),
             (0, 0, 0, 23, 0, 0, 217, 0, 6, 320, 0, 5),
         )
-        layout = resources.names["CFW_EQCanvas_Layout"]
+        layout = resources.names["TEST_Layout"]
         instances = [
             instance
             for _, group in blocks(resources.added["SLyt", layout])
@@ -257,53 +232,17 @@ class UiTests(unittest.TestCase):
             + event("button.menu.pressandhold", "navigator.PopToMainScreen"),
         )
 
-    def test_custom_eq_settings_open_the_canvas_directly(self):
-        root = Path(__file__).resolve().parents[2]
-        metadata = json.loads((root / "firmware/ui.json").read_text())
-        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
-        resources = Resources(metadata["resources"], bindings)
-        document = parser.read(root / "payload/custom_eq.ui")
-        resources.allocate("CFW_EQ_Icon")
-        compile_document(resources, document)
-        self.assertEqual(document.root.kind, "canvas")
-        self.assertEqual(document.root.title, "Custom EQ")
-        self.assertEqual([item.slot for item in document.fields], list(range(21)))
-        self.assertEqual(
-            sum(len(document.values[item.choices].labels) for item in document.fields),
-            717,
-        )
-        screen = resources.names["CFW_EQ_Screen"]
-        self.assertEqual(resources.added["SCST", screen].data, b"CFWCanvas")
-        # Settings gains one row, which pushes the canvas without an open action.
-        [(_, _, _, row)] = resources.menu_items
-        events = resources.event_extensions[
-            "CEVT", bindings["SettingsMenus_Main_Screen"]
-        ]
-        self.assertIn(
-            menu_event(
-                word(row, 0x30),
-                "chosen",
-                "",
-                "navigator.PushScreen",
-                ["CFW_EQ_Screen", "CFW_EQ_Layout", "foregroundpush"],
-            ),
-            events,
-        )
-        self.assertFalse(
-            [
-                key
-                for key in resources.added
-                if key[0] == "ITEM" and key not in resources.original
-            ]
-        )
-        self.assertEqual(sum(kind == "View" for kind, _ in resources.added), 1)
-        lines = "\n".join(emit_bindings(document))
-        self.assertIn('{102, 0, "Precut", cfw_eq_precut_values_labels},', lines)
-        self.assertIn('{4, 2, "Type", cfw_eq_types_labels},', lines)
-        precut = document.values["cfw_eq_precut_values"]
-        self.assertEqual(precut.numbers, [1, *range(0, -101, -1)])
-        self.assertEqual(precut.labels[:3], ["Auto", "0.0 dB", "-0.1 dB"])
-        self.assertEqual(document.fields[0].default_index, 0)
+    def test_canvas_requires_a_factory_and_a_four_character_view_type(self):
+        for data in (
+            '<ui><canvas id="TEST" title="Test"/></ui>',
+            '<ui><canvas id="TEST" title="Test" factory="TestCanvas"/></ui>',
+            '<ui><canvas id="TEST" title="Test" view-type="tstc"/></ui>',
+            '<ui><canvas id="TEST" title="Test" factory="" view-type="tstc"/></ui>',
+            '<ui><canvas id="TEST" title="Test" factory="TestCanvas" '
+            'view-type="test5"/></ui>',
+        ):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                parser.parse(data)
 
     def test_layout_reuses_unchanged_instance_resources(self):
         resources = Resources(
@@ -527,44 +466,6 @@ class UiTests(unittest.TestCase):
         for layout in (20, 21):
             self.assertEqual(resources.original["SEVT", layout], stock)
 
-    def test_storage_slots_survive_declaration_reordering(self):
-        first = setting("FIRST", 0)
-        second = setting("SECOND", 1, 1)
-        document = parser.parse(canvas([second, first]))
-        self.assertEqual([f.name for f in document.fields], ["FIRST", "SECOND"])
-        self.assertEqual(document.fields[1].default_index, 1)
-        header = emit_header(document)
-        self.assertIn("FIRST = 0", header)
-        self.assertIn("SECOND = 1", header)
-        self.assertIn("TEST_FIELDS = 2", header)
-
-    def test_invalid_declarations_fail_before_resource_generation(self):
-        cases = [
-            [setting("FIELD", 0, values="missing")],
-            [setting("FIELD", 0, 2)],
-            [setting("FIRST", 0), setting("SECOND", 0)],
-            [setting("FIELD", 1)],
-            [setting("FIELD", 0), setting("FIELD", 1)],
-            [setting("FIELD", -1)],
-            [setting("FIELD", 100)],
-            [setting("bad-name", 0)],
-            ['<setting id="FIELD" title="Field" values="choices" slot="0"/>'],
-        ]
-        for settings in cases:
-            with self.subTest(settings=settings), self.assertRaises(ValueError):
-                parser.parse(canvas(settings))
-        for root in (
-            '<string id="NAME" text="Text"/>',
-            '<list id="LIST" title="List"/>',
-        ):
-            with self.subTest(root=root), self.assertRaises(ValueError):
-                parser.parse(
-                    '<ui><values id="choices"><value number="0" label="Off"/></values>'
-                    + setting("FIELD", 0)
-                    + root
-                    + "</ui>"
-                )
-
     def test_malformed_or_unknown_xml_fails(self):
         for data in (
             "bad",
@@ -582,54 +483,12 @@ class UiTests(unittest.TestCase):
             '<ui><text id="PAGE" title="Page" file="page.txt" body="PAGE"/></ui>',
             '<ui><text id="PAGE" title="Page" file="page.txt"/>'
             '<settings-entry menu="OTHER" after="1"/></ui>',
+            '<ui><string id="bad-name" text="Text"/></ui>',
+            '<ui><text id="ONE" title="One" file="one.txt"/>'
+            '<text id="TWO" title="Two" file="two.txt"/></ui>',
         ):
             with self.subTest(data=data), self.assertRaises(ValueError):
                 parser.parse(data)
-
-    def test_invalid_ranges_fail(self):
-        for numbers in (
-            (0, 10, 0, 10, 0),
-            (0, 10, -1, 10, 0),
-            (0, 10, 1, 3, 0),
-            (0, 1024, 1, 10, 0),
-        ):
-            first, last, step, scale, _ = numbers
-            data = (
-                f'<ui><range id="values" first="{first}" last="{last}" '
-                f'step="{step}" scale="{scale}"/>'
-                '<string id="NAME" text="Text"/></ui>'
-            )
-            with self.subTest(numbers=numbers), self.assertRaises(ValueError):
-                parser.parse(data)
-
-    def test_range_named_choices_count_and_stay_unique(self):
-        for data in (
-            '<range id="values" first="0" last="1023" step="1">'
-            '<value number="-1" label="Auto"/></range>',
-            '<range id="values" first="0" last="10" step="1">'
-            '<value number="0" label="Auto"/></range>',
-        ):
-            with self.subTest(data=data), self.assertRaises(ValueError):
-                parser.parse(f'<ui>{data}<string id="NAME" text="Text"/></ui>')
-
-    def test_ranges_keep_scaled_labels_and_default_indices(self):
-        document = parser.parse("""<ui>
-          <range id="gain_values" first="-5" last="5" step="5"
-                 scale="10" suffix=" dB" signed="true"/>
-          <range id="precut" first="0" last="-10" step="-5" scale="10">
-            <value number="1" label="Auto"/>
-          </range>
-          <setting id="GAIN" title="Gain" values="gain_values" slot="0" default="0"/>
-          <canvas id="EQ" title="EQ"/>
-        </ui>""")
-        self.assertEqual(
-            document.values["gain_values"].labels, ["-0.5 dB", "0.0 dB", "+0.5 dB"]
-        )
-        self.assertEqual(document.values["precut"].numbers, [1, 0, -5, -10])
-        self.assertEqual(
-            document.values["precut"].labels, ["Auto", "0.0", "-0.5", "-1.0"]
-        )
-        self.assertEqual(document.fields[0].default_index, 1)
 
     def test_xml_text_and_hex_resource_ids(self):
         document = parser.parse("""<ui>

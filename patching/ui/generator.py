@@ -3,7 +3,6 @@
 
 from ..bitmap import encode_bmap, read_png
 from .codegen import (
-    emit_bindings,
     emit_events,
     emit_header,
     emit_menu_items,
@@ -44,8 +43,6 @@ def generate(resources, sources, directory, revision, version="0.0.0-dev"):
             resources.add("BMap", resource_id, bitmap)
         compiled = compile_document(resources, document, text)
         compiled.string_ids.update(bitmap_ids)
-        if document.root:
-            lines.extend(emit_bindings(document))
         (directory / (source.stem + "_ui.h")).write_text(
             emit_header(document, compiled.string_ids)
         )

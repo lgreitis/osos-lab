@@ -5,25 +5,15 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class Values:
-    name: str
-    numbers: list[int] = field(default_factory=list)
-    labels: list[str] = field(default_factory=list)
-
-
-@dataclass
 class Item:
     kind: str
     name: str
     title: str
-    choices: str = ""
-    slot: int = 0
-    default_index: int = 0
     text_file: str = ""
     select: str = "return"
     layout: str = "inline"
-    factory: str = "CFWCanvas"
-    view_type: str = "cfwc"
+    factory: str = ""
+    view_type: str = ""
 
 
 @dataclass
@@ -37,8 +27,6 @@ class ScreenEvent:
 @dataclass
 class Document:
     root: Item | None
-    values: dict[str, Values]
-    fields: list[Item]
     after: str | int = ""
     open_action: str = ""
     strings: dict[str, str] = field(default_factory=dict)

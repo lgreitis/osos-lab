@@ -56,7 +56,6 @@ class PayloadTests(unittest.TestCase):
                 [
                     root / "payload/dark_mode.ui",
                     root / "payload/media_menus.ui",
-                    root / "payload/custom_eq.ui",
                     root / "payload/cfw_info.ui",
                     root / "payload/rvx/screen.ui",
                 ],
@@ -66,9 +65,6 @@ class PayloadTests(unittest.TestCase):
             for name in (
                 "media_menus",
                 "ui_visibility",
-                "eq_preferences",
-                "eq_audio",
-                "eq_canvas",
                 "menu_resources",
                 "bitmap_assets",
                 "rvx_compression",

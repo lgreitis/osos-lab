@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ui_visibility.h"
 #include "clicker.h"
-#include "custom_eq.h"
 #include "dark_mode.h"
 #include "osos.h"
 #include "patch.h"
@@ -17,7 +16,6 @@ void cfw_settings_boot(void *preferences)
 {
     native_preferences = preferences;
     cfw_store_load();
-    cfw_eq_load_preferences();
     cfw_dark_mode_load();
     cfw_rvx_boot();
     cfw_store_flush();
@@ -36,7 +34,6 @@ void cfw_settings_sleep(void)
 /* Legacy import: removes the pre-store files once the store holds their settings. */
 void cfw_store_delete_legacy(void)
 {
-    cfw_eq_delete_legacy();
     cfw_dark_mode_delete_legacy();
 }
 
@@ -44,7 +41,6 @@ PATCH_ARM void cfw_settings_reset(void *model)
 {
     osos_reset_all_settings(model);
     cfw_rvx_reset();
-    cfw_eq_reset_preferences();
     cfw_dark_mode_reset();
 }
 

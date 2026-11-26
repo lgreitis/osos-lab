@@ -11,7 +11,6 @@ static void fill(void *, const void *, const unsigned char *, uint32_t, void *);
 #include "../../../payload/osos.h"
 #include "../../../payload/dark_mode.h"
 #include "dark_mode_ui.h"
-#include "custom_eq_ui.h"
 #include "cfw_info_ui.h"
 #undef _Static_assert
 #define CFW_PATCH_H
@@ -189,9 +188,8 @@ static uintptr_t resource(uint32_t id)
 
 const void *cfw_resource_bitmap(uint32_t id)
 {
-    return id == CFW_DarkMode_Moon || id == CFW_EQ_Icon || id == CFW_Info_Icon
-               ? (const void *)(uintptr_t)id
-               : NULL;
+    return id == CFW_DarkMode_Moon || id == CFW_Info_Icon ? (const void *)(uintptr_t)id
+                                                          : NULL;
 }
 
 static void graphics_fill(void *context, const int32_t *rect);
@@ -323,7 +321,6 @@ static char boot_calls[16];
 static unsigned boot_count, native_flushes, store_flushes;
 static const char *deleted[4];
 static unsigned delete_count;
-static unsigned eq_legacy_cleanups;
 static int native_preferences_object;
 
 static void boot_step(char step)
@@ -335,16 +332,6 @@ static void boot_step(char step)
 void cfw_store_load(void)
 {
     boot_step('S');
-}
-
-void cfw_eq_load_preferences(void)
-{
-    boot_step('E');
-}
-
-void cfw_eq_delete_legacy(void)
-{
-    eq_legacy_cleanups++;
 }
 
 void cfw_rvx_reset(void)
@@ -398,11 +385,6 @@ static void native_reset(void *value)
     boot_step('N');
 }
 
-void cfw_eq_reset_preferences(void)
-{
-    boot_step('Q');
-}
-
 static void native_flush(void *preferences)
 {
     assert(preferences == &native_preferences_object);
@@ -420,12 +402,11 @@ static void check_settings_lifecycle(void)
 {
     boot_count = 0;
     cfw_settings_boot(&native_preferences_object);
-    assert(!strcmp(boot_calls, "SERF"));
+    assert(!strcmp(boot_calls, "SRF"));
     cfw_settings_sleep();
     assert(native_flushes == 1 && store_flushes == 2);
     unsigned before = delete_count;
     cfw_store_delete_legacy();
-    assert(eq_legacy_cleanups == 1);
     assert(delete_count == before);
 }
 
@@ -440,7 +421,7 @@ static void check_reset_all_settings(void)
     boot_count = 0;
     memset(boot_calls, 0, sizeof(boot_calls));
     cfw_settings_reset(&reset_model);
-    assert(!strcmp(boot_calls, "NQ"));
+    assert(!strcmp(boot_calls, "N"));
     assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
     assert(redraws == previous_redraws + 1 && notifications == previous_notifications);
     assert(icon_notifications == previous_icons + 2);
@@ -491,7 +472,7 @@ int main(void)
 {
     check_cached_colors();
     uintptr_t value = 0;
-    const uint32_t icons[] = {CFW_EQ_Icon, CFW_Info_Icon};
+    const uint32_t icons[] = {CFW_Info_Icon};
     for (unsigned i = 0; i < sizeof(icons) / sizeof(icons[0]); i++) {
         assert(cfw_settings_property(&model, OSOS_RESOURCE_BMAP, icons[i], &value));
         assert(value == icons[i] && !stock_properties);
