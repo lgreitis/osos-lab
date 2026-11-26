@@ -417,12 +417,6 @@ static inline uint32_t osos_button_ui_key(void *event)
     return ((fn)OSOS_BUTTON_EVENT_UI_KEY)(event);
 }
 
-static inline void osos_system_hold_changed(void *system, int locked)
-{
-    typedef void (*fn)(void *, int);
-    ((fn)OSOS_SYSTEM_HOLD_CHANGED)(system, locked);
-}
-
 static inline uint32_t osos_controller_activate(void *controller, uint32_t entering)
 {
     typedef uint32_t (*fn)(void *, uint32_t);

@@ -120,7 +120,7 @@ struct rvx_package {
 extern Pkg *rvx_packages;
 
 int rvx_bind(Pkg *, const struct rvx_hook *);
-void rvx_bind_menu(const struct rvx_hook *);
+void rvx_bind_core(const struct rvx_hook *);
 int rvx_unbind(Pkg *, const struct rvx_hook *);
 void rvx_remove_hooks(Pkg *, const struct rvx_module *);
 u32 rvx_next(const void *, u32, u32, u32, u32, u32, u32);

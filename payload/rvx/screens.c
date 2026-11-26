@@ -451,6 +451,21 @@ copy_methods(uintptr_t *dest, const uintptr_t *src, unsigned count)
         *dest++ = *src++;
 }
 
+/* The system UI consumes the hold switch before any screen controller sees
+ * it; the top canvas screen receives it as input kind 3 afterwards. */
+static u32 hold_changed(u32 system, u32 locked, const void *next)
+{
+    u32 result = rvx_next(next, system, locked, 0, 0, 0, 0);
+    if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
+        struct input in = {3, 0, !!locked};
+        rvx_input(rvx_top, &in);
+    }
+    return result;
+}
+
+static const struct rvx_hook hold_hook = {
+    0x5fa8f8b9 /* SystemUI_HandleHoldChange_call */, (u32)hold_changed, 0, 0, 0};
+
 void rvx_register_controller(void)
 {
     copy_methods(view_table, (const uintptr_t *)(OSOS_VIEW_VTABLE - 12),
@@ -464,12 +479,5 @@ void rvx_register_controller(void)
     osos_register_view_factory(0x72767863, create_view);
     osos_ui_register_controllers(osos_controller_registry(), "RVXScreen", NULL,
                                  create_controller);
-}
-
-void cfw_rvx_hold(int locked)
-{
-    if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
-        struct input in = {3, 0, !!locked};
-        rvx_input(rvx_top, &in);
-    }
+    rvx_bind_core(&hold_hook);
 }

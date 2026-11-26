@@ -185,7 +185,7 @@ static int grow(void *volatile *slot, u32 bytes)
     return available;
 }
 
-/* Core menu hooks have no owning extension and use only named sites. */
+/* Core hooks have no owning extension and use only named sites. */
 static int bind_hook(Pkg *p, const struct rvx_hook *h)
 {
     if (!h || h->reserved || h->mode > 1)
@@ -258,7 +258,7 @@ int rvx_bind(Pkg *p, const struct rvx_hook *h)
     return p ? bind_hook(p, h) : BAD_ARGUMENT;
 }
 
-void rvx_bind_menu(const struct rvx_hook *h)
+void rvx_bind_core(const struct rvx_hook *h)
 {
     bind_hook(NULL, h);
 }

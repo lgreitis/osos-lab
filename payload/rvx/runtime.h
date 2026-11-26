@@ -21,7 +21,6 @@ int cfw_rvx_property(uint32_t type, uint32_t property, uintptr_t *out);
  * sees the copy as the original. */
 uint32_t cfw_rvx_stock_view(uint32_t view);
 void cfw_rvx_reset(void);
-void cfw_rvx_hold(int locked);
 
 unsigned cfw_rvx_visible_rows(unsigned menu);
 int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int selected,
