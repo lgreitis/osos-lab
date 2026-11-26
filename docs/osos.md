@@ -44,12 +44,14 @@ saturation after each stage. Presets have separate 44.1/48 kHz coefficient banks
 `0x08271bf0` loads coefficients, `0x08271d88` processes one stereo biquad, and
 `0x08271f2c` runs all three. Effects/output dispatch is at `0x0818c320`.
 Post-effects Q15 gain cannot undo EQ clipping; precut must act before saturation.
-Apple's presets have no precut and peak up to +7.5 dB. RepriseOS replaces the
-process entry with a cascade that keeps 32-bit samples between stages, feeds
-each stage's rounding remainder into its next output and saturates once, and
-scales each preset's first active stage by its peak gain.
+Apple's presets have no precut and peak up to +7.5 dB.
 
 Regional policy is tested at `0x0804b150`; ceiling getter: `0x081553c4`.
 User volume caps are separate: setter `0x081552f4`, preference load `0x0815537c`,
 applied-volume setter `0x08155568`. Ceilings 216 and 256 are internal units,
 not percentages or dB.
+
+The core leaves the EQ and volume policy code alone. The Equalizer and EU Volume
+Limit extensions bind the EQ vtable slots, preset tables and count words and the
+volume policy test words through the RVX runtime (the `EQ_*`, `Volume*` and
+`MediaPlayer_PostVolumeExposureLimitEvent_word` rows in `payload/rvx/site_table.inc`).

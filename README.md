@@ -57,30 +57,12 @@ RepriseOS package and builds a companion using that iPod's identity.
 
 ## Features
 
-- Five-band custom EQ with a graphical editor and adjustable filter types,
-  frequency, gain, Q and precut.
-- Clipping-free EQ: built-in presets and the custom EQ lower their gain by
-  their peak boost and keep headroom between filter stages.
-- Apple's EU Volume Limit setting on every European iPod, with full volume
-  and no volume warning when it is Off.
-- Clicker output options (Off, Speaker, Headphones, Both) in Settings.
 - Dark Mode, with an On/Off toggle in Settings.
 
-Album Artists, File Info and Playback Queue (Play Next, Play Last and Up Next) are
-extensions in the [extension catalog](https://repriseos.com/extensions/).
-
-Open **Settings → Custom EQ** to edit all five bands. Use the wheel to select a
-band, then Center to select and edit its Type, Gain, Frequency or Q, or the
-Precut shared by all bands. Switch Hold on to view the combined EQ response and
-off to return to editing. Precut defaults to **Auto**, which attenuates by the
-response's peak between 20 Hz and 20 kHz; the response view shows the applied
-value. Choose a fixed precut from 0.0 to -10.0 dB instead to set it by hand.
-
-Every supported Classic runs Apple 2.0.5, so European iPods, older models
-included, get Apple's **Settings → Volume Limit** screen with **EU Volume Limit**.
-On limits headphone volume to the EU level. Off allows full volume without Apple's
-high-volume warning, the reduction to the EU level at startup or the automatic
-reduction after long listening.
+Album Artists, File Info, Playback Queue (Play Next, Play Last and Up Next),
+Equalizer (the five-band custom EQ), Clicker Modes, iAP Auth Bypass and
+EU Volume Limit are extensions in the
+[extension catalog](https://repriseos.com/extensions/).
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
 
