@@ -535,14 +535,57 @@ void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 byte
     }
 }
 
+/* A context menu row's chosen action reaches the list controller as the screen
+ * event contextualMenu.<action>; Apple's own rows bind theirs in the screen's
+ * CEVT, so a screen that opens one of the context menus gets a binding per
+ * extension row. */
+static unsigned context_events(const struct installed *i, uint8_t *buffer)
+{
+    char name[48];
+    struct core_writer w = {buffer, 0};
+    core_write_word(&w, 1);
+    core_put_text(core_put_text(name, name + sizeof name, "contextualMenu."),
+                  name + sizeof name, i->action);
+    core_write_event(&w, name, i->action, NULL, NULL, 0);
+    return w.at;
+}
+
 void cfw_rvx_menu_events(void *map, u32 screen)
 {
     static const u32 screens[] = {0x0dad076e, 0x0dad07c8, 0x0dad01cc, 0x0dad0c6a,
                                   0x0dad0816};
-    unsigned slot = 0;
+
+    static const struct {
+        u32 screen;
+        uint8_t kind;
+    } context_screens[] = {
+        {0x0dad096c, 5},  /* NowPlaying_Screen */
+        {0x0dad07e9, 6},  /* MediaLists_Songs_Screen */
+        {0x0dad0808, 6},  /* MediaLists_NestedPlaylists_Screen */
+        {0x0dad0844, 6},  /* MediaLists_Genius_Screen */
+        {0x0dad0848, 6},  /* MediaLists_GeniusPlaylist_Screen */
+        {0x0dad07ed, 7},  /* MediaLists_Albums_Screen */
+        {0x0dad07f0, 8},  /* MediaLists_Artists_Screen */
+        {0x0dad07f8, 9},  /* MediaLists_PodcastEpisodes_Screen */
+        {0x0dad07fc, 10}, /* MediaLists_iTunesUEpisodes_Screen */
+        {0x0dad07e1, 11}, /* MediaLists_Audiobooks_Screen */
+        {0x0dad0804, 12}, /* MediaLists_Movies_Screen */
+        {0x0dad0802, 13}, /* MediaLists_TVEpisodes_Screen */
+        {0x0dad0812, 14}, /* MediaLists_NestedVideoPlaylists_Screen */
+    };
+
+    unsigned slot = 0, found = 0;
     while (slot < 5 && screens[slot] != screen)
         slot++;
-    if (slot == 5)
+    if (slot < 5)
+        found = 1;
+    for (unsigned j = 0;
+         !found && j < sizeof context_screens / sizeof context_screens[0]; j++)
+        if (context_screens[j].screen == screen) {
+            slot = context_screens[j].kind;
+            found = 1;
+        }
+    if (!found)
         return;
     for (struct installed *i = installed; i; i = i->next) {
         if (!(i->entry->menus & (1u << slot)))
@@ -550,7 +593,8 @@ void cfw_rvx_menu_events(void *map, u32 screen)
         struct osos_string bytes;
         u32 allocator = 0, stream[31];
         uint8_t event[192];
-        unsigned size = menu_events(i, slot, event);
+        unsigned size =
+            slot < 5 ? menu_events(i, slot, event) : context_events(i, event);
         osos_string_init_bytes(&bytes, event, size, &allocator);
         osos_string_stream_init(stream, &bytes, 0xc);
         osos_string_destroy(&bytes);
