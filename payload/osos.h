@@ -59,12 +59,6 @@ static inline const void *osos_resource_next(void *bank, uint32_t *id, uint32_t 
     return ((fn)OSOS_RESOURCE_NEXT)(bank, id, size);
 }
 
-static inline void *osos_resource_bank(void)
-{
-    typedef void *(*fn)(void);
-    return ((fn)OSOS_RESOURCE_BANK)();
-}
-
 static inline void *osos_resource_get(void *bank, uint32_t type, uint32_t id,
                                       uint32_t *size)
 {
@@ -417,12 +411,6 @@ static inline uint32_t osos_button_ui_key(void *event)
     return ((fn)OSOS_BUTTON_EVENT_UI_KEY)(event);
 }
 
-static inline uint32_t osos_controller_activate(void *controller, uint32_t entering)
-{
-    typedef uint32_t (*fn)(void *, uint32_t);
-    return ((fn)OSOS_CONTROLLER_ACTIVATE)(controller, entering);
-}
-
 static inline void *osos_wheel_accumulator_init(void *state, int threshold,
                                                 unsigned char accelerate,
                                                 uint32_t interval)
@@ -447,12 +435,6 @@ static inline int osos_controller_handle_event(void *controller, void *event)
 {
     typedef int (*fn)(void *, void *);
     return ((fn)OSOS_CONTROLLER_HANDLE_EVENT)(controller, event);
-}
-
-static inline uint32_t osos_controller_deactivate(void *controller, uint32_t leaving)
-{
-    typedef uint32_t (*fn)(void *, uint32_t);
-    return ((fn)OSOS_CONTROLLER_DEACTIVATE)(controller, leaving);
 }
 
 static inline void *osos_controller_create_screen(const char *name, uint32_t screen,
