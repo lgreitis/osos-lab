@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Emit C source and headers from compiled resources and bindings."""
 
-import json
 import struct
 
 from .resources import Resource
@@ -12,59 +11,17 @@ def emit_header(document, string_ids=None):
         name = document.root.name
     else:
         name = next(iter(document.strings), None) or document.events[0].handler
-    prefix = name.lower()
     guard = name.upper() + "_UI_GENERATED_H"
-    lines = [f"#ifndef {guard}", f"#define {guard}", '#include "ui.h"', "", "enum {"]
-    lines.extend(f"    {item.name.upper()} = {item.slot}," for item in document.fields)
-    lines += [
-        f"    {name.upper()}_FIELDS = {len(document.fields)}",
-        "};",
-        "",
-    ]
-    if document.fields:
-        lines.append(
-            f"extern const struct cfw_ui_field {prefix}_fields[{len(document.fields)}];"
-        )
+    lines = [f"#ifndef {guard}", f"#define {guard}", '#include "ui.h"', ""]
     lines.extend(
         f"#define {name} {value:#x}u" for name, value in (string_ids or {}).items()
     )
-    for value in document.values.values():
-        lines.append(f"extern const int32_t {value.name}[{len(value.numbers)}];")
     return "\n".join([*lines, "", "#endif", ""])
 
 
-def array(name, values, public=False, ctype="uint32_t"):
-    prefix = "" if public else "static "
-    text = ", ".join(str(value) if value < 0 else f"{value:#x}" for value in values)
-    return f"{prefix}const {ctype} {name}[] = {{{text}}};"
-
-
-def string_array(name, values):
-    return (
-        f"static const char *const {name}[] = {{"
-        + ", ".join(json.dumps(v, ensure_ascii=False) for v in values)
-        + "};"
-    )
-
-
-def emit_bindings(document):
-    lines = []
-    prefix = document.root.name.lower()
-    for values in document.values.values():
-        lines.append(array(values.name, values.numbers, public=True, ctype="int32_t"))
-        lines.append(string_array(values.name + "_labels", values.labels))
-    if document.fields:
-        lines.append(
-            f"const struct cfw_ui_field {prefix}_fields[{len(document.fields)}] = {{"
-        )
-        for item in document.fields:
-            values = document.values[item.choices]
-            lines.append(
-                f"    {{{len(values.labels)}, {item.default_index}, "
-                f"{json.dumps(item.title)}, {item.choices}_labels}},"
-            )
-        lines.append("};")
-    return lines
+def array(name, values, ctype="uint32_t"):
+    text = ", ".join(f"{value:#x}" for value in values)
+    return f"static const {ctype} {name}[] = {{{text}}};"
 
 
 def emit_resource_data(name, data, *, mutable=False, aligned=False):

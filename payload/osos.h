@@ -146,24 +146,6 @@ static inline int osos_settings_action(void *controller, const char *action,
 
 #include "native/graphics.h"
 
-static inline void osos_eq_load(void *state)
-{
-    typedef void (*fn)(void *);
-    ((fn)OSOS_EQ_LOAD)(state);
-}
-
-static inline void osos_eq_reset(void *state)
-{
-    typedef void (*fn)(void *);
-    ((fn)OSOS_EQ_RESET)(state);
-}
-
-static inline void osos_eq_reset_stage(void *state, unsigned int stage)
-{
-    typedef void (*fn)(void *, unsigned int);
-    ((fn)OSOS_EQ_RESET_STAGE)(state, stage);
-}
-
 /* Media items are non-owning views of a record. */
 struct osos_media_record;
 
@@ -433,12 +415,6 @@ static inline uint32_t osos_button_ui_key(void *event)
 {
     typedef uint32_t (*fn)(void *);
     return ((fn)OSOS_BUTTON_EVENT_UI_KEY)(event);
-}
-
-static inline int osos_hold_locked(void)
-{
-    typedef int (*fn)(void);
-    return ((fn)OSOS_HOLD_LOGICAL_STATE)();
 }
 
 static inline void osos_system_hold_changed(void *system, int locked)

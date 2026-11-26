@@ -64,7 +64,6 @@ def build_recipe(
             source / name
             for name in (
                 "cfw_info.ui",
-                "custom_eq.ui",
                 "media_menus.ui",
                 "dark_mode.ui",
                 "rvx/screen.ui",
