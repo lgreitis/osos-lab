@@ -512,8 +512,7 @@ void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 byte
         return;
     for (struct installed *i = installed; i; i = i->next) {
         const struct menu_entry *e = i->entry;
-        if (!(e->menus & (1u << slot)) || (e->after ? e->after : last[slot]) != item ||
-            (slot >= 2 && e->shown && !rvx_get_int(i->pkg, e->shown)))
+        if (!(e->menus & (1u << slot)) || (e->after ? e->after : last[slot]) != item)
             continue;
         int inline_value = slot == 3 && e->row.kind == 2 && sound_check_row;
         const void *prototype = inline_value ? sound_check_row : row;
@@ -527,9 +526,9 @@ void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 byte
             u32 *words = (void *)copy;
             words[12] = i->item;
             words[0x68 / 4] = i->source_id;
+            words[0x64 / 4] = !e->shown || rvx_get_int(i->pkg, e->shown);
             if (slot < 2) {
                 words[0x60 / 4] = 5;
-                words[0x64 / 4] = !e->shown || rvx_get_int(i->pkg, e->shown);
                 words[0x5c / 4] = (words[0x5c / 4] & 0xffff0000) | 4;
             }
             i->row[slot] = copy;
@@ -655,14 +654,14 @@ void rvx_setting_updated(Pkg *p, uint16_t key)
         rvx_native_refresh(rvx_top);
     for (struct installed *i = installed; i; i = i->next)
         if (i->pkg == p) {
-            if (key == i->entry->shown && (i->entry->menus & 3)) {
+            if (key == i->entry->shown && (i->entry->menus & 0x1f)) {
                 /* Apple's menu registry was built before the row existed, so
                  * MenuItem_SetVisible cannot reach it: the row's own data
-                 * carries the visibility, and an open list rebuilds on the
-                 * item notification. */
+                 * carries the visibility on every table menu, and an open
+                 * list rebuilds on the item notification. */
                 u32 visible = rvx_get_int(p, key) != 0;
                 int built = 0;
-                for (unsigned slot = 0; slot < 2; slot++)
+                for (unsigned slot = 0; slot < 5; slot++)
                     if (i->row[slot]) {
                         ((u32 *)i->row[slot])[0x64 / 4] = visible;
                         built = 1;
