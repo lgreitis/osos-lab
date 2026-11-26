@@ -7,7 +7,6 @@ const struct rvx_host rvx_exports __attribute__((used, section(".rvx.exports")))
     .register_ui = cfw_rvx_register_ui,
     .flush = cfw_rvx_flush,
     .reset = cfw_rvx_reset,
-    .hold = cfw_rvx_hold,
     .row = cfw_rvx_menu_row,
     .events = cfw_rvx_menu_events,
     .video = cfw_rvx_video_menu,

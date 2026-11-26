@@ -112,12 +112,6 @@ void cfw_rvx_reset(void)
         host->reset();
 }
 
-void cfw_rvx_hold(int locked)
-{
-    if (host)
-        host->hold(locked);
-}
-
 void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row,
                       uint32_t bytes, uint32_t metadata)
 {

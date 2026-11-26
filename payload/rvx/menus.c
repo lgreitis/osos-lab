@@ -691,7 +691,7 @@ void rvx_install_menus(void)
         claimed += claim_rows(p, d);
     }
     for (unsigned j = 0; claimed && j < sizeof stock_hooks / sizeof stock_hooks[0]; j++)
-        rvx_bind_menu(&stock_hooks[j]);
+        rvx_bind_core(&stock_hooks[j]);
     if (!installed)
         return;
     for (struct installed *i = installed; i; i = i->next)
@@ -699,7 +699,7 @@ void rvx_install_menus(void)
             attach(i);
     for (unsigned j = 0; j < sizeof actions / sizeof actions[0]; j++)
         if (menu_mask & actions[j].menus)
-            rvx_bind_menu(&actions[j].hook);
+            rvx_bind_core(&actions[j].hook);
     for (unsigned j = 0; j < 5; j++) {
         u32 n;
         const u32 *src = osos_resource_get(rvx_bank, 0x4954454d, tables[j], &n);
