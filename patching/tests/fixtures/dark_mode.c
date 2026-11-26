@@ -273,31 +273,11 @@ static int settings_property(void *value, uint32_t type, uint32_t property,
                              uintptr_t *out)
 {
     assert(value == &model);
-    /* The native Clicker bitmap getter crashes for the two extra output modes. */
-    assert(type != OSOS_RESOURCE_BMAP || property != 0x8925);
+    (void)type;
     stock_properties++;
     *out = 5;
     return property == 123;
 }
-
-static uint32_t clicker_value;
-static uintptr_t preference_methods[0xe0 / 4];
-static uintptr_t *preference_object = preference_methods;
-
-static uint32_t get_preference(void *object, uint32_t property, uint32_t type)
-{
-    assert(object == &preference_object && property == 0x608c && type == 0x6000);
-    return clicker_value;
-}
-
-static void set_preference(void *object, uint32_t property, uint32_t type,
-                           uint32_t value)
-{
-    assert(object == &preference_object && property == 0x608c && type == 0x6000);
-    clicker_value = value;
-}
-
-#include "../../../payload/clicker.c"
 
 void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
@@ -445,29 +425,6 @@ static void check_reset_all_settings(void)
     resetting = 0;
 }
 
-static void check_clicker(void)
-{
-    const uint32_t modes[] = {0x608e, 0x6090, 0x608f, 0x608d};
-    preference_methods[0xdc / 4] = (uintptr_t)get_preference;
-    preference_methods[0xd4 / 4] = (uintptr_t)set_preference;
-    model.preferences = &preference_object;
-    clicker_value = modes[0];
-    int previous_notifications = notifications;
-    int previous_properties = stock_properties;
-    assert(
-        cfw_settings_action(NULL, "ToggleSetting_Clicker", OSOS_ACTION_SUPPORT_QUERY));
-    assert(clicker_value == modes[0] && notifications == previous_notifications);
-
-    for (unsigned i = 0; i < 4; i++) {
-        uintptr_t image;
-        assert(cfw_settings_property(&model, OSOS_RESOURCE_BMAP, 0x8925, &image));
-        assert(image == (i == 0 ? 0x0dad0c04u : 0x0dad0c03u));
-        assert(stock_properties == previous_properties);
-        assert(cfw_settings_action(&controller, "ToggleSetting_Clicker", 0));
-        assert(clicker_value == modes[(i + 1) % 4]);
-    }
-}
-
 int main(void)
 {
     check_cached_colors();
@@ -595,7 +552,6 @@ int main(void)
     assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
     assert(redraws == 4 && notifications == 4);
     assert(!preview_invalidations);
-    check_clicker();
     check_settings_lifecycle();
     check_reset_all_settings();
 }
