@@ -129,6 +129,8 @@ MAX_LIBRARIES = 4
 LIBRARIES_KEYS = {"required", "optional"}
 # The first API minor whose core leaves an optional library's imports NULL.
 OPTIONAL_API = 1 << 16 | 84
+# rv_row and rv_menu_entry changed layout: images built below it do not load
+LAYOUT_API = 1 << 16 | 86
 EXPORT_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 LICENSES = {
     "GPL-3.0-only",

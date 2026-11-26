@@ -4,7 +4,7 @@ description = "Adds a Hello page to Settings."
 version = "0.1.0"
 author = "You"
 license = "GPL-3.0-only"
-api = "1.78"                 # the oldest core API major.minor the extension runs on
+api = "1.86"                 # the oldest core API major.minor the extension runs on
 category = "other"           # where Settings > Extensions lists it
 
 [[module]]

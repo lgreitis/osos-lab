@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 #define RV_API_MAJOR 1
-#define RV_API_MINOR 85
+#define RV_API_MINOR 86
 #define RV_API_VERSION ((RV_API_MAJOR << 16) | RV_API_MINOR)
 
 /* A field of an Apple struct at an offset of the symbols header:
@@ -170,6 +170,9 @@ struct rv_row {
     const char *screen;
     void (*action)(const struct rv_context *ctx);
     const char *(*text)(const struct rv_context *ctx);
+    /* A name other extensions anchor their hosted rows on (rv_menu_entry
+     * host_after); NULL for a row none can follow. */
+    const char *id;
 };
 
 /* A row of a screen's long-press menu. `available` is asked each time the menu
@@ -485,20 +488,21 @@ enum rv_preview {
     RV_PREVIEW_VIDEOS,
 };
 
-/* A row the extension adds to every menu in `menus`, at least one. `after` is
- * a stock row of that menu from rv_menus.h (RV_SETTINGS_LEGAL), 0 for the end
- * and the only value for several menus. While the row is highlighted the
- * menu's pane shows `pane`: under Settings the label, the caption as the line
- * below and the bitmap, an icon, on the box the system draws behind stock
- * Settings icons unless `plain_icon` is set; under Main, Music, Videos and
- * Extras the picture with the caption, or without one the label, in the pane
- * shape the picture's size picks (docs/sdk/menus.md), with `extra` where the
- * shape has room for it. A music or video item (a Music or Videos row, a Main
- * row with `preview`) with none of `pane`, `extra` and `caption_setting`
- * shows the stock pane of its kind instead (rv_preview). With `shown_by`, the
- * key of a declared bool setting, the row shows while that setting is on;
- * under Main and Music, Settings > Main Menu and Music Menu list the row and
- * flip it. Without, the row always shows. */
+/* A row the extension adds to every menu in `menus`, at least one unless
+ * `host` is set. `after` is a stock row of that menu from rv_menus.h
+ * (RV_SETTINGS_LEGAL), 0 for the end and the only value for several menus.
+ * While the row is highlighted the menu's pane shows `pane`: under Settings
+ * the label, the caption as the line below and the bitmap, an icon, on the box
+ * the system draws behind stock Settings icons unless `plain_icon` is set;
+ * under Main, Music, Videos and Extras the picture with the caption, or
+ * without one the label, in the pane shape the picture's size picks
+ * (docs/sdk/menus.md), with `extra` where the shape has room for it. A music
+ * or video item (a Music or Videos row, a Main row with `preview`) with none
+ * of `pane`, `extra` and `caption_setting` shows the stock pane of its kind
+ * instead (rv_preview). With `shown_by`, the key of a declared bool setting,
+ * the row shows while that setting is on; under Main and Music, Settings >
+ * Main Menu and Music Menu list the row and flip it. Without, the row always
+ * shows. */
 struct rv_menu_entry {
     uint16_t menus;    /* RV_MENU_BIT of each rv_menu */
     uint16_t shown_by; /* a bool setting key, 0 for always shown */
@@ -517,6 +521,15 @@ struct rv_menu_entry {
      * A Music or Videos row has its menu's. */
     uint8_t preview;    /* rv_preview */
     uint8_t plain_icon; /* 1: the pane shows its bitmap without the system's box behind it */
+    /* A hosted row: while the extension with manifest id `host` runs, the row
+     * is in its main module's list screen `host_screen`, after the row whose
+     * id is `host_after` (NULL: after the last row); otherwise in the menus
+     * after `after`. `menus` may then be 0 (no row while the host is off) or
+     * one menu. The pane, caption_setting and shown_by apply in both places.
+     * NULL `host` for a row of the menus alone. */
+    const char *host;
+    const char *host_screen;
+    const char *host_after;
 };
 
 /* Returned by a module's entry; everything it points to lives as long as the

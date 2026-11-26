@@ -8,6 +8,16 @@
 #include "../../rvx-sdk/osos-2.0.5.h"
 #define NATIVE_CALL(name) ((__typeof__(&name))ADDR_##name)
 
+/* screen.h mirrors the SDK's UI structs field for field. */
+_Static_assert(sizeof(struct row) == sizeof(struct rv_row) &&
+                   offsetof(struct row, id) == offsetof(struct rv_row, id) &&
+                   sizeof(struct context_row) == sizeof(struct rv_context_row) &&
+                   sizeof(struct menu_entry) == sizeof(struct rv_menu_entry) &&
+                   offsetof(struct menu_entry, host) ==
+                       offsetof(struct rv_menu_entry, host) &&
+                   sizeof(struct screen) == sizeof(struct rv_screen),
+               "RVX UI ABI");
+
 extern const u32 rvx_clear_bitmap[];
 
 struct core_block {

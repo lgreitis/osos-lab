@@ -35,13 +35,20 @@
 #define RV_HOOK_POINTER(site_, object_)                                                \
     {.site = (site_), .handler = (object_), .mode = RV_HOOK_MODE_REPLACE}
 
-/* Rows of a list screen or of an entry. */
-#define RV_ROW_PUSH(label_, screen_)                                                   \
-    {.label = (label_), .kind = RV_ROW_KIND_PUSH, .screen = (screen_)}
-#define RV_ROW_ACTION(label_, fn_)                                                     \
-    {.label = (label_), .kind = RV_ROW_KIND_ACTION, .action = (fn_)}
-#define RV_ROW_SETTING(label_, key_)                                                   \
-    {.label = (label_), .kind = RV_ROW_KIND_SETTING, .key = (key_)}
+/* Rows of a list screen or of an entry; `.id = "name"` after the arguments
+ * lets other extensions anchor hosted rows on the row. */
+#define RV_ROW_PUSH(label_, screen_, ...)                                              \
+    {.label = (label_),                                                                \
+     .kind = RV_ROW_KIND_PUSH,                                                         \
+     .screen = (screen_)__VA_OPT__(, ) __VA_ARGS__}
+#define RV_ROW_ACTION(label_, fn_, ...)                                                \
+    {.label = (label_),                                                                \
+     .kind = RV_ROW_KIND_ACTION,                                                       \
+     .action = (fn_)__VA_OPT__(, ) __VA_ARGS__}
+#define RV_ROW_SETTING(label_, key_, ...)                                              \
+    {.label = (label_),                                                                \
+     .kind = RV_ROW_KIND_SETTING,                                                      \
+     .key = (key_)__VA_OPT__(, ) __VA_ARGS__}
 /* A row that shows text_() as its label and does nothing when chosen. */
 #define RV_ROW_INFO(label_, text_)                                                     \
     {.label = (label_), .kind = RV_ROW_KIND_INFO, .text = (text_)}

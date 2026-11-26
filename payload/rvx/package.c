@@ -7,7 +7,7 @@
 #include "store.h"
 #include "../../game-sdk/runtime/native_directory.h"
 
-/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.85. */
+/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.86. */
 struct rvx_header {
     uint32_t magic, format, sdk_api, firmware, manifest_bytes, entries, hash;
 };
@@ -109,7 +109,7 @@ static int inspect(Pkg *p, void *f)
     u32 bytes;
     if (!read_exact(f, &h, sizeof h) || h.magic != 0x30585652 || h.format != 1 ||
         h.firmware != RVX_FIRMWARE_ID || (h.sdk_api >> 16) != RVX_API_MAJOR ||
-        h.manifest_bytes < sizeof(struct rvx_manifest) ||
+        h.sdk_api < RVX_API_LAYOUT || h.manifest_bytes < sizeof(struct rvx_manifest) ||
         h.manifest_bytes > MAX_MANIFEST || !h.entries || h.entries > 4096 ||
         osos_file_size(f, &bytes))
         return 0;

@@ -17,6 +17,7 @@ struct row {
     const char *screen;
     void (*action)(const struct context *);
     const char *(*text)(const struct context *);
+    const char *id;
 };
 
 struct context_row {
@@ -48,6 +49,7 @@ struct menu_entry {
     int (*available)(const struct context *);
     uint16_t caption;
     uint8_t preview, plain;
+    const char *host, *host_screen, *host_after;
 };
 
 struct input {
