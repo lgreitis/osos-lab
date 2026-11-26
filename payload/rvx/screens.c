@@ -204,8 +204,14 @@ void rvx_select(Pkg *p, const char *id, u32 row)
 {
     for (struct frame *f = rvx_top; f; f = f->parent)
         if (f->ctx.self == p && id && cfw_string_equal(f->screen->id, id)) {
+            /* A list's selection is a position: guests may sit before row. */
+            u32 rows = rvx_row_count(f);
+            if (f->screen->kind == RV_SCREEN_KIND_LIST && f->native) {
+                row = rvx_guest_position(f->native, row);
+                rows += rvx_guest_count(f->native);
+            }
             f->selected = row;
-            if (f == rvx_top && f->native && row < rvx_row_count(f))
+            if (f == rvx_top && f->native && row < rows)
                 osos_ui_list_select(row);
             osos_ui_invalidate();
             break;

@@ -14,6 +14,13 @@ static struct installed {
     u32 item, source_id;
     void *row[5];
     char action[16];
+    /* A hosted entry's place: the host, its main-module list screen and the
+     * declared row the guest follows; host NULL while the row is in its stock
+     * menu. host_row is the copy in the host's table, built once. */
+    Pkg *host;
+    const struct screen *host_screen;
+    u32 host_index;
+    void *host_row;
 } *installed;
 
 enum {
@@ -96,7 +103,7 @@ static void install(Pkg *p, const struct menu_entry *e, u32 id)
                     Service_Settings,
                     i->source_id,
                     SourceDestination_InlineValue};
-    if ((e->menus & MENU_SETTINGS) && e->row.kind == RV_ROW_KIND_SETTING)
+    if ((e->host || (e->menus & MENU_SETTINGS)) && e->row.kind == RV_ROW_KIND_SETTING)
         source[0] = 2;
     const char *label = e->row.label ? e->row.label : "";
     unsigned len = 0;
@@ -109,6 +116,8 @@ static void install(Pkg *p, const struct menu_entry *e, u32 id)
     i->action[1] = 'V';
     i->action[2] = 'X';
     core_put_number(i->action + 3, i->action + sizeof i->action, id);
+    i->host = NULL;
+    i->host_row = NULL;
     i->next = NULL;
     struct installed **tail = &installed;
     while (*tail)
@@ -142,6 +151,149 @@ static unsigned menu_events(const struct installed *i, unsigned slot, uint8_t *b
         core_write_event(&w, name, handler, "navigator.SwitchLayout", &layout, 1);
     }
     return w.at;
+}
+
+static int setting_on(const struct installed *i)
+{
+    return !i->entry->shown || rvx_get_int(i->pkg, i->entry->shown);
+}
+
+/* Whether `i` is hosted by the list screen `s`. */
+static int guest_of(const struct installed *i, const struct core_screen *s)
+{
+    return i->host && i->host == s->owner &&
+           cfw_string_equal(s->name, i->host_screen->id);
+}
+
+/* The events of a guest row on a layout of its host: chosen, and on the split
+ * layout of a list with a pane per row the delayed selection that names the
+ * pane's caption handler, as the host's own rows do (native_lists.c). */
+static unsigned host_events(const struct installed *i, u32 screen, int split,
+                            uint8_t *buffer)
+{
+    char name[48], handler[11];
+    struct core_writer w = {buffer, 0};
+    int pane = split && core_lists_per_row_pane(i->host_screen);
+    core_write_word(&w, pane ? 2 : 1);
+    core_row_event_name(name, sizeof name, i->item, ".chosen");
+    core_write_event(&w, name, i->action, NULL, NULL, 0);
+    if (pane) {
+        core_row_event_name(name, sizeof name, i->item, ".delayedselected");
+        core_screens_handler_name(handler, CORE_LIST_PANE_CAPTION(screen));
+        core_write_event(&w, name, handler, NULL, NULL, 0);
+    }
+    return w.at;
+}
+
+/* Gives a hosted row its place when the extension its entry names started
+ * and its main module declares the list screen and the row: after the row
+ * with the id named, or the last. Without, the row stays in its stock menu.
+ * Extensions start at boot and stay, so this is decided once. */
+static void attach(struct installed *i)
+{
+    const struct menu_entry *e = i->entry;
+    Pkg *h = rvx_packages;
+    while (h && (h->state != 2 || !cfw_string_equal(h->id, e->host)))
+        h = h->next;
+    const struct rvx_descriptor *d = h ? h->modules[0].desc : NULL;
+    for (u32 n = 0; d && n < d->screen_count; n++) {
+        const struct screen *s = (const struct screen *)d->screens + n;
+        if (s->kind != RV_SCREEN_KIND_LIST || !s->id || !s->list.count ||
+            !cfw_string_equal(s->id, e->host_screen))
+            continue;
+        u32 count = s->list.count, index = e->host_after ? count : count - 1;
+        for (u32 k = 0; e->host_after && k < count && index == count; k++)
+            if (s->list.rows[k].id &&
+                cfw_string_equal(s->list.rows[k].id, e->host_after))
+                index = k;
+        if (index < count) {
+            i->host = h;
+            i->host_screen = s;
+            i->host_index = index;
+        }
+        return;
+    }
+}
+
+int rvx_entries_valid(const Pkg *p, const struct menu_entry *e, u32 count)
+{
+    for (u32 n = 0; n < count; n++, e++)
+        if (e->host ? !e->host_screen || cfw_string_equal(e->host, p->id) ||
+                          (e->menus & (e->menus - 1))
+                    : e->host_screen || e->host_after || !e->menus)
+            return 0;
+    return 1;
+}
+
+const struct installed *rvx_guest_at(const struct core_screen *s,
+                                     const struct screen *d, u32 position, u32 *index)
+{
+    for (*index = 0; *index < d->list.count; (*index)++) {
+        if (position-- == 0)
+            return NULL;
+        /* The guests appended after this row, in load order; one without a
+         * row is not in the table yet. */
+        for (const struct installed *i = installed; i; i = i->next)
+            if (guest_of(i, s) && i->host_index == *index && i->host_row &&
+                setting_on(i) && position-- == 0)
+                return i;
+    }
+    return NULL;
+}
+
+u32 rvx_guest_count(const struct core_screen *s)
+{
+    u32 n = 0;
+    for (const struct installed *i = installed; i; i = i->next)
+        n += guest_of(i, s) && i->host_row && setting_on(i);
+    return n;
+}
+
+u32 rvx_guest_position(const struct core_screen *s, u32 index)
+{
+    u32 position = index;
+    for (const struct installed *i = installed; i; i = i->next)
+        position +=
+            guest_of(i, s) && i->host_row && setting_on(i) && i->host_index < index;
+    return position;
+}
+
+int rvx_guest_pane_property(const struct installed *i, void *controller, u32 field,
+                            u32 type, uintptr_t *out)
+{
+    const struct menu_entry *e = i->entry;
+    struct context ctx = {i->pkg, controller, NULL, NULL, -1, NULL};
+    const struct pane *pane = e->pane;
+    if ((field == 1 || field == 2) && type == Property_Bitmap) {
+        const struct bitmap *b =
+            pane ? (pane->image ? pane->image(&ctx) : pane->bitmap) : NULL;
+        u32 bytes = 0;
+        void *image = b ? rvx_bitmap_load(i->pkg, b->name, &bytes) : NULL;
+        int icon = update_menu_icon(image, bytes);
+        if (image)
+            rvx_free(i->pkg, image);
+        *out = (uintptr_t)rvx_clear_bitmap;
+        if (icon)
+            *out = field == 1 ? (uintptr_t)native_icon
+                   : e->plain ? (uintptr_t)rvx_clear_bitmap
+                              : osos_ui_bitmap(RES_SettingsPreview_Background_Image);
+        return 1;
+    }
+    if (type != Property_String || (field != 0 && field != 3))
+        return 0;
+    const char *text = e->row.label;
+    if (field == 0) {
+        text = pane ? (pane->text ? pane->text(&ctx) : pane->label) : NULL;
+        if (!text && e->caption) {
+            int n = rvx_get_int(i->pkg, e->caption);
+            const struct rvx_setting *v = rvx_declaration(i->pkg, e->caption);
+            text = v && v->labels && n >= 0 && (u32)n < v->label_count ? v->labels[n]
+                   : n                                                 ? "On"
+                                                                       : "Off";
+        }
+    }
+    *out = (uintptr_t)(text ? text : "");
+    return 1;
 }
 
 static void refresh_menu_pane(Pkg *p, int caption_change)
@@ -307,24 +459,33 @@ static u32 action(void *controller, const char *action, u32 arg, const void *nex
                 }
                 return 1;
             }
-    if (action && action[0] == 'R' && action[1] == 'V' && action[2] == 'X')
-        for (struct installed *i = installed; i; i = i->next)
-            if (cfw_string_equal(i->action, action)) {
-                if (arg != OSOS_ACTION_SUPPORT_QUERY) {
-                    struct context ctx = {i->pkg, controller, NULL, NULL, -1, NULL};
-                    if (i->entry->menus & 0xffe0u && media.controller == controller) {
-                        ctx.item = media.item;
-                        ctx.row = media.row;
-                        ctx.list = media.list;
-                    }
-                    const struct context *prior = rvx_origin;
-                    rvx_origin = &ctx;
-                    rvx_act(&ctx, &i->entry->row);
-                    rvx_origin = prior;
-                }
-                return 1;
-            }
+    if (rvx_menu_action(controller, action, arg, 1))
+        return 1;
     return rvx_next(next, (u32)controller, (u32)action, arg, 0, 0, 0);
+}
+
+int rvx_menu_action(void *controller, const char *action, u32 arg, int stock)
+{
+    if (!action || action[0] != 'R' || action[1] != 'V' || action[2] != 'X')
+        return 0;
+    for (struct installed *i = installed; i; i = i->next)
+        if (cfw_string_equal(i->action, action)) {
+            if (arg != OSOS_ACTION_SUPPORT_QUERY) {
+                struct context ctx = {i->pkg, controller, NULL, NULL, -1, NULL};
+                if (stock && i->entry->menus & 0xffe0u &&
+                    media.controller == controller) {
+                    ctx.item = media.item;
+                    ctx.row = media.row;
+                    ctx.list = media.list;
+                }
+                const struct context *prior = rvx_origin;
+                rvx_origin = &ctx;
+                rvx_act(&ctx, &i->entry->row);
+                rvx_origin = prior;
+            }
+            return 1;
+        }
+    return 0;
 }
 
 static void append_context(void *menu, unsigned kind, void *controller, int row,
@@ -464,6 +625,9 @@ void rvx_install_menus(void)
     }
     if (!installed)
         return;
+    for (struct installed *i = installed; i; i = i->next)
+        if (i->entry->host)
+            attach(i);
     for (unsigned j = 0; j < sizeof actions / sizeof actions[0]; j++)
         if (menu_mask & actions[j].menus)
             rvx_bind_menu(&actions[j].hook);
@@ -500,6 +664,36 @@ void cfw_rvx_register_ui(void *bank)
     rvx_register_controller();
 }
 
+/* Appends the guests that follow `item`, a declared row of an extension's list
+ * whose table Apple is building. A guest's row is made on the first build: a
+ * copy of the Legal row, or of Sound Check's for a row with a value. */
+static void host_rows(void *list, u32 table, u32 item, u32 metadata)
+{
+    const struct core_screen *s = rvx_native_table_screen(table);
+    if (!s)
+        return;
+    for (struct installed *i = installed; i; i = i->next) {
+        const struct menu_entry *e = i->entry;
+        if (!guest_of(i, s) || item != CORE_SCREEN_ROWS(s) + 2 * i->host_index)
+            continue;
+        if (!i->host_row) {
+            const uint8_t *prototype =
+                core_lists_prototype(e->row.kind == RV_ROW_KIND_SETTING);
+            uint8_t *copy = prototype ? osos_import_alloc(ROW_BYTES) : NULL;
+            if (!copy)
+                continue;
+            for (unsigned j = 0; j < ROW_BYTES; j++)
+                copy[j] = prototype[j];
+            u32 *words = (void *)copy;
+            words[MenuRow_id / 4] = i->item;
+            words[MenuRow_title / 4] = i->source_id;
+            words[MenuRow_visible / 4] = setting_on(i);
+            i->host_row = copy;
+        }
+        osos_resource_block_append(list, i->host_row, ROW_BYTES, metadata);
+    }
+}
+
 void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 bytes,
                       u32 metadata)
 {
@@ -508,11 +702,15 @@ void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 byte
     unsigned slot = 0;
     while (slot < 5 && tables[slot] != table)
         slot++;
-    if (slot == 5)
+    if (slot == 5) {
+        host_rows(list, table, item, metadata);
         return;
+    }
     for (struct installed *i = installed; i; i = i->next) {
         const struct menu_entry *e = i->entry;
-        if (!(e->menus & (1u << slot)) || (e->after ? e->after : last[slot]) != item)
+        /* A hosted row is in its host's list; its stock row is the fallback. */
+        if (i->host || !(e->menus & (1u << slot)) ||
+            (e->after ? e->after : last[slot]) != item)
             continue;
         int inline_value = slot == 3 && e->row.kind == 2 && sound_check_row;
         const void *prototype = inline_value ? sound_check_row : row;
@@ -587,16 +785,20 @@ void cfw_rvx_menu_events(void *map, u32 screen)
             slot = context_screens[j].kind;
             found = 1;
         }
-    if (!found)
+    int split = 0;
+    const struct core_screen *host =
+        found ? NULL : rvx_native_screen_of(screen, &split);
+    if (!found && !host)
         return;
     for (struct installed *i = installed; i; i = i->next) {
-        if (!(i->entry->menus & (1u << slot)))
+        if (host ? !guest_of(i, host) : !(i->entry->menus & (1u << slot)))
             continue;
         struct osos_string bytes;
         u32 allocator = 0, stream[31];
         uint8_t event[192];
-        unsigned size =
-            slot < 5 ? menu_events(i, slot, event) : context_events(i, event);
+        unsigned size = host       ? host_events(i, screen, split, event)
+                        : slot < 5 ? menu_events(i, slot, event)
+                                   : context_events(i, event);
         osos_string_init_bytes(&bytes, event, size, &allocator);
         osos_string_stream_init(stream, &bytes, 0xc);
         osos_string_destroy(&bytes);
@@ -648,13 +850,24 @@ void cfw_rvx_toggle_row(unsigned menu, unsigned row)
         rvx_set_int(i->pkg, i->entry->shown, !rvx_get_int(i->pkg, i->entry->shown));
 }
 
+/* Whether the pane of the list on top shows a guest row of `p`. */
+static int guest_highlighted(Pkg *p)
+{
+    struct frame *f = rvx_top;
+    u32 index;
+    if (!f || !f->native || !f->split || f->screen->kind != RV_SCREEN_KIND_LIST)
+        return 0;
+    const struct installed *i = rvx_guest_at(f->native, f->screen, f->selected, &index);
+    return i && i->pkg == p;
+}
+
 void rvx_setting_updated(Pkg *p, uint16_t key)
 {
-    if (rvx_top && rvx_top->ctx.self == p)
+    if (rvx_top && (rvx_top->ctx.self == p || guest_highlighted(p)))
         rvx_native_refresh(rvx_top);
     for (struct installed *i = installed; i; i = i->next)
         if (i->pkg == p) {
-            if (key == i->entry->shown && (i->entry->menus & 0x1f)) {
+            if (key == i->entry->shown && ((i->entry->menus & 0x1f) || i->host_row)) {
                 /* Apple's menu registry was built before the row existed, so
                  * MenuItem_SetVisible cannot reach it: the row's own data
                  * carries the visibility on every table menu, and an open
@@ -666,6 +879,10 @@ void rvx_setting_updated(Pkg *p, uint16_t key)
                         ((u32 *)i->row[slot])[0x64 / 4] = visible;
                         built = 1;
                     }
+                if (i->host_row) {
+                    ((u32 *)i->host_row)[0x64 / 4] = visible;
+                    built = 1;
+                }
                 if (built) {
                     void *service = osos_ui_resources();
                     osos_model_notify(service, 0x4c697445, i->item); /* LitE */
@@ -673,7 +890,7 @@ void rvx_setting_updated(Pkg *p, uint16_t key)
                 }
             }
             if (i->entry->row.kind == 2 && i->entry->row.key == key &&
-                (i->entry->menus & MENU_SETTINGS)) {
+                (i->host || (i->entry->menus & MENU_SETTINGS))) {
                 void *model = ((void *(*)(void))0x081e0ff4)();
                 if (model)
                     osos_model_notify(model, OSOS_NOTIFY_ALL, i->source_id);

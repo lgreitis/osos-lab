@@ -12,6 +12,23 @@ static void notify(u32 id)
         osos_model_notify(model, OSOS_NOTIFY_ALL, id);
 }
 
+const struct core_screen *rvx_native_table_screen(u32 table)
+{
+    for (const struct core_screen *s = layouts; s; s = s->next)
+        if (s->id + 3 == table)
+            return s;
+    return NULL;
+}
+
+const struct core_screen *rvx_native_screen_of(u32 screen, int *split)
+{
+    for (const struct core_screen *s = layouts; s; s = s->next)
+        for (*split = 0; core_lists_kind(s->kind) && *split < 2; (*split)++)
+            if (core_lists_screen_id(s, *split) == screen)
+                return s;
+    return NULL;
+}
+
 int rvx_prepare_native(struct frame *f, u32 *screen_id, u32 *layout_id)
 {
     const struct screen *d = f->screen;
@@ -164,10 +181,17 @@ int rvx_native_property(u32 type, u32 id, uintptr_t *out)
     } else if (core_lists_kind(d->kind) && f->split &&
                id - CORE_LIST_PANE_CAPTION(core_lists_screen_id(s, 1)) < 4) {
         u32 field = id - CORE_LIST_PANE_CAPTION(core_lists_screen_id(s, 1));
-        const struct pane *p = d->kind == RV_SCREEN_KIND_LIST && d->list.panes &&
-                                       f->selected < d->list.count
-                                   ? d->list.panes + f->selected
-                                   : NULL;
+        /* A list's highlight is a position: a declared row's or a guest's. */
+        u32 selected = f->selected;
+        const struct installed *guest = d->kind == RV_SCREEN_KIND_LIST
+                                            ? rvx_guest_at(s, d, f->selected, &selected)
+                                            : NULL;
+        if (guest)
+            return rvx_guest_pane_property(guest, f->ctx.controller, field, type, out);
+        const struct pane *p =
+            d->kind == RV_SCREEN_KIND_LIST && d->list.panes && selected < d->list.count
+                ? d->list.panes + selected
+                : NULL;
         if ((field == 1 || field == 2) && type == Property_Bitmap) {
             const struct bitmap *b =
                 p ? (p->image ? p->image(&f->ctx) : p->bitmap) : d->bitmap;
@@ -183,7 +207,7 @@ int rvx_native_property(u32 type, u32 id, uintptr_t *out)
         if (type != Property_String)
             return 0;
         if (field == 3)
-            text = p ? row_label(d->list.rows + f->selected, f) : d->title;
+            text = p ? row_label(d->list.rows + selected, f) : d->title;
         else if (field == 0 && p)
             text = p->text ? p->text(&f->ctx) : p->label;
         else if (field == 0 && d->kind == RV_SCREEN_KIND_CHOICE &&
@@ -285,7 +309,9 @@ static void open_context(struct frame *f)
     u32 count = menu_count(d), base = menu_base(f);
     struct context ctx = f->ctx;
     ctx.row = f->selected = osos_selection_index(osos_ui_selection());
-    if (f->selected >= rvx_row_count(f))
+    /* A list's rows are its declared rows and the guests among them. */
+    u32 guests = d->kind == RV_SCREEN_KIND_LIST ? rvx_guest_count(f->native) : 0;
+    if (f->selected >= rvx_row_count(f) + guests)
         return;
     if (!f->context_actions)
         f->context_actions = osos_import_alloc(count * sizeof *f->context_actions);
@@ -341,6 +367,8 @@ PATCH_ARM int rvx_native_action(void *controller, const char *name, u32 argument
         if (i != 10 || name[i])
             id = 0;
     }
+    if (!id && rvx_menu_action(controller, name, argument, 0))
+        return 1; /* a guest row of this list */
     if (!id || owner_of(id) != f) {
         typedef int (*Action)(void *, const char *, u32);
         return ((Action)f->native_methods[ScreenController_action_method / 4])(
@@ -370,7 +398,10 @@ PATCH_ARM int rvx_native_action(void *controller, const char *name, u32 argument
                     : osos_selection_index(osos_ui_selection());
         if (i >= rvx_row_count(f))
             return 1;
-        f->selected = i;
+        /* A list keeps the highlighted position: guests may sit before row i. */
+        f->selected = d->kind == RV_SCREEN_KIND_LIST
+                          ? osos_selection_index(osos_ui_selection())
+                          : i;
         switch (d->kind) {
         case RV_SCREEN_KIND_LIST:
             rvx_act(&f->ctx, d->list.rows + i);

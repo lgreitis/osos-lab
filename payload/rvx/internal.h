@@ -208,6 +208,11 @@ _Static_assert(sizeof(struct rvx_api) == 49 * 4 &&
                "RVX ABI");
 int rvx_load_module(Pkg *, u32);
 void rvx_install_menus(void);
+/* The entries of a main module are valid: a hosted one names another
+ * extension's screen and at most one menu, a stock one at least one menu and
+ * no host. */
+struct menu_entry;
+int rvx_entries_valid(const Pkg *, const struct menu_entry *, u32);
 void rvx_release_screen(Pkg *p, u32 index);
 void *rvx_bitmap_load(Pkg *, const char *, u32 *);
 

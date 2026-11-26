@@ -121,6 +121,10 @@ static inline int core_lists_per_row_pane(const struct screen *d)
 /* First row item id (list), paragraph source id (text), bar source id (slider)
  * or message source id (dialog). */
 #define CORE_SCREEN_ROWS(s) ((s)->id + 8)
+#define ROW_BYTES 0x98
+/* The Legal row, or with `value` Sound Check's: the ROW_BYTES rows of an
+ * extension's list copy them. */
+const uint8_t *core_lists_prototype(int value);
 
 struct core_screen {
     struct core_screen *next;
@@ -159,6 +163,34 @@ int core_list_empty(struct core_screen *, uint32_t, uint32_t *, uint8_t *, uint3
 uint32_t core_screen_menu_events(struct core_writer *, const struct core_screen *);
 int core_screen_menu_build(const struct core_screen *, uint8_t *, uint32_t);
 void core_screens_handler_name(char *, uint32_t);
+
+/* The screen record whose ITEM table is `table`; NULL for a stock table. */
+const struct core_screen *rvx_native_table_screen(uint32_t table);
+/* The list screen record one of whose layouts has the screen id `screen`, with
+ * *split 1 for the split layout; NULL for a stock screen. */
+const struct core_screen *rvx_native_screen_of(uint32_t screen, int *split);
+
+/* Hosted menu rows (menus.c). */
+struct installed;
+/* The row at a visible position of the list screen `s` declared by `d`: a
+ * declared row, its index in *index and NULL; or the guest row there. Past
+ * the last row *index is the row count. */
+const struct installed *rvx_guest_at(const struct core_screen *s,
+                                     const struct screen *d, uint32_t position,
+                                     uint32_t *index);
+/* The guests shown in the list screen `s`. */
+uint32_t rvx_guest_count(const struct core_screen *s);
+/* The position of declared row `index` in `s`, past the guests before it. */
+uint32_t rvx_guest_position(const struct core_screen *s, uint32_t index);
+/* A guest's pane fields as its host's split layout asks them: 0 the caption,
+ * 1 the icon, 2 the box behind it, 3 the label. */
+int rvx_guest_pane_property(const struct installed *i, void *controller, uint32_t field,
+                            uint32_t type, uintptr_t *out);
+/* Runs the entry row the handler name `action` ("RVX<item>") names, on
+ * `controller`; 1 when it names one, also for a support query. `stock` for
+ * a call from a stock controller's action hook, whose context menu item the
+ * row may take. */
+int rvx_menu_action(void *controller, const char *action, uint32_t arg, int stock);
 
 static inline void native_set(uint32_t type, uint32_t id, const void *data,
                               uint32_t size)

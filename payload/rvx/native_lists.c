@@ -3,7 +3,6 @@
  * based on RepriseOS UI resources by lgreitis.
  */
 #include "native_ui.h"
-#define ROW_BYTES 0x98
 
 static const void *stock(uint32_t type, uint32_t id, uint32_t *bytes)
 {

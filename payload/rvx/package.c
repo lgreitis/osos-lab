@@ -329,7 +329,8 @@ static int link_module(Pkg *p, u32 index, const struct module_header *h, File *f
         !within(m, d->hooks, d->count, sizeof *d->hooks) ||
         !within(m, d->settings, d->setting_count, sizeof *d->settings) ||
         !within(m, d->screens, d->screen_count, sizeof(struct screen)) ||
-        !within(m, d->entries, d->entry_count, sizeof(struct menu_entry)))
+        !within(m, d->entries, d->entry_count, sizeof(struct menu_entry)) ||
+        (index == 0 && !rvx_entries_valid(p, d->entries, d->entry_count)))
         return 0;
     m->desc = d;
     for (u32 i = 0; i < d->count; i++)
