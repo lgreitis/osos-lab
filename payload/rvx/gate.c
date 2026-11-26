@@ -131,10 +131,10 @@ void cfw_rvx_menu_events(void *map, uint32_t screen)
         host->events(map, screen);
 }
 
-void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item, int tv)
+unsigned cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
+                            int tv)
 {
-    if (host)
-        host->video(menu, controller, row, item, tv);
+    return host ? host->video(menu, controller, row, item, tv) : 0;
 }
 
 int cfw_rvx_indexed_property(uint32_t type, uint32_t property, uint32_t index,

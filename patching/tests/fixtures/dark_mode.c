@@ -419,31 +419,6 @@ static void native_flush(void *preferences)
     native_flushes++;
 }
 
-int cfw_file_info_action(const char *action, uint32_t argument)
-{
-    (void)action;
-    (void)argument;
-    return 0;
-}
-
-int cfw_file_info_property(uint32_t type, uint32_t property, uintptr_t *out)
-{
-    (void)type;
-    (void)property;
-    (void)out;
-    return 0;
-}
-
-int cfw_file_info_indexed_property(uint32_t type, uint32_t property, uint32_t index,
-                                   uintptr_t *out)
-{
-    (void)type;
-    (void)property;
-    (void)index;
-    (void)out;
-    return 0;
-}
-
 #define osos_settings_action settings_action
 #define osos_settings_property settings_property
 #define osos_preferences_flush native_flush
@@ -652,13 +627,4 @@ int main(void)
     check_clicker();
     check_settings_lifecycle();
     check_reset_all_settings();
-}
-
-int cfw_up_next_property(void *model, uint32_t type, uint32_t property, uintptr_t *out)
-{
-    (void)model;
-    (void)type;
-    (void)property;
-    (void)out;
-    return 0;
 }

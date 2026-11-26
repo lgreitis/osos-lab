@@ -395,8 +395,8 @@ int rvx_menu_action(void *controller, const char *action, u32 arg, int stock)
     return 0;
 }
 
-static void append_context(void *menu, unsigned kind, void *controller, int row,
-                           const struct osos_media_item *item)
+static unsigned append_context(void *menu, unsigned kind, void *controller, int row,
+                               const struct osos_media_item *item)
 {
     media.controller = controller;
     media.list = kind == 5 ? NULL : controller;
@@ -406,19 +406,24 @@ static void append_context(void *menu, unsigned kind, void *controller, int row,
         media.item = &media_item;
     } else
         media.item = NULL;
+    unsigned added = 0;
     for (struct installed *i = installed; i; i = i->next) {
         const struct menu_entry *e = i->entry;
         if (!(e->menus & (1u << kind)) || (e->shown && !rvx_get_int(i->pkg, e->shown)))
             continue;
         media.self = i->pkg;
-        if (!e->available || e->available(&media))
+        if (!e->available || e->available(&media)) {
             osos_context_menu_append(menu, i->item + 2, i->action, 1);
+            added++;
+        }
     }
+    return added;
 }
 
-void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item, int tv)
+unsigned cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
+                            int tv)
 {
-    append_context(menu, tv ? 13 : 12, controller, row, item);
+    return append_context(menu, tv ? 13 : 12, controller, row, item);
 }
 
 static u32 context_cancel(unsigned kind, unsigned source, void *menu, u32 label,

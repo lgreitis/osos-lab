@@ -3,13 +3,11 @@
 #include "clicker.h"
 #include "custom_eq.h"
 #include "dark_mode.h"
-#include "file_info.h"
 #include "osos.h"
 #include "patch.h"
 #include "resources.h"
 #include "rvx/runtime.h"
 #include "store.h"
-#include "up_next.h"
 
 static void *native_preferences;
 
@@ -56,8 +54,7 @@ PATCH_ARM void cfw_settings_reset(void *model)
 PATCH_ARM int cfw_settings_action(void *controller, const char *action,
                                   uint32_t argument)
 {
-    if (cfw_file_info_action(action, argument) ||
-        cfw_clicker_action(controller, action, argument) ||
+    if (cfw_clicker_action(controller, action, argument) ||
         cfw_dark_mode_action(controller, action, argument))
         return 1;
 
@@ -68,8 +65,6 @@ PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t propert
                                     uintptr_t *out)
 {
     if (cfw_rvx_property(type, property, out) ||
-        cfw_up_next_property(model, type, property, out) ||
-        cfw_file_info_property(type, property, out) ||
         cfw_dark_mode_property(type, property, out) ||
         cfw_clicker_property(model, type, property, out))
         return 1;
@@ -93,8 +88,7 @@ PATCH_ARM int cfw_settings_indexed_property(void *model, uint32_t type,
                                             uint32_t property, uint32_t index,
                                             uintptr_t *out)
 {
-    if (cfw_rvx_indexed_property(type, property, index, out) ||
-        cfw_file_info_indexed_property(type, property, index, out))
+    if (cfw_rvx_indexed_property(type, property, index, out))
         return 1;
 
     return cfw_ui_visibility_property(model, type, property, index, out);

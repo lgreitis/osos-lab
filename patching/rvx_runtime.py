@@ -81,7 +81,6 @@ def build_trailer(source, directory, resident, prefix, jobs):
         "__aeabi_uidiv",
         "__aeabi_uidivmod",
         "cfw_dark_mode_enabled",
-        "cfw_album_artist_read",
         "cfw_store_get",
         "cfw_rvx_lock",
         "cfw_rvx_unlock",

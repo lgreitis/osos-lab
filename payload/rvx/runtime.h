@@ -9,8 +9,9 @@ void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row
                       uint32_t bytes, uint32_t metadata);
 void cfw_rvx_menu_events(void *map, uint32_t screen);
 
-void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
-                        int tv);
+/* Appends the extensions' rows to a movie or TV episode menu; returns how many. */
+unsigned cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
+                            int tv);
 
 int cfw_rvx_indexed_property(uint32_t type, uint32_t property, uint32_t index,
                              uintptr_t *out);
