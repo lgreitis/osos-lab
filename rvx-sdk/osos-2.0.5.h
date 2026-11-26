@@ -1368,6 +1368,7 @@ void KeyboardView_DrawKeyRow(void *view, void *context, const int32_t *rect);
 void KeyboardView_DrawKey(void *view, void *context, int key, const int32_t *rect,
                           int selected);
 void OptionBarView_Draw(void *view, void *draw_argument, const int32_t *clip);
+void OptionBarView_SetSelected(void *bar, uint32_t index);
 void CalendarView_DrawClipped(void *view, void *draw_argument, const int32_t *clip);
 void CalendarDayCell_Draw(void *view, void *draw_argument, const int32_t *clip);
 void GLAlbumArtView_Draw(void *view, void *draw_argument, const int32_t *clip);
@@ -2732,6 +2733,7 @@ extern void *MediaArtworkProvider;
 #define ADDR_KeyboardView_DrawKeyRow 0x08203f6c
 #define ADDR_KeyboardView_DrawKey 0x08203e8c
 #define ADDR_OptionBarView_Draw 0x081e06d0
+#define ADDR_OptionBarView_SetSelected 0x081e0688
 #define ADDR_CalendarView_DrawClipped 0x081363fc
 #define ADDR_CalendarDayCell_Draw 0x081bff58
 #define ADDR_GLAlbumArtView_Draw 0x08163efc
@@ -3912,6 +3914,7 @@ extern void *MediaArtworkProvider;
 #define OptionBarView_selected 0x124
 #define OptionBarView_label_color 0x1cc
 #define OptionBarView_selected_label_color 0x1d0
+#define OptionBarView_MaxSegments 0x3
 #define CalendarView_header_color 0x104
 #define CalendarDayCell_day_color 0xf4
 #define CalendarDayCell_art 0x1b4
@@ -4610,6 +4613,7 @@ extern void *MediaArtworkProvider;
 #define Interface_ResourceService 0x6
 #define Interface_List 0x1700
 #define Interface_Template 0x3b80
+#define Interface_OptionBar 0x9080
 #define Event_Notification 0x16
 #define Notification_LayoutShown 0x2502
 #define Notification_LayoutChanged 0x2503
@@ -4722,6 +4726,12 @@ extern void *MediaArtworkProvider;
 #define RES_Settings_MusicMenu_Items 0x00000043
 #define RES_Settings_Legal_Screen 0x0dad0cb3
 #define RES_Settings_Legal_Layout 0x0dad0cb4
+#define RES_SettingsMenus_EUVolume_Confirmation_Screen 0x0dad0cac
+#define RES_SettingsMenus_EUVolume_Confirmation_Screen_Default 0x0dad0cad
+#define RES_SettingsMenus_DialogNotice_EULimitConfirmation_Layout 0x0dad0c46
+#define RES_SettingsMenus_DialogNotice_Template 0x0dad02a3
+#define RES_DialogNotice_View 0x0dad0c43
+#define RES_DialogNotice_SettingsOptions 0x0dad0c45
 #define RES_Settings_EQ_Items 0x00000047
 #define RES_Settings_EQ_Screen 0x0dad0cae
 #define RES_Settings_EQ_Layout 0x0dad0cb0

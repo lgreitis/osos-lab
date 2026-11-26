@@ -108,6 +108,8 @@ static inline int core_lists_per_row_pane(const struct screen *d)
 #define CORE_LIST_PANE_TITLE(screen) ((screen) + 10)
 
 #define CORE_CLONE_SCRATCH_BYTES 1536
+/* First row item id (list), paragraph source id (text), bar source id (slider)
+ * or message source id (dialog). */
 #define CORE_SCREEN_ROWS(s) ((s)->id + 8)
 
 struct core_screen {
@@ -138,6 +140,7 @@ uint32_t core_lists_screen_id(const struct core_screen *s, int split);
 int core_clone_list(struct core_screen *s, int split);
 int core_clone_text(struct core_screen *s);
 int core_clone_slider(struct core_screen *s);
+int core_clone_dialog(struct core_screen *s);
 int core_clone_layout(const struct layout_clone *, uint32_t *, uint8_t *, uint32_t);
 int core_clone_screen(uint32_t, uint32_t, uint32_t, uint32_t, const void *, uint32_t,
                       uint8_t *, uint32_t);

@@ -82,6 +82,16 @@
      .title = (title_),                                                                \
      .kind = RV_SCREEN_KIND_STOCK,                                                     \
      .stock = {(screen_)} __VA_OPT__(, ) __VA_ARGS__}
+/* `.dialog.initial = n` highlights another button than the first. */
+#define RV_SCREEN_DIALOG(id_, title_, message_, detail_, buttons_, chosen_, ...)       \
+    {.id = (id_),                                                                      \
+     .title = (title_),                                                                \
+     .kind = RV_SCREEN_KIND_DIALOG,                                                    \
+     .dialog.message = (message_),                                                     \
+     .dialog.detail = (detail_),                                                       \
+     .dialog.buttons = (buttons_),                                                     \
+     .dialog.count = RV_COUNT(buttons_),                                               \
+     .dialog.chosen = (chosen_) __VA_OPT__(, ) __VA_ARGS__}
 #define RV_SCREEN_CANVAS(id_, title_, draw_, input_, ...)                              \
     {.id = (id_),                                                                      \
      .title = (title_),                                                                \

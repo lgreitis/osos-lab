@@ -27,6 +27,7 @@ An extension declares its UI in the descriptor and the core draws it as stock sc
 | `RV_SCREEN_CANVAS(id, title, draw, input)` | the extension draws and reads wheel and key input |
 | `RV_SCREEN_CONTEXT(rows)` | a long-press menu on a list or dynamic list |
 | `RV_SCREEN_STOCK(id, title, screen)` | one of Apple's screens with its controller and bindings, under the extension's title. `RV_STOCK_SCREEN_GAMES` is the Games list, showing the games service's single list |
+| `RV_SCREEN_DIALOG(id, title, message, detail, buttons, chosen)` | a question with one to three buttons, as the stock EU Volume Limit question, see [Dialogs](#dialogs) |
 
 | Screen field | |
 |---|---|
@@ -82,6 +83,16 @@ An empty list has no selection.
 
 `RV_SCREEN_CONTEXT(rows)` of `RV_CONTEXT_ROW(row, .available = predicate)` attaches to a list or dynamic list. Action and push rows get the highlighted index in `ctx->row`. Unavailable rows are hidden.
 
+## Dialogs
+
+`RV_SCREEN_DIALOG` (API 1.85) shows `message` in bold, `detail` under it (NULL for none) and the labels of the `buttons` array in the option bar.
+
+| | |
+|---|---|
+| `.dialog.initial` | the button highlighted when the dialog opens, the first by default |
+| `chosen(ctx, index)` | Select on button `index`; returns 1 to close the dialog, 0 to leave it up until `ui_pop` closes it, and 0 when it pushed or popped a screen itself. NULL: Select closes it |
+| Menu | closes the dialog without calling `chosen` |
+
 ## Canvases
 
 A canvas draws with the `rv_gfx` table: fills, text in the stock fonts, colour roles and mixes between them, wrapped paragraphs, list rows, the selection bar (`bar`, across any rectangle), and bitmaps (whole, the top rows, or tiled). A fill with alpha below 0xff blends, and `bmap_rows_blend` draws the top rows of a picture at an opacity. One extension at a time may replace the colour roles for every canvas with `api->ui_set_colors`, as a theme does; the `RV_COLOR_BAR_*` roles are the bar's top line, gradient and bottom line. The [canvas kit](canvas.md) adds palettes, plots, value cells and [computed pictures](canvas.md#pictures).
@@ -103,6 +114,7 @@ Screens and entries are limited by the heap and by 4,096 resource ids per extens
 | list | 19 + 2 per row |
 | choice, multi-choice or dynamic list | 21 |
 | stock screen | 8 |
+| dialog | 11 + 1 per button |
 | context menu | 5 + 1 per context row |
 | text page | 8 + 1 per paragraph |
 | slider | 10 |

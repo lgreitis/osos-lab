@@ -38,6 +38,11 @@ static int present(struct frame *f, void *parent)
                 (f->screen->layout == RV_LAYOUT_AUTO && from == LayoutKind_SplitList));
     int native = f->screen->kind != RV_SCREEN_KIND_CANVAS &&
                  f->screen->kind != RV_SCREEN_KIND_STOCK;
+    int dialog = f->screen->kind == RV_SCREEN_KIND_DIALOG;
+    if (dialog && !rvx_dialog_valid(f->screen)) {
+        osos_import_free(f);
+        return BAD_ARGUMENT;
+    }
     if (f->screen->kind == RV_SCREEN_KIND_CHOICE ||
         f->screen->kind == RV_SCREEN_KIND_SLIDER) {
         u32 value = rvx_get_int(f->ctx.self, f->screen->choice.key);
@@ -63,7 +68,11 @@ static int present(struct frame *f, void *parent)
                 return NO_MEMORY;
             }
             rvx_top = f;
-            int transition = f->split ? Transition_Standard : Transition_ScreenPush;
+            /* A dialog comes up over the screen as the stock EU Volume Limit
+             * question does. */
+            int transition = dialog     ? Transition_ForegroundPush
+                             : f->split ? Transition_Standard
+                                        : Transition_ScreenPush;
             if (f->screen->kind == RV_SCREEN_KIND_SLIDER) {
                 int pane = f->screen->transition == RV_TRANSITION_FROM_PANE &&
                            from == LayoutKind_SplitList;
@@ -83,12 +92,14 @@ static int present(struct frame *f, void *parent)
                     f->stock_methods[i] = (f->native_methods - 3)[i];
                 f->stock_methods[4] = (uintptr_t)destroy;
                 if (native && f->screen->kind != RV_SCREEN_KIND_TEXT &&
-                    f->screen->kind != RV_SCREEN_KIND_SLIDER)
+                    f->screen->kind != RV_SCREEN_KIND_SLIDER && !dialog)
                     f->stock_methods[3 + ScreenController_action_method / 4] =
                         (uintptr_t)rvx_native_action;
                 if (f->screen->kind == RV_SCREEN_KIND_SLIDER)
                     f->stock_methods[3 + ScreenController_event_method / 4] =
                         (uintptr_t)event;
+                if (dialog)
+                    rvx_dialog_attach(f);
                 *(uintptr_t **)c = f->stock_methods + 3;
             } else {
                 rvx_top = f->parent;

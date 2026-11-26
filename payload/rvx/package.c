@@ -7,7 +7,7 @@
 #include "store.h"
 #include "../../game-sdk/runtime/native_directory.h"
 
-/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.84. */
+/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.85. */
 struct rvx_header {
     uint32_t magic, format, sdk_api, firmware, manifest_bytes, entries, hash;
 };
@@ -406,6 +406,15 @@ const void *rvx_service(Pkg *p, u32 i)
 {
     return i < p->manifest->modules && p->modules[i].desc ? p->modules[i].desc->service
                                                           : NULL;
+}
+
+/* The main module's service of a running extension; NULL while it unloads. */
+const void *rvx_extension_service(const char *id)
+{
+    for (Pkg *p = rvx_packages; id && p; p = p->next)
+        if (cfw_string_equal(p->id, id))
+            return p->state == 2 && !p->modules[0].loading ? rvx_service(p, 0) : NULL;
+    return NULL;
 }
 
 static int start(Pkg *p)

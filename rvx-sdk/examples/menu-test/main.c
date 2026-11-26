@@ -137,14 +137,15 @@ static const struct rv_setting settings[] = {
 static const struct rv_row home[] = {
     RV_ROW_PUSH("Pickers", "pickers"),   RV_ROW_PUSH("Lists and rows", "lists"),
     RV_ROW_PUSH("Text page", "text"),    RV_ROW_PUSH("Drawing canvas", "canvas"),
-    RV_ROW_PUSH("Stock Games", "games"),
+    RV_ROW_PUSH("Stock Games", "games"), RV_ROW_PUSH("Dialog", "dialog"),
 };
 static const struct rv_pane panes[] = {
     {.caption = "Choices and sliders", .bitmap = RV_BITMAP("info")},
     {.caption = "Rows and details"},
     {.caption = "Wrapped paragraphs"},
     {.caption_text = status},
-    {.caption = "Stock game browser"}};
+    {.caption = "Stock game browser"},
+    {.caption = "A question with buttons"}};
 _Static_assert(RV_COUNT(home) == RV_COUNT(panes), "one pane per row");
 static const struct rv_row pickers[] = {
     RV_ROW_PUSH("Split choice", "split"),     RV_ROW_PUSH("Full choice", "full"),
@@ -158,6 +159,7 @@ static const struct rv_row lists[] = {
     RV_ROW_PUSH("Submenu detail", "submenu"),
     RV_ROW_PUSH("Empty list", "empty"),
 };
+static const char *const buttons[] = {"Yes", "Maybe", "No"};
 static const struct rv_context_row context[] = {
     RV_CONTEXT_ROW(RV_ROW_ACTION("Toggle switch", toggle)),
     RV_CONTEXT_ROW(RV_ROW_PUSH("Read text", "text"), .available = is_on),
@@ -190,6 +192,9 @@ static const struct rv_screen screens[] = {
     RV_SCREEN_TEXT("text", "Text Page", paragraphs),
     RV_SCREEN_CANVAS("canvas", "Drawing Canvas", draw, input),
     RV_SCREEN_STOCK("games", "Games", RV_STOCK_SCREEN_GAMES),
+    RV_SCREEN_DIALOG("dialog", "Dialog", "A question?",
+                     "Select closes it on any button, Menu without choosing.", buttons,
+                     NULL),
 };
 static const struct rv_menu_entry entries[] = {
     RV_MENUS_ENTRY((RV_MENU_BIT(RV_MENU_VIDEO_PLAYLIST_CONTEXT) * 2u - 1) &

@@ -122,6 +122,13 @@ struct screen {
         struct {
             uint8_t screen;
         } stock;
+
+        struct {
+            const char *message, *detail;
+            const char *const *buttons;
+            uint8_t count, initial;
+            int (*chosen)(const struct context *, u32);
+        } dialog;
     };
 
     const char *caption;
@@ -155,6 +162,8 @@ void rvx_register_controller(void);
 void rvx_begin_draw(void *context, const int32_t *bounds, const struct rect *dirty);
 int rvx_prepare_native(struct frame *, u32 *screen, u32 *layout);
 int rvx_native_property(u32, u32, uintptr_t *);
+int rvx_dialog_valid(const struct screen *);
+void rvx_dialog_attach(struct frame *);
 int rvx_native_action(void *, const char *, u32);
 void rvx_native_refresh(struct frame *);
 u32 rvx_row_count(struct frame *);

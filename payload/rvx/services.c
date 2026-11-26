@@ -293,4 +293,5 @@ const struct rvx_api cfw_rvx_api = {
     .service = rvx_service,
     .provider = rvx_provider,
     .firmware = rvx_firmware_open,
+    .extension_service = rvx_extension_service,
 };

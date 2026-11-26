@@ -34,6 +34,10 @@ uint32_t core_clone_ids(const struct screen *d)
     case RV_SCREEN_KIND_STOCK:
         /* screen, layout, title, 5 for layout clones */
         return 8;
+    case RV_SCREEN_KIND_DIALOG:
+        /* screen, layout, title, 4 for layout clones, the VLyt, the message's,
+         * detail's and buttons' sources, a property per button */
+        return 11 + d->dialog.count;
     case RV_SCREEN_KIND_CHOICE:
     case RV_SCREEN_KIND_MULTI_CHOICE:
     case RV_SCREEN_KIND_DYNAMIC_LIST:
@@ -338,4 +342,73 @@ int core_clone_slider(struct core_screen *s)
     core_set_source(rows, rows, 1);
     core_set_source(rows + 1, rows + 1, 1);
     return clone_brightness(s, template, &views, events, bytes);
+}
+
+/* Ids of a dialog: id screen, +1 layout, +2 title, +3.. layout clones, +7 the
+ * dialog VLyt, +8 the message's source, +9 the detail's, +10 the buttons', +11..
+ * a property per button. The stock EU Volume Limit question with its VLyt's
+ * sources replaced and the stock controller class, events and screen events;
+ * dialog.c gives the controller Select. The option bar draws one label per
+ * entry of its source. */
+int core_clone_dialog(struct core_screen *s)
+{
+    uint32_t next = s->id + 3, layout = s->id + 7, rows = CORE_SCREEN_ROWS(s), bytes,
+             event_bytes;
+    uint32_t count = s->declaration->dialog.count;
+    const uint32_t notice = RES_SettingsMenus_DialogNotice_EULimitConfirmation_Layout;
+    const void *vlyt = stock(Resource_VLyt, notice, &bytes);
+    const void *tevt = stock(Resource_TEVT, notice, &event_bytes);
+    if (!vlyt || !tevt || bytes > CORE_CLONE_SCRATCH_BYTES)
+        return 0;
+    uint8_t *scratch = osos_import_alloc(CORE_CLONE_SCRATCH_BYTES);
+    if (!scratch)
+        return 0;
+    core_set_source(s->id + 2, s->id + 2, 1);
+    core_set_source(rows, rows, 1);
+    core_set_source(rows + 1, rows + 1, 1);
+    struct core_writer w = {scratch, 0};
+    core_write_word(&w, count);
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t b = core_write_block_begin(&w, Resource_SORC);
+        core_write_word(&w, Service_Settings);
+        core_write_word(&w, rows + 3 + i);
+        core_write_word(&w, SourceDestination_Title);
+        core_write_block_end(&w, b);
+    }
+    set(Resource_SORC, rows + 2, scratch, w.at);
+    /* The message, detail and option bar views take the three sources in that
+     * order. */
+    static const struct layout_clone none;
+    struct view_sources views = {RES_DialogNotice_View, rows, 3};
+    w.at = 0;
+    rebind_views(&w, vlyt, &none, &views);
+    set(Resource_VLyt, layout, scratch, w.at);
+    set(Resource_TEVT, layout, tevt, event_bytes);
+    struct layout_clone c = {RES_SettingsMenus_EUVolume_Confirmation_Screen_Default,
+                             s->id + 1,
+                             RES_StatusBarWhite_Text,
+                             s->id + 2,
+                             0,
+                             RES_SettingsMenus_DialogNotice_Template,
+                             RES_SettingsMenus_DialogNotice_Template,
+                             NULL,
+                             layout};
+    int built = core_clone_layout(&c, &next, scratch, CORE_CLONE_SCRATCH_BYTES) &&
+                next <= layout;
+    const void *events =
+        stock(Resource_SEVT, RES_SettingsMenus_EUVolume_Confirmation_Screen_Default,
+              &event_bytes);
+    const void *cevt =
+        stock(Resource_CEVT, RES_SettingsMenus_EUVolume_Confirmation_Screen, &bytes);
+    if (built && events && cevt) {
+        set(Resource_SEVT, s->id + 1, events, event_bytes);
+        built = core_clone_screen(s->id, s->id + 1,
+                                  RES_SettingsMenus_EUVolume_Confirmation_Screen,
+                                  RES_SettingsMenus_EUVolume_Confirmation_Screen, cevt,
+                                  bytes, scratch, CORE_CLONE_SCRATCH_BYTES);
+    } else {
+        built = 0;
+    }
+    osos_import_free(scratch);
+    return built;
 }

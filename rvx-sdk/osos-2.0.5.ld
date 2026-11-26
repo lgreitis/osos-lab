@@ -1239,6 +1239,7 @@ KeyboardView_Draw = 0x08204170;
 KeyboardView_DrawKeyRow = 0x08203f6c;
 KeyboardView_DrawKey = 0x08203e8c;
 OptionBarView_Draw = 0x081e06d0;
+OptionBarView_SetSelected = 0x081e0688;
 CalendarView_DrawClipped = 0x081363fc;
 CalendarDayCell_Draw = 0x081bff58;
 GLAlbumArtView_Draw = 0x08163efc;

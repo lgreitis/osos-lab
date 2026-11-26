@@ -48,9 +48,10 @@ int rvx_prepare_native(struct frame *f, u32 *screen_id, u32 *layout_id)
     unsigned variant = 1u << split;
     if (!(s->built & variant)) {
         s->declaration = d;
-        int ok = list                             ? core_clone_list(s, split)
-                 : d->kind == RV_SCREEN_KIND_TEXT ? core_clone_text(s)
-                                                  : core_clone_slider(s);
+        int ok = list                               ? core_clone_list(s, split)
+                 : d->kind == RV_SCREEN_KIND_TEXT   ? core_clone_text(s)
+                 : d->kind == RV_SCREEN_KIND_DIALOG ? core_clone_dialog(s)
+                                                    : core_clone_slider(s);
         s->declaration = NULL;
         if (!ok)
             return 0;
@@ -94,6 +95,18 @@ static const char *row_label(const struct row *row, struct frame *f)
     return row->text ? row->text(&f->ctx) : row->label;
 }
 
+/* A dialog's texts from its message source on (native_layout.c): the message,
+ * the detail, then past the buttons' source one label per button. */
+static const char *dialog_text(const struct screen *d, u32 index)
+{
+    if (index == 0)
+        return d->dialog.message;
+    if (index == 1)
+        return d->dialog.detail;
+    return index >= 3 && index - 3 < d->dialog.count ? d->dialog.buttons[index - 3]
+                                                     : NULL;
+}
+
 int rvx_native_property(u32 type, u32 id, uintptr_t *out)
 {
     struct frame *f = owner_of(id);
@@ -108,6 +121,9 @@ int rvx_native_property(u32 type, u32 id, uintptr_t *out)
     else if (d->kind == RV_SCREEN_KIND_TEXT && type == Property_String &&
              id - rows < d->text.count)
         text = d->text.lines[id - rows];
+    else if (d->kind == RV_SCREEN_KIND_DIALOG && type == Property_String &&
+             id - rows < 3u + d->dialog.count)
+        text = dialog_text(d, id - rows);
     else if (d->kind == RV_SCREEN_KIND_SLIDER && id - rows < 2) {
         u32 count = d->choice.count;
         u32 value = (u32)rvx_get_int(f->ctx.self, d->choice.key);

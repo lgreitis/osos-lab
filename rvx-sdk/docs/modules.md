@@ -13,7 +13,7 @@ A module is one ELF, linked at 0 with `rvx.lds` and relocated into the Apple hea
 | `entries`, `entry_count` | `RV_ENTRIES(array)` |
 | `unload` | called before the hooks are unbound; may be NULL |
 | `setting_changed` | see [Settings](settings.md); may be NULL |
-| `service` | a table of the module's own functions for the extension's other modules, see Services below; may be NULL |
+| `service` | a table of the module's own functions for the extension's other modules and, for `main`, for other extensions; see Services below; may be NULL |
 
 ## Versions
 
@@ -34,6 +34,8 @@ On RepriseOS, `preload = "always"` loads a module with `main` and keeps it resid
 ## Services
 
 Modules share no symbols. A module exposes functions by pointing its descriptor's `service` at a table. `api->module_service(self, module)` returns that pointer (module 0 is `main`), or NULL while the module is not loaded. A manual module can fetch `main`'s table in its entry; it stays valid while the extension is loaded. `module_unload` keeps no count, so one module should own each load and unload pair.
+
+Between extensions, `api->extension_service(id)` (API 1.85) returns the `service` of the main module of the extension with manifest id `id` while it runs, or NULL. Call it on the UI task each time the table is needed: the table goes when that extension unloads. It is for a dependency the caller works without. An extension that cannot work without another lists it under `[libraries]` instead. The provider declares the table's struct and its manifest id in a header the caller includes.
 
 On extension unload, `main`'s `unload` callback runs first, while other modules are still loaded and can still be loaded. Then the other modules unload, highest manifest index first, and `main` last.
 

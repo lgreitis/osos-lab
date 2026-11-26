@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 #define RV_API_MAJOR 1
-#define RV_API_MINOR 84
+#define RV_API_MINOR 85
 #define RV_API_VERSION ((RV_API_MAJOR << 16) | RV_API_MINOR)
 
 /* A field of an Apple struct at an offset of the symbols header:
@@ -193,6 +193,8 @@ enum rv_screen_kind {
                                is label n (at most 32), Select flips it */
     RV_SCREEN_KIND_STOCK,        /* one of Apple's screens, `stock.screen`, under the
                                extension's title; Apple's controller and bindings */
+    RV_SCREEN_KIND_DIALOG,       /* a question over `dialog.buttons`, as the stock EU Volume
+                               Limit question */
 };
 
 /* The stock screens an extension may show under a title of its own. */
@@ -415,6 +417,17 @@ struct rv_screen {
         struct {
             uint8_t screen; /* rv_stock_screen */
         } stock;
+        struct {
+            const char *message; /* the question, in bold */
+            const char *detail;  /* the text under it, NULL for none */
+            const char *const *buttons;
+            uint8_t count;   /* buttons, 1 to 3 */
+            uint8_t initial; /* the button highlighted when the dialog opens */
+            /* Select on button `index`. 1 pops the dialog; 0 leaves it up until
+             * something pops it. May be NULL: Select pops. Menu pops it without
+             * calling chosen. */
+            int (*chosen)(const struct rv_context *ctx, uint32_t index);
+        } dialog;
     };
     /* A list in the split layout shows these in the preview pane beside the
      * title: a line of text and an icon on the system's box; NULL shows
@@ -727,6 +740,12 @@ struct rv_api {
      * like a data file: where a theme reads the stock artwork from.
      * RV_NOT_FOUND when the file layer refuses. UI task. */
     int (*firmware_open)(rv_extension_handle self, struct rv_file **file);
+
+    /* The `service` of the main module of the loaded extension with manifest
+     * id `id`, or NULL while no such extension runs or it has none. Use it at
+     * once: the table goes when that extension unloads. For a dependency the
+     * caller can live without; a required one is a library. UI task. */
+    const void *(*extension_service)(const char *id);
 };
 
 /* Stops `*timer` when it runs and clears it; for a timer the extension keeps. */

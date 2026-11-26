@@ -49,7 +49,7 @@ enum {
     RVX_MODULES = 15,
     RVX_FIRMWARE_ID = 0x660eb6ff,
     RVX_API_MAJOR = 1,
-    RVX_API = (RVX_API_MAJOR << 16) | 84
+    RVX_API = (RVX_API_MAJOR << 16) | 85
 };
 
 enum {
@@ -130,6 +130,7 @@ u32 rvx_hash(const char *);
 int rvx_load(Pkg *, u32);
 void rvx_unload(Pkg *, u32);
 const void *rvx_service(Pkg *, u32);
+const void *rvx_extension_service(const char *);
 void *rvx_alloc(Pkg *, u32);
 void rvx_free(Pkg *, void *);
 void rvx_cleanup(Pkg *);
@@ -195,9 +196,10 @@ extern const struct rvx_api {
     u32 (*next7)(const void *, u32, u32, u32, u32, u32, u32, u32);
     const void *(*service)(Pkg *, u32);
     int (*provider)(Pkg *, const void *), (*firmware)(Pkg *, File **);
+    const void *(*extension_service)(const char *);
 } cfw_rvx_api;
 
-_Static_assert(sizeof(struct rvx_api) == 48 * 4 &&
+_Static_assert(sizeof(struct rvx_api) == 49 * 4 &&
                    sizeof(struct rvx_descriptor) == 48 &&
                    sizeof(struct rvx_manifest) == 56 && sizeof(struct entry) == 20,
                "RVX ABI");
