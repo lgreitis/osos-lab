@@ -655,8 +655,24 @@ void rvx_setting_updated(Pkg *p, uint16_t key)
         rvx_native_refresh(rvx_top);
     for (struct installed *i = installed; i; i = i->next)
         if (i->pkg == p) {
-            if (key == i->entry->shown && (i->entry->menus & 3))
-                osos_menu_item_set_visible(i->item, rvx_get_int(p, key) != 0);
+            if (key == i->entry->shown && (i->entry->menus & 3)) {
+                /* Apple's menu registry was built before the row existed, so
+                 * MenuItem_SetVisible cannot reach it: the row's own data
+                 * carries the visibility, and an open list rebuilds on the
+                 * item notification. */
+                u32 visible = rvx_get_int(p, key) != 0;
+                int built = 0;
+                for (unsigned slot = 0; slot < 2; slot++)
+                    if (i->row[slot]) {
+                        ((u32 *)i->row[slot])[0x64 / 4] = visible;
+                        built = 1;
+                    }
+                if (built) {
+                    void *service = osos_ui_resources();
+                    osos_model_notify(service, 0x4c697445, i->item); /* LitE */
+                    osos_model_notify(service, OSOS_NOTIFY_NONE, i->item);
+                }
+            }
             if (i->entry->row.kind == 2 && i->entry->row.key == key &&
                 (i->entry->menus & MENU_SETTINGS)) {
                 void *model = ((void *(*)(void))0x081e0ff4)();
