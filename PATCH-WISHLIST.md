@@ -7,11 +7,6 @@ Implemented features, including WIP Dark Mode, are listed in the
 
 Allow opening a song's context menu when browsing through Cover Flow.
 
-## Five-band parametric EQ
-
-Investigate whether the EQ can support five custom bands instead of the current
-three.
-
 ## FairPlay DRM
 
 Investigate full removal, or a narrower approach using legitimately available 
