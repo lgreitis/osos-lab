@@ -24,6 +24,9 @@ int cfw_store_read_legacy(const char *name, void *record, uint32_t size);
  * absent: a record written by a newer build may be longer, so readers take its prefix. */
 uint32_t cfw_store_get(uint32_t key, void *data, uint32_t capacity);
 void cfw_store_set(uint32_t key, const void *data, uint32_t size);
+/* Drops every record. Reset All Settings calls it so records of features that
+ * became extensions are not imported again on the next boot. */
+void cfw_store_clear(void);
 /* Preserves the last valid file in .bak before writing. Failed writes stay dirty. */
 void cfw_store_flush(void);
 
