@@ -3,7 +3,6 @@
 #include "runtime.h"
 #include "cfw.h"
 #include "osos.h"
-#include "album_artist.h"
 #include "store.h"
 #include "../../game-sdk/runtime/native_directory.h"
 
@@ -208,7 +207,6 @@ static const struct {
     const void *function;
 } reprise_exports[] = {
     {"reprise_legacy_preference", cfw_store_get},
-    {"reprise_album_artist_read", cfw_album_artist_read},
 };
 
 static int reprise_export(u32 symbol, u32 *value)

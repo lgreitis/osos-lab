@@ -86,14 +86,12 @@ class UiTests(unittest.TestCase):
                     "Info",
                     "EQ",
                     "DarkMode",
-                    "UpNext",
                 )
             ],
         }
         self.assertEqual(resources.runtime_names, expected)
         table = code.split("cfw_resource_names[] = {", 1)[1].split("};", 1)[0]
         self.assertEqual(set(re.findall(r'"([^"]+)"', table)), expected)
-        self.assertIn("CFW_FileInfo_Screen", resources.names)
         with self.assertRaisesRegex(ValueError, "Unknown runtime resource"):
             resources.runtime_name("missing")
 
@@ -497,85 +495,25 @@ class UiTests(unittest.TestCase):
         self.assertEqual(views[base_panel].data, stock_views[base_panel].data)
         self.assertEqual(views[base_panel].origins, stock_views[base_panel].origins)
 
-    def test_album_artists_reuses_native_routes_and_adds_a_music_row(self):
+    def test_media_menus_bind_select_hold_on_movie_and_tv_lists(self):
         root = Path(__file__).resolve().parents[2]
         metadata = json.loads((root / "firmware/ui.json").read_text())
-        shim = root / "payload/native"
-        bindings = json.loads((shim / "ui.json").read_text())["bindings"]
+        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
         resources = Resources(metadata["resources"], bindings)
-        document = parser.read(root / "payload/album_artists.ui")
-        compiled = compile_document(resources, document)
-        rows = menu_rows(resources, bindings["MusicMenu_Items"])
-        self.assertEqual(len(rows), 13)
-        anchor = next(
-            i
-            for i, (_, row) in enumerate(rows)
-            if word(row, 0x30) == bindings["MusicMenu_ListItem_Artists"]
-        )
-        new_row = rows[anchor + 1][1]
-        item = word(new_row, 0x30)
-        self.assertNotEqual(item, bindings["MusicMenu_ListItem_Artists"])
-        self.assertEqual(word(new_row, 0x60), 5)
-        self.assertEqual(word(new_row, 0x64) & 0xFF, 1)
-        events = b"".join(
-            resources.event_extensions["CEVT", bindings["MainMenus_Music_Screen"]]
-        )
-        self.assertIn(f"list.pid.{item}.chosen".encode(), events)
-        self.assertIn(b"CFW_AlbumArtists", events)
-        self.assertIn(b"HandleMusicHilited", events)
-        main_rows = menu_rows(resources, bindings["MainMenu_Items"])
-        main_anchor = next(
-            i
-            for i, (_, row) in enumerate(main_rows)
-            if word(row, 0x30) == bindings["MainMenu_List_Artists"]
-        )
-        main_row = main_rows[main_anchor + 1][1]
-        main_item = compiled.string_ids["CFW_AlbumArtists_MainItem"]
-        self.assertEqual(word(main_row, 0x30), main_item)
-        self.assertNotEqual(main_item, item)
-        self.assertEqual(word(main_row, 0x64) & 0xFF, 0)
-        self.assertEqual(word(main_row, 0x68), word(new_row, 0x68))
-        main_events = b"".join(
-            resources.event_extensions["CEVT", bindings["MainMenus_Main_Screen"]]
-        )
-        self.assertIn(f"list.pid.{main_item}.chosen".encode(), main_events)
-        self.assertIn(b"CFW_AlbumArtists", main_events)
-        for table, inserted in (
-            ("MainMenu_Items", main_anchor + 1),
-            ("MusicMenu_Items", anchor + 1),
-        ):
-            self.assertNotIn(("ITEM", bindings[table]), resources.added)
-            stock = blocks(resources.stock("ITEM", table))
-            updated = menu_rows(resources, bindings[table])
-            del updated[inserted]
-            self.assertEqual(len(stock), len(updated))
-            for (_, before), (_, after) in zip(stock, updated):
-                self.assertEqual(before.data, after.data)
-                self.assertEqual(before.origins, after.origins)
-        # CEVT belongs to the screen and applies to every preview layout.
-        screen = compiled.string_ids["CFW_AlbumArtists_Screen"]
-        layout = compiled.string_ids["CFW_AlbumArtists_Layout"]
-        native_layout = resources.stock("SLst", "MediaLists_Artists_Screen")
-        self.assertEqual(len(blocks(native_layout)), 1)
-        self.assertEqual(word(blocks(resources.added["SLst", screen])[0][1], 0), layout)
+        document = parser.read(root / "payload/media_menus.ui")
+        compile_document(resources, document)
         self.assertEqual(
-            resources.added["SCST", screen].origins,
-            resources.stock("SCST", "MediaLists_Artists_Screen").origins,
+            [item.screen for item in document.events],
+            ["MediaLists_Movies_Layout", "MediaLists_TVEpisodes_Layout"],
         )
-        self.assertEqual(
-            resources.event_aliases["CEVT", screen],
-            bindings["MediaLists_Artists_Screen"],
-        )
-        self.assertEqual(
-            resources.event_aliases["SEVT", layout],
-            bindings["MediaLists_Artists_Screen_Default"],
-        )
-        self.assertNotIn(("CEVT", screen), resources.added)
-        entry = resources.visibility[0]
-        self.assertEqual(entry["defaults"], 2)
-        self.assertEqual(entry["items"], {"Main": main_item, "Music": item})
-        header = emit_header(document, compiled.string_ids)
-        self.assertIn("#define CFW_AlbumArtists_Screen ", header)
+        for item_event in document.events:
+            events = b"".join(
+                resources.event_extensions[
+                    item_event.kind, resources.native(item_event.screen)
+                ]
+            )
+            self.assertIn(b"button.select.pressandhold", events)
+            self.assertIn(b"HandleShowContextualMenu", events)
 
     def test_main_entry_adds_a_hidden_row_with_a_live_preview(self):
         root = Path(__file__).resolve().parents[2]
@@ -673,41 +611,6 @@ class UiTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 parser.parse(xml)
 
-    def test_file_info_is_a_stacked_runtime_list_that_stays_open(self):
-        root = Path(__file__).resolve().parents[2]
-        metadata = json.loads((root / "firmware/ui.json").read_text())
-        shim = root / "payload/native"
-        bindings = json.loads((shim / "ui.json").read_text())["bindings"]
-        resources = Resources(metadata["resources"], bindings)
-        document = parser.read(root / "payload/file_info.ui")
-        compiled = compile_document(resources, document)
-        screen = compiled.string_ids["CFW_FileInfo_Screen"]
-        events = bytes(resources.added["CEVT", screen].data)
-        self.assertIn(b"CFW_FileInfo_Select", events)
-        self.assertNotIn(b"navigator.PopTopScreen", events)
-        [row] = [
-            row
-            for (kind, _), data in resources.added.items()
-            if kind == "ITEM"
-            for _, row in blocks(data)
-        ]
-        self.assertEqual(word(row, 0x60), 6)
-        for item_event in document.events:
-            events = b"".join(
-                resources.event_extensions[
-                    item_event.kind, resources.native(item_event.screen)
-                ]
-            )
-            self.assertIn(item_event.event.encode(), events)
-            self.assertIn(item_event.handler.encode(), events)
-        layouts = [item.screen for item in document.events if item.kind == "SEVT"]
-        self.assertEqual(
-            layouts, ["MediaLists_Movies_Layout", "MediaLists_TVEpisodes_Layout"]
-        )
-        header = emit_header(document, compiled.string_ids)
-        for suffix in ("Screen", "Layout", "Rows", "Detail"):
-            self.assertIn(f"#define CFW_FileInfo_{suffix} ", header)
-
     def test_layout_event_extends_the_native_layout_events(self):
         document = parser.parse(
             '<ui><layout-event layout="0x20" event="button.select.pressandhold" '
@@ -741,8 +644,8 @@ class UiTests(unittest.TestCase):
 
     def test_screen_events_are_one_extension_for_all_layouts(self):
         document = parser.parse(
-            '<ui><screen-event screen="10" event="contextualMenu.CFW_PlayNext" '
-            'handler="CFW_PlayNext"/></ui>'
+            '<ui><screen-event screen="10" event="contextualMenu.CFW_Example" '
+            'handler="CFW_Example"/></ui>'
         )
         stock = struct.pack("<I", 1) + event("button.menu.up", "navigator.PopTopScreen")
         resources = Resources([])
@@ -757,8 +660,8 @@ class UiTests(unittest.TestCase):
         resources.bind_screen_event(document.events[0])
         resources.bind_screen_event(ScreenEvent(10, "test.other", "OtherHandler"))
         data = b"".join(resources.event_extensions["CEVT", 10])
-        self.assertIn(b"contextualMenu.CFW_PlayNext1", data)
-        self.assertIn(b"CFW_PlayNext\0\0\0\0", data)
+        self.assertIn(b"contextualMenu.CFW_Example1", data)
+        self.assertIn(b"CFW_Example\0\0\0\0", data)
         self.assertIn(b"test.other1", data)
         self.assertFalse(resources.added)
         for layout in (20, 21):
