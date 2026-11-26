@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ui_visibility.h"
-#include "clicker.h"
 #include "dark_mode.h"
 #include "osos.h"
 #include "patch.h"
@@ -47,8 +46,7 @@ PATCH_ARM void cfw_settings_reset(void *model)
 PATCH_ARM int cfw_settings_action(void *controller, const char *action,
                                   uint32_t argument)
 {
-    if (cfw_clicker_action(controller, action, argument) ||
-        cfw_dark_mode_action(controller, action, argument))
+    if (cfw_dark_mode_action(controller, action, argument))
         return 1;
 
     return osos_settings_action(controller, action, argument);
@@ -58,8 +56,7 @@ PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t propert
                                     uintptr_t *out)
 {
     if (cfw_rvx_property(type, property, out) ||
-        cfw_dark_mode_property(type, property, out) ||
-        cfw_clicker_property(model, type, property, out))
+        cfw_dark_mode_property(type, property, out))
         return 1;
 
     if (type == OSOS_RESOURCE_BMAP) {

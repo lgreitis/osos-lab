@@ -490,20 +490,6 @@ static inline uint32_t osos_selection_index(void *selection)
     return ((fn)osos_method(selection, 0x168))(selection);
 }
 
-static inline uint32_t osos_preferences_get(void *preferences, uint32_t key,
-                                            uint32_t type)
-{
-    typedef uint32_t (*fn)(void *, uint32_t, uint32_t);
-    return ((fn)osos_method(preferences, 0xdc))(preferences, key, type);
-}
-
-static inline void osos_preferences_set(void *preferences, uint32_t key, uint32_t type,
-                                        uint32_t value)
-{
-    typedef void (*fn)(void *, uint32_t, uint32_t, uint32_t);
-    ((fn)osos_method(preferences, 0xd4))(preferences, key, type, value);
-}
-
 static inline void osos_menu_toggle(void *model, unsigned menu, uint32_t index)
 {
     typedef void (*fn)(void *, uint32_t);
