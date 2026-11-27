@@ -307,32 +307,6 @@ class UiTests(unittest.TestCase):
         self.assertEqual(precut.labels[:3], ["Auto", "0.0 dB", "-0.1 dB"])
         self.assertEqual(document.fields[0].default_index, 0)
 
-    def test_rvx_preview_layouts_reference_only_their_own_views(self):
-        root = Path(__file__).resolve().parents[2]
-        metadata = json.loads((root / "firmware/ui.json").read_text())
-        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
-        resources = Resources(metadata["resources"], bindings)
-        document = parser.read(root / "payload/rvx/screen.ui")
-        compile_document(resources, document)
-        for name, screen, _ in document.menu_previews:
-            preview = resources.names[name]
-            self.assertIn(
-                struct.pack("<I", preview),
-                [d[:4].data for _, d in blocks(resources.current("SLst", screen))],
-            )
-            for _, group in blocks(resources.current("SLyt", preview)):
-                instances = blocks(resources.current("SSin", word(group, 0)))
-                [instance] = [
-                    d for _, d in instances if ("View", word(d, 4)) in resources.added
-                ]
-                self.assertIn(("VCrv", word(instance, 0)), resources.added)
-                self.assertEqual(
-                    blocks(resources.current("VCvs", word(instance, 0))), []
-                )
-                self.assertEqual(
-                    blocks(resources.current("VLyt", word(instance, 8))), []
-                )
-
     def test_layout_reuses_unchanged_instance_resources(self):
         resources = Resources(
             [], {"StatusBarWhite_Template": 100, "StatusBarWhite_Text": 101}

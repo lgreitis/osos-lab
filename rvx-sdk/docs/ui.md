@@ -10,6 +10,9 @@ An extension declares its UI in the descriptor and the core draws it as stock sc
 | `RV_ROW_ACTION(label, fn)` | calls `fn` |
 | `RV_ROW_SETTING(label, key)` | shows a setting's value; flips a bool, steps a labelled int to its next label or opens the setting's screen |
 | `RV_ROW_INFO(label, text)` | shows `text` (or `label`); does nothing when chosen |
+| `RV_ROW_STOCK(stock)` | moves one of Apple's Settings rows (an `RV_SETTINGS_*`) into the list; see [Moved stock rows](menus.md#moved-stock-rows) |
+
+Every row macro takes `.id = "name"` after its arguments, the name other extensions anchor [hosted entries](menus.md#hosted-entries) on.
 
 ## Settings
 
@@ -20,13 +23,14 @@ An extension declares its UI in the descriptor and the core draws it as stock sc
 | Screen | What the user sees |
 |---|---|
 | `RV_SCREEN_LIST(id, title, rows)` | a menu, full width or beside the Settings preview pane as the screen it opens from decides; `.layout` overrides |
-| `RV_SCREEN_LIST_PANES(id, title, rows, panes)` | the same with an `rv_pane` per row: the caption and icon shown while the row is highlighted, static or from `.caption_text` and `.bitmap_for` |
+| `RV_SCREEN_LIST_PANES(id, title, rows, panes)` | the same with an `rv_pane` per row: the caption and icon shown while the row is highlighted, static or from `.caption_text` and `.bitmap_for`; the icon stands on the system's box, which a row without a bitmap, or with `.plain_icon`, leaves out |
 | `RV_SCREEN_CHOICE`, `RV_SCREEN_MULTI_CHOICE`, `RV_SCREEN_SLIDER` | a screen over a setting, with its own title; beside Settings a choice screen's pane names the highlighted choice under its `.bitmap`, like Settings > EQ |
 | `RV_SCREEN_TEXT(id, title, paragraphs)` | a text page of up to 12 paragraphs |
 | `RV_SCREEN_DYNAMIC_LIST(id, title, count, row)` | rows from callbacks, with an inline or stacked detail; `.dynamic.select` when choosing a row does something |
 | `RV_SCREEN_CANVAS(id, title, draw, input)` | the extension draws and reads wheel and key input |
 | `RV_SCREEN_CONTEXT(rows)` | a long-press menu on a list or dynamic list |
 | `RV_SCREEN_STOCK(id, title, screen)` | one of Apple's screens with its controller and bindings, under the extension's title. `RV_STOCK_SCREEN_GAMES` is the Games list, showing the games service's single list |
+| `RV_SCREEN_DIALOG(id, title, message, detail, buttons, chosen)` | a question with one to three buttons, as the stock EU Volume Limit question, see [Dialogs](#dialogs) |
 
 | Screen field | |
 |---|---|
@@ -52,6 +56,7 @@ The menus are `RV_MENU_MAIN`, `RV_MENU_MUSIC`, `RV_MENU_EXTRAS`, `RV_MENU_SETTIN
 | `.preview` | on a Main row, `RV_PREVIEW_MUSIC` or `RV_PREVIEW_VIDEOS`: without a pane, the row shows the stock Music or Videos pane |
 | `.shown_by` | a bool setting that shows the row; Settings > Main Menu and Music Menu flip it |
 | `.available` | decides whether a context menu offers the row, each time it opens |
+| `.host`, `.host_screen`, `.host_after` | an extension's manifest id, one of its list screens and a row id in it: the row goes after that row while that extension runs, into the entry's menu otherwise; see [Hosted entries](menus.md#hosted-entries) |
 
 ## Callbacks and `rv_context`
 
@@ -82,6 +87,16 @@ An empty list has no selection.
 
 `RV_SCREEN_CONTEXT(rows)` of `RV_CONTEXT_ROW(row, .available = predicate)` attaches to a list or dynamic list. Action and push rows get the highlighted index in `ctx->row`. Unavailable rows are hidden.
 
+## Dialogs
+
+`RV_SCREEN_DIALOG` (API 1.85) shows `message` in bold, `detail` under it (NULL for none) and the labels of the `buttons` array in the option bar.
+
+| | |
+|---|---|
+| `.dialog.initial` | the button highlighted when the dialog opens, the first by default |
+| `chosen(ctx, index)` | Select on button `index`; returns 1 to close the dialog, 0 to leave it up until `ui_pop` closes it, and 0 when it pushed or popped a screen itself. NULL: Select closes it |
+| Menu | closes the dialog without calling `chosen` |
+
 ## Canvases
 
 A canvas draws with the `rv_gfx` table: fills, text in the stock fonts, colour roles and mixes between them, wrapped paragraphs, list rows, the selection bar (`bar`, across any rectangle), and bitmaps (whole, the top rows, or tiled). A fill with alpha below 0xff blends, and `bmap_rows_blend` draws the top rows of a picture at an opacity. One extension at a time may replace the colour roles for every canvas with `api->ui_set_colors`, as a theme does; the `RV_COLOR_BAR_*` roles are the bar's top line, gradient and bottom line. The [canvas kit](canvas.md) adds palettes, plots, value cells and [computed pictures](canvas.md#pictures).
@@ -103,6 +118,7 @@ Screens and entries are limited by the heap and by 4,096 resource ids per extens
 | list | 19 + 2 per row |
 | choice, multi-choice or dynamic list | 21 |
 | stock screen | 8 |
+| dialog | 11 + 1 per button |
 | context menu | 5 + 1 per context row |
 | text page | 8 + 1 per paragraph |
 | slider | 10 |

@@ -74,8 +74,6 @@ class Parser:
                 "toggle",
                 "setting",
                 "settings-entry",
-                "settings-preview",
-                "menu-preview",
                 "string",
                 "screen-event",
                 "layout-event",
@@ -158,18 +156,6 @@ class Parser:
                 document.root = self.parse_text(node)
         elif node.tag == "setting":
             self.parse_setting(node)
-        elif node.tag == "menu-preview":
-            attributes(node, "id screen layout")
-            document.menu_previews.append(
-                (
-                    self.identifier(node),
-                    int(node.attrib["screen"], 0),
-                    int(node.attrib["layout"], 0),
-                )
-            )
-        elif node.tag == "settings-preview":
-            attributes(node)
-            document.preview = "image"
         elif node.tag == "settings-entry":
             attributes(node, "menu after", "open preview image caption")
             if self.entry is not None:

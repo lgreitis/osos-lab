@@ -165,6 +165,11 @@ void cfw_rvx_toggle_row(unsigned menu, unsigned row)
         host->toggle(menu, row);
 }
 
+uint32_t cfw_rvx_stock_view(uint32_t view)
+{
+    return host ? host->stock_view(view) : view;
+}
+
 uint32_t rvx_dispatch(uint32_t *registers, unsigned slot)
 {
     return host->dispatch(registers, slot);

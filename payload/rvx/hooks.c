@@ -4,7 +4,11 @@
 #include "patch.h"
 #include "osos.h"
 
-enum { CALL, VTABLE, ENTRY, ENTRY_NORETURN, WORD, INSERT };
+/* CALL: a BL to a function; VTABLE: a method slot; ENTRY: a function's first
+ * word; WORD: a table entry or constant; INSERT: the dispatcher's own branch;
+ * BRANCH: a B over a one-word tail-call thunk, handled like a CALL because lr
+ * already belongs to the thunk's caller. */
+enum { CALL, VTABLE, ENTRY, ENTRY_NORETURN, WORD, INSERT, BRANCH };
 
 struct site {
     u32 id, address, word;
@@ -133,6 +137,12 @@ static int prepare(struct chain *c, const struct site *s, unsigned slot, u32 fn)
         else if ((word & 0xfffffff0) != 0xe12fff30 && (word != s->word || s->chain))
             return 0;
         c->patched = 0xeb000000 | branch;
+        break;
+    case BRANCH:
+        if (word >> 24 != 0xea)
+            return 0;
+        c->original = s->address + 8 + ((int32_t)(word << 8) >> 6);
+        c->patched = 0xea000000 | branch;
         break;
     case VTABLE:
         c->original = word;
