@@ -68,6 +68,10 @@ Bypass, EU Volume Limit and Homebrew (apps and games from `/Reprise/Apps` and
 the compiler in the
 [extensions repository](https://github.com/RepriseOS/extensions/tree/main/themes).
 
+The runtime also sizes Apple's block cache and read-ahead by disk type, shares
+identical artwork thumbnails and counts tracks in a word, so libraries past
+35,000 tracks with artwork, and past 65,535 at all, play ([memory](docs/memory.md)).
+
 The game SDK and [Doom port](doom/README.md) are unfinished.
 
 ## Build

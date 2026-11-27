@@ -18,7 +18,8 @@ into IRAM at `0x22000000`, clears its BSS, then moves main code/data down to
 Startup maps low vectors into IRAM, identity-maps IRAM and cached DRAM, adds
 uncached DRAM aliases and MMIO, then enables the MMU and caches. Main and IRAM
 hooks require different file mappings. Zero-filled bytes do not establish safe
-scratch space. The CFW reservation is described in [boot sequence](boot.md).
+scratch space. The CFW reservation is described in [boot sequence](boot.md); the
+runtime's changes to Apple's heap and cache policy in [memory](memory.md).
 
 ## Tasks, graphics and storage
 
