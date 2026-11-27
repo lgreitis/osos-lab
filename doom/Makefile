@@ -14,7 +14,7 @@ ENGINE := vendor/doomgeneric/doomgeneric
 NEWLIB := vendor/newlib-build/arm-elf-eabi/newlib
 DOOM_CFLAGS := $(EAPP_CFLAGS) -Iinclude -I$(ENGINE) -I$(NEWLIB)/targ-include \
     -Ivendor/newlib/newlib/libc/include -D_DEFAULT_SOURCE -DNORMALUNIX \
-    -DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200
+    -DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200 -DFEATURE_SOUND
 ENGINE_NAMES := dummy am_map doomdef doomstat dstrings d_event d_items d_iwad \
     d_loop d_main d_mode d_net f_finale f_wipe g_game hu_lib hu_stuff info \
     i_cdmus i_endoom i_joystick i_scale i_sound i_system i_timer memio m_argv \
@@ -25,7 +25,8 @@ ENGINE_NAMES := dummy am_map doomdef doomstat dstrings d_event d_items d_iwad \
     st_lib st_stuff s_sound tables v_video wi_stuff w_checksum w_file w_main \
     w_wad w_file_stdc i_input i_video doomgeneric
 ENGINE_OBJECTS := $(addprefix $(OUT)/engine/,$(addsuffix .o,$(ENGINE_NAMES)))
-PORT_OBJECTS := $(addprefix $(OUT)/port/,doom_app.o console.o zone_native.o newlib_glue.o)
+PORT_OBJECTS := $(addprefix $(OUT)/port/,doom_app.o console.o sound.o zone_native.o \
+    newlib_glue.o)
 
 # The runtime comes before newlib in the group so its memcpy, memmove, memset
 # and memcmp are the ones linked; --wrap hooks the quit and the tic builder.

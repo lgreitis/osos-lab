@@ -250,7 +250,7 @@ static void frame(const struct eapp_frame *frame)
 
     if (!started) {
         static char *argv[] = {"doom",     "-iwad",    NULL,     "-nogui",
-                               "-nosound", "-gfxmode", "rgb565", NULL};
+                               "-nomusic", "-gfxmode", "rgb565", NULL};
 
         argv[2] = (char *)selected_wad;
 

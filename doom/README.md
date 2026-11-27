@@ -1,7 +1,7 @@
 # Doom for RepriseOS
 
-DoomGeneric port on the [eApp SDK](../eapp-sdk/README.md). No audio, saves or
-config writes.
+DoomGeneric port on the [eApp SDK](../eapp-sdk/README.md), with sound effects.
+No music, saves or config writes.
 
 ## Build and install
 
