@@ -1,20 +1,23 @@
 # Doom for RepriseOS
 
-DoomGeneric port for the Apple 2.0.5 base. No audio, saves or config writes.
+DoomGeneric port on the [eApp SDK](../eapp-sdk/README.md). No audio, saves or
+config writes.
 
 ## Build and install
 
-From `osos-lab`:
+From the repository root:
 
 ```sh
 python3 doom/setup.py --cross-prefix toolchains/rockbox-arm/bin/arm-elf-eabi- --shareware
 make -C doom -j8 CROSS_COMPILE=../toolchains/rockbox-arm/bin/arm-elf-eabi-
 ```
 
-Copy `iPod_Control/` from `doom/build/doom.zip` into the iPod root. The package
-includes the shareware episode. Add other Doom/Doom II IWADs to
-`iPod_Control/games_RO/reprise-doom/` or its subfolders; up to 64 `.wad` files
-are discovered automatically. Standalone add-on PWADs are not supported.
+`setup.py` fetches DoomGeneric and newlib, builds newlib under `doom/vendor/`,
+and with `--shareware` fetches the shareware episode, which the package then
+includes. `doom/build/reprise-doom/` is the package. Copy it to
+`/Reprise/Games/reprise-doom/` on the iPod, where the Homebrew extension lists
+it. Put other Doom and Doom II IWADs into that folder or its subfolders; up to 64
+`.wad` files are found. Standalone add-on PWADs are not supported.
 
 Open **Extras → Games → Doom** and choose a WAD.
 

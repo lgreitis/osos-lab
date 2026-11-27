@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#include "game_api.h"
-#include "game_ui.h"
+#include "eapp.h"
+#include "eapp_ui.h"
 #include <stdbool.h>
 #include "InfoNES.h"
 #include "InfoNES_System.h"
@@ -20,10 +20,10 @@ static const uint16_t palette555[64] = {
 };
 WORD NesPalette[64];
 
-static struct game_file_picker picker;
-static const struct game_menu_item regions[] = {{"PAL (EUROPE) - 50 HZ", NULL},
+static struct eapp_file_picker picker;
+static const struct eapp_menu_item regions[] = {{"PAL (EUROPE) - 50 HZ", NULL},
                                                 {"NTSC (USA/JAPAN) - 60 HZ", NULL}};
-static struct game_menu region_menu = {"VIDEO SYSTEM", regions, 2, 0};
+static struct eapp_menu region_menu = {.title = "VIDEO SYSTEM", .items = regions, .count = 2};
 
 enum nes_button {
     NES_A = 0x01,
@@ -36,11 +36,11 @@ enum nes_button {
 };
 
 enum pause_action { RESUME, START, MENU_FUNCTION, GAME_LIST, QUIT };
-static struct game_menu_item pause_items[] = {
+static struct eapp_menu_item pause_items[] = {
     {"RESUME", NULL},    {"START BUTTON", NULL}, {"MENU BUTTON: B", NULL},
     {"GAME LIST", NULL}, {"QUIT", NULL},
 };
-static struct game_menu pause_menu = {"PAUSED", pause_items, 5, RESUME};
+static struct eapp_menu pause_menu = {.title = "PAUSED", .items = pause_items, .count = 5};
 static bool held[6], running, paused, locked, choosing_region, menu_is_up;
 static uint32_t last_frame_ms, frame_credit;
 static uint8_t pending_buttons;
@@ -48,7 +48,7 @@ static uint8_t pending_buttons;
 static uint8_t button_mask(unsigned button)
 {
     static const uint8_t buttons[6] = {0, NES_B, NES_A, NES_RIGHT, NES_LEFT, NES_DOWN};
-    return button == GAME_BUTTON_MENU && menu_is_up ? NES_UP : buttons[button];
+    return button == EAPP_BUTTON_MENU && menu_is_up ? NES_UP : buttons[button];
 }
 
 static void clear_input(void)
@@ -57,25 +57,24 @@ static void clear_input(void)
         held[i] = false;
     pending_buttons = 0;
     PAD1_Latch = PAD2_Latch = 0;
-    game_read_wheel();
 }
 
 static void resume_game(void)
 {
     paused = false;
-    last_frame_ms = game_ticks_ms();
+    last_frame_ms = eapp_ticks_ms();
     frame_credit = 1000;
     clear_input();
 }
 
-static void pause_input(const struct game_input_event *event)
+static void pause_input(const struct eapp_input_event *event)
 {
-    enum game_menu_action action = game_menu_input(&pause_menu, event);
-    if (action == GAME_MENU_BACK) {
+    enum eapp_menu_action action = eapp_menu_input(&pause_menu, event);
+    if (action == EAPP_MENU_BACK) {
         resume_game();
         return;
     }
-    if (action != GAME_MENU_SELECT)
+    if (action != EAPP_MENU_SELECT)
         return;
     switch (pause_menu.selected) {
     case RESUME:
@@ -95,7 +94,7 @@ static void pause_input(const struct game_input_event *event)
         clear_input();
         break;
     case QUIT:
-        game_request_exit();
+        eapp_request_exit();
         break;
     }
 }
@@ -107,7 +106,7 @@ static void init(void)
         NesPalette[i] = ((c & 0x7fe0) << 1) | ((c >> 4) & 0x20) | (c & 31);
     }
     InfoNES_Init();
-    int result = game_file_picker_open(&picker, "NES", "", ".nes");
+    int result = eapp_file_picker_open(&picker, "NES", "", ".nes");
     if (result < 0)
         nes_error =
             result == -2 ? "TOO MANY ROMS (MAX 64)" : "CANNOT READ ROM DIRECTORY";
@@ -119,7 +118,7 @@ static void start_game(void)
         return;
     clear_input();
     nes_error = NULL;
-    running = InfoNES_Load(picker.menu.items[picker.menu.selected].value) == 0;
+    running = InfoNES_Load(picker.paths[picker.menu.selected]) == 0;
     if (!running) {
         InfoNES_ReleaseRom();
         if (!nes_error)
@@ -133,12 +132,12 @@ static void start_game(void)
         region_menu.selected = 0;
 }
 
-static void input(const struct game_input_event *event)
+static void input(const struct eapp_input_event *event)
 {
     if (event->button < 1 || event->button > 5 ||
-        (event->type != GAME_INPUT_PRESS && event->type != GAME_INPUT_RELEASE))
+        (event->type != EAPP_INPUT_PRESS && event->type != EAPP_INPUT_RELEASE))
         return;
-    bool pressed = event->type == GAME_INPUT_PRESS;
+    bool pressed = event->type == EAPP_INPUT_PRESS;
     bool was_held = held[event->button];
     held[event->button] = pressed && !locked;
     if (!pressed || was_held || locked)
@@ -148,12 +147,12 @@ static void input(const struct game_input_event *event)
         return;
     }
     if (choosing_region) {
-        enum game_menu_action action = game_menu_input(&region_menu, event);
-        if (action == GAME_MENU_SELECT) {
+        enum eapp_menu_action action = eapp_menu_input(&region_menu, event);
+        if (action == EAPP_MENU_SELECT) {
             InfoNES_Pal = region_menu.selected == 0;
             choosing_region = false;
             resume_game();
-        } else if (action == GAME_MENU_BACK) {
+        } else if (action == EAPP_MENU_BACK) {
             InfoNES_ReleaseRom();
             running = choosing_region = false;
             clear_input();
@@ -161,10 +160,10 @@ static void input(const struct game_input_event *event)
         return;
     }
     if (!running) {
-        enum game_menu_action action = game_menu_input(&picker.menu, event);
-        if (action == GAME_MENU_BACK)
-            game_request_exit();
-        else if (action == GAME_MENU_SELECT)
+        enum eapp_menu_action action = eapp_menu_input(&picker.menu, event);
+        if (action == EAPP_MENU_BACK)
+            eapp_request_exit();
+        else if (action == EAPP_MENU_SELECT)
             start_game();
         return;
     }
@@ -174,30 +173,30 @@ static void input(const struct game_input_event *event)
         pending_buttons |= button_mask(event->button);
 }
 
-static void draw_menu(const struct game_framebuffer *fb)
+static void draw_menu(const struct eapp_framebuffer *fb)
 {
     if (nes_error) {
-        game_clear(fb, 0);
-        game_draw_text(fb, 12, 12, "NES", 0xffff);
-        game_draw_text(fb, 12, 55, nes_error, 0xffff);
-        game_draw_text(fb, 12, 210, "PRESS ANY BUTTON TO RETURN", 0x8410);
+        eapp_clear(fb, 0);
+        eapp_draw_text(fb, 12, 12, "NES", 0xffff, 1);
+        eapp_draw_text(fb, 12, 55, nes_error, 0xffff, 1);
+        eapp_draw_text(fb, 12, 210, "PRESS ANY BUTTON TO RETURN", 0x8410, 1);
     } else if (paused) {
-        game_menu_draw(&pause_menu, fb);
+        eapp_menu_draw(&pause_menu, fb);
     } else {
-        game_menu_draw(&picker.menu, fb);
+        eapp_menu_draw(&picker.menu, fb);
         if (!picker.menu.count)
-            game_draw_text(fb, 12, 80, "COPY .NES FILES INTO REPRISE-NES", 0x8410);
+            eapp_draw_text(fb, 12, 80, "COPY .NES FILES INTO REPRISE-NES", 0x8410, 1);
     }
 }
 
-static void frame(const struct game_frame *frame)
+static void frame(const struct eapp_frame *frame)
 {
-    const struct game_framebuffer *screen = &frame->framebuffer;
+    const struct eapp_framebuffer *screen = &frame->framebuffer;
     if (!screen->pixels)
         return;
-    int hold = game_hold_locked();
-    if (hold >= 0 && locked != (hold != 0)) {
-        locked = hold != 0;
+    bool hold = eapp_hold_locked();
+    if (locked != hold) {
+        locked = hold;
         if (locked && running && !choosing_region) {
             paused = true;
             pause_menu.selected = RESUME;
@@ -205,21 +204,19 @@ static void frame(const struct game_frame *frame)
         clear_input();
     }
     if (choosing_region) {
-        struct game_wheel wheel = game_read_wheel();
         if (!locked)
-            game_menu_scroll(&region_menu, &wheel);
-        game_menu_draw(&region_menu, screen);
+            eapp_menu_scroll(&region_menu, frame);
+        eapp_menu_draw(&region_menu, screen);
         return;
     }
     if (!running || paused || nes_error) {
-        struct game_wheel wheel = game_read_wheel();
         if (!locked)
-            game_menu_scroll(paused ? &pause_menu : &picker.menu, &wheel);
+            eapp_menu_scroll(paused ? &pause_menu : &picker.menu, frame);
         draw_menu(screen);
         return;
     }
 
-    uint32_t now = game_ticks_ms();
+    uint32_t now = eapp_ticks_ms();
     uint32_t elapsed = now - last_frame_ms;
     last_frame_ms = now;
     frame_credit += (elapsed > 100 ? 100 : elapsed) * (InfoNES_Pal ? 50 : 60);
@@ -245,15 +242,15 @@ static void frame(const struct game_frame *frame)
 static void shutdown(void)
 {
     InfoNES_Fin();
-    game_file_picker_close(&picker);
+    eapp_file_picker_close(&picker);
 }
 
-const struct game_app game_application = {
-    .package_id = "reprise-nes",
+const struct eapp eapp_application = {
     .init = init,
     .input = input,
     .frame = frame,
     .shutdown = shutdown,
+    .handles_music_buttons = 1,
 };
 
 void InfoNES_LoadFrame(void)
@@ -264,7 +261,7 @@ void InfoNES_LoadFrame(void)
 void InfoNES_PadState(DWORD *one, DWORD *two, DWORD *system)
 {
     uint8_t pad = pending_buttons;
-    for (unsigned button = GAME_BUTTON_MENU; button <= GAME_BUTTON_PLAY; ++button)
+    for (unsigned button = EAPP_BUTTON_MENU; button <= EAPP_BUTTON_PLAY; ++button)
         if (held[button])
             pad |= button_mask(button);
     *one = pad;

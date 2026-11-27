@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "doom_port.h"
-#include "game_libc.h"
-#include "game_ui.h"
+#include "eapp_libc.h"
+#include "eapp_ui.h"
 #include "doomgeneric.h"
 #include "doomkeys.h"
 #include "i_system.h"
@@ -19,18 +19,18 @@
 enum { MENU, PLAY, NEXT, PREVIOUS, CENTER, BUTTONS };
 
 static const uint8_t button_ids[BUTTONS] = {
-    GAME_BUTTON_MENU,     GAME_BUTTON_PLAY,   GAME_BUTTON_NEXT,
-    GAME_BUTTON_PREVIOUS, GAME_BUTTON_CENTER,
+    EAPP_BUTTON_MENU,     EAPP_BUTTON_PLAY,   EAPP_BUTTON_NEXT,
+    EAPP_BUTTON_PREVIOUS, EAPP_BUTTON_CENTER,
 };
 
 static uint8_t held[BUTTONS], active_keys[BUTTONS][2];
 static int started, failed, error_visible;
-static struct game_file_picker wad_picker;
+static struct eapp_file_picker wad_picker;
 static const char *selected_wad;
 
 static void init(void)
 {
-    int result = game_file_picker_open(&wad_picker, "DOOM - SELECT WAD", "", ".wad");
+    int result = eapp_file_picker_open(&wad_picker, "DOOM - SELECT WAD", "", ".wad");
     if (result < 0) {
         const char *message =
             result == -2 ? "Too many WADs (max 64)\n" : "Cannot read WAD directory\n";
@@ -41,14 +41,14 @@ static void init(void)
 
 static void shutdown(void)
 {
-    game_file_picker_close(&wad_picker);
+    eapp_file_picker_close(&wad_picker);
 }
 
 static uint32_t chord_start;
 static int chord_active;
 static int hold_known, hold_locked;
 static jmp_buf exit_context;
-static const struct game_framebuffer *framebuffer;
+static const struct eapp_framebuffer *framebuffer;
 
 static struct {
     uint8_t key, pressed;
@@ -72,24 +72,25 @@ static void push_key(uint8_t key, int pressed)
     key_write = next;
 }
 
-static void input(const struct game_input_event *event)
+static void input(const struct eapp_input_event *event)
 {
-    if (event->type != GAME_INPUT_RELEASE && event->type != GAME_INPUT_PRESS)
+    if ((event->type != EAPP_INPUT_RELEASE && event->type != EAPP_INPUT_PRESS) ||
+        event->button == EAPP_BUTTON_WHEEL)
         return;
 
     if (failed) {
         if (error_visible)
-            game_request_exit();
+            eapp_request_exit();
         return;
     }
     if (hold_locked)
         return;
     if (!started && !selected_wad) {
-        enum game_menu_action action = game_menu_input(&wad_picker.menu, event);
-        if (action == GAME_MENU_BACK)
-            game_request_exit();
-        else if (action == GAME_MENU_SELECT)
-            selected_wad = wad_picker.menu.items[wad_picker.menu.selected].value;
+        enum eapp_menu_action action = eapp_menu_input(&wad_picker.menu, event);
+        if (action == EAPP_MENU_BACK)
+            eapp_request_exit();
+        else if (action == EAPP_MENU_SELECT)
+            selected_wad = wad_picker.paths[wad_picker.menu.selected];
         return;
     }
     if (!started)
@@ -102,7 +103,7 @@ static void input(const struct game_input_event *event)
     if (button == BUTTONS)
         return;
 
-    int pressed = event->type == GAME_INPUT_PRESS;
+    int pressed = event->type == EAPP_INPUT_PRESS;
     if (held[button] == pressed)
         return;
     held[button] = pressed;
@@ -155,18 +156,19 @@ static void release_inputs(void)
 
 static void poll_hold(void)
 {
-    int locked = game_hold_locked();
-    if (locked >= 0) {
-        int changed = hold_known && locked != hold_locked;
-        hold_known = 1;
-        hold_locked = locked;
-        if (changed && locked && started) {
-            release_inputs();
-            push_key(KEY_ESCAPE, 1);
-            push_key(KEY_ESCAPE, 0);
-        }
+    int locked = eapp_hold_locked();
+    int changed = hold_known && locked != hold_locked;
+    hold_known = 1;
+    hold_locked = locked;
+    if (changed && locked && started) {
+        release_inputs();
+        push_key(KEY_ESCAPE, 1);
+        push_key(KEY_ESCAPE, 0);
     }
 }
+
+/* The wheel's turn since the last tic, from the frames in between. */
+static int32_t wheel_delta;
 
 void __real_G_BuildTiccmd(ticcmd_t *cmd, int maketic);
 
@@ -174,7 +176,8 @@ void __wrap_G_BuildTiccmd(ticcmd_t *cmd, int maketic)
 {
     __real_G_BuildTiccmd(cmd, maketic);
 
-    struct game_wheel wheel = game_read_wheel();
+    int32_t delta = wheel_delta;
+    wheel_delta = 0;
     if (hold_locked) {
         cmd->forwardmove = cmd->sidemove = cmd->angleturn = 0;
         cmd->buttons = 0;
@@ -185,9 +188,9 @@ void __wrap_G_BuildTiccmd(ticcmd_t *cmd, int maketic)
 
     /* Rockbox uses the sign of each scroll event and saturates at +/-50. */
     int side = cmd->sidemove;
-    if (wheel.delta > 0)
+    if (delta > 0)
         side += 50;
-    if (wheel.delta < 0)
+    if (delta < 0)
         side -= 50;
     if (side > 50)
         side = 50;
@@ -196,7 +199,7 @@ void __wrap_G_BuildTiccmd(ticcmd_t *cmd, int maketic)
     cmd->sidemove = side;
 }
 
-static void frame(const struct game_frame *frame)
+static void frame(const struct eapp_frame *frame)
 {
     framebuffer = &frame->framebuffer;
     if (!framebuffer->pixels)
@@ -209,24 +212,24 @@ static void frame(const struct game_frame *frame)
     }
     poll_hold();
     if (!selected_wad) {
-        struct game_wheel wheel = game_read_wheel();
         if (!hold_locked)
-            game_menu_scroll(&wad_picker.menu, &wheel);
-        game_menu_draw(&wad_picker.menu, framebuffer);
+            eapp_menu_scroll(&wad_picker.menu, frame);
+        eapp_menu_draw(&wad_picker.menu, framebuffer);
         if (!wad_picker.menu.count)
-            game_draw_text(framebuffer, 12, 80, "COPY IWADS INTO REPRISE-DOOM", 0x8410);
-        game_sleep_ms(16);
+            eapp_draw_text(framebuffer, 12, 80, "COPY IWADS INTO REPRISE-DOOM", 0x8410, 1);
+        eapp_sleep_ms(16);
         return;
     }
+    wheel_delta += frame->wheel.delta;
 
-    uint32_t now = game_ticks_ms();
+    uint32_t now = eapp_ticks_ms();
     if (held[PREVIOUS] && held[NEXT]) {
         if (!chord_active) {
             chord_active = 1;
             chord_start = now;
         }
         if (now - chord_start >= 1500) {
-            game_request_exit();
+            eapp_request_exit();
             return;
         }
     } else {
@@ -236,7 +239,7 @@ static void frame(const struct game_frame *frame)
     int result = setjmp(exit_context);
     if (result) {
         if (result == 1)
-            game_request_exit();
+            eapp_request_exit();
         else {
             failed = 1;
             doom_console_draw(framebuffer);
@@ -253,7 +256,7 @@ static void frame(const struct game_frame *frame)
 
         setvbuf(stdout, NULL, _IONBF, 0);
         setvbuf(stderr, NULL, _IONBF, 0);
-        game_read_wheel();
+        wheel_delta = 0;
         started = 1;
         doomgeneric_Create(sizeof(argv) / sizeof(argv[0]) - 1, argv);
 
@@ -267,12 +270,12 @@ static void frame(const struct game_frame *frame)
     framebuffer = NULL;
 }
 
-const struct game_app game_application = {
-    .package_id = "reprise-doom",
+const struct eapp eapp_application = {
     .init = init,
     .shutdown = shutdown,
     .input = input,
     .frame = frame,
+    .handles_music_buttons = 1,
 };
 
 void DG_Init(void)
@@ -294,12 +297,12 @@ void DG_DrawFrame(void)
 
 void DG_SleepMs(uint32_t ms)
 {
-    game_sleep_ms(ms);
+    eapp_sleep_ms(ms);
 }
 
 uint32_t DG_GetTicksMs(void)
 {
-    return game_ticks_ms();
+    return eapp_ticks_ms();
 }
 
 void DG_SetWindowTitle(const char *title)
@@ -323,12 +326,12 @@ _Noreturn void doom_exit(int status)
     longjmp(exit_context, status ? 2 : 1);
 }
 
-void game_libc_write(const char *text, size_t size)
+void eapp_libc_write(const char *text, size_t size)
 {
     doom_console_write(text, size);
 }
 
-_Noreturn void game_libc_exit(int status)
+_Noreturn void eapp_libc_exit(int status)
 {
     doom_exit(status);
 }

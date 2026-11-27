@@ -31,11 +31,8 @@ based on the Revola SDK.
 
 - `payload/`: OSOS features, C patch declarations, and UI definitions.
 - [`rvx-sdk/`](rvx-sdk/README.md): headers, build tools, and an example for RVX extensions.
-- `game-sdk/`: deferred, incomplete homebrew runtime for the stock Games loader; it does not support sound.
-- `doom/`: deferred, incomplete Doom port.
-- `nes/`: deferred, incomplete InfoNES port built on the game SDK.
-  These three still package for `iPod_Control/games_RO`, where the firmware checks
-  signatures; a package folder goes under `/Reprise/Games/<id>/` for the Homebrew extension.
+- [`eapp-sdk/`](eapp-sdk/README.md): SDK for games and apps on Apple's eApp host, a copy of the Revola eApp SDK; packages go to `/Reprise/Games/<id>/` and `/Reprise/Apps/<id>/` for the Homebrew extension.
+- [`doom/`](doom/README.md) and [`nes/`](nes/README.md): DoomGeneric and InfoNES ports on that SDK.
 - `patching/`: Python recipe builder, native UI generation, and framework tests.
 - `firmware/`: pinned Apple inputs, hardware eligibility and native UI metadata.
 - `loader/` and `patches/`: Apple companion loader and Rockbox bootloader patches.
@@ -66,8 +63,6 @@ Equalizer (the five-band custom EQ), Clicker Modes, iAP Auth Bypass,
 EU Volume Limit and Homebrew (apps and games from `/Reprise/Apps` and
 `/Reprise/Games`) are extensions in the
 [extension catalog](https://repriseos.com/extensions/).
-
-The game SDK and [Doom port](doom/README.md) are unfinished.
 
 ## Build
 
