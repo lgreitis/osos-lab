@@ -186,6 +186,15 @@ def build_rockbox(config, out, rockbox):
             ],
             out,
         )
+        + run(
+            [
+                packager / "mks5lboot",
+                "--mkdfu-uninst",
+                "ipod6g",
+                out / "uninstall-rockbox-cfw.dfu",
+            ],
+            out,
+        )
     )
 
 

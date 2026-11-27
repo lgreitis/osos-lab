@@ -66,6 +66,7 @@ def export(build_dir, helper, version, minimum, out):
             "files": {
                 "image": str((build_dir / "install-rockbox-cfw.dfu").resolve()),
                 "descriptor": str(descriptor),
+                "uninstaller": str((build_dir / "uninstall-rockbox-cfw.dfu").resolve()),
             },
         }
         return bundle.export(spec, directory, out)

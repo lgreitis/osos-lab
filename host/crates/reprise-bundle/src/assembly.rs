@@ -277,6 +277,18 @@ pub fn nor_installer(bundle: &VerifiedBundle) -> Result<Vec<u8>> {
     Ok(image.to_vec())
 }
 
+/// Return the Rockbox dual-boot uninstaller, which moves Apple's bootloader back.
+/// Bundles before it carry no such file.
+pub fn nor_uninstaller(bundle: &VerifiedBundle) -> Result<Vec<u8>> {
+    let image = bundle
+        .file("nor", "uninstaller")
+        .map_err(|_| invalid("This package has no uninstaller. Choose a newer package."))?;
+    if image.len() > 0x20000 || image.len() < 0x800 || image.get(..8) != Some(b"87021.0\x03") {
+        return Err(invalid("Invalid dual-boot uninstaller image"));
+    }
+    Ok(image.to_vec())
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BootloaderAction {

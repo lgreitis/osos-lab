@@ -140,7 +140,8 @@ annotation directory. Logs are in `.build/ghidra-*.log`; all tools expose `--hel
 ## Credits
 
 - [Rockbox](https://github.com/Rockbox/rockbox) contributors: the bootloader,
-  dual-boot installer, and hardware drivers used by the USB helper.
+  dual-boot installer and uninstaller, and hardware drivers used by the USB
+  helper.
 - [wInd3x](https://github.com/freemyipod/wInd3x) by Serge “q3k” Bazanski:
   the BootROM exploit, DFU protocol, and payload assembler code ported from Go
   to Rust in `reprise-device`, including `payload.rs` and `dfu.rs`.
