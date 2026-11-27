@@ -75,3 +75,145 @@
  unsigned short* ata_get_identify(void)
  {
      return identify_info;
+--- a/firmware/export/config/ipod6g.h
++++ b/firmware/export/config/ipod6g.h
+@@ -250,6 +250,9 @@
+ #define HAVE_BOOTLOADER_USB_MODE
+ #ifdef BOOTLOADER
+ #define USBPOWER_BTN_IGNORE (~0)
++/* The upload helper never turns the LCD on, so panics and exceptions
++ * stop without drawing a report or a backtrace. */
++#define DISABLE_BACKTRACE
+ #endif
+ 
+ #define USB_READ_BUFFER_SIZE (1024*24)
+--- a/firmware/panic.c
++++ b/firmware/panic.c
+@@ -96,37 +96,6 @@
+     vsnprintf( panic_buf, sizeof(panic_buf), fmt, ap );
+     va_end( ap );
+ 
+-    lcd_set_viewport(NULL);
+-
+-    int y = 1;
+-
+-#if LCD_DEPTH > 1
+-    lcd_set_backdrop(NULL);
+-    lcd_set_drawinfo(DRMODE_SOLID, LCD_BLACK, LCD_WHITE);
+-#endif
+-
+-    lcd_clear_display();
+-    lcd_setfont(FONT_SYSFIXED);
+-    lcd_puts(1, y++, (unsigned char *) "*PANIC* (" RBVERSION ")");
+-    {
+-        /* wrap panic line */
+-        int i, len = strlen(panic_buf);
+-        for (i=0; i<len; i+=LINECHARS) {
+-            unsigned char c = panic_buf[i+LINECHARS];
+-            panic_buf[i+LINECHARS] = 0;
+-            lcd_puts(1, y++, (unsigned char *)panic_buf+i);
+-            panic_buf[i+LINECHARS] = c;
+-        }
+-    }
+-
+-#if defined(HAVE_RB_BACKTRACE)
+-    rb_backtrace(pc, sp, &y);
+-#endif
+-#ifdef ROCKBOX_HAS_LOGF
+-    logf_panic_dump(&y);
+-#endif
+-
+-    lcd_update();
+     DEBUGF("%s", panic_buf);
+ 
+ #ifdef HAVE_ADJUSTABLE_CPU_FREQ
+--- a/firmware/target/arm/system-arm-classic.c
++++ b/firmware/target/arm/system-arm-classic.c
+@@ -27,14 +27,6 @@
+ #include <get_sp.h>
+ #include <backtrace.h>
+ 
+-static const char* const uiename[] = {
+-    "Undefined instruction",
+-    "Prefetch abort",
+-    "Data abort",
+-    "Divide by zero",
+-    "SWI"
+-};
+-
+ void __attribute__((weak,naked)) data_abort_handler(void)
+ {
+     asm volatile(
+@@ -90,70 +82,8 @@
+  */
+ void NORETURN_ATTR UIE(unsigned int pc, unsigned int num)
+ {
+-    /* safe guard variable - we call backtrace() only on first
+-     * UIE call. This prevent endless loop if backtrace() touches
+-     * memory regions which cause abort
+-     */
+-    static bool triggered = false;
+-
+-#if LCD_DEPTH > 1
+-    lcd_set_backdrop(NULL);
+-    lcd_set_drawinfo(DRMODE_SOLID, LCD_BLACK, LCD_WHITE);
+-#endif
+-    unsigned line = 0;
+-
+-    lcd_setfont(FONT_SYSFIXED);
+-    lcd_set_viewport(NULL);
+-    lcd_clear_display();
+-    lcd_putsf(0, line++, "%s at %08x" IF_COP(" (%d)"), uiename[num], pc IF_COP(, CURRENT_CORE));
+-
+-#if !defined(CPU_ARM7TDMI) && (CONFIG_CPU != RK27XX) /* arm7tdmi has no MPU/MMU */
+-    if(num == 1 || num == 2) /* prefetch / data abort */
+-    {
+-        register unsigned status;
+-
+-#if ARM_ARCH >= 6
+-        /* ARMv6 has 2 different registers for prefetch & data aborts */
+-        if(num == 1)    /* instruction prefetch abort */
+-            asm volatile( "mrc p15, 0, %0, c5, c0, 1\n" : "=r"(status));
+-        else
+-#endif
+-            asm volatile( "mrc p15, 0, %0, c5, c0, 0\n" : "=r"(status));
+-
+-        lcd_putsf(0, line++, "FSR 0x%x", status);
+-
+-        unsigned int domain = (status >> 4) & 0xf;
+-        unsigned int fault = status & 0xf;
+-#if ARM_ARCH >= 6
+-        fault |= (status & (1<<10)) >> 6; /* fault is 5 bits on armv6 */
+-#endif
+-        lcd_putsf(0, line++, "(domain %d, fault %d)", domain, fault);
+-
+-        if(num == 2) /* data abort */
+-        {
+-            register unsigned address;
+-            /* read FAR (fault address register) */
+-            asm volatile( "mrc p15, 0, %0, c6, c0\n" : "=r"(address));
+-            lcd_putsf(0, line++, "address 0x%8x", address);
+-#if ARM_ARCH >= 6
+-            lcd_putsf(0, line++, (status & (1<<11)) ? "(write)" : "(read)");
+-#endif
+-        }
+-    }   /* num == 1 || num == 2 // prefetch/data abort */
+-#endif /* !defined(CPU_ARM7TDMI */
+-
+-#ifdef HAVE_RB_BACKTRACE
+-    if (!triggered)
+-    {
+-        triggered = true;
+-        rb_backtrace(pc, __get_sp(), &line);
+-    }
+-#else
+-    (void)triggered;
+-#endif
+-
+-    lcd_update();
+-
++    (void)pc;
++    (void)num;
+     disable_interrupt(IRQ_FIQ_STATUS);
+ 
+     system_exception_wait(); /* If this returns, try to reboot */
