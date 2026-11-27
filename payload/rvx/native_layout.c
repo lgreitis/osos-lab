@@ -57,6 +57,17 @@ static void put_word(uint8_t *at, uint32_t value)
         at[b] = (uint8_t)(value >> (8 * b));
 }
 
+/* 1 for a stock binding block the clone keeps: every one unless the instance's
+ * template is swapped for another (`swapped`), when only the item table and the
+ * `extra` views stay. Apple applies each block to the view with its id and
+ * does not check that the template has one. */
+static int kept(const struct core_block *view, const struct view_sources *extra,
+                int swapped)
+{
+    return !swapped || view->kind == ViewBinding_ItemTable ||
+           view->kind - extra->view < extra->count;
+}
+
 /* The VCvs of one instance with the title view's source and the item table
  * rebound and `extra` sources applied: a block per view holding option blocks,
  * or one ViewBinding_ItemTable block naming the ITEM table. `vcvs` may be NULL
@@ -66,21 +77,27 @@ static uint32_t rebind_views(struct core_writer *w, const void *vcvs,
                              const struct view_sources *extra)
 {
     uint32_t start = w->at, changed = 0, count = vcvs ? core_blocks_count(vcvs) : 0;
-    uint32_t bound = 0,
+    uint32_t bound = 0, kept_count = 0,
              added = 0; /* extra views the stock VCvs gives a source, as a bit each */
+    int swapped = extra && c->to != c->from;
     struct core_block view, option;
-    for (uint32_t i = 0; extra && i < count && core_block_at(vcvs, i, &view); i++)
-        for (uint32_t o = 0; view.kind - extra->view < extra->count &&
+    for (uint32_t i = 0; i < count && core_block_at(vcvs, i, &view); i++) {
+        kept_count += kept(&view, extra, swapped);
+        for (uint32_t o = 0; extra && view.kind - extra->view < extra->count &&
                              core_block_at(view.data, o, &option);
              o++)
             if (option.kind == Resource_SORC)
                 bound |= 1u << (view.kind - extra->view);
+    }
     for (uint32_t i = 0; extra && i < extra->count; i++)
         added += !(bound >> i & 1);
-    core_write_word(w, count + added);
+    changed = kept_count != count;
+    core_write_word(w, kept_count + added);
     for (uint32_t i = 0; i < count; i++) {
         if (!core_block_at(vcvs, i, &view))
             break;
+        if (!kept(&view, extra, swapped))
+            continue;
         uint32_t begin = core_write_block_begin(w, view.kind);
         if (view.kind == ViewBinding_ItemTable) {
             uint32_t words[2] = {ItemTableBinding_item_table, c->items};

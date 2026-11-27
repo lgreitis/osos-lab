@@ -46,36 +46,15 @@ static const u32 tables[] = {0x1a, 0x1b, 2, 0x41, 0x33};
 static u32 last[5], menu_mask;
 static const void *sound_check_row;
 static u32 sound_check_size;
-static struct installed *highlight;
-static void *highlight_controller, *preview_image;
-static const char *preview_text, *preview_lines[2];
-static void *preview_badge;
-static u32 preview_bytes, badge_bytes;
-
-/* The native image view retains its BMap between property notifications. */
-enum { ICON_WORDS = (28 + 80 * 121) / 4 };
-
-static u32 *native_icon;
 const u32 rvx_clear_bitmap[] = {0x1888, 0x00200004, 0, 0, 1, 1, 4, 0};
 
 int rvx_is_pane_icon(const u32 *image, u32 bytes)
 {
-    return image && bytes == ICON_WORDS * 4 && image[0] == 8 &&
-           image[1] == 0x00080050 && image[2] == 0 && image[3] == 0 &&
-           image[4] == 121 && image[5] == 78 && image[6] == bytes - 28;
+    return image && bytes == 28 + 80 * 121 && image[0] == 8 && image[1] == 0x00080050 &&
+           image[2] == 0 && image[3] == 0 && image[4] == 121 && image[5] == 78 &&
+           image[6] == bytes - 28;
 }
 
-static int update_menu_icon(const u32 *image, u32 bytes)
-{
-    if (!rvx_is_pane_icon(image, bytes))
-        return 0;
-    if (!native_icon)
-        native_icon = osos_import_alloc(bytes);
-    if (native_icon)
-        for (unsigned j = 0; j < ICON_WORDS; j++)
-            native_icon[j] = image[j];
-    return native_icon != NULL;
-}
 static struct context media;
 static struct osos_media_item media_item;
 
@@ -85,9 +64,6 @@ static void install(Pkg *p, const struct menu_entry *e, u32 id)
     if (!i)
         return;
     menu_mask |= e->menus;
-    if ((e->menus & (MENU_MAIN | MENU_MUSIC | MENU_EXTRAS | MENU_VIDEOS)) ||
-        ((e->menus & MENU_SETTINGS) && e->plain))
-        cfw_rvx_has_menu_pane = 1;
     i->pkg = p;
     i->entry = e;
     i->item = id;
@@ -127,9 +103,6 @@ static void install(Pkg *p, const struct menu_entry *e, u32 id)
 
 static unsigned menu_events(const struct installed *i, unsigned slot, uint8_t *buffer)
 {
-    static const char *const layouts[] = {"RVX_MainPane", "RVX_MusicPane",
-                                          "RVX_ExtrasPane", "RVX_Preview",
-                                          "RVX_VideosPane"};
     char name[48];
     struct core_writer w = {buffer, 0};
     core_write_word(&w, 2);
@@ -146,8 +119,7 @@ static unsigned menu_events(const struct installed *i, unsigned slot, uint8_t *b
     } else {
         char handler[16] = "PR";
         core_put_number(handler + 2, handler + sizeof handler, i->item);
-        const char *layout =
-            slot == 3 && entry->plain ? "RVX_PlainPane" : layouts[slot];
+        const char *layout = core_panes_name(slot);
         core_write_event(&w, name, handler, "navigator.SwitchLayout", &layout, 1);
     }
     return w.at;
@@ -306,10 +278,10 @@ int rvx_guest_pane_property(const struct installed *i, void *controller, u32 fie
             pane ? (pane->image ? pane->image(&ctx) : pane->bitmap) : NULL;
         u32 bytes = 0;
         void *image = b ? rvx_bitmap_load(i->pkg, b->name, &bytes) : NULL;
-        int icon = update_menu_icon(image, bytes);
+        const void *icon = rvx_native_icon(image, bytes);
         if (image)
             rvx_free(i->pkg, image);
-        *out = icon ? (uintptr_t)native_icon : (uintptr_t)rvx_clear_bitmap;
+        *out = icon ? (uintptr_t)icon : (uintptr_t)rvx_clear_bitmap;
         return 1;
     }
     if (type != Property_String || (field != 0 && field != 3))
@@ -329,99 +301,29 @@ int rvx_guest_pane_property(const struct installed *i, void *controller, u32 fie
     return 1;
 }
 
-static void refresh_menu_pane(Pkg *p, int caption_change)
+const struct menu_entry *rvx_menu_row(u32 item, Pkg **pkg)
 {
-    if (rvx_top && rvx_top->ctx.self == p)
-        osos_ui_invalidate();
-    if (!highlight || highlight->pkg != p)
-        return;
-    const struct menu_entry *entry = highlight->entry;
-    struct context ctx = {p, highlight_controller, NULL, NULL, -1, NULL};
-    const struct pane *pane = entry->pane;
-    const char *caption = pane ? (pane->text ? pane->text(&ctx) : pane->label) : NULL;
-    if (!caption && entry->caption) {
-        int n = rvx_get_int(p, entry->caption);
-        const struct rvx_setting *v = rvx_declaration(p, entry->caption);
-        caption = v && v->labels && n >= 0 && (u32)n < v->label_count
-                      ? v->labels[n]
-                      : (n ? "On" : "Off");
-    }
-    preview_text = caption ? caption : "";
-    int refresh_image = !caption_change || (pane && pane->image) ||
-                        (pane && pane->bitmap && !preview_image);
-    if (refresh_image) {
-        const struct bitmap *b =
-            pane ? (pane->image ? pane->image(&ctx) : pane->bitmap) : NULL;
-        void *old = preview_image;
-        preview_image = b ? rvx_bitmap_load(p, b->name, &preview_bytes) : NULL;
-        if (update_menu_icon(preview_image, preview_bytes)) {
-            rvx_free(p, preview_image);
-            preview_image = native_icon;
+    for (const struct installed *i = installed; i; i = i->next)
+        if (i->item == item) {
+            *pkg = i->pkg;
+            return i->entry;
         }
-        if (old && old != native_icon)
-            rvx_free(p, old);
-    }
-    const struct pane_extra *extra = entry->extra;
-    for (unsigned j = 0; j < 2; j++)
-        preview_lines[j] =
-            extra ? (extra->text ? extra->text(&ctx, j) : extra->lines[j]) : NULL;
-    if (!caption_change ||
-        (extra && (extra->image || (extra->badge && !preview_badge)))) {
-        const struct bitmap *b =
-            extra ? (extra->image ? extra->image(&ctx) : extra->badge) : NULL;
-        if (preview_badge)
-            rvx_free(p, preview_badge);
-        preview_badge = b ? rvx_bitmap_load(p, b->name, &badge_bytes) : NULL;
-    }
-    void *model = ((void *(*)(void))0x081e0ff4)();
-    if (model) {
-        if (refresh_image)
-            osos_model_notify(model, OSOS_NOTIFY_ALL, RVX_PreviewImage);
-        osos_model_notify(model, OSOS_NOTIFY_ALL, RVX_PreviewText);
-    }
+    return NULL;
 }
 
 void rvx_refresh_pane(Pkg *p)
 {
-    refresh_menu_pane(p, 0);
+    if (rvx_top && rvx_top->ctx.self == p)
+        osos_ui_invalidate();
+    core_panes_refresh(p, 0);
 }
 
 void rvx_theme_changed(void)
 {
     for (struct frame *f = rvx_top; f; f = f->parent)
         rvx_native_refresh(f);
-    if (highlight)
-        rvx_refresh_pane(highlight->pkg);
+    core_panes_refresh(NULL, 0);
     osos_ui_invalidate();
-}
-
-void rvx_draw_menu_pane(int width, int height)
-{
-    if (!highlight)
-        return;
-    const struct graphics *g = &rvx_graphics;
-    g->fill(&(struct rect){0, 0, width, height}, g->color(0));
-    const u32 *image = preview_image;
-    int w = image && preview_bytes >= 28 ? (int)image[5] - (int)image[3] : 0;
-    int h = image && preview_bytes >= 28 ? (int)image[4] - (int)image[2] : 0;
-    int top = (height - h) / 2;
-    if ((w == 119 && h == 119) || (w == 142 && h == 87) || (w == 130 && h == 128) ||
-        (w == 146 && h == 110) || (w == 132 && h == 145) ||
-        (w == 78 && h == 121 && highlight->entry->plain))
-        g->bmap((width - w) / 2, top, image);
-    else
-        h = 0;
-    const char *label = highlight->entry->row.label;
-    if (w == 130 || w == 132 || w == 78)
-        g->text_in(&(struct rect){0, 0, width, 24}, 1, g->color(1), label, 0);
-    if (w == 130)
-        for (unsigned j = 0; j < 2; j++)
-            g->text(12, top + 6 + j * 20, 2, g->color(1), preview_lines[j]);
-    if (w == 146 && preview_badge && badge_bytes >= 28)
-        g->bmap(8, top + h + 3, preview_badge);
-    g->text_in(&(struct rect){w == 146 ? 20 : 0, h ? top + h + 1 : height / 2,
-                              width - (w == 146 ? 20 : 0), 26},
-               2, g->color(4), preview_text && *preview_text ? preview_text : label, 0);
 }
 
 int cfw_rvx_property(u32 type, u32 property, uintptr_t *out)
@@ -452,17 +354,7 @@ int cfw_rvx_property(u32 type, u32 property, uintptr_t *out)
     }
     if (rvx_native_property(type, property, out))
         return 1;
-    if (type == OSOS_RESOURCE_BMAP && property == RVX_PreviewImage) {
-        *out = (uintptr_t)(preview_image && preview_image == native_icon
-                               ? native_icon
-                               : rvx_clear_bitmap);
-        return 1;
-    }
-    if (type == OSOS_PROPERTY_STRING && property == RVX_PreviewText) {
-        *out = (uintptr_t)(preview_text ? preview_text : "");
-        return 1;
-    }
-    return 0;
+    return core_panes_property(type, property, out);
 }
 
 static u32 action(void *controller, const char *action, u32 arg, const void *next)
@@ -470,26 +362,8 @@ static u32 action(void *controller, const char *action, u32 arg, const void *nex
     if (action && action[0] == 'P' && action[1] == 'R')
         for (struct installed *i = installed; i; i = i->next)
             if (cfw_string_equal(i->action + 3, action + 2)) {
-                if (arg != OSOS_ACTION_SUPPORT_QUERY) {
-                    if (highlight && preview_image) {
-                        if (preview_image != native_icon)
-                            rvx_free(highlight->pkg, preview_image);
-                        preview_image = NULL;
-                    }
-                    if (highlight && preview_badge) {
-                        rvx_free(highlight->pkg, preview_badge);
-                        preview_badge = NULL;
-                    }
-                    highlight = i;
-                    highlight_controller = controller;
-                    const char *title = i->entry->row.label;
-                    unsigned n = 0;
-                    while (title && title[n])
-                        n++;
-                    osos_resource_set(rvx_bank, 0x53747220, RVX_PaneTitle,
-                                      title ? title : "", n + 1);
-                    rvx_refresh_pane(i->pkg);
-                }
+                if (arg != OSOS_ACTION_SUPPORT_QUERY)
+                    core_panes_show(i->item, controller);
                 return 1;
             }
     if (rvx_menu_action(controller, action, arg, 1))
@@ -1083,6 +957,5 @@ void rvx_setting_updated(Pkg *p, uint16_t key)
                     osos_model_notify(model, OSOS_NOTIFY_ALL, i->source_id);
             }
         }
-    if (highlight && highlight->pkg == p && highlight->entry->caption == key)
-        refresh_menu_pane(p, 1);
+    core_panes_setting_changed(p, key);
 }

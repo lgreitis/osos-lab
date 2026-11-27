@@ -9,6 +9,7 @@
 #include "store.h"
 #include "patch.h"
 #include "resources.h"
+#include "rvx/runtime.h"
 
 enum {
     DARK_MODE_OFF_RECORD = 0x304b5244, /* DRK0 */
@@ -134,7 +135,7 @@ void cfw_dark_mode_reset(void)
 
 static int native_text_color(const void *view)
 {
-    switch (osos_view_id(view)) {
+    switch (cfw_rvx_stock_view(osos_view_id(view))) {
     case 0x0dad030e: /* Alarms_PickDate_Preivew_NumericDay */
     case 0x0dad0607: /* Settings_DateTime_NumericDay */
     case 0x0dad061e: /* Settings_DateTime_Preivew_NumericDay */

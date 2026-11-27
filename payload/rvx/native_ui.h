@@ -290,5 +290,40 @@ static inline void native_set(uint32_t type, uint32_t id, const void *data,
     osos_resource_set(rvx_bank, type, id, data, size);
 }
 
+/* Menu panes (native_panes.c and native_lists.c). A pane VLyt (the Settings >
+ * Main Menu pane's views) with the title line, the line under the icon, the
+ * icon and the box behind it bound to these source ids; a 0 source hides its
+ * view, and every other view is hidden. Returns the stock pane VLyt it
+ * copied, 0 on failure. */
+uint32_t core_panes_write(struct core_writer *w, uint32_t title, uint32_t line,
+                          uint32_t icon, uint32_t box);
+/* Stores a pane VLyt under `id` with the TEVT of `stock_pane`, which loading
+ * the layout's events requires. */
+void core_panes_store(uint32_t id, const void *data, uint32_t bytes,
+                      uint32_t stock_pane);
+/* The layout name the rows of menu `slot` (menus.c order) switch to for their
+ * pane; the row's pane handler points it at the layout of the kind the row's
+ * picture asks for. */
+const char *core_panes_name(unsigned slot);
+/* The row with item id `item` is highlighted on the menu `controller` shows:
+ * builds the pane layout its picture asks for if the menu has none yet, adds
+ * it to the controller, makes the row the pane's current one and points the
+ * menu's pane name at the layout. */
+void core_panes_show(uint32_t item, void *controller);
+/* Asks the pane on screen for its views again when it shows a row of `p` (any
+ * extension's for NULL); `caption_change` leaves the pictures alone unless the
+ * entry picks them at run time. 1 when a pane showed a row of `p`. */
+int core_panes_refresh(Pkg *p, int caption_change);
+/* Setting `key` of `p` changed: the pane follows it when its caption names it. */
+int core_panes_setting_changed(Pkg *p, uint16_t key);
+/* Answers the properties of the panes' views; 0 for anything else. */
+int core_panes_property(uint32_t type, uint32_t id, uintptr_t *out);
+/* A 78 x 121 Settings icon copied into the one buffer the native image views
+ * keep between notifications; NULL for another image. */
+const void *rvx_native_icon(const u32 *image, u32 bytes);
+/* The entry of the menu row with item id `item` and in *pkg its extension;
+ * NULL for no such row (menus.c). */
+const struct menu_entry *rvx_menu_row(u32 item, Pkg **pkg);
+
 void core_clone_set_style(uint32_t layout, uint32_t template, int16_t style);
 int16_t core_templates_enter_style(uint32_t template, uint32_t kind);

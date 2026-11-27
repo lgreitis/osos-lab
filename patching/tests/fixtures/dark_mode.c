@@ -29,6 +29,11 @@ void cfw_assets_set_enabled(int value)
     assets_active = value;
 }
 
+uint32_t cfw_rvx_stock_view(uint32_t view)
+{
+    return view;
+}
+
 int cfw_assets_enabled(void)
 {
     return assets_active;

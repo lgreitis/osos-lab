@@ -193,4 +193,3 @@ const struct rvx_setting *rvx_declaration(Pkg *, uint16_t);
 void rvx_refresh_pane(Pkg *);
 void rvx_clear_bitmaps(struct frame *);
 void rvx_theme_changed(void);
-void rvx_draw_menu_pane(int width, int height);
