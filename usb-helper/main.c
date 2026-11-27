@@ -338,17 +338,11 @@ void main(void)
             UPLOAD_RESULT->nonce[i] = nonce[i];
         uint64_t start = 0, end = 0;
         unsigned bytes = 0;
-        if (layout.error == LAYOUT_APPLE_PARTITION_MAP) {
-            upload_prepare_hfs(info.num_sectors);
-            if (!UPLOAD_RESULT->rc)
-                layout.error = LAYOUT_OK;
-        } else if (!file_layout_ok(&layout,
-                                   ((uint64_t)RECORD->sectors_high << 32) |
-                                       RECORD->sectors_low,
-                                   &start, &end, &bytes))
-            upload_fail(layout.error == LAYOUT_APPLE_PARTITION_MAP ? -323 : -301);
-        else
+        uint64_t sectors = ((uint64_t)RECORD->sectors_high << 32) | RECORD->sectors_low;
+        if (file_layout_ok(&layout, sectors, &start, &end, &bytes))
             upload_prepare(start, end, bytes);
+        else if (!upload_prepare_hfs(sectors))
+            upload_fail(layout.error == LAYOUT_APPLE_PARTITION_MAP ? -323 : -301);
         save_diagnostics();
         RECORD->storage_rc = upload_usb();
         RECORD->phase = 4;

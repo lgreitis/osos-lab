@@ -213,6 +213,8 @@ int hfs_upload_mount(uint64_t sectors, uint64_t *start, uint64_t *end,
 {
     disk = (struct hfs_disk){read_disk, NULL, sectors * 512};
     enum hfs_result opened = hfs_open(&vol, &disk);
+    if (opened == HFS_NOT_FOUND)
+        return HFS_UPLOAD_NOT_FOUND;
     if (opened == HFS_NOT_UNMOUNTED)
         return NOT_UNMOUNTED;
     if (opened != HFS_OK || vol.block_size > (1u << 30) || vol.bytes < 2048 ||

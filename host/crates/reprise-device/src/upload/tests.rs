@@ -636,11 +636,7 @@ fn mac_format_error_reaches_the_caller_and_preserves_diagnostics() {
     .unwrap_err()
     .to_string();
     assert!(error.contains("Apple Partition Map"), "{error}");
-    assert!(
-        error.contains("FAT32 with Master Boot Record (MBR)"),
-        "{error}"
-    );
-    assert!(error.contains("HFS/HFS+ is not supported"), "{error}");
+    assert!(error.contains("without a supported HFS+ volume"), "{error}");
     assert_eq!(bulk.commands, [ACKNOWLEDGE]);
     assert_eq!(bulk.save_sectors, Some(true));
 

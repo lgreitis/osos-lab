@@ -115,8 +115,8 @@ static void report_traffic(void)
 
 /* hfs-test IMAGE install|keep|batch|staged|inspect|remove [LOCAL=/ipod/path ...]
  * batch marks every file but the last with UPLOAD_MORE, staged every file.
- * Prints one result line per request and one for the end of the session when
- * that changes the result.
+ * Prints "none" without an HFS+ volume, else one result line per request and
+ * one for the end of the session when that changes the result.
  * hfs-test IMAGE drop ROOT... calls hfs_upload_remove with the roots, a folder
  * when the root ends in a slash, and prints rc and each root's outcome. */
 int main(int argc, char **argv)
@@ -145,7 +145,10 @@ int main(int argc, char **argv)
     }
     memcpy(&upload_config, &c, sizeof(c));
     memset(test_result.nonce, 7, 16);
-    upload_prepare_hfs(sectors);
+    if (!upload_prepare_hfs(sectors)) {
+        puts("none");
+        return 0;
+    }
     if (drop && !test_result.rc) {
         struct hfs_removal set[HFS_REMOVE_ROOTS + 1];
         char names[HFS_REMOVE_ROOTS + 1][192];
@@ -1026,9 +1029,6 @@ extern struct storage_result test_storage;
         )
         self.assertEqual(self.disk.read_bytes(), disk)
 
-    def test_disk_without_hfs_is_refused(self):
+    def test_disk_without_hfs_is_left_to_the_fat_checks(self):
         self.disk.write_bytes(bytes(len(self.base)))
-        self.assertEqual(
-            self.helper("install", [("/Reprise/a.bin", b"a")]),
-            ["rc=-324 existing=0 free=0"],
-        )
+        self.assertEqual(self.helper("install", [("/Reprise/a.bin", b"a")]), ["none"])

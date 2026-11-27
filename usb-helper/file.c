@@ -310,20 +310,25 @@ static int remove_hfs_installation(void)
     return 0;
 }
 
-void upload_prepare_hfs(uint64_t sectors)
+/* The disk holds an HFS+ volume, behind an Apple Partition Map at the start of
+   the disk or after the hidden firmware partition. Returns false, without
+   touching the result, when there is none. */
+bool upload_prepare_hfs(uint64_t sectors)
 {
-    if (!load_config())
-        return;
     uint64_t free_bytes;
     int rc = hfs_upload_mount(sectors, &data_start, &data_end, &free_bytes);
+    if (rc == HFS_UPLOAD_NOT_FOUND)
+        return false;
+    if (!load_config())
+        return true;
     if (rc) {
         upload_fail(rc);
-        return;
+        return true;
     }
     hfs = true;
     if (current.overwrite < 2) {
         prepare_file();
-        return;
+        return true;
     }
     STORAGE_RESULT->start = data_start;
     STORAGE_RESULT->end = data_end;
@@ -335,17 +340,18 @@ void upload_prepare_hfs(uint64_t sectors)
         int osos = hfs_upload_exists("/Reprise/Firmware/reprise.bin");
         if (companion < 0 || osos < 0 || free_bytes < current.size) {
             upload_fail(companion < 0 ? companion : osos < 0 ? osos : -322);
-            return;
+            return true;
         }
         STORAGE_RESULT->existing_files = companion | (osos << 1);
     } else {
         rc = remove_hfs_installation();
         if (rc) {
             upload_fail(rc);
-            return;
+            return true;
         }
     }
     UPLOAD_RESULT->state = 4;
+    return true;
 }
 
 void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)

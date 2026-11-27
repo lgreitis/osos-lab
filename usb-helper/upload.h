@@ -46,7 +46,7 @@ struct storage_result {
 };
 
 void upload_prepare(uint64_t start, uint64_t end, unsigned bytes);
-void upload_prepare_hfs(uint64_t sectors);
+bool upload_prepare_hfs(uint64_t sectors);
 void upload_next(const struct upload_config *next);
 void upload_start(void);
 void upload_write(unsigned bytes);

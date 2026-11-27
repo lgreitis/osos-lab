@@ -3,6 +3,8 @@
 #define REPRISE_HFS_UPLOAD_H
 #include <stdint.h>
 #include <stdbool.h>
+/* hfs_upload_mount: the disk holds no HFS+ volume. */
+#define HFS_UPLOAD_NOT_FOUND 1
 int hfs_upload_mount(uint64_t sectors, uint64_t *start, uint64_t *end,
                      uint64_t *free_bytes);
 int hfs_upload_exists(const char *path);
