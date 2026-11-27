@@ -4,7 +4,7 @@ Each extension has a data folder, `/Reprise/Data/Extensions/<id>/`. Games and ap
 
 For files the listener copies onto the iPod, an extension names a content folder in its manifest, `content = "Themes"` (or a list). It then reads `/Reprise/Themes/` with `api->content_open` and `api->content_list`, using names such as `Themes/example.rvt`. Content folders are read-only and have one owner. A second enabled extension naming the same folder does not load and shows Conflict in Settings > Extensions.
 
-`api->firmware_open` opens the booted firmware, `/osos-cfw.bin`, where themes read stock artwork. Handles from `content_open`, `firmware_open` and `asset_open` ([Assets](assets.md)) work with `file_read`, `file_seek` and `file_close`.
+`api->firmware_open` opens the booted firmware, `/Reprise/Firmware/reprise.bin`, where themes read stock artwork. Handles from `content_open`, `firmware_open` and `asset_open` ([Assets](assets.md)) work with `file_read`, `file_seek` and `file_close`.
 
 For anything else on the disk, use Apple's file functions from the symbols header.
 

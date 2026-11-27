@@ -45,9 +45,9 @@ based on the Revola SDK.
 - `ghidra/`: tracked firmware analysis.
 
 Boot selection: **no buttons → RepriseOS**, **Menu → Apple OS**,
-**Play/Pause → Rockbox**. RepriseOS loads `/osos-cfw.bin` and `/cfw-loader.bin`.
-See [firmware references](docs/README.md), [boot sequence](docs/boot.md)
-and [host tools](host/README.md).
+**Play/Pause → Rockbox**. RepriseOS loads `/Reprise/Firmware/reprise.bin` and
+`/Reprise/Firmware/loader.bin`. See [firmware references](docs/README.md),
+[boot sequence](docs/boot.md) and [host tools](host/README.md).
 
 ## Install
 
@@ -56,6 +56,10 @@ or [GitHub releases](https://github.com/RepriseOS/installer/releases).
 Use **`iPod_38.2.0.5.ipsw`** for every supported Classic. The installed Apple
 firmware can be older. Follow the app's DFU instructions; it downloads the
 RepriseOS package and builds a companion using that iPod's identity.
+
+`/Reprise/Firmware/reprise.bin` and `loader.bin` can also be replaced in disk
+mode. An iPod installed while they lived at the disk root needs one run of the
+installer first, which replaces the bootloader.
 
 ## Features
 

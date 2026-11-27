@@ -30,6 +30,6 @@ The renderer applies the native bevel, gradient and reflection at 8×
 resolution, then downsamples to the native size. Commit both the SVG and PNG.
 The info icon was originally rendered from a font and has no SVG source.
 A PNG in `payload/rvx/assets/` goes into the asset trailer after the runtime
-in `osos-cfw.bin`; the runtime's own row names it by its file stem in a
+in `reprise.bin`; the runtime's own row names it by its file stem in a
 `struct bitmap`, as an extension names an asset of its package. An extension
 ships its icons in its own package.
