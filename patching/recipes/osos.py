@@ -64,14 +64,8 @@ def build_recipe(
             source / name
             for name in (
                 "cfw_info.ui",
-                "custom_eq.ui",
-                "play_next.ui",
-                "file_info.ui",
-                "album_artists.ui",
-                # Both anchor after Brightness; the later document lands first.
+                "media_menus.ui",
                 "dark_mode.ui",
-                "queue_selection.ui",
-                "up_next.ui",
                 "rvx/screen.ui",
             )
         ],

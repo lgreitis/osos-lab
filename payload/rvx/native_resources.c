@@ -60,11 +60,8 @@ void core_write_copy(struct core_writer *w, const void *data, uint32_t bytes,
 {
     uint32_t start = w->at;
     core_write_bytes(w, data, bytes);
-    if (w->out)
-        for (uint32_t i = 0; i < count; i++)
-            for (unsigned b = 0; b < 4; b++)
-                w->out[start + words[2 * i] + b] =
-                    (uint8_t)(words[2 * i + 1] >> (8 * b));
+    for (uint32_t i = 0; i < count; i++)
+        core_write_word_at(w, start + words[2 * i], words[2 * i + 1]);
 }
 
 void core_write_word(struct core_writer *w, uint32_t value)
@@ -72,6 +69,13 @@ void core_write_word(struct core_writer *w, uint32_t value)
     uint8_t bytes[4] = {(uint8_t)value, (uint8_t)(value >> 8), (uint8_t)(value >> 16),
                         (uint8_t)(value >> 24)};
     core_write_bytes(w, bytes, 4);
+}
+
+void core_write_word_at(struct core_writer *w, uint32_t at, uint32_t value)
+{
+    if (w->out)
+        for (unsigned b = 0; b < 4; b++)
+            w->out[at + b] = (uint8_t)(value >> (8 * b));
 }
 
 static uint32_t length(const char *text)
@@ -99,10 +103,7 @@ uint32_t core_write_block_begin(struct core_writer *w, uint32_t kind)
 
 void core_write_block_end(struct core_writer *w, uint32_t begin)
 {
-    uint32_t bytes = w->at - begin - 8;
-    if (w->out)
-        for (unsigned i = 0; i < 4; i++)
-            w->out[begin + i] = (uint8_t)(bytes >> (8 * i));
+    core_write_word_at(w, begin, w->at - begin - 8);
     while (w->at % 4)
         core_write_bytes(w, "", 1);
 }

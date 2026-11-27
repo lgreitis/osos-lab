@@ -81,7 +81,6 @@ def build_trailer(source, directory, resident, prefix, jobs):
         "__aeabi_uidiv",
         "__aeabi_uidivmod",
         "cfw_dark_mode_enabled",
-        "cfw_album_artist_read",
         "cfw_store_get",
         "cfw_rvx_lock",
         "cfw_rvx_unlock",
@@ -113,7 +112,6 @@ def build_trailer(source, directory, resident, prefix, jobs):
         "rvx_insert_slot",
         "rvx_chains",
         "cfw_rvx_has_canvas",
-        "cfw_rvx_has_menu_pane",
     ]
     layout = (
         "\n".join(f"{n} = {require(resident, n):#x};" for n in absolute)
