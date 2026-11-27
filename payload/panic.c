@@ -322,7 +322,8 @@ static void render_line(const struct panic_frame *frame)
             text(12, 90, 1, "THIS EXTENSION.");
         } else {
             text(12, 52, 1, "REPRISEOS");
-            text(12, 76, 1, "CENTER WILL RESTART.");
+            text(12, 76, 1, "CENTER WILL RESTART. HOLD PREVIOUS");
+            text(12, 90, 1, "AT START TO SKIP EXTENSIONS.");
         }
         char path[32];
         cfw_recovery_path(path, CFW_CRASH_RECORD->report_id);

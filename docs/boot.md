@@ -1,12 +1,16 @@
 # Boot sequence
 
-The patched Rockbox bootloader selects the system at startup:
+Buttons held at startup select the system:
 
 | Controls | System |
 | --- | --- |
 | No buttons | RepriseOS |
 | Menu or Hold switch | Original Apple OS |
 | Play/Pause | Rockbox |
+| Previous | RepriseOS without extensions |
+
+The patched Rockbox bootloader reads the first three; RepriseOS reads Previous
+once it has started.
 
 ## After a crash
 
@@ -19,7 +23,8 @@ register screen instead and saves no report; Center restarts there too.
 
 A crash inside an extension names it on the screen and in the report. That
 extension is skipped at every start until its `.rvx` file changes: replace it
-with another build, or delete it, start once and copy it back.
+with another build, or delete it, start once and copy it back. Holding Previous
+while RepriseOS starts loads no extension for that start.
 
 ## RepriseOS boot
 

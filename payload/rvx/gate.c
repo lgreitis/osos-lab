@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "host.h"
+#include "native/bindings.h"
 #include "native/layout.h"
 #include "osos.h"
 #include "patch.h"
@@ -76,6 +77,10 @@ void cfw_rvx_boot(void)
     if (started)
         return;
     started = 1;
+    /* The wheel interrupt keeps the pressed buttons in WheelState; Previous
+     * held at start boots without extensions. */
+    if (*(volatile uint32_t *)OSOS_WHEEL_STATE_BUTTONS & OSOS_WHEEL_BUTTON_PREVIOUS)
+        return;
     struct osos_path path;
     osos_path_init(&path, "/Reprise/Firmware/reprise.bin");
     void *file;
