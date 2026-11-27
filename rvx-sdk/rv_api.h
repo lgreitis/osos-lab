@@ -661,7 +661,7 @@ struct rv_api {
      * has shown one. */
     void (*ui_pane_refresh)(rv_extension_handle self);
 
-    /* Files in the extension's data folder, /Revola/Data/Extensions/<id>/.
+    /* Files in the extension's data folder, /Reprise/Data/Extensions/<id>/.
      * `name` is a path inside it ("presets/rock.bin") without "..". file_open
      * with RV_FILE_WRITE creates the folders above it and a missing file; to
      * replace a file, delete it first. file_read sets *got, short at the end.
@@ -698,7 +698,7 @@ struct rv_api {
      * the extension. 0 when the ids or the heap run out. UI task. */
     uint32_t (*string_resource)(rv_extension_handle self, const char *text);
 
-    /* Files of the content folders the manifest names under /Revola/
+    /* Files of the content folders the manifest names under /Reprise/
      * (`content = "Themes"`): what a listener copies onto the iPod for the
      * extension to find. `name` starts with the folder ("Themes/example.rvt");
      * content_open opens for reading, and file_read, file_seek and file_close
@@ -756,7 +756,7 @@ struct rv_api {
     int (*asset_set_provider)(rv_extension_handle self,
                               const struct rv_asset_provider *provider);
 
-    /* The booted firmware image, /Revola/Firmware/revola.bin, open for reading
+    /* The booted firmware image, /osos-cfw.bin, open for reading
      * as a handle for file_read, file_seek and file_close, closed on unload
      * like a data file: where a theme reads the stock artwork from.
      * RV_NOT_FOUND when the file layer refuses. UI task. */
