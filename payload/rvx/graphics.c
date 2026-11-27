@@ -7,12 +7,23 @@ static void *gc;
 static int left, top;
 static struct rect area;
 static u32 fonts[3][2];
+static uint8_t fonts_built;
 static Pkg *color_owner;
 static const u32 *roles;
-/* The stock light look until an extension sets the colour roles. */
-static const u32 palette[11] = {0xffffffff, 0xff202020, 0xff2688db, 0xffffffff,
-                                0xff555555, 0xff202020, 0xff1479d5, 0xff5da9eb,
-                                0xff53a6ee, 0xff2278cc, 0xff196bb8};
+/* The stock list colours until an extension sets the colour roles: the
+ * highlight is the middle of Apple's gradient, the bar colours are the ones its
+ * selection bar is rendered from. */
+static const u32 palette[11] = {0xffffffff,
+                                0xff000000,
+                                0xff0084dc,
+                                0xffffffff,
+                                0xff6b6d6b,
+                                0xff424542,
+                                0xff3185d0,
+                                0xff000000 | SelectionBarColor_TopLine,
+                                0xff000000 | SelectionBarColor_GradientStart,
+                                0xff000000 | SelectionBarColor_GradientEnd,
+                                0xff000000 | SelectionBarColor_BottomLine};
 
 void rvx_begin_draw(void *context, const int32_t *bounds)
 {
@@ -34,7 +45,7 @@ int rvx_colors(Pkg *p, const u32 *r)
 
 static u32 color(uint8_t role)
 {
-    return (roles ? roles : palette)[role < 11 ? role : 0];
+    return (roles ? roles : palette)[role < 11 ? role : 1];
 }
 
 static void rgba(u32 c, uint8_t out[4])
@@ -52,29 +63,27 @@ static void fill(const struct rect *r, u32 c)
     int32_t bounds[] = {top + r->y, left + r->x, top + r->y + r->h, left + r->x + r->w};
     uint8_t bytes[4];
     rgba(c, bytes);
-    /* Copy for an opaque colour, Blend (0x22) below 0xff alpha. */
-    osos_graphics_set_mode(gc, (c >> 24) == 0xff ? 0 : 0x22);
+    /* Copy for an opaque colour, Blend below 0xff alpha. */
+    osos_graphics_set_mode(gc, (c >> 24) == 0xff ? GraphicsDrawMode_Copy
+                                                 : GraphicsDrawMode_Blend);
     osos_graphics_set_color(gc, bytes);
     osos_graphics_fill_rect_unmapped(gc, bounds);
 }
 
+/* Helvetica in the firmware's size units: RV_FONT_TITLE is the title bar's
+ * RES_Font_BoldSmall, RV_FONT_TEXT the Legal page's RES_Font_RegularSmall,
+ * RV_FONT_LARGE the preview caption's RES_Font_Bold. */
 static void font(unsigned index)
 {
-    /* RV_FONT_TITLE is the title bar's RES_Font_BoldSmall, RV_FONT_TEXT the
-     * text pages' RES_Font_RegularSmall, RV_FONT_LARGE the preview caption's
-     * RES_Font_Bold. */
-    static const u32 ids[] = {0x0dad0001, 0x0dad0020, 0x0dad0000};
+    static const uint8_t sizes[3] = {0x3a, 0x3a, 0x4d}, bold[3] = {1, 0, 1};
     if (index > 2)
         index = 1;
-    if (!(fonts[index][0] & ~1u)) {
-        u32 n;
-        const u32 *f = osos_resource_get(rvx_bank, 0x464f4e54, ids[index], &n);
-        if (f && n >= 12)
-            osos_font_construct(fonts[index], (const char *)osos_ui_string(f[0]),
-                                f[1] & 0xffff, f[2] & 255);
+    if (!fonts_built) {
+        for (unsigned i = 0; i < 3; i++)
+            osos_font_construct(fonts[i], "Helvetica", sizes[i], bold[i]);
+        fonts_built = 1;
     }
-    if (fonts[index][0] & ~1u)
-        osos_graphics_set_font(gc, fonts[index]);
+    osos_graphics_set_font(gc, fonts[index]);
 }
 
 static int measure(uint8_t i, const char *s)
@@ -93,14 +102,12 @@ static void text(int x, int y, uint8_t i, u32 c, const char *s)
 {
     if (!s)
         return;
-    uint8_t fg[4], bg[4];
+    uint8_t fg[4];
     rgba(c, fg);
-    rgba(color(0), bg);
     font(i);
     osos_graphics_set_pen(gc, left + x, top + y + osos_graphics_font_ascent(gc));
-    osos_graphics_set_background_color(gc, bg);
     osos_graphics_set_color(gc, fg);
-    osos_graphics_set_mode(gc, 0x21);
+    osos_graphics_set_mode(gc, GraphicsDrawMode_Text);
     osos_graphics_draw_text(gc, s);
 }
 
@@ -126,120 +133,180 @@ static u32 mix(u32 a, u32 b, uint8_t w)
     return result;
 }
 
+/* The selection bar as View_DrawBackgroundAndBorder renders it: a line, the
+ * gradient one row at a time, a line; under three rows the gradient alone. */
 static void bar(const struct rect *r)
 {
-    for (int j = 0; j < r->h; j++) {
-        u32 c = j == 0          ? color(7)
-                : j + 1 == r->h ? color(10)
-                                : mix(color(8), color(9), 255 * j / (r->h - 1));
-        fill(&(struct rect){r->x, r->y + j, r->w, 1}, c);
+    if (!r || r->h <= 0)
+        return;
+    u32 start = color(8), end = color(9);
+    int lines = r->h >= 3, n = r->h - 2 * lines;
+    unsigned span = n > 1 ? (unsigned)n - 1 : 1; /* a lone row is `start` */
+    struct rect line = {r->x, r->y, r->w, 1};
+    if (lines) {
+        fill(&line, color(7));
+        line.y++;
     }
+    for (unsigned i = 0; i < (unsigned)n; i++, line.y++) {
+        u32 c = 0xff000000;
+        for (int shift = 0; shift < 24; shift += 8) {
+            unsigned a = start >> shift & 0xff, b = end >> shift & 0xff;
+            c |= (u32)((a * (span - i) + b * i) / span) << shift;
+        }
+        fill(&line, c);
+    }
+    if (lines)
+        fill(&line, color(10));
 }
+
+enum { ROW_HEIGHT = 25, ROW_TEXT_LEFT = 8, PARAGRAPH_SPACING = 3 };
 
 static void row(int y, int width, const char *label, const char *value, int selected)
 {
-    if (selected)
-        bar(&(struct rect){0, y, width, 25});
-    struct rect r = {9, y, width - 18, 25};
-    text_in(&r, 1, color(selected ? 3 : 1), label, -1);
-    text_in(&r, 1, color(selected ? 3 : 4), value, 1);
+    u32 ink = color(1), detail = color(4);
+    if (selected) {
+        bar(&(struct rect){0, y, width, ROW_HEIGHT});
+        ink = detail = color(3);
+    }
+    int baseline = y + (ROW_HEIGHT - height(0)) / 2;
+    if (label)
+        text(ROW_TEXT_LEFT, baseline, 0, ink, label);
+    if (value && *value)
+        text(width - ROW_TEXT_LEFT - measure(0, value), baseline, 0, detail, value);
 }
 
+/* Words break on spaces only; a word wider than the line runs past it. */
 static int paragraph(int x, int y, int w, uint8_t i, u32 c, const char *s, u32 lines)
 {
-    int dy = height(i);
-    while (s && *s && lines--) {
-        char buf[256];
-        unsigned n = 0, space = 0;
-        while (s[n] && s[n] != '\n' && n + 1 < sizeof buf) {
-            if (s[n] == ' ')
-                space = n;
-            buf[n] = s[n];
-            n++;
-            buf[n] = 0;
-            if (measure(i, buf) > w && n > 1) {
-                n = space ? space : n - 1;
-                break;
-            }
-        }
-        buf[n] = 0;
-        text(x, y, i, c, buf);
-        y += dy;
-        s += n;
-        if (*s == '\n')
+    char line[96];
+    unsigned used = 0;
+    int step = height(i) + PARAGRAPH_SPACING;
+    if (!s)
+        return y;
+    while (*s && lines) {
+        const char *word = s;
+        while (*s && *s != ' ')
             s++;
-        else
-            while (*s == ' ')
-                s++;
+        unsigned keep = used;
+        if (used && used < sizeof line - 1)
+            line[used++] = ' ';
+        for (const char *p = word; p < s && used < sizeof line - 1; p++)
+            line[used++] = *p;
+        line[used] = 0;
+        if (keep && measure(i, line) > w) {
+            line[keep] = 0;
+            text(x, y, i, c, line);
+            y += step;
+            lines--;
+            used = 0;
+            for (const char *p = word; p < s && used < sizeof line - 1; p++)
+                line[used++] = *p;
+            line[used] = 0;
+        }
+        while (*s == ' ')
+            s++;
+    }
+    if (used && lines) {
+        text(x, y, i, c, line);
+        y += step;
     }
     return y;
 }
 
-static void blit(int x, int y, const void *image, int rows, int columns, unsigned alpha,
-                 u32 tint)
+/* A BMap whose bounds, rows and palette fit its payload. */
+static int whole(const uint8_t *b)
 {
-    if (!image || rows <= 0 || columns <= 0)
-        return;
-    const u32 *b = image;
-    int h = (int)b[4] - (int)b[2], w = (int)b[5] - (int)b[3];
-    if (w <= 0 || h <= 0)
-        return;
-    if (rows < h)
-        h = rows;
-    if (columns < w)
-        w = columns;
-    if ((b[1] >> 16) == 8 && (b[0] & 0xffff) == 8) {
-        const uint8_t *pixels = (const uint8_t *)image + 28;
-        unsigned stride = b[1] & 0xffff;
-        if (stride < (unsigned)w || !stride || (unsigned)h > b[6] / stride)
-            return;
-        for (int r = 0; r < h; r++)
-            for (int col = 0; col < w;) {
-                unsigned coverage = pixels[r * stride + col];
-                int j = col + 1;
-                while (j < w && pixels[r * stride + j] == coverage)
-                    j++;
-                if (coverage)
-                    fill(&(struct rect){x + col, y + r, j - col, 1},
-                         mix(color(0), tint, coverage));
-                col = j;
-            }
-        return;
+    const int32_t *bounds = (const int32_t *)(b + BMap_bounds);
+    u32 stride = *(const uint16_t *)(b + BMap_stride);
+    u32 depth = *(const uint16_t *)(b + BMap_depth);
+    u32 payload = *(const u32 *)(b + BMap_payload_bytes);
+    u32 h = (u32)(bounds[2] - bounds[0]), w = (u32)(bounds[3] - bounds[1]);
+    u32 palette_bytes = 0;
+    if (*(const uint16_t *)(b + BMap_format) == BMapFormat_Indexed8) {
+        u32 colors = payload >= 4 ? *(const u32 *)(b + BMap_payload) : 0x10000;
+        palette_bytes = colors <= 256 ? 4 + 4 * colors : payload + 1;
     }
-    u32 bitmap[0xb8 / 4], src[0x44 / 4];
-    ((void *(*)(void *))0x08103e8c)(bitmap);
-    ((void *(*)(void *, void *, const void *))0x0825af2c)(src, bitmap, image);
-    int32_t from[] = {0, 0, h, w},
-            to[] = {y + top, x + left, y + top + h, x + left + w};
-    ((void (*)(void *, void *, const int32_t *, const int32_t *, u32, u32))0x08259568)(
-        gc, src, from, to, alpha, 0);
-    ((void (*)(void *))0x0825b038)(src);
-    ((void *(*)(void *))0x08103ee0)(bitmap);
+    return bounds[2] >= bounds[0] && bounds[3] >= bounds[1] && h <= 0xffff &&
+           w <= 0xffff && depth <= 32 && w * depth <= stride * 8 &&
+           palette_bytes <= payload && h * stride <= payload - palette_bytes;
+}
+
+static int is_mask(const uint8_t *b)
+{
+    uint16_t format = *(const uint16_t *)(b + BMap_format);
+    return format == BMapFormat_Mask8 || format == BMapFormat_Mask4;
+}
+
+typedef void *(*bitmap_fn)(void *);
+typedef void *(*source_fn)(void *, void *, const void *);
+typedef void (*copy_fn)(void *, void *, const int32_t *, const int32_t *, u32, u32);
+
+/* Copies the columns [0, columns) of the top `n` rows (all when 0) of a BMap
+ * to (x, y) through a source context on it, at `alpha`/255 of its opacity; a
+ * mask draws in the context's colour when the caller has set text mode. */
+static void copy(int x, int y, const uint8_t *b, int n, int columns, u32 alpha)
+{
+    const int32_t *bounds = (const int32_t *)(b + BMap_bounds);
+    int h = bounds[2] - bounds[0], w = bounds[3] - bounds[1];
+    if (!n || n > h)
+        n = h;
+    if (n <= 0 || w <= 0)
+        return;
+    u32 bitmap[Bitmap_bytes / 4], src[GraphicsContext_bytes / 4];
+    ((bitmap_fn)ADDR_Bitmap_Construct)(bitmap);
+    ((source_fn)ADDR_GraphicsContext_InitFromBitmapResource)(src, bitmap, b);
+    for (int at = 0; at < columns; at += w) {
+        int part = columns - at < w ? columns - at : w;
+        int32_t from[] = {bounds[0], bounds[1], bounds[0] + n, bounds[1] + part},
+                to[] = {top + y, left + x + at, top + y + n, left + x + at + part};
+        ((copy_fn)ADDR_GraphicsContext_CopyRect)(gc, src, from, to, alpha, 0);
+    }
+    ((bitmap_fn)ADDR_GraphicsContext_Destroy)(src);
+    ((bitmap_fn)ADDR_Bitmap_Destroy)(bitmap);
+}
+
+static int width_of(const uint8_t *b)
+{
+    const int32_t *bounds = (const int32_t *)(b + BMap_bounds);
+    return bounds[3] - bounds[1];
 }
 
 static void bmap(int x, int y, const void *b)
 {
-    blit(x, y, b, 32767, 32767, 255, color(1));
+    if (b && whole(b)) {
+        copy(x, y, b, 0, width_of(b), 255);
+    }
 }
 
+/* The top `n` rows; a coverage mask draws in `tint` in text mode, as a bitmap
+ * view draws it in its tint. */
 static void rows(int x, int y, const void *b, int n, u32 tint)
 {
-    blit(x, y, b, n, 32767, 255, tint);
+    if (!b || !whole(b) || n <= 0)
+        return;
+    if (is_mask(b)) {
+        uint8_t bytes[4];
+        rgba(tint, bytes);
+        osos_graphics_set_color(gc, bytes);
+        osos_graphics_set_mode(gc, GraphicsDrawMode_Text);
+    }
+    copy(x, y, b, n, width_of(b), 255);
 }
 
+/* The top `n` rows at `a`; a mask draws nothing, since text mode takes no
+ * opacity. */
 static void blend(int x, int y, const void *b, int n, uint8_t a)
 {
-    blit(x, y, b, n, 32767, a, color(1));
+    if (!b || !whole(b) || n <= 0 || is_mask(b))
+        return;
+    copy(x, y, b, n, width_of(b), a);
 }
 
 static void tile(int x, int y, int w, const void *b)
 {
-    if (!b)
+    if (!b || !whole(b) || width_of(b) <= 0)
         return;
-    int width = ((const int32_t *)b)[5] - ((const int32_t *)b)[3];
-    if (width > 0)
-        for (int dx = 0; dx < w; dx += width)
-            blit(x + dx, y, b, 32767, w - dx, 255, color(1));
+    copy(x, y, b, 0, w, 255);
 }
 
 struct cached_bitmap {
@@ -274,7 +341,11 @@ const void *rvx_frame_bitmap(struct frame *f, const struct bitmap *bitmap, u32 *
     void *data = rvx_bitmap_load(f->ctx.self, bitmap->name, &bytes);
     if (!data)
         return NULL;
-    struct cached_bitmap *b = bytes >= 28 ? osos_import_alloc(sizeof *b) : NULL;
+    /* A BMap whose rows fit the block it was loaded into. */
+    int fits = bytes >= BMap_payload && whole(data) &&
+               *(const u32 *)((const uint8_t *)data + BMap_payload_bytes) <=
+                   bytes - BMap_payload;
+    struct cached_bitmap *b = fits ? osos_import_alloc(sizeof *b) : NULL;
     if (!b) {
         rvx_free(f->ctx.self, data);
         return NULL;
@@ -296,7 +367,7 @@ static void bitmap(int x, int y, const struct bitmap *bitmap)
 
 /* The colours and the band come from Settings > About; the icon sits on the box
  * the Settings pane draws behind the stock icons, both without reflections. */
-enum { CARD_LEFT = 18, CARD_BAND = 60, TITLE = 0 };
+enum { CARD_LEFT = 18, CARD_BAND = 52, TITLE = 0 };
 
 static void card(int width, int h, const char *left_text, const char *right_text,
                  const struct bitmap *icon)
@@ -310,10 +381,13 @@ static void card(int width, int h, const char *left_text, const char *right_text
         fill(&(struct rect){0, y, width, 4}, c);
     }
     if (icon) {
-        const void *box = (const void *)osos_ui_bitmap(RES_SettingsPreview_Background_Image);
-        const void *glyph = rvx_frame_bitmap(rvx_top, icon, NULL);
-        rows((width - 78) / 2, CARD_BAND - 39, box, 79, 0xffffffff);
-        rows((width - 78) / 2, CARD_BAND - 39, glyph, 79, 0xffffffff);
+        const void *box =
+            (const void *)osos_ui_bitmap(RES_SettingsPreview_Background_Image);
+        u32 bytes = 0;
+        const void *glyph = rvx_frame_bitmap(rvx_top, icon, &bytes);
+        rows((width - 78) / 2, CARD_BAND - 39, box, 79, 0);
+        if (rvx_is_pane_icon(glyph, bytes))
+            rows((width - 78) / 2, CARD_BAND - 39, glyph, 79, 0xffffffff);
     }
     int y = CARD_BAND - height(TITLE) / 2;
     if (left_text)
