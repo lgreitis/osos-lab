@@ -13,15 +13,8 @@
 #define STORE_FILE "iPod_Control\\Device\\CFWPreferences"
 #define BACKUP_FILE STORE_FILE ".bak"
 
-static unsigned legacy_deletions;
-
 #include "../../../payload/preferences.c"
 #include "../../../payload/store.c"
-
-void cfw_store_delete_legacy(void)
-{
-    legacy_deletions++;
-}
 
 static void boot(void)
 {
@@ -41,7 +34,7 @@ static void empty_disk(void)
     fake_partial_write = -1;
     fake_fail_read_size = 0;
     fake_fail_open_read = fake_fail_read = fake_write_fault_name = NULL;
-    fake_writes = fake_deletes = legacy_deletions = 0;
+    fake_writes = fake_deletes = 0;
 }
 
 static void check_records(void)
@@ -51,7 +44,7 @@ static void check_records(void)
     boot();
     assert(migrating && dirty && !cfw_store_get(1, &value, 4));
     cfw_store_flush();
-    assert(!migrating && !dirty && legacy_deletions == 1 && fake_writes == 1);
+    assert(!migrating && !dirty && fake_writes == 1);
     assert(store_file()->size == 16);
     cfw_store_flush();
     assert(fake_writes == 1);
