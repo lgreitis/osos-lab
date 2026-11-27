@@ -47,10 +47,10 @@ PATCH_ARM void cfw_ui_load_events(void *layout)
     uint32_t **end = *(uint32_t ***)(object + 0x14);
     for (; instance != end; instance++)
         append_events(map, 0x54455654, (*instance)[2]);
-    append_events(map, 0x53455654, *(uint32_t *)(object + 8));
+    uint32_t layout_id = *(uint32_t *)(object + 8);
+    append_events(map, 0x53455654, layout_id);
     uint32_t *screen = *(uint32_t **)(object + 0x58);
-    if (screen) {
+    if (screen)
         append_events(map, 0x43455654, screen[1]);
-        cfw_rvx_menu_events(map, screen[1]);
-    }
+    cfw_rvx_menu_events(map, screen ? screen[1] : 0, layout_id);
 }

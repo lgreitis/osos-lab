@@ -7,7 +7,9 @@ void cfw_rvx_flush(void);
 void cfw_rvx_register_ui(void *bank);
 void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row,
                       uint32_t bytes, uint32_t metadata);
-void cfw_rvx_menu_events(void *map, uint32_t screen);
+/* Adds the extensions' bindings for `screen` and `layout` to a layout's event
+ * map; `screen` is 0 for a layout without one. */
+void cfw_rvx_menu_events(void *map, uint32_t screen, uint32_t layout);
 
 /* Appends the extensions' rows to a movie or TV episode menu; returns how many. */
 unsigned cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,

@@ -12,7 +12,7 @@ uint32_t rvx_dispatch(uint32_t *registers, unsigned slot);
 struct rvx_host {
     void (*boot)(void), (*register_ui)(void *), (*flush)(void), (*reset)(void);
     void (*row)(void *, uint32_t, uint32_t, const void *, uint32_t, uint32_t);
-    void (*events)(void *, uint32_t);
+    void (*events)(void *, uint32_t, uint32_t);
     unsigned (*video)(void *, void *, int, const void *, int);
     int (*property)(uint32_t, uint32_t, uintptr_t *);
     unsigned (*visible)(unsigned);
