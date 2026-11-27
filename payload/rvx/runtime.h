@@ -8,7 +8,8 @@ void cfw_rvx_register_ui(void *bank);
 void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row,
                       uint32_t bytes, uint32_t metadata);
 
-/* The runtime image after the resident payload's limit in /osos-cfw.bin:
+/* The runtime image after the resident payload's limit in
+ * /Reprise/Firmware/reprise.bin:
  * its stored bytes, the bytes it takes in memory, its 16-bit relocation
  * offsets and the FNV-1a hash of the stored bytes and the offsets. */
 struct rvx_trailer_spec {

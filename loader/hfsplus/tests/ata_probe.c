@@ -68,7 +68,8 @@ __attribute__((noinline, noreturn)) void done(void)
 void entry(void)
 {
     struct hfs_disk disk = {read_disk, 0, DISK_BYTES};
-    const char *paths[] = {"/osos-cfw.bin", "/cfw-loader.bin"};
+    const char *paths[] = {"/Reprise/Firmware/reprise.bin",
+                           "/Reprise/Firmware/loader.bin"};
     unsigned addr[] = {0x0b000000, 0x0bc00000};
     for (int i = 0; i < 2; i++) {
         size_t len;

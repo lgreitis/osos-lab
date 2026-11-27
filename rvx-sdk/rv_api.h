@@ -756,7 +756,7 @@ struct rv_api {
     int (*asset_set_provider)(rv_extension_handle self,
                               const struct rv_asset_provider *provider);
 
-    /* The booted firmware image, /osos-cfw.bin, open for reading
+    /* The booted firmware image, /Reprise/Firmware/reprise.bin, open for reading
      * as a handle for file_read, file_seek and file_close, closed on unload
      * like a data file: where a theme reads the stock artwork from.
      * RV_NOT_FOUND when the file layer refuses. UI task. */

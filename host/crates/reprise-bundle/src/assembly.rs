@@ -329,8 +329,8 @@ pub struct FileReport {
 impl Artifacts {
     fn files(&self) -> [(&str, &[u8]); 3] {
         [
-            ("osos-cfw.bin", &self.osos),
-            ("cfw-loader.bin", &self.companion),
+            ("reprise.bin", &self.osos),
+            ("loader.bin", &self.companion),
             ("install-rockbox-cfw.dfu", &self.nor_installer),
         ]
     }

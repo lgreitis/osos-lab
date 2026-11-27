@@ -125,7 +125,7 @@ int rvx_content_open(Pkg *p, const char *name, File **out)
 
 int rvx_firmware_open(Pkg *p, File **out)
 {
-    return out ? open_path(p, "/osos-cfw.bin", 1, out) : BAD_ARGUMENT;
+    return out ? open_path(p, "/Reprise/Firmware/reprise.bin", 1, out) : BAD_ARGUMENT;
 }
 
 int rvx_file_read(Pkg *p, File *f, void *out, u32 bytes, u32 *got)
@@ -380,8 +380,9 @@ int rvx_provider(Pkg *p, const void *new_provider)
 
 /* The runtime's own bitmaps: payload/rvx/assets/<name>.png as menu masks,
  * lz-compressed behind a header and an entry table after the runtime image
- * in /osos-cfw.bin, entry offsets relative to the trailer. Read while shown,
- * like an extension's optional asset; a theme's provider does not see them. */
+ * in /Reprise/Firmware/reprise.bin, entry offsets relative to the trailer. Read
+ * while shown, like an extension's optional asset; a theme's provider does not
+ * see them. */
 #define CORE_ASSETS_MAGIC 0x41435652u /* RVCA */
 #define CORE_ASSETS_MAX 16
 #define CORE_ASSET_MAX_BYTES (64u << 10)
@@ -403,7 +404,7 @@ static void *core_bitmap_load(const char *name, u32 *n)
 {
     struct osos_path path;
     void *f, *out = NULL;
-    osos_path_init(&path, "/osos-cfw.bin");
+    osos_path_init(&path, "/Reprise/Firmware/reprise.bin");
     if (osos_file_open(&path, 1, &f))
         return NULL;
     u32 runtime = CFW_PAYLOAD_FILE_OFFSET + (u32)(__payload_limit - __payload_start);

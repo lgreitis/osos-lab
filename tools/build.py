@@ -94,7 +94,7 @@ def build_osos(config, out, inputs, recipe_only=False, info=None):
     )
     files = recipe.save(out, "osos")
     if not recipe_only:
-        assemble(config, files, out / "osos-cfw.bin", inputs)
+        assemble(config, files, out / "reprise.bin", inputs)
 
 
 def build_apple(config, out, inputs, recipe_only=False, nor=None):
@@ -108,7 +108,7 @@ def build_apple(config, out, inputs, recipe_only=False, nor=None):
     )
     files = recipe.save(out, "companion")
     if not recipe_only:
-        assemble(config, files, out / "cfw-loader.bin", inputs, nor=nor)
+        assemble(config, files, out / "loader.bin", inputs, nor=nor)
 
 
 def build_rockbox(config, out, rockbox):

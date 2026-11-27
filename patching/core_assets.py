@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """The runtime's own bitmaps, payload/rvx/assets/<name>.png as Settings pane
 icons (menu masks), lz-compressed behind a header and an rvx entry table after
-the runtime in osos-cfw.bin. Entry offsets are relative to the trailer; the
+the runtime in reprise.bin. Entry offsets are relative to the trailer; the
 runtime reads an icon while it is shown."""
 
 import struct

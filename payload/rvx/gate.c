@@ -76,7 +76,7 @@ void cfw_rvx_boot(void)
         return;
     started = 1;
     struct osos_path path;
-    osos_path_init(&path, "/osos-cfw.bin");
+    osos_path_init(&path, "/Reprise/Firmware/reprise.bin");
     void *file;
     if (osos_file_open(&path, 1, &file))
         return;
