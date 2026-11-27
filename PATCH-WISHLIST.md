@@ -28,7 +28,3 @@ Investigate USB log retrieval through the native control-transfer handler.
 ## FLAC and other audio formats
 
 Investigate the audio engine to see whether it can support formats such as FLAC.
-
-## HFS+ format support
-
-Support HFS+ formatted iPods. Low priority due to implementation difficulty.

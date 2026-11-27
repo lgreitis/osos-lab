@@ -41,7 +41,9 @@ impl UploadOptions {
                 .split('/')
                 .any(|c| c.is_empty() || c == "." || c == ".." || c.ends_with(['.', ' ']))
         {
-            return Err(invalid("Destination must be an absolute ASCII FAT path under 192 bytes; use existing directories"));
+            return Err(invalid(
+                "Destination must be an absolute ASCII path under 192 bytes",
+            ));
         }
         Ok(())
     }
