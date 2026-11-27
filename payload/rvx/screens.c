@@ -232,6 +232,30 @@ u32 rvx_pop_to_screen(u32 screen, u32 push_history, u32 skip_history, const void
     return rvx_next(next, screen, push_history, skip_history, 0, 0, 0);
 }
 
+/* A declared choice, multi-choice or slider screen for the setting, with its
+ * own title and icon, instead of the one the core would make from the setting. */
+static const struct screen *declared_setting_screen(Pkg *p, uint16_t key,
+                                                    unsigned *module)
+{
+    for (unsigned i = 0; i < p->manifest->modules; i++) {
+        const struct rvx_module *m = p->modules + i;
+        if (!m->desc)
+            continue;
+        const struct screen *screens = m->desc->screens;
+        for (u32 j = 0; j < m->desc->screen_count; j++) {
+            const struct screen *s = screens + j;
+            if ((s->kind == RV_SCREEN_KIND_CHOICE ||
+                 s->kind == RV_SCREEN_KIND_MULTI_CHOICE ||
+                 s->kind == RV_SCREEN_KIND_SLIDER) &&
+                s->choice.key == key) {
+                *module = i;
+                return s;
+            }
+        }
+    }
+    return NULL;
+}
+
 void rvx_act(const struct context *ctx, const struct row *r)
 {
     Pkg *p = ctx->self;
@@ -253,15 +277,22 @@ void rvx_act(const struct context *ctx, const struct row *r)
         else if (!s->screen)
             rvx_set_int(p, r->key, n >= s->maximum ? s->minimum : n + 1);
         else {
+            unsigned module = 0;
+            const struct screen *declared = declared_setting_screen(p, r->key, &module);
             struct frame *f = frame(p, NULL);
             if (!f)
                 break;
-            f->screen = &f->setting_screen;
-            f->setting_screen.title = s->label;
-            f->setting_screen.kind = s->screen;
-            f->setting_screen.choice.key = r->key;
-            f->setting_screen.choice.labels = s->labels;
-            f->setting_screen.choice.count = s->label_count;
+            if (declared) {
+                f->module = module;
+                f->screen = declared;
+            } else {
+                f->screen = &f->setting_screen;
+                f->setting_screen.title = s->label;
+                f->setting_screen.kind = s->screen;
+                f->setting_screen.choice.key = r->key;
+                f->setting_screen.choice.labels = s->labels;
+                f->setting_screen.choice.count = s->label_count;
+            }
             present(f, ctx->controller);
         }
         osos_ui_invalidate();
