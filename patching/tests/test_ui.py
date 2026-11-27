@@ -58,11 +58,7 @@ class UiTests(unittest.TestCase):
                 Path(directory),
                 "test",
             ).read_text()
-        expected = {
-            "CFW_Info_Screen",
-            "CFW_Info_Layout",
-            "CFW_Info_Preview",
-        }
+        expected = set()
         self.assertEqual(resources.runtime_names, expected)
         table = code.split("cfw_resource_names[] = {", 1)[1].split("};", 1)[0]
         self.assertEqual(set(re.findall(r'"([^"]+)"', table)), expected)
@@ -220,50 +216,6 @@ class UiTests(unittest.TestCase):
         self.assertEqual(sum(kind == "VCvs" for kind, _ in resources.added), 1)
         self.assertEqual(sum(kind == "VCrv" for kind, _ in resources.added), 1)
         self.assertEqual(word(blocks(title)[0][1], 12), 0)
-
-    def test_cfw_info_preview_uses_static_bitmap_and_caption(self):
-        root = Path(__file__).resolve().parents[2]
-        metadata = json.loads((root / "firmware/ui.json").read_text())
-        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
-        resources = Resources(metadata["resources"], bindings)
-        with tempfile.TemporaryDirectory() as directory:
-            generate(resources, [root / "payload/cfw_info.ui"], Path(directory), "test")
-        layout = resources.added["SLyt", resources.names["CFW_Info_Preview"]]
-        screen = resources.added["SSin", word(blocks(layout)[0][1], 0)]
-        preview_id = next(
-            word(data, 8) for _, data in blocks(screen) if word(data, 4) == 0x0DAD0C2E
-        )
-        views = dict(blocks(resources.added["VLyt", preview_id]))
-        for view, kind in (
-            ("Settings_Icon_View", "BMap"),
-            ("Settings_InfoDetail_View", "Str "),
-        ):
-            options = dict(blocks(views[bindings[view]]))
-            source = resources.added["SORC", word(options[0x534F5243], 0)]
-            binding = blocks(source)[0][1]
-            self.assertEqual(
-                (word(binding, 0), word(binding, 8)),
-                (0x8900 if kind == "BMap" else 0x80, 1),
-            )
-            resource_id = word(binding, 4)
-            content = resources.added[kind, resource_id].data
-            if kind == "BMap":
-                self.assertEqual(resource_id, resources.names["CFW_Info_Icon"])
-                self.assertEqual(
-                    struct.unpack_from("<HHHHiiiii", content),
-                    (8, 0, 80, 8, 0, 0, 121, 78, 9680),
-                )
-            else:
-                self.assertEqual(content, b"RepriseOS\0")
-        appended = b"".join(
-            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
-        )
-        self.assertNotIn(
-            ("CEVT", bindings["SettingsMenus_Main_Screen"]), resources.added
-        )
-        self.assertIn(b"CFW_Info_Screen", appended)
-        self.assertIn(b"navigator.PushScreen", appended)
-        self.assertNotIn(b"ShowSetting_Legal", appended)
 
     def test_layout_event_extends_the_native_layout_events(self):
         document = parser.parse(

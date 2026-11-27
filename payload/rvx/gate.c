@@ -4,10 +4,6 @@
 #include "osos.h"
 #include "patch.h"
 
-struct trailer_spec {
-    uint32_t stored, memory, relocations, hash;
-};
-extern const struct trailer_spec rvx_trailer;
 extern const unsigned char __payload_limit[], __payload_start[];
 extern void cfw_rvx_sync(const void *, const void *);
 static const struct rvx_host *host;
@@ -28,7 +24,7 @@ static int read_and_hash(void *f, void *dest, uint32_t n, uint32_t *hash)
 
 static struct rvx_host *read_runtime(void *f)
 {
-    const struct trailer_spec *s = &rvx_trailer;
+    const struct rvx_trailer_spec *s = &rvx_trailer;
     uint32_t offset = CFW_PAYLOAD_FILE_OFFSET + (uintptr_t)__payload_limit -
                       (uintptr_t)__payload_start;
     if (osos_file_seek(f, offset, 0))

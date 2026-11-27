@@ -10,27 +10,32 @@ struct rvx_block {
     u32 bytes;
 };
 
+static struct rvx_block *core_heap; /* the blocks of the runtime's own screens */
+
 void *rvx_alloc(Pkg *p, u32 bytes)
 {
+    struct rvx_block **heap = p ? &p->heap : &core_heap;
     if (bytes > 0x7ffffff0)
         return NULL;
     struct rvx_block *b = osos_import_alloc(sizeof *b + bytes);
     if (!b)
         return NULL;
     b->bytes = bytes;
-    b->next = p->heap;
-    p->heap = b;
+    b->next = *heap;
+    *heap = b;
     return b + 1;
 }
 
 void rvx_free(Pkg *p, void *data)
 {
-    for (struct rvx_block **it = &p->heap; *it; it = &(*it)->next) {
+    for (struct rvx_block **it = p ? &p->heap : &core_heap; *it; it = &(*it)->next) {
         struct rvx_block *b = *it;
         if (b + 1 == data) {
             *it = b->next;
-            rvx_forget_colors(p, data, b->bytes);
-            rvx_forget_provider(p, data, b->bytes);
+            if (p) {
+                rvx_forget_colors(p, data, b->bytes);
+                rvx_forget_provider(p, data, b->bytes);
+            }
             osos_import_free(b);
             return;
         }

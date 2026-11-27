@@ -186,6 +186,11 @@ const char *rvx_setting_label(Pkg *, uint16_t);
 const void *rvx_frame_bitmap(struct frame *, const struct bitmap *, u32 *size);
 int rvx_is_pane_icon(const u32 *image, u32 bytes);
 int rvx_push(Pkg *, const char *, void *);
+/* The runtime's own screens and rows (info.c), owned by no package. */
+extern const struct screen rvx_core_screens[];
+extern const u32 rvx_core_screen_count;
+extern const struct menu_entry rvx_core_entries[];
+extern const u32 rvx_core_entry_count;
 void rvx_pop(Pkg *);
 void rvx_select(Pkg *, const char *, u32);
 int rvx_colors(Pkg *, const u32 *);

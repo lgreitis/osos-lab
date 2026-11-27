@@ -161,6 +161,19 @@ static int open_id(Pkg *p, const char *id, void *arg, void *controller)
 {
     if (!id)
         return BAD_ARGUMENT;
+    if (!p) {
+        for (u32 j = 0; j < rvx_core_screen_count; j++) {
+            if (!cfw_string_equal(rvx_core_screens[j].id, id))
+                continue;
+            struct frame *f = frame(NULL, arg);
+            if (!f)
+                return NO_MEMORY;
+            f->module = 0;
+            f->screen = rvx_core_screens + j;
+            return present(f, controller);
+        }
+        return NOT_FOUND;
+    }
     for (unsigned i = 0; i < p->manifest->modules; i++) {
         struct rvx_module *m = p->modules + i;
         if (!m->image && p->records[i].trigger == 1) {
