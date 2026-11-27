@@ -1,8 +1,8 @@
 # Custom Settings icons
 
 Settings previews should match Apple's shaded grayscale symbols. Use
-`payload/assets/settings-eq.png`, `settings-info.png` and `settings-moon.png`
-as finished references.
+`payload/assets/settings-headphones.png` and
+`payload/rvx/assets/settings-info.png` as finished references.
 
 - Use a **78 × 121 px** canvas. Center the symbol horizontally, with its main
   silhouette approximately between y=12 and y=64. Leave room below for reflection.
@@ -26,12 +26,10 @@ the repository root:
 python3 tools/settings_icon.py payload/assets/settings-headphones.svg payload/assets/settings-headphones.png
 ```
 
-The renderer applies the EQ reference's bevel, gradient and reflection at 8×
+The renderer applies the native bevel, gradient and reflection at 8×
 resolution, then downsamples to the native size. Commit both the SVG and PNG.
-Editable EQ and moon silhouettes are also included beside their PNGs. The
-existing moon PNG uses a wider bevel from its original renderer; compare any
-regenerated artwork with the approved PNG before replacing it. The info icon
-was originally rendered from a font and has no SVG source.
-Declare the PNG with `format="gray8"` in the feature's `.ui` file and bind it
-to the Settings preview. Reusing an existing appropriate icon is fine; toggles
-with changing previews must supply an image in both states.
+The info icon was originally rendered from a font and has no SVG source.
+A PNG in `payload/rvx/assets/` goes into the asset trailer after the runtime
+in `osos-cfw.bin`; the runtime's own row names it by its file stem in a
+`struct bitmap`, as an extension names an asset of its package. An extension
+ships its icons in its own package.

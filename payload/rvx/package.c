@@ -3,9 +3,10 @@
 #include "runtime.h"
 #include "cfw.h"
 #include "osos.h"
+#include "store.h"
 #include "../../game-sdk/runtime/native_directory.h"
 
-/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.81. */
+/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.89. */
 struct rvx_header {
     uint32_t magic, format, sdk_api, firmware, manifest_bytes, entries, hash;
 };
@@ -107,7 +108,7 @@ static int inspect(Pkg *p, void *f)
     u32 bytes;
     if (!read_exact(f, &h, sizeof h) || h.magic != 0x30585652 || h.format != 1 ||
         h.firmware != RVX_FIRMWARE_ID || (h.sdk_api >> 16) != RVX_API_MAJOR ||
-        h.manifest_bytes < sizeof(struct rvx_manifest) ||
+        h.sdk_api < RVX_API_LAYOUT || h.manifest_bytes < sizeof(struct rvx_manifest) ||
         h.manifest_bytes > MAX_MANIFEST || !h.entries || h.entries > 4096 ||
         osos_file_size(f, &bytes))
         return 0;
@@ -132,7 +133,8 @@ static int inspect(Pkg *p, void *f)
         m->version != 4 || (m->minimum_api >> 16) != RVX_API_MAJOR ||
         m->minimum_api > RVX_API || m->category < 1 || m->category > 5 || !m->modules ||
         m->modules > RVX_MODULES || m->modules > h.entries || m->sites > RVX_RAW_MAX ||
-        m->content_count > 4 || m->requires_count > 4)
+        m->content_count > 4 || m->library_count > 4 ||
+        m->optional_count > m->library_count)
         return 0;
     p->sites = (const void *)(m + 1);
     p->records = (const void *)(p->sites + m->sites);
@@ -141,7 +143,7 @@ static int inspect(Pkg *p, void *f)
     if (table >= h.manifest_bytes || m->strings != h.manifest_bytes - table ||
         p->strings[m->strings - 1] || !strings_valid(p, m->text[0], 1) ||
         !strings_valid(p, m->content, m->content_count) ||
-        !strings_valid(p, m->libraries, m->requires_count))
+        !strings_valid(p, m->libraries, m->library_count))
         return 0;
     const char *id = p->strings + m->text[0];
     if (*id < 'a' || *id > 'z')
@@ -198,21 +200,54 @@ static Pkg *library(u32 hash)
     return NULL;
 }
 
+/* The library `reprise` comes from the core: RepriseOS services outside the
+ * rv_api table. Extensions list it as optional, so they run on other cores. */
+static const struct {
+    const char *name;
+    const void *function;
+} reprise_exports[] = {
+    {"reprise_legacy_preference", cfw_store_get},
+};
+
+static int reprise_export(u32 symbol, u32 *value)
+{
+    for (unsigned i = 0; i < sizeof reprise_exports / sizeof *reprise_exports; i++)
+        if (rvx_hash(reprise_exports[i].name) == symbol) {
+            *value = (u32)reprise_exports[i].function;
+            return 1;
+        }
+    return 0;
+}
+
+/* Whether the manifest's library at `index` is optional: its imports stay 0
+ * when it is missing, not running or lacks the function. */
+static int optional(const Pkg *p, unsigned index)
+{
+    return index >= (unsigned)(p->manifest->library_count - p->manifest->optional_count);
+}
+
 static int resolve(Pkg *p, const struct symbol_import *imp, u32 *value)
 {
     const char *s = p->strings + p->manifest->libraries;
-    for (unsigned i = 0; i < p->manifest->requires_count; i++) {
+    for (unsigned i = 0; i < p->manifest->library_count; i++) {
         if (rvx_hash(s) == imp->library) {
-            Pkg *lib = library(imp->library);
-            if (!lib || lib->state != 2)
-                return 0;
-            const struct rvx_module *m = lib->modules;
-            for (unsigned j = 0; j < m->export_count; j++)
-                if (m->exports[j].name == imp->symbol) {
-                    *value = (u32)m->image + m->exports[j].offset;
+            if (imp->library == rvx_hash("reprise")) {
+                if (reprise_export(imp->symbol, value))
                     return 1;
-                }
-            return 0;
+                *value = 0;
+                return optional(p, i);
+            }
+            Pkg *lib = library(imp->library);
+            if (lib && lib->state == 2) {
+                const struct rvx_module *m = lib->modules;
+                for (unsigned j = 0; j < m->export_count; j++)
+                    if (m->exports[j].name == imp->symbol) {
+                        *value = (u32)m->image + m->exports[j].offset;
+                        return 1;
+                    }
+            }
+            *value = 0;
+            return optional(p, i);
         }
         while (*s++) {
         }
@@ -292,7 +327,15 @@ static int link_module(Pkg *p, u32 index, const struct module_header *h, File *f
         !within(m, d->hooks, d->count, sizeof *d->hooks) ||
         !within(m, d->settings, d->setting_count, sizeof *d->settings) ||
         !within(m, d->screens, d->screen_count, sizeof(struct screen)) ||
-        !within(m, d->entries, d->entry_count, sizeof(struct menu_entry)))
+        !within(m, d->entries, d->entry_count, sizeof(struct menu_entry)) ||
+        (index == 0 && !rvx_entries_valid(p, d->entries, d->entry_count)))
+        return 0;
+    const struct screen *screens = d->screens;
+    for (u32 i = 0; i < d->screen_count; i++) /* kind 0: a list's rows */
+        if (screens[i].kind == 0 &&
+            !within(m, screens[i].list.rows, screens[i].list.count, sizeof(struct row)))
+            return 0;
+    if (!rvx_stock_rows_valid(p, screens, d->screen_count, index == 0))
         return 0;
     m->desc = d;
     for (u32 i = 0; i < d->count; i++)
@@ -371,6 +414,15 @@ const void *rvx_service(Pkg *p, u32 i)
                                                           : NULL;
 }
 
+/* The main module's service of a running extension; NULL while it unloads. */
+const void *rvx_extension_service(const char *id)
+{
+    for (Pkg *p = rvx_packages; id && p; p = p->next)
+        if (cfw_string_equal(p->id, id))
+            return p->state == 2 && !p->modules[0].loading ? rvx_service(p, 0) : NULL;
+    return NULL;
+}
+
 static int start(Pkg *p)
 {
     if (p->state)
@@ -393,9 +445,10 @@ static int start(Pkg *p)
         }
     }
     const char *s = p->strings + p->manifest->libraries;
-    for (u32 i = 0; i < p->manifest->requires_count; i++) {
-        Pkg *lib = library(rvx_hash(s));
-        if (!lib || !start(lib))
+    for (u32 i = 0; i < p->manifest->library_count; i++) {
+        u32 hash = rvx_hash(s);
+        Pkg *lib = library(hash);
+        if (hash != rvx_hash("reprise") && (!lib || !start(lib)) && !optional(p, i))
             goto failed;
         while (*s++) {
         }
@@ -425,6 +478,8 @@ void cfw_rvx_boot(void)
     if (scanned)
         return;
     scanned = 1;
+    rvx_memory_bind();
+    rvx_artwork_bind();
     scan(&rvx_packages, "/Reprise/Extensions");
     scan(&rvx_packages, "/Revola/Extensions");
     for (Pkg **link = &rvx_packages; *link;) {
@@ -451,7 +506,6 @@ void cfw_rvx_boot(void)
             osos_import_free(p);
         }
     }
-    cfw_rvx_has_canvas = rvx_packages != NULL;
     for (Pkg *p = rvx_packages; p; p = p->next)
         start(p);
     rvx_install_menus();

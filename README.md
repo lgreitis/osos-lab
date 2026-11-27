@@ -16,7 +16,7 @@ own identity in its companion.
 
 ## RVX extensions
 
-RepriseOS 0.4.0 supports RVX API 1.82. Connect the iPod, let it mount, then choose
+RepriseOS 0.4.0 supports RVX API 1.89. Connect the iPod, let it mount, then choose
 **Manage extensions** in RepriseOS Installer 0.3.0 to install from the
 [extension catalog](https://repriseos.com/extensions/). Choose **Restart iPod** to load your changes.
 
@@ -34,6 +34,8 @@ based on the Revola SDK.
 - `game-sdk/`: deferred, incomplete homebrew runtime for the stock Games loader; it does not support sound.
 - `doom/`: deferred, incomplete Doom port.
 - `nes/`: deferred, incomplete InfoNES port built on the game SDK.
+  These three still package for `iPod_Control/games_RO`, where the firmware checks
+  signatures; a package folder goes under `/Reprise/Games/<id>/` for the Homebrew extension.
 - `patching/`: Python recipe builder, native UI generation, and framework tests.
 - `firmware/`: pinned Apple inputs, hardware eligibility and native UI metadata.
 - `loader/` and `patches/`: Apple companion loader and Rockbox bootloader patches.
@@ -57,35 +59,18 @@ RepriseOS package and builds a companion using that iPod's identity.
 
 ## Features
 
-- Five-band custom EQ with a graphical editor and adjustable filter types,
-  frequency, gain, Q and precut.
-- Clipping-free EQ: built-in presets and the custom EQ lower their gain by
-  their peak boost and keep headroom between filter stages.
-- Play Next and Play Last from song, album and artist context menus. Open **Up Next**
-  in the main menu to see the queue.
-- Apple's EU Volume Limit setting on every European iPod, with full volume
-  and no volume warning when it is Off.
-- File Info from song, podcast, iTunes U, audiobook, movie, TV episode, video playlist and Now Playing context menus.
-- Album Artists browsing with Artist fallback and configurable menu visibility.
-- Clicker output options (Off, Speaker, Headphones, Both) in Settings.
-- Dark Mode, with an On/Off toggle in Settings.
+Appearance (Dark Mode, accent colours and themes from `/Reprise/Themes`),
+Night Shift, Album Artists, File Info, Playback Queue (Play Next, Play Last
+and Up Next), Equalizer (the five-band custom EQ), Clicker Modes, iAP Auth
+Bypass, EU Volume Limit and Homebrew (apps and games from `/Reprise/Apps` and
+`/Reprise/Games`) are extensions in the
+[extension catalog](https://repriseos.com/extensions/). Themes are built with
+the compiler in the
+[extensions repository](https://github.com/RepriseOS/extensions/tree/main/themes).
 
-Open **Settings → Custom EQ** to edit all five bands. Use the wheel to select a
-band, then Center to select and edit its Type, Gain, Frequency or Q, or the
-Precut shared by all bands. Switch Hold on to view the combined EQ response and
-off to return to editing. Precut defaults to **Auto**, which attenuates by the
-response's peak between 20 Hz and 20 kHz; the response view shows the applied
-value. Choose a fixed precut from 0.0 to -10.0 dB instead to set it by hand.
-
-Every supported Classic runs Apple 2.0.5, so European iPods, older models
-included, get Apple's **Settings → Volume Limit** screen with **EU Volume Limit**.
-On limits headphone volume to the EU level. Off allows full volume without Apple's
-high-volume warning, the reduction to the EU level at startup or the automatic
-reduction after long listening.
-
-**Album Artists** groups tracks by their Album Artist tag, using Artist when that
-field is empty. Show or hide the entry through Settings → Main Menu and Settings →
-Music Menu.
+The runtime also sizes Apple's block cache and read-ahead by disk type, shares
+identical artwork thumbnails and counts tracks in a word, so libraries past
+35,000 tracks with artwork, and past 65,535 at all, play ([memory](docs/memory.md)).
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
 

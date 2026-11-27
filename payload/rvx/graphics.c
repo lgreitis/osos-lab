@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "screen.h"
 #include "osos.h"
-#include "dark_mode.h"
+#include "../../rvx-sdk/osos-2.0.5.h"
 
 static void *gc;
 static int left, top;
@@ -9,11 +9,10 @@ static struct rect area;
 static u32 fonts[3][2];
 static Pkg *color_owner;
 static const u32 *roles;
-static const u32 palettes[][11] = {
-    {0xffffffff, 0xff202020, 0xff2688db, 0xffffffff, 0xff555555, 0xff202020, 0xff1479d5,
-     0xff5da9eb, 0xff53a6ee, 0xff2278cc, 0xff196bb8},
-    {0xff181818, 0xffe8e8e8, 0xff157fc4, 0xffffffff, 0xffa8a8a8, 0xffe8e8e8, 0xff30abff,
-     0xff318ac0, 0xff257dab, 0xff145e90, 0xff104c73}};
+/* The stock light look until an extension sets the colour roles. */
+static const u32 palette[11] = {0xffffffff, 0xff202020, 0xff2688db, 0xffffffff,
+                                0xff555555, 0xff202020, 0xff1479d5, 0xff5da9eb,
+                                0xff53a6ee, 0xff2278cc, 0xff196bb8};
 
 void rvx_begin_draw(void *context, const int32_t *bounds, const struct rect *dirty)
 {
@@ -53,7 +52,7 @@ int rvx_colors(Pkg *p, const u32 *r)
 
 static u32 color(uint8_t role)
 {
-    return (roles ? roles : palettes[!!cfw_dark_mode_enabled()])[role < 11 ? role : 0];
+    return (roles ? roles : palette)[role < 11 ? role : 0];
 }
 
 static void rgba(u32 c, uint8_t out[4])
@@ -261,7 +260,6 @@ struct cached_bitmap {
     struct cached_bitmap *next;
     u32 id;
     void *data;
-    int dark;
     u32 size;
 };
 
@@ -280,9 +278,8 @@ const void *rvx_frame_bitmap(struct frame *f, const struct bitmap *bitmap, u32 *
     if (!bitmap || !bitmap->name || !f)
         return NULL;
     u32 id = rvx_hash(bitmap->name);
-    int dark = cfw_dark_mode_enabled();
     for (struct cached_bitmap *b = f->bitmaps; b; b = b->next)
-        if (b->id == id && b->dark == dark) {
+        if (b->id == id) {
             if (size)
                 *size = b->size;
             return b->data;
@@ -299,7 +296,6 @@ const void *rvx_frame_bitmap(struct frame *f, const struct bitmap *bitmap, u32 *
     b->size = bytes;
     if (size)
         *size = bytes;
-    b->dark = dark;
     b->id = id;
     b->data = data;
     b->next = f->bitmaps;
@@ -312,15 +308,33 @@ static void bitmap(int x, int y, const struct bitmap *bitmap)
     bmap(x, y, rvx_frame_bitmap(rvx_top, bitmap, NULL));
 }
 
-/* Older binaries can still call the retired graphics slot. */
-static void retired_draw(int w, int h, const char *left_text, const char *right_text,
-                         const struct bitmap *image)
+/* The colours and the band come from Settings > About; the icon sits on the box
+ * the Settings pane draws behind the stock icons, both without reflections. */
+enum { CARD_LEFT = 18, CARD_BAND = 60, TITLE = 0 };
+
+static void card(int width, int h, const char *left_text, const char *right_text,
+                 const struct bitmap *icon)
 {
-    (void)w;
-    (void)h;
-    (void)left_text;
-    (void)right_text;
-    (void)image;
+    static const uint8_t from[3] = {0x84, 0x96, 0xa5}, to[3] = {0x42, 0x4d, 0x52};
+    for (int y = 0; y < h; y += 4) {
+        int t = y * 256 / h;
+        u32 c = 0xff000000;
+        for (int i = 0; i < 3; i++)
+            c |= (u32)((from[i] * (256 - t) + to[i] * t) >> 8) << (16 - 8 * i);
+        fill(&(struct rect){0, y, width, 4}, c);
+    }
+    if (icon) {
+        const void *box = (const void *)osos_ui_bitmap(RES_SettingsPreview_Background_Image);
+        const void *glyph = rvx_frame_bitmap(rvx_top, icon, NULL);
+        rows((width - 78) / 2, CARD_BAND - 39, box, 79, 0xffffffff);
+        rows((width - 78) / 2, CARD_BAND - 39, glyph, 79, 0xffffffff);
+    }
+    int y = CARD_BAND - height(TITLE) / 2;
+    if (left_text)
+        text(CARD_LEFT, y, TITLE, 0xffffffff, left_text);
+    if (right_text)
+        text(width - CARD_LEFT - measure(TITLE, right_text), y, TITLE,
+             0xffffffff, right_text);
 }
 
 static const struct rect *clip(void)
@@ -340,7 +354,7 @@ const struct graphics rvx_graphics = {sizeof(struct graphics),
                                       rows,
                                       blend,
                                       tile,
-                                      retired_draw,
+                                      card,
                                       text_in,
                                       mix,
                                       clip,

@@ -66,7 +66,6 @@ def build_package(config, output, rockbox, info, minimum):
     output.mkdir()
     build.build_osos(config, output, None, recipe_only=True, info=info)
     build.build_apple(config, output, None, recipe_only=True)
-    run(sys.executable, ROOT / "themes/build.py", "--out", output / "dark-mode.bin")
     build.build_rockbox(config, output, rockbox)
     helper = config.work / "helper"
     run(
