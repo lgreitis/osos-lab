@@ -37,5 +37,7 @@ struct panic_frame {
 };
 
 void cfw_panic_screen(const struct panic_frame *frame) __attribute__((noreturn));
+/* Turns the backlight on through the PMU; result words go into the crash report. */
+void cfw_panic_backlight(uint32_t result[4]);
 #endif
 #endif

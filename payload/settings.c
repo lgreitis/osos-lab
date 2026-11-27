@@ -2,6 +2,7 @@
 #include "ui_visibility.h"
 #include "osos.h"
 #include "patch.h"
+#include "recovery.h"
 #include "rvx/runtime.h"
 #include "store.h"
 
@@ -13,6 +14,7 @@ void cfw_settings_boot(void *preferences)
 {
     native_preferences = preferences;
     cfw_store_load();
+    cfw_recovery_prepare();
     cfw_rvx_boot();
     cfw_store_flush();
 }

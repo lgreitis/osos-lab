@@ -8,6 +8,15 @@ The patched Rockbox bootloader selects the system at startup:
 | Menu or Hold switch | Original Apple OS |
 | Play/Pause | Rockbox |
 
+## After a crash
+
+RepriseOS shows "We ran into an error" and the path of a crash report. Press
+Center to restart. The report is saved to `/Reprise/Crashes/<report-id>.txt` at
+the next start and holds the saved registers and a short piece of the stack.
+Attach it when you open an issue. Holding Menu and Center, or a flat battery
+before the next start, loses the report. A crash early in startup shows the
+register screen instead and saves no report; Center restarts there too.
+
 ## RepriseOS boot
 
 ```mermaid
