@@ -1,0 +1,28 @@
+RevolaOS
+Copyright (C) 2026 The RevolaOS Authors.
+The authors are the contributors recorded in each repository's git history.
+
+The headers, runtime/ and examples/ are MIT (LICENSE-MIT). eapp.mk,
+eapp_package.py, tests/ and firmware/ are GPL-3.0-only (COPYING).
+
+The runtime, its headers, the host tests and the packager are adapted from
+the RepriseOS game SDK (https://github.com/lgreitis/osos-lab, game-sdk/ and
+doom/artwork.py at 8fc840d) by lgreitis. Copyright (C) lgreitis and RepriseOS
+contributors. The headers and runtime of the game SDK are MIT since its
+commit 82f8d90; its runtime.mk, game_package.py, tests and doom/artwork.py
+are GPL-3.0-only. Modified by the RevolaOS authors since 2026-11-13.
+
+Copied into RepriseOS at 7b732ac with the package paths under /Reprise.
+
+Files that carry an "Adapted from" or copyright header keep that header.
+
+Third-party work included:
+
+- Khronos OpenGL ES 1.1 and KHR platform headers
+  (https://github.com/KhronosGroup/OpenGL-Registry,
+  https://github.com/KhronosGroup/EGL-Registry): include/. MIT and
+  Apache-2.0.
+
+No Apple firmware ships in this repository. The symbols header holds names,
+types and addresses; many of the names and types, with their comments, start
+from the RepriseOS Ghidra analysis of the same firmware.
