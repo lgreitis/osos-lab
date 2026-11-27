@@ -1,8 +1,8 @@
 # Custom Settings icons
 
 Settings previews should match Apple's shaded grayscale symbols. Use
-`settings-headphones.png`, `settings-info.png` and `settings-moon.png` in
-`payload/assets/` as finished references.
+`settings-headphones.png` and `settings-info.png` in `payload/assets/` as
+finished references.
 
 - Use a **78 × 121 px** canvas. Center the symbol horizontally, with its main
   silhouette approximately between y=12 and y=64. Leave room below for reflection.
@@ -28,10 +28,7 @@ python3 tools/settings_icon.py payload/assets/settings-headphones.svg payload/as
 
 The renderer applies the native bevel, gradient and reflection at 8×
 resolution, then downsamples to the native size. Commit both the SVG and PNG.
-The moon silhouette is also included beside its PNG. The
-existing moon PNG uses a wider bevel from its original renderer; compare any
-regenerated artwork with the approved PNG before replacing it. The info icon
-was originally rendered from a font and has no SVG source.
+The info icon was originally rendered from a font and has no SVG source.
 Declare the PNG with `format="gray8"` in the feature's `.ui` file and bind it
 to the Settings preview. Reusing an existing appropriate icon is fine; toggles
 with changing previews must supply an image in both states.
