@@ -21,8 +21,10 @@ uint32_t core_clone_ids(const struct screen *d)
         if (d->list.count > 0x100000)
             return 0;
         /* screen, layout, title, items, 4 for layout clones, 2 per row, the
-         * long-press menu, then the split layout's screen, layout and 5 clones */
-        return 8 + 2 * d->list.count + core_lists_context_ids(d) + CORE_LIST_SPLIT_IDS;
+         * stock rows' layout clones, the long-press menu, then the split
+         * layout's ids (native_ui.h) */
+        return 8 + 2 * d->list.count + CORE_LIST_STOCK_IDS * core_lists_stock_count(d) +
+               core_lists_context_ids(d) + CORE_LIST_SPLIT_IDS;
     case RV_SCREEN_KIND_TEXT:
         if (d->text.count > 0x100000)
             return 0;
@@ -34,6 +36,10 @@ uint32_t core_clone_ids(const struct screen *d)
     case RV_SCREEN_KIND_STOCK:
         /* screen, layout, title, 5 for layout clones */
         return 8;
+    case RV_SCREEN_KIND_DIALOG:
+        /* screen, layout, title, 4 for layout clones, the VLyt, the message's,
+         * detail's and buttons' sources, a property per button */
+        return 11 + d->dialog.count;
     case RV_SCREEN_KIND_CHOICE:
     case RV_SCREEN_KIND_MULTI_CHOICE:
     case RV_SCREEN_KIND_DYNAMIC_LIST:
@@ -189,25 +195,42 @@ int core_clone_layout(const struct layout_clone *c, uint32_t *next, uint8_t *scr
     return 1;
 }
 
-/* The screen's own resources: SCST from `controller_screen`, SLst from
- * `layouts_screen` with the first layout replaced, CEVT from `events`. */
 int core_clone_screen(uint32_t screen, uint32_t layout, uint32_t controller_screen,
-                      uint32_t layouts_screen, const void *events, uint32_t event_bytes,
-                      uint8_t *scratch, uint32_t scratch_bytes)
+                      uint32_t layouts_screen, uint32_t entries_screen,
+                      const struct core_layout_entry *layouts, uint32_t count,
+                      const void *events, uint32_t event_bytes, uint8_t *scratch,
+                      uint32_t scratch_bytes)
 {
-    uint32_t bytes;
+    uint32_t bytes, entry_bytes;
     const void *scst = stock(Resource_SCST, controller_screen, &bytes);
     if (!scst)
         return 0;
     set(Resource_SCST, screen, scst, bytes);
     const void *slst = stock(Resource_SLst, layouts_screen, &bytes);
-    if (!slst || bytes > scratch_bytes)
+    const void *entries =
+        count ? stock(Resource_SLst, entries_screen, &entry_bytes) : NULL;
+    if (!slst || bytes + count * (8 + ScreenLayoutEntry_bytes) > scratch_bytes)
         return 0;
     struct core_writer w = {scratch, 0};
     uint32_t words[2] = {
         12, layout}; /* word 0 of the first block: count, bytes, kind before it */
     core_write_copy(&w, slst, bytes, words, 1);
-    set(Resource_SLst, screen, scratch, bytes);
+    /* A clone's entry is its stock layout's, which carries the layout kind,
+     * with the id replaced. */
+    for (uint32_t i = 0; i < count; i++) {
+        const uint8_t *entry =
+            entries ? core_block_with_word(entries, ScreenLayoutEntry_layout,
+                                           layouts[i].stock, &entry_bytes)
+                    : NULL;
+        if (!entry || entry_bytes != ScreenLayoutEntry_bytes)
+            return 0;
+        uint32_t begin = core_write_block_begin(&w, 0);
+        uint32_t id[2] = {ScreenLayoutEntry_layout, layouts[i].clone};
+        core_write_copy(&w, entry, entry_bytes, id, 1);
+        core_write_block_end(&w, begin);
+    }
+    core_write_word_at(&w, 0, core_blocks_count(slst) + count);
+    set(Resource_SLst, screen, scratch, w.at);
     set(Resource_CEVT, screen, events, event_bytes);
     return 1;
 }
@@ -242,6 +265,103 @@ void core_clone_layout_events(struct core_writer *w)
     core_write_event(w, "button.menu.up", "", "navigator.PopTopScreen", NULL, 0);
     core_write_event(w, "button.menu.pressandhold", "", "navigator.PopToMainScreen",
                      NULL, 0);
+}
+
+/* An event of a stream: a count, then per event a length-prefixed name, the
+ * byte '1', a length-prefixed handler, a word that says whether an action
+ * follows, and the length-prefixed action with a count of length-prefixed
+ * arguments. Words are unaligned. */
+struct event {
+    const uint8_t *name;
+    uint32_t name_bytes;
+    struct core_event binding;
+};
+
+static const uint8_t *skip_string(const uint8_t *at)
+{
+    return at + 4 + core_word_at(at, 0);
+}
+
+static const uint8_t *read_event(const uint8_t *at, struct event *e)
+{
+    e->name_bytes = core_word_at(at, 0);
+    e->name = at + 4;
+    at = skip_string(at) + 1;
+    e->binding.handler_bytes = core_word_at(at, 0);
+    e->binding.handler = at + 4;
+    at = skip_string(at);
+    e->binding.argument = NULL;
+    e->binding.argument_bytes = 0;
+    if (core_word_at(at, 0)) {
+        at = skip_string(at + 4);
+        uint32_t arguments = core_word_at(at, 0);
+        at += 4;
+        if (arguments) {
+            e->binding.argument_bytes = core_word_at(at, 0);
+            e->binding.argument = at + 4;
+        }
+        while (arguments--)
+            at = skip_string(at);
+    } else {
+        at += 4;
+    }
+    return at;
+}
+
+/* 1 when the event's name starts with `text`, or equals it with `whole`. */
+static int named(const struct event *e, const char *text, int whole)
+{
+    uint32_t i = 0;
+    for (; text[i]; i++)
+        if (i >= e->name_bytes || e->name[i] != (uint8_t)text[i])
+            return 0;
+    return !whole || i == e->name_bytes;
+}
+
+uint32_t core_clone_copy_events(struct core_writer *w, const void *stream,
+                                const char *name, int whole)
+{
+    uint32_t copied = 0;
+    if (!stream)
+        return 0;
+    const uint8_t *at = (const uint8_t *)stream + 4;
+    for (uint32_t n = core_word_at(stream, 0); n--;) {
+        struct event e;
+        const uint8_t *start = at;
+        at = read_event(at, &e);
+        if (!named(&e, name, whole))
+            continue;
+        core_write_bytes(w, start, (uint32_t)(at - start));
+        copied++;
+    }
+    return copied;
+}
+
+int core_clone_find_event(const void *stream, const char *name, struct core_event *out)
+{
+    if (!stream)
+        return 0;
+    const uint8_t *at = (const uint8_t *)stream + 4;
+    for (uint32_t n = core_word_at(stream, 0); n--;) {
+        struct event e;
+        at = read_event(at, &e);
+        if (!named(&e, name, 1))
+            continue;
+        *out = e.binding;
+        return 1;
+    }
+    return 0;
+}
+
+void core_clone_name_layout(uint32_t layout)
+{
+    char name[11];
+    uint32_t string[CppString_bytes / 4], allocator = 0;
+    core_screens_handler_name(name, layout);
+    NATIVE_CALL(CppString_InitBytes)(string, name, 10, &allocator);
+    *NATIVE_CALL(ResourceNames_FindOrInsertSlot)((void *)ADDR_ResourceNameMap, string) =
+        layout;
+    NATIVE_CALL(CppString_Destroy)(string);
 }
 
 /* Ids of a text page: id screen, +1 layout, +2 title, +3.. layout clones, +8..
@@ -279,8 +399,8 @@ int core_clone_text(struct core_screen *s)
     if (built) {
         set(Resource_SEVT, s->id + 1, &none, 4);
         built = core_clone_screen(s->id, s->id + 1, RES_Settings_Legal_Screen,
-                                  RES_Settings_Legal_Screen, &none, 4, scratch,
-                                  CORE_CLONE_SCRATCH_BYTES);
+                                  RES_Settings_Legal_Screen, 0, NULL, 0, &none, 4,
+                                  scratch, CORE_CLONE_SCRATCH_BYTES);
     }
     osos_import_free(scratch);
     return built;
@@ -318,8 +438,8 @@ static int clone_brightness(struct core_screen *s, uint32_t template,
         uint32_t none = 0;
         set(Resource_SEVT, s->id + 1, events, event_bytes);
         built = core_clone_screen(s->id, s->id + 1, RES_Settings_Legal_Screen,
-                                  RES_Settings_Brightness_Screen, &none, 4, scratch,
-                                  CORE_CLONE_SCRATCH_BYTES);
+                                  RES_Settings_Brightness_Screen, 0, NULL, 0, &none, 4,
+                                  scratch, CORE_CLONE_SCRATCH_BYTES);
     }
     osos_import_free(scratch);
     return built;
@@ -338,4 +458,73 @@ int core_clone_slider(struct core_screen *s)
     core_set_source(rows, rows, 1);
     core_set_source(rows + 1, rows + 1, 1);
     return clone_brightness(s, template, &views, events, bytes);
+}
+
+/* Ids of a dialog: id screen, +1 layout, +2 title, +3.. layout clones, +7 the
+ * dialog VLyt, +8 the message's source, +9 the detail's, +10 the buttons', +11..
+ * a property per button. The stock EU Volume Limit question with its VLyt's
+ * sources replaced and the stock controller class, events and screen events;
+ * dialog.c gives the controller Select. The option bar draws one label per
+ * entry of its source. */
+int core_clone_dialog(struct core_screen *s)
+{
+    uint32_t next = s->id + 3, layout = s->id + 7, rows = CORE_SCREEN_ROWS(s), bytes,
+             event_bytes;
+    uint32_t count = s->declaration->dialog.count;
+    const uint32_t notice = RES_SettingsMenus_DialogNotice_EULimitConfirmation_Layout;
+    const void *vlyt = stock(Resource_VLyt, notice, &bytes);
+    const void *tevt = stock(Resource_TEVT, notice, &event_bytes);
+    if (!vlyt || !tevt || bytes > CORE_CLONE_SCRATCH_BYTES)
+        return 0;
+    uint8_t *scratch = osos_import_alloc(CORE_CLONE_SCRATCH_BYTES);
+    if (!scratch)
+        return 0;
+    core_set_source(s->id + 2, s->id + 2, 1);
+    core_set_source(rows, rows, 1);
+    core_set_source(rows + 1, rows + 1, 1);
+    struct core_writer w = {scratch, 0};
+    core_write_word(&w, count);
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t b = core_write_block_begin(&w, Resource_SORC);
+        core_write_word(&w, Service_Settings);
+        core_write_word(&w, rows + 3 + i);
+        core_write_word(&w, SourceDestination_Title);
+        core_write_block_end(&w, b);
+    }
+    set(Resource_SORC, rows + 2, scratch, w.at);
+    /* The message, detail and option bar views take the three sources in that
+     * order. */
+    static const struct layout_clone none;
+    struct view_sources views = {RES_DialogNotice_View, rows, 3};
+    w.at = 0;
+    rebind_views(&w, vlyt, &none, &views);
+    set(Resource_VLyt, layout, scratch, w.at);
+    set(Resource_TEVT, layout, tevt, event_bytes);
+    struct layout_clone c = {RES_SettingsMenus_EUVolume_Confirmation_Screen_Default,
+                             s->id + 1,
+                             RES_StatusBarWhite_Text,
+                             s->id + 2,
+                             0,
+                             RES_SettingsMenus_DialogNotice_Template,
+                             RES_SettingsMenus_DialogNotice_Template,
+                             NULL,
+                             layout};
+    int built = core_clone_layout(&c, &next, scratch, CORE_CLONE_SCRATCH_BYTES) &&
+                next <= layout;
+    const void *events =
+        stock(Resource_SEVT, RES_SettingsMenus_EUVolume_Confirmation_Screen_Default,
+              &event_bytes);
+    const void *cevt =
+        stock(Resource_CEVT, RES_SettingsMenus_EUVolume_Confirmation_Screen, &bytes);
+    if (built && events && cevt) {
+        set(Resource_SEVT, s->id + 1, events, event_bytes);
+        built = core_clone_screen(
+            s->id, s->id + 1, RES_SettingsMenus_EUVolume_Confirmation_Screen,
+            RES_SettingsMenus_EUVolume_Confirmation_Screen, 0, NULL, 0, cevt, bytes,
+            scratch, CORE_CLONE_SCRATCH_BYTES);
+    } else {
+        built = 0;
+    }
+    osos_import_free(scratch);
+    return built;
 }

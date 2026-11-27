@@ -78,6 +78,6 @@
 
   <bitmap id="CFW_EQ_Icon" file="assets/settings-eq.png" format="gray8"/>
   <settings-entry menu="CFW_EQ" after="SettingsMenu_ListItem_EQ"
-                  preview="image" image="CFW_EQ_Icon" caption="Adjust your sound"/>
+                  preview="image" image="CFW_EQ_Icon" caption="Adjust Your Sound"/>
   <string id="CFW_EQ_PRESET_NAME" text="Custom"/>
 </ui>
