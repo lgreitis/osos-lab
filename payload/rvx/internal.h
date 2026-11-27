@@ -130,6 +130,10 @@ void cfw_rvx_unlock(u32);
 void cfw_rvx_sync(const void *, const void *);
 void cfw_rvx_write(uintptr_t, u32);
 
+/* 1 for a flash adapter, 0 for a hard disk or when `identify` (the 256 words of
+ * ATA IDENTIFY) is empty. */
+int rvx_storage_is_flash(const uint16_t *identify);
+
 u32 rvx_hash(const char *);
 int rvx_load(Pkg *, u32);
 void rvx_unload(Pkg *, u32);

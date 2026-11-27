@@ -20,6 +20,7 @@ class PayloadTests(unittest.TestCase):
                 "rvx_compression",
                 "store",
                 "osos_handoff",
+                "storage",
             ):
                 with self.subTest(fixture=name):
                     executable = directory / name
