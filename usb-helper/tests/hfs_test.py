@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Uploads and inspection on Mac-formatted disk images, run through the helper's
-C implementation and checked with fsck_hfs (macOS only)."""
+"""Uploads, inspection and removal on Mac-formatted disk images, run through the
+helper's C implementation and checked with fsck_hfs (macOS only)."""
 
 import os
 import platform
@@ -22,6 +22,7 @@ HARNESS = r"""
 #define TEST_IMPLEMENTATION
 #include "mock.h"
 #include "upload.h"
+#include "hfs-upload.h"
 #include "sha256.h"
 uint8_t test_buffer[65536] __attribute__((aligned(32)));
 struct upload_result test_result;
@@ -53,6 +54,7 @@ off_t filesize(int fd) {(void)fd;abort();}
  * a power cut would; HFS_TEST_COUNT prints the disk traffic on exit. */
 static long reads, writes, cut_at;
 static uint64_t read_bytes, written_bytes;
+static bool direct; /* hfs_upload_remove called around file.c */
 int ata_read_sectors(uint64_t s, int n, void *b)
 {
     ++reads;
@@ -61,7 +63,7 @@ int ata_read_sectors(uint64_t s, int n, void *b)
 }
 int ata_write_sectors(uint64_t s, int n, const void *b)
 {
-    assert(upload_write_allowed(s, n));
+    assert(direct || upload_write_allowed(s, n));
     if (++writes == cut_at) {
         fflush(disk);
         _exit(3);
@@ -111,9 +113,11 @@ static void report_traffic(void)
                 (unsigned long long)written_bytes);
 }
 
-/* hfs-test IMAGE install|keep|inspect [LOCAL=/ipod/path ...]
+/* hfs-test IMAGE install|keep|inspect|remove [LOCAL=/ipod/path ...]
  * Prints one result line per request and one for the end of the session when
- * that changes the result. */
+ * that changes the result.
+ * hfs-test IMAGE drop ROOT... calls hfs_upload_remove with the roots, a folder
+ * when the root ends in a slash, and prints rc and each root's outcome. */
 int main(int argc, char **argv)
 {
     assert(argc >= 3 && (disk = fopen(argv[1], "r+b")));
@@ -123,10 +127,12 @@ int main(int argc, char **argv)
     fseeko(disk, 0, SEEK_END);
     uint64_t sectors = ftello(disk) / 512;
     const char *mode = argv[2];
-    unsigned overwrite = !strcmp(mode, "inspect") ? 2 : !strcmp(mode, "keep") ? 0 : 1;
+    bool drop = !strcmp(mode, "drop");
+    unsigned overwrite = !strcmp(mode, "inspect") || drop ? 2 : !strcmp(mode, "remove") ? 3 :
+                         !strcmp(mode, "keep") ? 0 : 1;
     uint8_t *data = NULL;
     struct upload_config c;
-    if (argc > 3) {
+    if (argc > 3 && !drop) {
         configure(&c, argv[3], overwrite, &data);
     } else {
         memset(&c, 0, sizeof(c));
@@ -136,6 +142,28 @@ int main(int argc, char **argv)
     memcpy(&upload_config, &c, sizeof(c));
     memset(test_result.nonce, 7, 16);
     upload_prepare_hfs(sectors);
+    if (drop && !test_result.rc) {
+        struct hfs_removal set[HFS_REMOVE_ROOTS + 1];
+        char names[HFS_REMOVE_ROOTS + 1][192];
+        unsigned n = argc - 3;
+        assert(n <= HFS_REMOVE_ROOTS + 1);
+        for (unsigned i = 0; i < n; ++i) {
+            size_t len = strlen(argv[3 + i]);
+            assert(len > 1 && len < sizeof(names[i]));
+            memcpy(names[i], argv[3 + i], len + 1);
+            set[i].folder = names[i][len - 1] == '/';
+            if (set[i].folder)
+                names[i][len - 1] = 0;
+            set[i].path = names[i];
+            set[i].outcome = 9;
+        }
+        direct = true;
+        printf("rc=%d\n", hfs_upload_remove(set, n));
+        for (unsigned i = 0; i < n; ++i)
+            printf("outcome=%u %s\n", set[i].outcome, argv[3 + i]);
+        upload_close();
+        return 0;
+    }
     if (overwrite >= 2 || test_result.rc) {
         assert(test_result.state == 4);
         printf("rc=%d existing=%u free=%llu\n", test_result.rc,
@@ -183,7 +211,7 @@ def run(*command, **options):
     ).stdout
 
 
-def volume(root, files):
+def volume(root, files, attributes=(), locked=()):
     """A clean journaled HFS+ volume made by macOS, as raw bytes."""
     image, mount = root / "volume.dmg", root / "mount"
     mount.mkdir()
@@ -207,6 +235,10 @@ def volume(root, files):
             target = mount / path.lstrip("/")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
+        for path in attributes:
+            run("xattr", "-w", "org.repriseos.test", "1", mount / path.lstrip("/"))
+        for path in locked:
+            run("chflags", "uchg", mount / path.lstrip("/"))
     finally:
         run("hdiutil", "detach", mount)
     run("hdiutil", "convert", image, "-format", "UDTO", "-o", root / "volume")
@@ -247,6 +279,37 @@ def classic_disk(volume):
     start = base + (1 + map_blocks) * BLOCK
     disk[start : start + len(volume)] = volume
     return disk
+
+
+def set_attribute(disk, path):
+    """Give one entry of the disk's HFS+ volume an extended attribute through
+    macOS, then write the cleanly ejected volume back."""
+    data = bytearray(disk.read_bytes())
+    offset = data.index(b"H+\x00\x04") - 1024
+    block, blocks = struct.unpack_from(">II", data, offset + 1024 + 40)
+    raw = disk.with_suffix(".rw")
+    raw.write_bytes(data[offset : offset + block * blocks])
+    device = run(
+        "hdiutil",
+        "attach",
+        "-nomount",
+        "-imagekey",
+        "diskimage-class=CRawDiskImage",
+        raw,
+    ).split()[0]
+    mount = disk.with_suffix(".rwmount")
+    mount.mkdir()
+    try:
+        run("diskutil", "mount", "-mountPoint", mount, device)
+        run("xattr", "-w", "org.repriseos.test", "1", mount / path.lstrip("/"))
+        run("diskutil", "unmount", mount)
+    finally:
+        run("hdiutil", "detach", device)
+    volume = raw.read_bytes()
+    data[offset : offset + len(volume)] = volume
+    disk.write_bytes(data)
+    raw.unlink()
+    mount.rmdir()
 
 
 class MountedVolume:
@@ -339,6 +402,14 @@ class RawVolume:
         self.raw.unlink()
 
 
+def tree(mount):
+    return sorted(
+        "/" + str(p.relative_to(mount))
+        for p in mount.rglob("*")
+        if not any(part.startswith(".") for part in p.relative_to(mount).parts)
+    )
+
+
 @unittest.skipUnless(
     platform.system() == "Darwin"
     and shutil.which("hdiutil")
@@ -422,6 +493,20 @@ extern struct storage_result test_storage;
             self.root / "hfs-test", self.disk, mode, *self.items(files)
         ).splitlines()
 
+    def write_count(self):
+        data = self.disk.read_bytes()
+        return struct.unpack_from(">I", data, data.index(b"H+\x00\x04") + 68)[0]
+
+    def catalog_depth(self):
+        data = self.disk.read_bytes()
+        header = data.index(b"H+\x00\x04")
+        block = struct.unpack_from(">I", data, header + 40)[0]
+        start = struct.unpack_from(">I", data, header + 272 + 16)[0]
+        return struct.unpack_from(">H", data, header - 1024 + start * block + 14)[0]
+
+    def drop(self, roots):
+        return run(self.root / "hfs-test", self.disk, "drop", *roots).splitlines()
+
     def install(self):
         files = [
             ("/Reprise/Firmware/loader.bin", os.urandom(129025)),
@@ -464,6 +549,334 @@ extern struct storage_result test_storage;
             ][:9],
             "rc=-322 e",
         )
+
+    def test_removal_keeps_the_library_and_reports_leftovers(self):
+        self.install()
+        self.assertRegex(
+            self.helper("remove")[0], rf"^rc=0 existing={1 | 2 | 4} free=\d+$"
+        )
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(
+                tree(mount),
+                sorted(
+                    {"/iPod_Control", "/iPod_Control/Music", "/notes.txt"}
+                    | {f"/iPod_Control/Music/F{i:02d}" for i in range(4)}
+                    | set(self.library)
+                ),
+            )
+        self.assertRegex(self.helper("remove")[0], r"^rc=0 existing=0 free=\d+$")
+
+    def test_mac_copied_files_go_and_locked_files_stay(self):
+        files = {
+            "/Reprise/Firmware/reprise.bin": os.urandom(9000),
+            "/Reprise/Themes/flat.rvt": b"t",
+            "/Reprise/Themes/locked.rvt": b"l",
+            "/Reprise/Data/eq/state.bin": b"s",
+            "/notes.txt": b"user file",
+        }
+        self.disk.write_bytes(
+            classic_disk(
+                volume(
+                    self.work,
+                    files,
+                    ["/Reprise/Themes/flat.rvt", "/notes.txt"],
+                    ["/Reprise/Themes/locked.rvt"],
+                )
+            )
+        )
+        result = self.helper("remove")[0]
+        self.assertTrue(result.startswith(f"rc=0 existing={2 | 64} "), result)
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(
+                [p for p in tree(mount) if p.startswith("/Reprise")],
+                ["/Reprise", "/Reprise/Themes", "/Reprise/Themes/locked.rvt"],
+            )
+            self.assertEqual(
+                run("xattr", "-p", "org.repriseos.test", mount / "notes.txt").strip(),
+                "1",
+            )
+
+    def test_attributes_of_the_reprise_folder_go_with_it(self):
+        # Files written by the helper carry no attributes, so only the
+        # folder's own record needs the attributes file rebuilt.
+        self.install()
+        set_attribute(self.disk, "/Reprise")
+        self.assertRegex(self.helper("remove")[0], rf"^rc=0 existing={1 | 2 | 4} ")
+        with MountedVolume(self, self.disk) as mount:
+            self.assertFalse((mount / "Reprise").exists())
+
+    def test_locked_folders_keep_everything_inside(self):
+        files = {
+            "/Reprise/Firmware/reprise.bin": b"r",
+            "/Reprise/Themes/a.rvt": b"a",
+            "/Reprise/Themes/sub/b.rvt": b"b",
+            "/Reprise/Data/x.bin": b"x",
+        }
+        self.disk.write_bytes(
+            classic_disk(volume(self.work, files, locked=["/Reprise/Themes"]))
+        )
+        self.assertTrue(self.helper("remove")[0].startswith(f"rc=0 existing={2 | 64} "))
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(
+                tree(mount),
+                [
+                    "/Reprise",
+                    "/Reprise/Themes",
+                    "/Reprise/Themes/a.rvt",
+                    "/Reprise/Themes/sub",
+                    "/Reprise/Themes/sub/b.rvt",
+                ],
+            )
+        (self.work / "top").mkdir()
+        self.disk.write_bytes(
+            classic_disk(volume(self.work / "top", files, locked=["/Reprise"]))
+        )
+        self.assertTrue(
+            self.helper("remove")[0].startswith(f"rc=0 existing={32 | 64} ")
+        )
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(len(tree(mount)), 9)
+
+    def test_roots_take_the_folders_above_only_when_empty(self):
+        """Several roots, folders and files, go in one rebuild; a folder above
+        a root goes with it only when nothing else is left in it."""
+        files = {
+            "/Reprise/Firmware/reprise.bin": b"r",
+            "/Reprise/Extensions/a.rvx": b"a",
+            "/Reprise/Data/eq/state.bin": b"s",
+            "/Reprise/notes.txt": b"n",
+            "/themes/default/theme.bin": b"t",
+            "/themes/default/preview.png": b"p",
+            "/themes/dark/theme.bin": b"d",
+            "/cfw-loader.bin": b"c",
+        }
+        self.disk.write_bytes(classic_disk(volume(self.work, files)))
+        roots = [
+            "/Reprise/Extensions/",
+            "/Reprise/Data/",
+            "/themes/default/theme.bin",
+            "/themes/dark/theme.bin",
+            "/cfw-loader.bin",
+            "/missing/",
+            "/Reprise/Extensions/a.rvx",
+        ]
+        self.assertEqual(
+            self.drop(roots),
+            ["rc=0"]
+            + [f"outcome={o} {r}" for o, r in zip([2, 2, 2, 2, 2, 0, 2], roots)],
+        )
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(
+                tree(mount),
+                [
+                    "/Reprise",
+                    "/Reprise/Firmware",
+                    "/Reprise/Firmware/reprise.bin",
+                    "/Reprise/notes.txt",
+                    "/themes",
+                    "/themes/default",
+                    "/themes/default/preview.png",
+                ],
+            )
+        count = self.write_count()
+        self.assertEqual(
+            self.drop(["/themes/dark/theme.bin"]),
+            ["rc=0", "outcome=0 /themes/dark/theme.bin"],
+        )
+        self.assertEqual(self.write_count(), count)
+        self.assertEqual(
+            self.drop(["/themes/default/preview.png", "/Reprise/notes.txt"]),
+            [
+                "rc=0",
+                "outcome=2 /themes/default/preview.png",
+                "outcome=2 /Reprise/notes.txt",
+            ],
+        )
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(
+                tree(mount),
+                ["/Reprise", "/Reprise/Firmware", "/Reprise/Firmware/reprise.bin"],
+            )
+
+    def test_nested_folder_roots_go_whole(self):
+        files = {
+            "/a/b/c/x.bin": b"x",
+            "/a/b/d.txt": b"d",
+            "/a/e.txt": b"e",
+            "/keep.txt": b"k",
+        }
+        for roots in (["/a/b/c/", "/a/"], ["/a/", "/a/b/c/"]):
+            self.disk.write_bytes(classic_disk(volume(self.work, files)))
+            shutil.rmtree(self.work / "mount")
+            for name in ("volume.dmg", "volume.cdr"):
+                (self.work / name).unlink()
+            self.assertEqual(
+                self.drop(roots), ["rc=0"] + [f"outcome=2 {r}" for r in roots]
+            )
+            with MountedVolume(self, self.disk) as mount:
+                self.assertEqual(
+                    [p for p in tree(mount) if not p.startswith("/iPod_Control")],
+                    ["/keep.txt"],
+                )
+
+    def test_locked_folder_above_a_root_keeps_it(self):
+        files = {
+            "/themes/default/theme.bin": b"t",
+            "/themes/dark/theme.bin": b"d",
+            "/cfw-loader.bin": b"c",
+        }
+        self.disk.write_bytes(
+            classic_disk(volume(self.work, files, locked=["/themes"]))
+        )
+        roots = [
+            "/themes/default/theme.bin",
+            "/themes/dark/theme.bin",
+            "/cfw-loader.bin",
+        ]
+        self.assertEqual(
+            self.drop(roots),
+            ["rc=0"] + [f"outcome={o} {r}" for o, r in zip([1, 1, 2], roots)],
+        )
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(
+                [p for p in tree(mount) if not p.startswith("/iPod_Control")],
+                [
+                    "/themes",
+                    "/themes/dark",
+                    "/themes/dark/theme.bin",
+                    "/themes/default",
+                    "/themes/default/theme.bin",
+                ],
+            )
+
+    def test_locked_firmware_folder_keeps_both_firmware_files(self):
+        files = {
+            "/Reprise/Firmware/loader.bin": b"l",
+            "/Reprise/Firmware/reprise.bin": b"r",
+            "/Reprise/Extensions/a.rvx": b"a",
+        }
+        self.disk.write_bytes(
+            classic_disk(volume(self.work, files, locked=["/Reprise/Firmware"]))
+        )
+        self.assertTrue(
+            self.helper("remove")[0].startswith(f"rc=0 existing={16 | 32 | 64} ")
+        )
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(
+                [p for p in tree(mount) if p.startswith("/Reprise")],
+                [
+                    "/Reprise",
+                    "/Reprise/Firmware",
+                    "/Reprise/Firmware/loader.bin",
+                    "/Reprise/Firmware/reprise.bin",
+                ],
+            )
+
+    def test_three_level_catalog(self):
+        """A catalog with an index level between the root and the leaves is
+        copied by an upload and by a removal."""
+        library = dict(self.library)
+        library.update(
+            {f"/iPod_Control/Music/F99/T{i:04d}.m4a": b"" for i in range(3000)}
+        )
+        self.disk.write_bytes(classic_disk(volume(self.work, library)))
+        self.assertEqual(self.catalog_depth(), 3)
+        files = self.install()
+        self.assertEqual(self.catalog_depth(), 3)
+        with MountedVolume(self, self.disk) as mount:
+            for path, data in files.items():
+                self.assertEqual((mount / path.lstrip("/")).read_bytes(), data, path)
+        self.assertRegex(self.helper("remove")[0], rf"^rc=0 existing={1 | 2 | 4} ")
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(len(tree(mount)), len(library) + 7)
+
+    def test_power_cut_in_a_removal_leaves_all_or_nothing(self):
+        self.install()
+        installed = self.disk.read_bytes()
+        counted = subprocess.run(
+            [self.root / "hfs-test", self.disk, "remove"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=dict(os.environ, HFS_TEST_COUNT="1"),
+        )
+        writes = int(counted.stderr.split()[0].split("=")[1])
+        seen = set()
+        for cut in range(1, writes + 1):
+            self.disk.write_bytes(installed)
+            rc = subprocess.run(
+                [self.root / "hfs-test", self.disk, "remove"],
+                capture_output=True,
+                env=dict(os.environ, HFS_TEST_CUT=str(cut)),
+            ).returncode
+            self.assertEqual(rc, 3, cut)
+            with RawVolume(self.disk) as volume:
+                size = volume.size("/Reprise/Firmware/reprise.bin")
+                self.assertIn(size, (3 * 1024 * 1024 + 7, None), cut)
+                if not volume.check():
+                    volume.repair()
+                    self.assertTrue(volume.check(), cut)
+                    self.assertEqual(volume.size("/Reprise/Firmware/reprise.bin"), size)
+            seen.add(size is None)
+            self.assertRegex(
+                self.helper("inspect")[0], rf"^rc=0 existing={3 if size else 0} ", cut
+            )
+        self.assertEqual(seen, {False, True})
+
+    def test_legacy_layout_goes_and_user_files_keep_their_folders(self):
+        """The folders and files of releases through 0.4.0: /Revola holds only
+        the extension folders, /themes the theme packs, the disk root the
+        firmware files. Anything else in those folders keeps them."""
+        files = {
+            "/Revola/Extensions/a.rvx": b"a",
+            "/Revola/Data/eq/state.bin": b"s",
+            "/Revola/notes.txt": b"n",
+            "/themes/default/theme.bin": b"t",
+            "/themes/default/preview.png": b"p",
+            "/themes/dark/theme.bin": b"d",
+            "/cfw-loader.bin": b"c",
+            "/osos-cfw.bin": b"o",
+        }
+        self.disk.write_bytes(classic_disk(volume(self.work, files)))
+        self.assertTrue(
+            self.helper("remove")[0].startswith(f"rc=0 existing={1 | 2 | 4} ")
+        )
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(
+                [p for p in tree(mount) if not p.startswith("/iPod_Control")],
+                [
+                    "/Revola",
+                    "/Revola/notes.txt",
+                    "/themes",
+                    "/themes/default",
+                    "/themes/default/preview.png",
+                ],
+            )
+        (self.work / "locked").mkdir()
+        self.disk.write_bytes(
+            classic_disk(
+                volume(self.work / "locked", files, locked=["/cfw-loader.bin"])
+            )
+        )
+        self.assertTrue(
+            self.helper("remove")[0].startswith(f"rc=0 existing={16 | 2 | 4} ")
+        )
+
+    def test_both_layouts_report_each_file_once(self):
+        files = {
+            "/Reprise/Firmware/loader.bin": b"l",
+            "/Reprise/Firmware/reprise.bin": b"r",
+            "/cfw-loader.bin": b"c",
+            "/osos-cfw.bin": b"o",
+        }
+        self.disk.write_bytes(classic_disk(volume(self.work, files)))
+        self.assertTrue(
+            self.helper("remove")[0].startswith(f"rc=0 existing={1 | 2 | 4} ")
+        )
+        with MountedVolume(self, self.disk) as mount:
+            self.assertEqual(
+                [p for p in tree(mount) if not p.startswith("/iPod_Control")], []
+            )
 
     def test_volume_not_cleanly_unmounted_is_refused(self):
         disk = bytearray(self.base)

@@ -263,6 +263,36 @@ static void remove_installation(void)
     writes_enabled = false;
 }
 
+/* The same report as remove_installation, in one catalog rebuild. HFS+
+   uploads leave no unfinished files. */
+static int remove_hfs_installation(void)
+{
+    uint32_t *bits = &STORAGE_RESULT->existing_files;
+    struct hfs_removal set[9];
+    for (unsigned i = 0; i < 3; ++i)
+        set[i] = (struct hfs_removal){folders[i], true, 0};
+    for (unsigned i = 0; i < 2; ++i)
+        set[3 + i] = (struct hfs_removal){theme_packs[i], false, 0};
+    for (unsigned i = 0; i < 4; ++i)
+        set[5 + i] = (struct hfs_removal){firmware_files[i], false, 0};
+    writes_enabled = true;
+    int rc = hfs_upload_remove(set, 9);
+    writes_enabled = false;
+    if (rc)
+        return rc;
+    bool had = false, left = false;
+    for (unsigned i = 0; i < 5; ++i) {
+        had |= set[i].outcome != 0;
+        left |= set[i].outcome == 1;
+    }
+    if (had)
+        *bits |= left ? 64 : 4;
+    for (unsigned i = 0; i < 4; ++i)
+        if (set[5 + i].outcome)
+            *bits |= set[5 + i].outcome == 2 ? 1u << (i & 1) : 16u << (i & 1);
+    return 0;
+}
+
 void upload_prepare_hfs(uint64_t sectors)
 {
     if (!load_config())
@@ -282,7 +312,6 @@ void upload_prepare_hfs(uint64_t sectors)
     STORAGE_RESULT->end = data_end;
     STORAGE_RESULT->sector_bytes = 512;
     STORAGE_RESULT->free_bytes = free_bytes;
-    /* Removal leaves an HFS+ volume as it is and reports nothing deleted. */
     STORAGE_RESULT->existing_files = 0;
     if (current.overwrite == 2) {
         int companion = hfs_upload_exists("/Reprise/Firmware/loader.bin");
@@ -292,6 +321,12 @@ void upload_prepare_hfs(uint64_t sectors)
             return;
         }
         STORAGE_RESULT->existing_files = companion | (osos << 1);
+    } else {
+        rc = remove_hfs_installation();
+        if (rc) {
+            upload_fail(rc);
+            return;
+        }
     }
     UPLOAD_RESULT->state = 4;
 }

@@ -81,6 +81,7 @@ HARNESS = r"""
 #define TEST_IMPLEMENTATION
 #include "mock.h"
 #include "upload.h"
+#include "hfs-upload.h"
 #include "sha256.h"
 uint8_t test_buffer[65536] __attribute__((aligned(32)));
 struct upload_result test_result;
@@ -102,6 +103,7 @@ int hfs_upload_exists(const char *p) {(void)p;abort();}
 int hfs_upload_plan(const char *p, uint32_t s, bool o) {(void)p;(void)s;(void)o;abort();}
 int hfs_upload_data(uint32_t o, void *p, unsigned n, bool w) {(void)o;(void)p;(void)n;(void)w;abort();}
 int hfs_upload_commit(void) {abort();}
+int hfs_upload_remove(struct hfs_removal *s, unsigned n) {(void)s;(void)n;abort();}
 int hfs_upload_open(const char *p, uint32_t *s) {(void)p;(void)s;abort();}
 int hfs_upload_read(uint32_t o, void *p, unsigned n) {(void)o;(void)p;(void)n;abort();}
 bool file_exists(const char *p) {return access(p+1,F_OK)==0;}
