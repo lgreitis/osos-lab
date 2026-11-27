@@ -14,30 +14,12 @@ static const u32 palette[11] = {0xffffffff, 0xff202020, 0xff2688db, 0xffffffff,
                                 0xff555555, 0xff202020, 0xff1479d5, 0xff5da9eb,
                                 0xff53a6ee, 0xff2278cc, 0xff196bb8};
 
-void rvx_begin_draw(void *context, const int32_t *bounds, const struct rect *dirty)
+void rvx_begin_draw(void *context, const int32_t *bounds)
 {
     gc = context;
     left = bounds[1];
     top = bounds[0];
     area = (struct rect){0, 0, bounds[3] - left, bounds[2] - top};
-    if (dirty) {
-        int32_t *clip = (int32_t *)context + 0x34 / 4;
-        int x = dirty->x + left + ((int32_t *)context)[0x2c / 4];
-        int y = dirty->y + top + ((int32_t *)context)[0x30 / 4];
-        int r = x + dirty->w, b = y + dirty->h;
-        if (clip[0] < y)
-            clip[0] = y;
-        if (clip[1] < x)
-            clip[1] = x;
-        if (clip[2] > b)
-            clip[2] = b;
-        if (clip[3] > r)
-            clip[3] = r;
-        area.x = dirty->x;
-        area.y = dirty->y;
-        area.w = dirty->w;
-        area.h = dirty->h;
-    }
 }
 
 int rvx_colors(Pkg *p, const u32 *r)
@@ -338,9 +320,27 @@ static void card(int width, int h, const char *left_text, const char *right_text
              0xffffffff, right_text);
 }
 
+/* The context's clip is the region the firmware repaints, in surface
+ * coordinates: the view's, moved by the origin. Back in canvas coordinates
+ * and cut to the canvas; empty when the two do not meet. */
 static const struct rect *clip(void)
 {
-    return &area;
+    static struct rect part;
+    const int32_t *c = (const int32_t *)gc + 0x34 / 4;
+    int dx = ((const int32_t *)gc)[0x2c / 4] + left,
+        dy = ((const int32_t *)gc)[0x30 / 4] + top;
+    int y0 = c[0] - dy, x0 = c[1] - dx, y1 = c[2] - dy, x1 = c[3] - dx;
+    if (x0 < 0)
+        x0 = 0;
+    if (y0 < 0)
+        y0 = 0;
+    if (x1 > area.w)
+        x1 = area.w;
+    if (y1 > area.h)
+        y1 = area.h;
+    part = (struct rect){(int16_t)x0, (int16_t)y0, (int16_t)(x1 > x0 ? x1 - x0 : 0),
+                         (int16_t)(y1 > y0 ? y1 - y0 : 0)};
+    return &part;
 }
 const struct graphics rvx_graphics = {sizeof(struct graphics),
                                       color,

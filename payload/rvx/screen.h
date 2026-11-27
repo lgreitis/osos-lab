@@ -160,7 +160,6 @@ struct frame {
     struct cached_bitmap *bitmaps;
     uintptr_t *stock_methods;
     const uintptr_t *native_methods;
-    struct rect damage;
     int consumed, held_button, split;
 };
 extern struct frame *rvx_top;
@@ -170,7 +169,7 @@ extern void *rvx_bank;
 u32 rvx_pop_to_screen(u32 screen, u32 push_history, u32 skip_history, const void *next);
 extern const struct graphics rvx_graphics;
 void rvx_register_controller(void);
-void rvx_begin_draw(void *context, const int32_t *bounds, const struct rect *dirty);
+void rvx_begin_draw(void *context, const int32_t *bounds);
 int rvx_prepare_native(struct frame *, u32 *screen, u32 *layout);
 /* The shared canvas screen and its layout; 0 when it cannot be built. */
 int rvx_prepare_canvas(u32 *screen, u32 *layout);

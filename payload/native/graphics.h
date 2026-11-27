@@ -138,3 +138,13 @@ static inline void osos_ui_invalidate(void)
     if (root)
         ((invalidate_fn)OSOS_VIEW_INVALIDATE_RECT)(root, root + 0x80);
 }
+
+/* Invalidates one rectangle {top, left, bottom, right} in the root's space. */
+static inline void osos_ui_invalidate_rect(const int32_t *rect)
+{
+    typedef unsigned char *(*root_fn)(void);
+    typedef void (*invalidate_fn)(void *, const void *);
+    unsigned char *root = ((root_fn)OSOS_UI_ROOT_VIEW)();
+    if (root)
+        ((invalidate_fn)OSOS_VIEW_INVALIDATE_RECT)(root, rect);
+}
