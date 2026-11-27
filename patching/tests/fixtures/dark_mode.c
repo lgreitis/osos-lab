@@ -373,6 +373,11 @@ void cfw_rvx_flush(void)
 {
 }
 
+void cfw_recovery_prepare(void)
+{
+    boot_step('C');
+}
+
 void cfw_rvx_boot(void)
 {
     boot_step('R');
@@ -450,7 +455,7 @@ static void check_settings_lifecycle(void)
 {
     boot_count = 0;
     cfw_settings_boot(&native_preferences_object);
-    assert(!strcmp(boot_calls, "SEVRF"));
+    assert(!strcmp(boot_calls, "SCEVRF"));
     cfw_settings_sleep();
     assert(native_flushes == 1 && store_flushes == 2);
     unsigned before = delete_count;

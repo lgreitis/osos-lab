@@ -6,6 +6,7 @@
 #include "file_info.h"
 #include "osos.h"
 #include "patch.h"
+#include "recovery.h"
 #include "resources.h"
 #include "rvx/runtime.h"
 #include "store.h"
@@ -19,6 +20,7 @@ void cfw_settings_boot(void *preferences)
 {
     native_preferences = preferences;
     cfw_store_load();
+    cfw_recovery_prepare();
     cfw_eq_load_preferences();
     cfw_dark_mode_load();
     cfw_ui_visibility_load_preferences();
