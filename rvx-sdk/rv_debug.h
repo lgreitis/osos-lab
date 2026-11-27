@@ -29,7 +29,7 @@ struct rv_debug_info {
     const void *extensions; /* address of the pointer to the first record */
     uint16_t next, owner, file, live, peak, failure;
     const void *heap; /* Apple's MainHeap */
-    /* Turns the extension in /Revola/Extensions/<file>.rvx on or off as Settings >
+    /* Turns the extension in /Reprise/Extensions/<file>.rvx on or off as Settings >
      * Extensions does. UI task. */
     int (*set_enabled)(const char *file, int enabled);
     /* The arguments a filter on core site `site` (an RV_SITE_* id) receives:

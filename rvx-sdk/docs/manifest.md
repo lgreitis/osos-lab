@@ -11,7 +11,7 @@
 | `category` | where Settings > Extensions lists it: `effects`, `media`, `system`, `other`, or `library` for shared code |
 | `stability` | optional: `alpha`, `beta` or `stable`, the author's word |
 | `note` | optional: one line under the version, such as "Ported from Rockbox" |
-| `content` | optional: a folder under `/Revola/` the extension reads, or a list of them; one owner per folder |
+| `content` | optional: a folder under `/Reprise/` the extension reads, or a list of them; one owner per folder |
 | `[libraries]` | optional: `required` and `optional`, the ids of up to four library extensions in all whose functions the modules call; see [Libraries](modules.md#libraries) |
 | `exports` | a library's functions, by C name |
 | `[[module]]` | `name`, `trigger` (`always` for the first, `main`; `screen` with `screens`; `manual`), and `preload` for a module after main |

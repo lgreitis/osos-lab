@@ -18,7 +18,7 @@ manifest.toml:
                                  # content, nothing required, loaded while an extension
                                  # that lists it is
     note = "Adapted from X"      # optional: one line under the version, shown to listeners
-    content = "Themes"           # optional: a folder under /Revola/ the extension reads, or a
+    content = "Themes"           # optional: a folder under /Reprise/ the extension reads, or a
                                  # list of them; [A-Z][a-z0-9]{1,15}. One owner per folder: a
                                  # second enabled extension naming it does not load
     exports = ["rv_dsp_biquad"]  # the functions a library offers, by C name; rvx-pack reads
