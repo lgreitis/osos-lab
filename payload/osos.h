@@ -17,23 +17,10 @@ struct osos_string {
     char *data;
 };
 
-static inline void osos_string_init(struct osos_string *string, const char *text)
-{
-    typedef void (*fn)(struct osos_string *, const char *);
-    ((fn)OSOS_STRING_INIT)(string, text);
-}
-
 static inline void osos_string_destroy(struct osos_string *string)
 {
     typedef void (*fn)(struct osos_string *);
     ((fn)OSOS_STRING_DESTROY)(string);
-}
-
-/* Find or insert a name in the global resource-name map and return its ID slot. */
-static inline uint32_t *osos_resource_name_slot(const struct osos_string *name)
-{
-    typedef uint32_t *(*fn)(void *, const struct osos_string *);
-    return ((fn)OSOS_RESOURCE_NAME_SLOT)((void *)OSOS_RESOURCE_NAME_MAP, name);
 }
 
 /* Copy resource data into the bank's override map. */
