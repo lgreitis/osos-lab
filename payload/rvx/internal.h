@@ -137,6 +137,8 @@ void cfw_rvx_write(uintptr_t, u32);
 int rvx_storage_is_flash(const uint16_t *identify);
 /* Apple's memory policy, adjusted at boot (memory.c). */
 void rvx_memory_bind(void);
+/* Shares identical ArtworkDB thumbnail chains while the database loads (artwork.c). */
+void rvx_artwork_bind(void);
 
 u32 rvx_hash(const char *);
 int rvx_load(Pkg *, u32);

@@ -479,6 +479,7 @@ void cfw_rvx_boot(void)
         return;
     scanned = 1;
     rvx_memory_bind();
+    rvx_artwork_bind();
     scan(&rvx_packages, "/Reprise/Extensions");
     scan(&rvx_packages, "/Revola/Extensions");
     for (Pkg **link = &rvx_packages; *link;) {
