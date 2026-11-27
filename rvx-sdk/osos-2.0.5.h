@@ -1246,6 +1246,9 @@ int ScreenController_HandleEvent(void *controller, void *event);
 uint32_t ResourceScreen_Activate(void *controller, uint32_t entering);
 uint32_t ResourceScreen_Deactivate(void *controller, uint32_t leaving);
 int MenuItem_SetVisible(uint32_t item_id, uint32_t visible);
+void Navigator_PopToScreen(uint32_t screen_id, uint32_t push_history, uint32_t skip_history);
+void *Source_LoadDescriptors(uint32_t resource_id);
+void *TextMenuRow_Initialize(void *row, int submenu);
 void ContextMenuItems_Append(void *items, uint32_t item_id, const char *action,
                              uint32_t flags);
 void *ContextMenuItems_Init(void *items, uint8_t flag);
@@ -1486,6 +1489,7 @@ extern uint8_t NavigatorProperties[];
 extern void *const TextView_vtable[];
 extern void *const SelectedRowTextView_vtable[];
 extern void *const MenuList_vtable[];
+extern void *const TextMenuRow_vtable[];
 extern void *const MenuListModel_vtable[];
 extern void *const GLAlbumArtView_vtable[];
 extern uint8_t SelectionBar_RamGradient[2][4];
@@ -2597,6 +2601,8 @@ extern void *MediaArtworkProvider;
 #define ADDR_ResourceScreen_Activate 0x08398954
 #define ADDR_ResourceScreen_Deactivate 0x08398b6c
 #define ADDR_MenuItem_SetVisible 0x08194ff0
+#define ADDR_Source_LoadDescriptors 0x0817a50c
+#define ADDR_TextMenuRow_Initialize 0x0820f2c4
 #define ADDR_ContextMenuItems_Append 0x08162390
 #define ADDR_ContextMenuItems_Init 0x081624e8
 #define ADDR_ContextMenuItems_Destroy 0x0816250c
@@ -2853,6 +2859,7 @@ extern void *MediaArtworkProvider;
 #define ADDR_TextView_vtable 0x089af07c
 #define ADDR_SelectedRowTextView_vtable 0x08993504
 #define ADDR_MenuList_vtable 0x08992c60
+#define ADDR_TextMenuRow_vtable 0x0899b904
 #define ADDR_MenuListModel_vtable 0x08992c70
 #define ADDR_GLAlbumArtView_vtable 0x08990618
 #define ADDR_SelectionBar_RamGradient 0x089d4ee8
@@ -3051,6 +3058,7 @@ extern void *MediaArtworkProvider;
 #define SITE_TrackCount_0810897c_word 0x0810897c
 #define SITE_TrackCount_0816ebc4_word 0x0816ebc4
 #define SITE_TrackCount_0829c884_word 0x0829c884
+#define SITE_MenuItem_SetVisible_branch 0x0827e3a8
 #define SITE_ProgressBar_Draw_slot 0x0899a450
 #define SITE_ProgressBarStyle8_Draw_slot 0x0899abf8
 #define SITE_ProgressBar_DrawMarkers_slot 0x0899a514
@@ -3089,6 +3097,7 @@ extern void *MediaArtworkProvider;
 #define SITE_ContextMenuModel_Property_slot 0x08997648
 #define SITE_ContextMenuModel_IndexedProperty_slot 0x08997664
 #define SITE_ContextMenu_ScreenActionCompare_call 0x081de7b0
+#define SITE_NavigatorAction_PopToScreen_call 0x08129bc4
 #define SITE_CoverFlow_ClearColor_call 0x08138304
 #define SITE_AlbumArt_ClearColor_call 0x08164230
 #define SITE_SongList_CancelAppend_call 0x082195ec

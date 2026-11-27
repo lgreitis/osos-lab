@@ -3,6 +3,7 @@
 #pragma once
 
 #define RV_SITE_Preferences_LoadFile_call 0x45b7a111
+#define RV_SITE_MenuItem_SetVisible_branch 0x9c27e8b1
 #define RV_SITE_ResourceBlockList_AppendBorrowedBlock_call 0x6a870ad1
 #define RV_SITE_Settings_Property_slot 0x7986a911
 #define RV_SITE_Settings_IndexedProperty_slot 0x34f2f35c
@@ -78,6 +79,7 @@
 #define RV_SITE_USB_DispatchNoDataRequest_call 0xe33b3715
 #define RV_SITE_DiskClient_Yield_slot 0x0321740a
 #define RV_SITE_DiskModeExit_PopToMainScreen_call 0x5b4b8520
+#define RV_SITE_NavigatorAction_PopToScreen_call 0xc8e9acee
 /* Upstream ID, unsupported on RepriseOS 2.0.5. */
 #define RV_SITE_IRQ_Dispatch_entry 0x3b916f07
 #define RV_SITE_TextView_DrawString_entry 0x52587f80
