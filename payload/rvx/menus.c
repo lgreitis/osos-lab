@@ -1130,3 +1130,15 @@ void rvx_setting_updated(Pkg *p, uint16_t key)
         }
     core_panes_setting_changed(p, key);
 }
+
+/* After Reset All Settings: the rows a setting shows and the values rows
+ * show follow the fallbacks. */
+void rvx_menus_settings_reset(void)
+{
+    for (struct installed *i = installed; i; i = i->next) {
+        if (i->entry->shown)
+            rvx_setting_updated(i->pkg, i->entry->shown);
+        if (i->entry->row.kind == RV_ROW_KIND_SETTING)
+            rvx_setting_updated(i->pkg, i->entry->row.key);
+    }
+}

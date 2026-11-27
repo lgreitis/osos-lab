@@ -102,6 +102,30 @@ static int strings_valid(Pkg *p, unsigned off, unsigned count)
     return 1;
 }
 
+/* Content folder names: a capital, then 1 to 15 lower-case letters or digits,
+ * none of the runtime's own folders under /Reprise. */
+static int content_valid(Pkg *p, unsigned off, unsigned count)
+{
+    static const char *const own[] = {"Extensions", "Data", "Settings", "Firmware",
+                                      "Crashes"};
+    while (count--) {
+        const char *folder = p->strings + off;
+        unsigned n = 0;
+        if (*folder < 'A' || *folder > 'Z')
+            return 0;
+        for (const char *c = folder + 1; *c; c++, n++)
+            if (!((*c >= 'a' && *c <= 'z') || (*c >= '0' && *c <= '9')))
+                return 0;
+        if (n < 1 || n > 15)
+            return 0;
+        for (unsigned i = 0; i < sizeof own / sizeof own[0]; i++)
+            if (cfw_string_equal(folder, own[i]))
+                return 0;
+        off += n + 2;
+    }
+    return 1;
+}
+
 static int inspect(Pkg *p, void *f)
 {
     struct rvx_header h;
@@ -143,6 +167,7 @@ static int inspect(Pkg *p, void *f)
     if (table >= h.manifest_bytes || m->strings != h.manifest_bytes - table ||
         p->strings[m->strings - 1] || !strings_valid(p, m->text[0], 1) ||
         !strings_valid(p, m->content, m->content_count) ||
+        !content_valid(p, m->content, m->content_count) ||
         !strings_valid(p, m->libraries, m->library_count))
         return 0;
     const char *id = p->strings + m->text[0];
@@ -453,8 +478,7 @@ static int start(Pkg *p)
         while (*s++) {
         }
     }
-    if (!rvx_preload_assets(p))
-        goto failed;
+    rvx_preload_assets(p);
     if (rvx_load_module(p, 0) != OK)
         goto failed;
     for (u32 i = 1; i < p->manifest->modules; i++)

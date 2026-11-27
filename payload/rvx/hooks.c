@@ -273,29 +273,36 @@ static void remove_binding(struct chain *c, struct binding **it)
         cfw_rvx_write(c->address, c->previous);
 }
 
+/* 1 when `h` is one of the hooks a loaded module of `p` declares. */
+static int declared(Pkg *p, const struct rvx_hook *h)
+{
+    for (unsigned j = 0; j < p->manifest->modules; j++) {
+        const struct rvx_descriptor *d = p->modules[j].desc;
+        if (d && (uintptr_t)h - (uintptr_t)d->hooks < d->count * sizeof *h)
+            return 1;
+    }
+    return 0;
+}
+
+/* Only hooks bound through hook_bind unbind; a module's declared ones stay
+ * until it unloads. */
 int rvx_unbind(Pkg *p, const struct rvx_hook *h)
 {
     if (!p || !h)
         return BAD_ARGUMENT;
-    for (unsigned j = 0; j < p->manifest->modules; j++) {
-        const struct rvx_descriptor *d = p->modules[j].desc;
-        if (d && (uintptr_t)h - (uintptr_t)d->hooks < d->count * sizeof *h)
-            return NOT_BOUND;
-    }
+    if (declared(p, h))
+        return NOT_BOUND;
+    /* The binding of this site and handler, whatever struct named them. */
     u32 irq = cfw_rvx_lock();
-    int result = NOT_BOUND;
-    for (unsigned i = 0; i < SLOTS; i++) {
-        struct chain *c = rvx_chains[i];
-        if (!c)
-            continue;
-        for (struct binding **it = &c->head; *it; it = &(*it)->next)
-            if ((*it)->pkg == p && (*it)->hook == h) {
-                remove_binding(c, it);
-                result = OK;
-                goto done;
-            }
-    }
-done:
+    struct site site;
+    int slot = locate(p, h->site, &site), result = slot < 0 ? BAD_ARGUMENT : NOT_BOUND;
+    struct chain *c = slot < 0 ? NULL : rvx_chains[slot];
+    for (struct binding **it = c ? &c->head : NULL; it && *it; it = &(*it)->next)
+        if ((*it)->pkg == p && (*it)->fn == h->value && !declared(p, (*it)->hook)) {
+            remove_binding(c, it);
+            result = OK;
+            break;
+        }
     cfw_rvx_unlock(irq);
     return result;
 }

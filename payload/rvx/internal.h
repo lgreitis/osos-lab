@@ -224,9 +224,10 @@ void rvx_release_screen(Pkg *p, u32 index);
 void *rvx_bitmap_load(Pkg *, const char *, u32 *);
 uint32_t rvx_stock_view(uint32_t view);
 
-int rvx_preload_assets(Pkg *);
+void rvx_preload_assets(Pkg *);
 
 void rvx_forget_provider(Pkg *, const void *, u32);
 void rvx_forget_colors(Pkg *, const void *, u32);
 int rvx_decode(const uint8_t *, u32, uint8_t *, u32);
 void rvx_setting_updated(Pkg *, uint16_t);
+void rvx_menus_settings_reset(void);

@@ -35,6 +35,9 @@ static int build_path(Pkg *p, const char *name, int content, int folder,
             return 0;
         if (!*s || *s == '/') {
             unsigned n = s - part;
+            /* A trailing "/" ends the name like its end does. */
+            if (!*s && !n && part != name)
+                break;
             if (!n || (part[0] == '.' && (n == 1 || (n == 2 && part[1] == '.'))))
                 return 0;
             if (!*s)
@@ -46,8 +49,9 @@ static int build_path(Pkg *p, const char *name, int content, int folder,
         const char *s = p->strings + p->manifest->content;
         unsigned i;
         for (i = 0; i < p->manifest->content_count; i++) {
+            /* FAT returns names in either case. */
             unsigned j = 0;
-            while (s[j] && s[j] == name[j])
+            while (s[j] && (s[j] | 32) == (name[j] | 32))
                 j++;
             if (!s[j] && (!name[j] || name[j] == '/'))
                 break;
@@ -330,7 +334,8 @@ void *rvx_asset_load(Pkg *p, const char *name, u32 *bytes)
     return out;
 }
 
-int rvx_preload_assets(Pkg *p)
+/* An asset that cannot be kept in memory stays on disk and is read when used. */
+void rvx_preload_assets(Pkg *p)
 {
     for (u32 i = p->manifest->modules; i < p->entries; i++) {
         if (p->catalog[i].preload != 0)
@@ -338,20 +343,23 @@ int rvx_preload_assets(Pkg *p)
         if (!p->preloaded)
             p->preloaded = rvx_alloc(p, p->entries * sizeof(void *));
         if (!p->preloaded)
-            return 0;
+            return;
         const struct entry *e = p->catalog + i;
         uint8_t *data = rvx_alloc(p, e->stored);
         File *f;
-        if (!data || rvx_open_entry(p, e, &f) != OK)
-            return 0;
-        u32 got;
-        int status = rvx_file_read(p, f, data, e->stored, &got);
-        rvx_file_close(p, f);
-        if (status != OK || got != e->stored)
-            return 0;
-        p->preloaded[i] = data;
+        if (!data)
+            continue;
+        u32 got = 0;
+        int status = rvx_open_entry(p, e, &f);
+        if (status == OK) {
+            status = rvx_file_read(p, f, data, e->stored, &got);
+            rvx_file_close(p, f);
+        }
+        if (status == OK && got == e->stored)
+            p->preloaded[i] = data;
+        else
+            rvx_free(p, data);
     }
-    return 1;
 }
 
 struct stream {

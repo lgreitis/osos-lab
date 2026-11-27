@@ -5,8 +5,11 @@
 #include "osos.h"
 #include "patch.h"
 
+/* A block an extension holds: linked both ways on its owner's list, so a free
+ * unlinks it without a walk, 16 bytes so the data stays 8-byte aligned. */
 struct rvx_block {
-    struct rvx_block *next;
+    struct rvx_block *next, **link;
+    Pkg *owner;
     u32 bytes;
 };
 
@@ -20,73 +23,134 @@ void *rvx_alloc(Pkg *p, u32 bytes)
     struct rvx_block *b = osos_import_alloc(sizeof *b + bytes);
     if (!b)
         return NULL;
+    b->owner = p;
     b->bytes = bytes;
+    /* Masked: an extension may allocate and free on the USB task. */
+    u32 irq = cfw_rvx_lock();
     b->next = *heap;
+    b->link = heap;
+    if (b->next)
+        b->next->link = &b->next;
     *heap = b;
+    cfw_rvx_unlock(irq);
     return b + 1;
 }
 
 void rvx_free(Pkg *p, void *data)
 {
-    for (struct rvx_block **it = p ? &p->heap : &core_heap; *it; it = &(*it)->next) {
-        struct rvx_block *b = *it;
-        if (b + 1 == data) {
-            *it = b->next;
-            if (p) {
-                rvx_forget_colors(p, data, b->bytes);
-                rvx_forget_provider(p, data, b->bytes);
-            }
-            osos_import_free(b);
-            return;
-        }
+    struct rvx_block *b = data ? (struct rvx_block *)data - 1 : NULL;
+    if (!b || b->owner != p || !b->link)
+        return;
+    u32 irq = cfw_rvx_lock();
+    *b->link = b->next;
+    if (b->next)
+        b->next->link = b->link;
+    b->link = NULL;
+    cfw_rvx_unlock(irq);
+    if (p) {
+        rvx_forget_colors(p, data, b->bytes);
+        rvx_forget_provider(p, data, b->bytes);
     }
+    osos_import_free(b);
 }
 
+/* Extension timers: each is its own recipient, a native timer and the
+ * callback. A stopped timer stays allocated for two grace ticks, because an
+ * event it posted before the stop may still be in the queue; the grace timer
+ * runs only while a stopped one waits. */
 struct rvx_timer {
-    const void *vtable;
-    u32 native[11];
+    const void *vtable; /* the recipient's: only the event slot */
+    u32 native[EventTimer_bytes / 4];
     struct rvx_timer *next;
     Pkg *pkg;
-    void (*callback)(void *);
+    void (*callback)(void *); /* NULL once stopped */
     void *arg;
-    int repeat, firing, cancelled;
+    uint8_t repeat, retiring; /* grace ticks left before it is freed */
 };
 
 typedef void (*TimerOp)(void *);
+typedef void (*TimerInit)(void *, void *, u32, void *);
+
+enum { GRACE_MS = 1000 };
+static struct {
+    const void *vtable;
+} grace;
+static u32 grace_timer[EventTimer_bytes / 4];
+static uint8_t grace_ready, grace_armed;
+
+static void arm_grace(void)
+{
+    if (!grace_ready) {
+        ((TimerInit)ADDR_UI_InitializeEventTimer)(&grace, grace_timer, GRACE_MS, NULL);
+        ((void (*)(void *, u32))ADDR_Timer_SetPeriod)(grace_timer, GRACE_MS);
+        grace_ready = 1;
+    }
+    if (!grace_armed) {
+        ((TimerOp)ADDR_Timer_Start)(grace_timer);
+        grace_armed = 1;
+    }
+}
+
+static PATCH_ARM u32 grace_event(void *self, const uint8_t *event)
+{
+    (void)self;
+    if (!event || RV_FIELD(event, Event_kind, u32) != Event_Timer)
+        return 0;
+    int waiting = 0;
+    grace_armed = 0;
+    for (Pkg *p = rvx_packages; p; p = p->next)
+        for (struct rvx_timer **link = &p->timers; *link;) {
+            struct rvx_timer *t = *link;
+            if (t->retiring && --t->retiring == 0) {
+                *link = t->next;
+                osos_import_free(t);
+                continue;
+            }
+            waiting |= t->retiring != 0;
+            link = &t->next;
+        }
+    if (waiting)
+        arm_grace();
+    return 1;
+}
+
+static const void *const grace_vtable[EventRecipient_event_method / 4 + 1] = {
+    [EventRecipient_event_method / 4] = grace_event};
 
 static void stop(Pkg *p, struct rvx_timer *t)
 {
     if (!t)
         return;
-    struct rvx_timer **it = &p->timers;
-    while (*it && *it != t)
-        it = &(*it)->next;
-    if (!*it)
+    struct rvx_timer *it = p->timers;
+    while (it && it != t)
+        it = it->next;
+    if (!it || t->retiring)
         return;
-    ((TimerOp)0x081219d0)(t->native);
-    if (t->firing) {
-        t->cancelled = 1;
-        return;
-    }
-    *it = t->next;
-    osos_import_free(t);
+    ((TimerOp)ADDR_Timer_Stop)(t->native);
+    t->callback = NULL;
+    t->retiring = 2;
+    grace.vtable = grace_vtable;
+    arm_grace();
 }
 
-static PATCH_ARM u32 event(struct rvx_timer *t, const void *event)
+/* A repeating timer is armed again before its callback runs, so the period
+ * does not drift by the callback's time. */
+static PATCH_ARM u32 event(struct rvx_timer *t, const uint8_t *event)
 {
-    if (!event || ((const u32 *)event)[1] != 15)
+    if (!event || RV_FIELD(event, Event_kind, u32) != Event_Timer)
         return 0;
-    t->firing = 1;
-    t->callback(t->arg);
-    t->firing = 0;
-    if (!t->repeat || t->cancelled)
+    void (*callback)(void *) = t->callback;
+    if (callback && t->repeat)
+        ((TimerOp)ADDR_Timer_Start)(t->native);
+    else if (!t->retiring)
         stop(t->pkg, t);
-    else
-        ((TimerOp)0x08121268)(t->native);
+    if (callback)
+        callback(t->arg);
     return 1;
 }
 
-static const void *const timer_vtable[13] = {[12] = event};
+static const void *const timer_vtable[EventRecipient_event_method / 4 + 1] = {
+    [EventRecipient_event_method / 4] = event};
 
 static struct rvx_timer *timer_start(Pkg *p, u32 ms, int repeat, void (*cb)(void *),
                                      void *arg)
@@ -100,13 +164,13 @@ static struct rvx_timer *timer_start(Pkg *p, u32 ms, int repeat, void (*cb)(void
     t->pkg = p;
     t->callback = cb;
     t->arg = arg;
-    t->repeat = repeat;
+    t->repeat = repeat != 0;
+    t->retiring = 0;
     t->next = p->timers;
     p->timers = t;
-    typedef void (*Init)(void *, void *, u32, void *);
-    ((Init)0x0810635c)(t, t->native, ms, NULL);
-    ((void (*)(void *, u32))0x0812195c)(t->native, ms);
-    ((TimerOp)0x08121268)(t->native);
+    ((TimerInit)ADDR_UI_InitializeEventTimer)(t, t->native, ms, NULL);
+    ((void (*)(void *, u32))ADDR_Timer_SetPeriod)(t->native, ms);
+    ((TimerOp)ADDR_Timer_Start)(t->native);
     return t;
 }
 
@@ -114,7 +178,8 @@ void rvx_stop_timers(Pkg *p, const struct rvx_module *m)
 {
     for (struct rvx_timer *t = p->timers, *next; t; t = next) {
         next = t->next;
-        if (!m || (uintptr_t)t->callback - (uintptr_t)m->image < m->text)
+        if (t->callback &&
+            (!m || (uintptr_t)t->callback - (uintptr_t)m->image < m->text))
             stop(p, t);
     }
 }
