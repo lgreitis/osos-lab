@@ -18,7 +18,14 @@ UPLOAD_CONFIG_QUALIFIER struct upload_config upload_config = {.tag = "REPRISE-UP
 /* The file being handled: the image config first, then each NEXT request. */
 static struct upload_config current;
 static int fd = -1;
-static bool hfs, mounted, writes_enabled, closed;
+static bool hfs, mounted, writes_enabled, closed, more;
+
+/* HFS+ files staged since the last publish, read back after it. */
+static struct {
+    char path[192];
+    uint32_t size;
+    uint8_t sha256[32];
+} batch[HFS_BATCH];
 static uint64_t data_start, data_end;
 static char temporary[64];
 static struct sha256 hash;
@@ -70,6 +77,8 @@ void upload_close(void)
     if (closed)
         return;
     closed = true;
+    if (hfs_upload_staged())
+        upload_fail(-318);
     if (fd >= 0) {
         int result = close(fd);
         fd = -1;
@@ -117,12 +126,20 @@ static void prepare_file(void)
     UPLOAD_RESULT->state = 1;
 }
 
+/* Split the batch bit off the mode: only uploads take it. */
+static bool take_mode(void)
+{
+    more = current.overwrite & UPLOAD_MORE;
+    current.overwrite &= ~UPLOAD_MORE;
+    return !more || current.overwrite <= 1;
+}
+
 static bool load_config(void)
 {
     const volatile uint8_t *source = (const volatile uint8_t *)&upload_config;
     for (unsigned i = 0; i < sizeof(current); ++i)
         ((uint8_t *)&current)[i] = source[i];
-    if (current_valid() && current.overwrite <= 3)
+    if (current_valid() && take_mode() && current.overwrite <= 3)
         return true;
     upload_fail(-302);
     return false;
@@ -399,7 +416,7 @@ void upload_next(const struct upload_config *next)
     UPLOAD_RESULT->rejected = 0;
     memset(UPLOAD_RESULT->source_sha256, 0, sizeof(UPLOAD_RESULT->source_sha256));
     memset(UPLOAD_RESULT->disk_sha256, 0, sizeof(UPLOAD_RESULT->disk_sha256));
-    if (!current_valid() || current.overwrite > 1) {
+    if (!current_valid() || !take_mode() || current.overwrite > 1) {
         upload_fail(-302);
         return;
     }
@@ -567,13 +584,19 @@ void upload_verify_step(void)
         return;
     }
     if (hfs) {
-        int rc = hfs_upload_commit();
+        unsigned staged = hfs_upload_staged();
+        memcpy(batch[staged - 1].path, UPLOAD_RESULT->path, sizeof(batch[0].path));
+        batch[staged - 1].size = current.size;
+        memcpy(batch[staged - 1].sha256, UPLOAD_RESULT->source_sha256, 32);
+        int rc = more ? 0 : hfs_upload_commit();
         writes_enabled = false;
+        for (unsigned i = 0; !more && !rc && i < staged; ++i)
+            if (readback(batch[i].path, batch[i].size, batch[i].sha256)) {
+                memcpy(UPLOAD_RESULT->path, batch[i].path, sizeof(UPLOAD_RESULT->path));
+                rc = -317;
+            }
         if (rc)
             upload_fail(rc);
-        else if (readback(UPLOAD_RESULT->path, current.size,
-                          UPLOAD_RESULT->source_sha256))
-            upload_fail(-317);
         else
             UPLOAD_RESULT->state = 4;
         return;

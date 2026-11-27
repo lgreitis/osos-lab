@@ -113,7 +113,8 @@ static void report_traffic(void)
                 (unsigned long long)written_bytes);
 }
 
-/* hfs-test IMAGE install|keep|inspect|remove [LOCAL=/ipod/path ...]
+/* hfs-test IMAGE install|keep|batch|staged|inspect|remove [LOCAL=/ipod/path ...]
+ * batch marks every file but the last with UPLOAD_MORE, staged every file.
  * Prints one result line per request and one for the end of the session when
  * that changes the result.
  * hfs-test IMAGE drop ROOT... calls hfs_upload_remove with the roots, a folder
@@ -130,10 +131,13 @@ int main(int argc, char **argv)
     bool drop = !strcmp(mode, "drop");
     unsigned overwrite = !strcmp(mode, "inspect") || drop ? 2 : !strcmp(mode, "remove") ? 3 :
                          !strcmp(mode, "keep") ? 0 : 1;
+    bool staged = !strcmp(mode, "staged"), batch = staged || !strcmp(mode, "batch");
     uint8_t *data = NULL;
     struct upload_config c;
     if (argc > 3 && !drop) {
         configure(&c, argv[3], overwrite, &data);
+        if (batch && (staged || argc > 4))
+            c.overwrite |= UPLOAD_MORE;
     } else {
         memset(&c, 0, sizeof(c));
         c.overwrite = overwrite;
@@ -175,6 +179,8 @@ int main(int argc, char **argv)
         if (i > 3) {
             free(data);
             configure(&c, argv[i], overwrite, &data);
+            if (batch && (staged || i < argc - 1))
+                c.overwrite |= UPLOAD_MORE;
             upload_next(&c);
         }
         if (test_result.state == 1) {
@@ -927,6 +933,87 @@ extern struct storage_result test_storage;
             seen.add(size == len(new))
             self.assertRegex(self.helper("inspect")[0], r"^rc=0 existing=3 ", cut)
         self.assertEqual(seen, {False, True})
+
+    def test_batch_publishes_once_and_reads_back(self):
+        before = self.write_count()
+        files = [
+            ("/Reprise/Firmware/loader.bin", os.urandom(129025)),
+            ("/Reprise/Firmware/reprise.bin", os.urandom(300007)),
+            ("/Reprise/Extensions/b.rvx", os.urandom(5000)),
+            ("/Reprise/Extensions/A.rvx", os.urandom(4000)),
+            ("/Reprise/Games/2048/game.bin", b""),
+            ("/Reprise/Games/2048/state/x.bin", b"x"),
+            ("/notes-2.txt", b"n"),
+        ]
+        self.assertEqual(self.helper("batch", files), [f"rc=0 {p}" for p, _ in files])
+        self.assertEqual(self.write_count(), before + 1)
+        again = [
+            ("/Reprise/Firmware/reprise.bin", os.urandom(7000)),
+            ("/Reprise/Extensions/c.rvx", b"c"),
+            ("/Reprise/Firmware/loader.bin", os.urandom(130000)),
+        ]
+        self.assertEqual(self.helper("batch", again), [f"rc=0 {p}" for p, _ in again])
+        self.assertEqual(self.write_count(), before + 2)
+        expected = dict(files) | dict(again) | self.library
+        with MountedVolume(self, self.disk) as mount:
+            for path, data in expected.items():
+                self.assertEqual((mount / path.lstrip("/")).read_bytes(), data, path)
+
+    def test_power_cut_in_a_batch_keeps_all_or_nothing(self):
+        self.install()
+        installed = self.disk.read_bytes()
+        files = [
+            ("/Reprise/Firmware/reprise.bin", os.urandom(9000)),
+            ("/Reprise/New/a.bin", os.urandom(3000)),
+            ("/Reprise/New/b.bin", b"b"),
+        ]
+        command = [self.root / "hfs-test", self.disk, "batch", *self.items(files)]
+        counted = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=dict(os.environ, HFS_TEST_COUNT="1"),
+        )
+        writes = int(counted.stderr.split()[0].split("=")[1])
+        seen = set()
+        for cut in range(1, writes + 1):
+            self.disk.write_bytes(installed)
+            rc = subprocess.run(
+                command,
+                capture_output=True,
+                env=dict(os.environ, HFS_TEST_CUT=str(cut)),
+            ).returncode
+            self.assertEqual(rc, 3, cut)
+            with RawVolume(self.disk) as volume:
+                state = [volume.size(path) for path, _ in files]
+                self.assertIn(
+                    state, ([3 * 1024 * 1024 + 7, None, None], [9000, 3000, 1])
+                )
+                if not volume.check():
+                    volume.repair()
+                    self.assertTrue(volume.check(), cut)
+                    self.assertEqual([volume.size(path) for path, _ in files], state)
+            seen.add(state[0] == 9000)
+            self.assertRegex(self.helper("inspect")[0], r"^rc=0 existing=3 ", cut)
+        self.assertEqual(seen, {False, True})
+
+    def test_batch_limits(self):
+        many = [(f"/Reprise/Many/f{i}.bin", b"x") for i in range(65)]
+        result = self.helper("batch", many)
+        self.assertEqual(result[:64], [f"rc=0 {p}" for p, _ in many[:64]])
+        self.assertEqual(result[64:], ["rc=-324 /Reprise/Many/f64.bin"])
+        twice = [("/Reprise/a.bin", b"1"), ("/Reprise/A.BIN", b"2")]
+        self.assertEqual(
+            self.helper("batch", twice),
+            ["rc=0 /Reprise/a.bin", "rc=-324 /Reprise/A.BIN"],
+        )
+        self.assertEqual(
+            self.helper("staged", [("/Reprise/a.bin", b"1")]),
+            ["rc=0 /Reprise/a.bin", "rc=-318 close"],
+        )
+        with MountedVolume(self, self.disk) as mount:
+            self.assertFalse((mount / "Reprise").exists())
 
     def test_reused_catalog_node_ids_are_refused(self):
         disk = bytearray(self.base)

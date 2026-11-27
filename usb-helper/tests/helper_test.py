@@ -103,6 +103,7 @@ int hfs_upload_exists(const char *p) {(void)p;abort();}
 int hfs_upload_plan(const char *p, uint32_t s, bool o) {(void)p;(void)s;(void)o;abort();}
 int hfs_upload_data(uint32_t o, void *p, unsigned n, bool w) {(void)o;(void)p;(void)n;(void)w;abort();}
 int hfs_upload_commit(void) {abort();}
+unsigned hfs_upload_staged(void) {return 0;}
 int hfs_upload_remove(struct hfs_removal *s, unsigned n) {(void)s;(void)n;abort();}
 int hfs_upload_open(const char *p, uint32_t *s) {(void)p;(void)s;abort();}
 int hfs_upload_read(uint32_t o, void *p, unsigned n) {(void)o;(void)p;(void)n;abort();}

@@ -6,9 +6,16 @@
 int hfs_upload_mount(uint64_t sectors, uint64_t *start, uint64_t *end,
                      uint64_t *free_bytes);
 int hfs_upload_exists(const char *path);
+/* Files one publish takes. */
+#define HFS_BATCH 64
+/* Stage a file: its data goes to free blocks through hfs_upload_data, and
+ * hfs_upload_commit publishes every staged file in one catalog rebuild. */
 int hfs_upload_plan(const char *path, uint32_t size, bool overwrite);
+/* Data of the file staged last. */
 int hfs_upload_data(uint32_t pos, void *data, unsigned len, bool write);
 int hfs_upload_commit(void);
+/* Files staged and not yet published. */
+unsigned hfs_upload_staged(void);
 /* Roots one removal takes. */
 #define HFS_REMOVE_ROOTS 16
 

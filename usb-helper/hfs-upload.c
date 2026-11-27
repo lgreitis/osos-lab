@@ -6,8 +6,9 @@
 #include "hfs-upload.h"
 #include "reader.h"
 
-/* Only the primary volume header publishes a file. Until then, the new file,
- * catalog and allocation bitmap all occupy previously free blocks. */
+/* Only the primary volume header publishes files. Until then, the staged
+ * files, the new catalog and the new allocation bitmap all occupy previously
+ * free blocks. */
 #define NODE_LIMIT 32768
 #define IO_BYTES 16384
 #define NO_SPACE (-322)
@@ -22,7 +23,7 @@
 
 static struct hfs_volume vol;
 static struct hfs_disk disk;
-static uint8_t header[512], fresh_data[80], fresh_cat[80], fresh_map[80], replaced[80];
+static uint8_t header[512], fresh_cat[80], fresh_map[80];
 /* The B-tree visit_leaves reads and the node writers build: the catalog, or
  * the attributes file while a removal rebuilds it. */
 static uint8_t fresh_attr[80], retired_attr[80];
@@ -234,12 +235,27 @@ int hfs_upload_mount(uint64_t sectors, uint64_t *start, uint64_t *end,
     return 0;
 }
 
+/* A file written since the last publish: its new data fork and, when it
+ * replaces a file, that file's ID and old data fork. */
+struct staged {
+    uint8_t data[80], replaced[80];
+    uint32_t replaces;
+};
+static struct staged staged[HFS_BATCH];
+static unsigned staged_count;
+
 struct item {
     uint32_t parent, id;
     char *name;
     bool folder, create;
+    const struct staged *file;
 };
 static struct item path_items[MAX_COMPONENTS];
+/* The folders and files the staged uploads create. */
+#define CREATE_LIMIT (HFS_BATCH * MAX_COMPONENTS)
+static struct item created[CREATE_LIMIT];
+static char created_names[HFS_BATCH * 192];
+static unsigned created_count, names_used;
 static char path_buf[192];
 static unsigned path_count;
 static uint32_t next_cnid;
@@ -299,8 +315,8 @@ static int walk_path(const char *path, bool create, bool folder, const uint8_t *
         return UNSUPPORTED;
     memcpy(path_buf, path + 1, len);
     uint32_t parent = ROOT_FOLDER;
+    bool pending = false; /* parent is created by the staged uploads */
     path_count = 0;
-    next_cnid = u32(header + 64);
     for (char *name = path_buf;;) {
         char *slash = strchr(name, '/');
         if (slash)
@@ -308,23 +324,36 @@ static int walk_path(const char *path, bool create, bool folder, const uint8_t *
         if (!*name || path_count == MAX_COMPONENTS)
             return UNSUPPORTED;
         const uint8_t *v = NULL;
-        int rc = 0;
-        /* Nothing exists below a folder that is still to be created. */
-        if (!path_count || !path_items[path_count - 1].create)
-            rc = found(hfs_find_record(&vol, header + CATALOG, parent, name,
-                                       strlen(name), &v, old_node, sizeof(old_node)));
-        if (rc < 0)
-            return rc;
-        unsigned type = rc ? u16(v) : 0;
+        const struct item *c = NULL;
+        unsigned type = 0;
+        uint32_t id = 0;
+        for (unsigned i = 0; i < created_count && !c; ++i)
+            if (created[i].parent == parent && !strcasecmp(created[i].name, name))
+                c = &created[i];
+        if (c) {
+            type = c->folder ? 1 : 2;
+            id = c->id;
+        } else if (!pending) {
+            int rc =
+                found(hfs_find_record(&vol, header + CATALOG, parent, name,
+                                      strlen(name), &v, old_node, sizeof(old_node)));
+            if (rc < 0)
+                return rc;
+            type = rc ? u16(v) : 0;
+            id = rc ? u32(v + 8) : 0;
+        }
         if (type && type != (slash || folder ? 1u : 2u))
             return create ? UNSUPPORTED : 0;
+        if (c && !slash) /* the same file twice in one batch */
+            return UNSUPPORTED;
         if (!type && !create)
             return 0;
         if (!type && (next_cnid < 16 || next_cnid == UINT32_MAX))
             return UNSUPPORTED;
+        pending = c || !type;
         struct item *p = &path_items[path_count++];
-        *p = (struct item){parent, type ? u32(v + 8) : next_cnid++, name, slash != NULL,
-                           !type};
+        *p = (struct item){parent, type ? id : next_cnid++, name, slash != NULL, !type,
+                           NULL};
         parent = p->id;
         if (!slash) {
             if (value)
@@ -392,8 +421,9 @@ static int alloc_fork(uint8_t *fork, uint64_t bytes)
         uint32_t next = block;
         if (bits & (128u >> (block & 7)))
             next = bits == 255 ? block + MIN(8 - (block & 7), end - block) : block + 1;
-        if (fork != fresh_data)
-            next = MAX(next, reserved_until(fresh_data, block));
+        for (unsigned i = 0; i < staged_count; ++i)
+            if (fork != staged[i].data)
+                next = MAX(next, reserved_until(staged[i].data, block));
         if (fork == fresh_map || fork == fresh_attr)
             next = MAX(next, reserved_until(fresh_cat, block));
         if (fork == fresh_map)
@@ -424,19 +454,19 @@ static int alloc_fork(uint8_t *fork, uint64_t bytes)
     return needed ? NO_SPACE : 0;
 }
 
-/* Reset the allocation state and allocate the fresh data fork, catalog of
- * growth times the used nodes plus extra, attributes file when asked, and
- * bitmap, in that order, from blocks the current bitmap marks free. */
-static int prepare_copies(unsigned growth, unsigned extra, uint64_t data_bytes,
-                          bool attributes)
+static void start_allocation(void)
 {
     map_valid = 0;
     alloc_cursor = 0;
     used_blocks = freed_blocks = 0;
-    memset(replaced, 0, sizeof(replaced));
     memset(fresh_attr, 0, sizeof(fresh_attr));
     memset(retired_attr, 0, sizeof(retired_attr));
     attr_free_count = 0;
+}
+
+/* Bytes of a catalog copy holding growth times the used nodes plus extra. */
+static int catalog_bytes(unsigned growth, unsigned extra, uint64_t *bytes)
+{
     if (!catalog_node(header + CATALOG, 0, child))
         return BAD_IO;
     uint32_t free_nodes = u32(child + 40);
@@ -445,9 +475,16 @@ static int prepare_copies(unsigned growth, unsigned extra, uint64_t data_bytes,
     uint64_t nodes = (uint64_t)(original_nodes - free_nodes) * growth + extra;
     if (nodes > UINT32_MAX || nodes * node_size > vol.bytes)
         return NO_SPACE;
-    int rc = alloc_fork(fresh_data, data_bytes);
-    uint64_t cat_bytes =
-        (nodes * node_size + vol.block_size - 1) & ~((uint64_t)vol.block_size - 1);
+    *bytes = (nodes * node_size + vol.block_size - 1) & ~((uint64_t)vol.block_size - 1);
+    return 0;
+}
+
+/* Allocate the catalog copy, the attributes file when asked, and the bitmap,
+ * in that order, from blocks the current bitmap marks free. */
+static int prepare_copies(unsigned growth, unsigned extra, bool attributes)
+{
+    uint64_t cat_bytes;
+    int rc = catalog_bytes(growth, extra, &cat_bytes);
     if (!rc)
         rc = alloc_fork(fresh_cat, cat_bytes);
     if (!rc)
@@ -465,24 +502,70 @@ static int prepare_copies(unsigned growth, unsigned extra, uint64_t data_bytes,
     return rc;
 }
 
+/* A dense new catalog normally uses fewer nodes. The copy reserves growth room
+ * for the new records, upper levels, and a subsequent native insertion. */
+#define COPY_GROWTH 2
+#define COPY_EXTRA(created) (4 * (created) + 16)
+
+/* Stage a file: plan its path and allocate its data fork, keeping room for
+ * the catalog and bitmap copies the publish needs. */
 int hfs_upload_plan(const char *path, uint32_t size, bool overwrite)
 {
+    if (!staged_count) {
+        start_allocation();
+        removal_count = created_count = names_used = 0;
+        next_cnid = u32(header + 64);
+    }
+    if (staged_count == HFS_BATCH)
+        return UNSUPPORTED;
     int rc = walk_path(path, true, false, NULL);
     if (rc < 0)
         return rc;
     if (!strcasecmp(path, "/.journal") || !strcasecmp(path, "/.journal_info_block"))
         return UNSUPPORTED;
+    struct staged *s = &staged[staged_count];
+    memset(s, 0, sizeof(*s));
+    if (rc)
+        s->replaces = path_items[path_count - 1].id;
+    for (unsigned i = 0; rc && i < staged_count; ++i)
+        if (staged[i].replaces == s->replaces)
+            return UNSUPPORTED;
     if (rc && !overwrite)
         return -304;
-    removal_count = 0;
-    /* A dense new tree normally uses fewer nodes. Reserve growth room for
-     * the new records, upper levels, and a subsequent native insertion. */
-    return prepare_copies(2, 4 * path_count + 16, size, false);
+    for (unsigned i = 0; i < path_count; ++i) {
+        struct item *p = &path_items[i];
+        size_t n = strlen(p->name) + 1;
+        if (!p->create)
+            continue;
+        if (created_count == CREATE_LIMIT || n > sizeof(created_names) - names_used)
+            return UNSUPPORTED;
+        p->name = memcpy(created_names + names_used, p->name, n);
+        p->file = p->folder ? NULL : s;
+        created[created_count++] = *p;
+        names_used += n;
+    }
+    ++staged_count;
+    rc = alloc_fork(s->data, size);
+    /* Allocate the copies on trial so that a full or fragmented volume fails
+     * before the file is sent rather than at the publish. */
+    uint32_t used = used_blocks, cursor = alloc_cursor;
+    if (!rc)
+        rc = prepare_copies(COPY_GROWTH, COPY_EXTRA(created_count), false);
+    used_blocks = used;
+    alloc_cursor = cursor;
+    return rc;
+}
+
+unsigned hfs_upload_staged(void)
+{
+    return staged_count;
 }
 
 int hfs_upload_data(uint32_t pos, void *data, unsigned len, bool write)
 {
-    return fork_io(fresh_data, pos, data, len, write) ? 0 : BAD_IO;
+    return staged_count && fork_io(staged[staged_count - 1].data, pos, data, len, write)
+               ? 0
+               : BAD_IO;
 }
 
 static void init_node(unsigned level)
@@ -534,7 +617,7 @@ struct addition {
     const char *name;
     bool thread;
 };
-static struct addition additions[2 * MAX_COMPONENTS];
+static struct addition additions[2 * CREATE_LIMIT];
 static unsigned add_count, add_pos;
 static uint32_t leaf_records, changed_parents, replaced_count;
 
@@ -556,6 +639,15 @@ static void put_name(uint8_t *p, const char *name)
     w16(p, len);
     for (unsigned i = 0; i < len; ++i)
         w16(p + 2 + 2 * i, (uint8_t)name[i]);
+}
+
+/* Entries, or with folders only folders, the staged uploads create in parent. */
+static uint32_t created_under(uint32_t parent, bool folders)
+{
+    uint32_t n = 0;
+    for (unsigned i = 0; i < created_count; ++i)
+        n += created[i].parent == parent && (!folders || created[i].folder);
+    return n;
 }
 
 static bool emit_added(const struct addition *a)
@@ -582,9 +674,9 @@ static bool emit_added(const struct addition *a)
             memcpy(v + i, header + 20, 4);
         w16(v + 42, p->folder ? 0040755 : 0100644);
         if (p->folder)
-            w32(v + 4, 1); /* next path component */
+            w32(v + 4, created_under(p->id, false));
         else
-            memcpy(v + 88, fresh_data, 80);
+            memcpy(v + 88, p->file->data, 80);
         n = p->folder ? 88 : 248;
     }
     ++leaf_records;
@@ -613,32 +705,32 @@ static int copy_record(const uint8_t *rec, unsigned size, void *unused)
         if (size - key < (type == 1 ? 88u : 248u))
             return UNSUPPORTED;
         uint32_t id = u32(v + 8);
-        for (unsigned i = 0; i < path_count; ++i) {
-            const struct item *p = &path_items[i];
-            if (type == 1 && p->create && p->parent == id) {
-                if (size > sizeof(edited) || u32(v + 4) == UINT32_MAX)
-                    return UNSUPPORTED;
-                memcpy(edited, rec, size);
-                w32(edited + key + 4, u32(v + 4) + 1);
-                if (p->folder && (u16(v + 2) & 16))
-                    w32(edited + key + 84, u32(v + 84) + 1);
-                rec = edited;
-                ++changed_parents;
-                break;
-            }
-            if (type == 2 && !p->create && !p->folder && p->id == id) {
-                if (size > sizeof(edited) || !inline_fork(v + 88) ||
-                    ((u16(v + 42) & 0170000) && (u16(v + 42) & 0170000) != 0100000) ||
-                    (u16(v + 2) & (1 | 32)) || (v[40] & 6) || (v[41] & 0x26) ||
-                    !memcmp(v + 48, "hlnkhfs+", 8))
-                    return UNSUPPORTED;
-                memcpy(replaced, v + 88, 80);
-                memcpy(edited, rec, size);
-                memcpy(edited + key + 88, fresh_data, 80);
-                rec = edited;
-                ++replaced_count;
-                break;
-            }
+        uint32_t children = type == 1 ? created_under(id, false) : 0;
+        if (children) {
+            if (size > sizeof(edited) || u32(v + 4) > UINT32_MAX - children)
+                return UNSUPPORTED;
+            memcpy(edited, rec, size);
+            w32(edited + key + 4, u32(v + 4) + children);
+            if (u16(v + 2) & 16)
+                w32(edited + key + 84, u32(v + 84) + created_under(id, true));
+            rec = edited;
+            ++changed_parents;
+        }
+        for (unsigned i = 0; type == 2 && i < staged_count; ++i) {
+            struct staged *f = &staged[i];
+            if (f->replaces != id)
+                continue;
+            if (size > sizeof(edited) || !inline_fork(v + 88) ||
+                ((u16(v + 42) & 0170000) && (u16(v + 42) & 0170000) != 0100000) ||
+                (u16(v + 2) & (1 | 32)) || (v[40] & 6) || (v[41] & 0x26) ||
+                !memcmp(v + 48, "hlnkhfs+", 8))
+                return UNSUPPORTED;
+            memcpy(f->replaced, v + 88, 80);
+            memcpy(edited, rec, size);
+            memcpy(edited + key + 88, f->data, 80);
+            rec = edited;
+            ++replaced_count;
+            break;
         }
     }
     ++leaf_records;
@@ -715,25 +807,30 @@ static void start_tree(void)
 
 static int build_catalog(void)
 {
-    leaf_records = changed_parents = replaced_count = add_count = add_pos = 0;
-    for (unsigned i = 0; i < path_count; ++i) {
-        struct item *p = &path_items[i];
-        if (p->create) {
-            queue_record((struct addition){p, p->parent, p->name, false});
-            queue_record((struct addition){p, p->id, "", true});
-        }
+    changed_parents = replaced_count = add_count = add_pos = 0;
+    /* Each existing folder that gets entries, and each replaced file, must
+     * turn up exactly once in the copy. */
+    uint32_t parents = 0, replacing = 0;
+    for (unsigned i = 0; i < created_count; ++i) {
+        struct item *p = &created[i];
+        queue_record((struct addition){p, p->parent, p->name, false});
+        queue_record((struct addition){p, p->id, "", true});
+        bool known = false;
+        for (unsigned j = 0; j < created_count && !known; ++j)
+            known =
+                created[j].id == p->parent || (j < i && created[j].parent == p->parent);
+        parents += !known;
     }
-    batch_bytes = 0;
-    out_id = first_at_level = height = 1;
-    init_node(height);
+    for (unsigned i = 0; i < staged_count; ++i)
+        replacing += staged[i].replaces != 0;
+    start_tree();
     int rc = visit_leaves(copy_record, NULL);
     if (rc)
         return rc;
     while (add_pos < add_count)
         if (!emit_added(&additions[add_pos++]))
             return BAD_IO;
-    if (changed_parents != (add_count ? 1u : 0u) ||
-        replaced_count != (path_items[path_count - 1].create ? 0u : 1u))
+    if (changed_parents != parents || replaced_count != replacing)
         return UNSUPPORTED;
     return finish_catalog();
 }
@@ -785,7 +882,7 @@ static bool mark_extents(const uint8_t *extents, uint32_t byte, unsigned n,
     return true;
 }
 
-static bool free_removed(uint32_t byte, unsigned n);
+static bool mark_files(uint32_t byte, unsigned n);
 
 static bool build_bitmap(void)
 {
@@ -793,15 +890,13 @@ static bool build_bitmap(void)
     for (uint64_t pos = 0; pos < size; pos += sizeof(page)) {
         unsigned n = MIN(size - pos, sizeof(page));
         if (!fork_io(header + BITMAP, pos, page, n, false) ||
-            !mark_extents(fresh_data + 16, pos, n, true) ||
             !mark_extents(fresh_cat + 16, pos, n, true) ||
             !mark_extents(fresh_map + 16, pos, n, true) ||
             !mark_extents(fresh_attr + 16, pos, n, true) ||
             !mark_extents(retired_attr + 16, pos, n, false) ||
             !mark_extents(header + BITMAP + 16, pos, n, false) ||
             !mark_extents(header + CATALOG + 16, pos, n, false) ||
-            !mark_extents(replaced + 16, pos, n, false) || !free_removed(pos, n) ||
-            !fork_io(fresh_map, pos, page, n, true))
+            !mark_files(pos, n) || !fork_io(fresh_map, pos, page, n, true))
             return false;
     }
     return true;
@@ -811,16 +906,19 @@ static int publish(int32_t files, int32_t folders);
 
 int hfs_upload_commit(void)
 {
-    int rc = build_catalog();
+    int rc = prepare_copies(COPY_GROWTH, COPY_EXTRA(created_count), false);
+    if (!rc)
+        rc = build_catalog();
     if (rc)
         return rc;
     if (!build_bitmap() || ata_flush())
         return BAD_IO;
     int32_t files = 0, folders = 0;
-    for (unsigned i = 0; i < path_count; ++i)
-        if (path_items[i].create)
-            ++*(path_items[i].folder ? &folders : &files);
-    return publish(files, folders);
+    for (unsigned i = 0; i < created_count; ++i)
+        ++*(created[i].folder ? &folders : &files);
+    rc = publish(files, folders);
+    staged_count = created_count = 0;
+    return rc;
 }
 
 /* Update the counts and publish the new catalog and bitmap. fsck_hfs finds the
@@ -859,7 +957,6 @@ static int publish(int32_t files, int32_t folders)
  * pass empties it (if_empty); the root folder is entry 0 and always stays. */
 #define REMOVE_LIMIT 8192
 #define REMOVE_SLOTS 16384
-
 struct removal {
     uint32_t id, parent, children, folders, valence;
     bool folder, keep, pinned, attributes, if_empty;
@@ -1033,8 +1130,14 @@ static int copy_attribute(const uint8_t *rec, unsigned size, void *unused)
     return 0;
 }
 
-static bool free_removed(uint32_t byte, unsigned n)
+/* The staged files' new forks and the forks they replace, then the removed
+ * entries' forks and attribute extents. */
+static bool mark_files(uint32_t byte, unsigned n)
 {
+    for (unsigned i = 0; i < staged_count; ++i)
+        if (!mark_extents(staged[i].data + 16, byte, n, true) ||
+            !mark_extents(staged[i].replaced + 16, byte, n, false))
+            return false;
     for (unsigned i = 0; i < attr_free_count; ++i)
         if (!mark_extents(attr_frees[i], byte, n, false))
             return false;
@@ -1151,7 +1254,8 @@ int hfs_upload_remove(struct hfs_removal *set, unsigned count)
     attributes = attributes && u64(header + ATTRIBUTES);
     if (attributes && !inline_fork(header + ATTRIBUTES))
         return UNSUPPORTED;
-    rc = prepare_copies(1, 16, 0, attributes);
+    start_allocation();
+    rc = prepare_copies(1, 16, attributes);
     if (rc)
         return rc;
 

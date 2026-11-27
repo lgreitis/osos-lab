@@ -18,6 +18,14 @@ from core import GDB  # noqa: E402
 
 RESULT = 0x2201FA80
 BUFFER = 0x09800000
+# Batches as the host sends them: mode bit 4 on every file of a batch but the last.
+MORE_FILES, BATCH_FILES = 4, 64
+
+
+def more(index, count):
+    return index + 1 < count and (index + 1) % BATCH_FILES != 0
+
+
 CONFIG = struct.Struct("<16sII32s192s")
 
 
@@ -110,16 +118,19 @@ def replay(elf, disk, nor, uploads, mode=1, interrupt=False, header_cut=False):
 
                     stop_at("main")
                     path, data = uploads[0] if uploads else ("/Reprise", b"")
+                    if mode == 1 and more(0, len(uploads)):
+                        mode |= MORE_FILES
                     g.write(symbols["upload_config"], config(path, data, mode))
                     stop_at("upload_usb")
-                    if mode != 1:
+                    if mode & 3 != 1:
                         check(g, 4)
                         storage = struct.unpack("<QQQII", g.read(0x2201FBC0, 32))
                         print(f"storage: {storage}; existing_files={storage[4]:#x}")
                         return
                     for index, (path, data) in enumerate(uploads):
                         if index:
-                            g.write(BUFFER, config(path, data, 1))
+                            bit = MORE_FILES if more(index, len(uploads)) else 0
+                            g.write(BUFFER, config(path, data, 1 | bit))
                             g.call(symbols["upload_next"], BUFFER)
                         check(g, 1)
                         g.write(RESULT + 24, struct.pack("<I", 2))
@@ -135,7 +146,7 @@ def replay(elf, disk, nor, uploads, mode=1, interrupt=False, header_cut=False):
                         check(g, 3)
                         for _ in range((len(data) + 65535) // 65536):
                             g.call(symbols["upload_verify_step"])
-                        if header_cut:
+                        if header_cut and index == len(uploads) - 1:
                             stop_before_primary_header(g, symbols)
                             return
                         g.call(symbols["upload_verify_step"])
