@@ -289,11 +289,9 @@ int cfw_rvx_indexed_property(u32 type, u32 id, u32 index, uintptr_t *out)
             if (d->dynamic.status &&
                 d->dynamic.status(&f->ctx, index) == RV_ROW_STATUS_PLAYING)
                 bitmap = OSOS_MENU_PLAYING_BITMAP;
-        } else {
-            u32 value = rvx_get_int(f->ctx.self, d->choice.key);
-            if (d->kind == RV_SCREEN_KIND_CHOICE ? value == index
-                                                 : ((value >> index) & 1u))
-                bitmap = OSOS_MENU_CHECKED_BITMAP;
+        } else if (d->kind == RV_SCREEN_KIND_MULTI_CHOICE &&
+                   (rvx_get_int(f->ctx.self, d->choice.key) >> index & 1u)) {
+            bitmap = OSOS_MENU_CHECKED_BITMAP;
         }
         *out = bitmap
                    ? osos_ui_bitmap(

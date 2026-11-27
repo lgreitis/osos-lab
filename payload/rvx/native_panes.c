@@ -473,15 +473,6 @@ const void *rvx_native_icon(const u32 *image, u32 bytes)
     return native_icon;
 }
 
-static const char *caption_setting_text(Pkg *p, uint16_t key)
-{
-    int n = rvx_get_int(p, key);
-    const struct rvx_setting *v = rvx_declaration(p, key);
-    return v && v->labels && n >= 0 && (u32)n < v->label_count ? v->labels[n]
-           : n                                                 ? "On"
-                                                               : "Off";
-}
-
 /* The shown row's text for a line role, "" for none. */
 static const char *line_of(const struct shown *s, uint32_t role)
 {
@@ -495,11 +486,11 @@ static const char *line_of(const struct shown *s, uint32_t role)
     else if ((role == CAPTION || role == CAPTION_ONLY) && pane && pane->label)
         text = pane->label;
     else if ((role == CAPTION || role == CAPTION_ONLY) && e->caption)
-        text = caption_setting_text(s->pkg, e->caption);
+        text = rvx_setting_label(s->pkg, e->caption);
     else if ((role == LINE || role == LINE2) && extra)
         text = extra->text ? extra->text(&ctx, role - LINE) : extra->lines[role - LINE];
     if (!text && (role == CAPTION || role == LABEL))
-        text = e->row.label;
+        text = rvx_entry_label(e, s->pkg);
     return text ? text : "";
 }
 
@@ -578,10 +569,11 @@ void core_panes_show(uint32_t item, void *controller)
     s->controller = controller;
     s->item = item;
     load(s, 0, old);
-    /* The icon kinds are Settings panes and the picture kinds the other menus':
-     * a picture of a size the menu has no pane for shows the caption alone. */
+    /* An icon is a Settings pane: on another menu the icon pane would write the
+     * Settings preview over that menu's own instance. There the menu's pane
+     * shows it instead. */
     int kind = s->kind;
-    if ((kind == PANE_ICON) != (slot == SETTINGS_SLOT))
+    if (kind == PANE_ICON && slot != SETTINGS_SLOT)
         kind = -1;
     if ((kind == PANE_ICON || (kind < 0 && m->kind == PANE_ICON)) &&
         (kind < 0 || e->plain))

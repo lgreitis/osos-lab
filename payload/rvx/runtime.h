@@ -35,6 +35,9 @@ uint32_t cfw_rvx_stock_view(uint32_t view);
 void cfw_rvx_reset(void);
 
 unsigned cfw_rvx_visible_rows(unsigned menu);
+/* Settings > Main Menu and Music Menu positions of extension toggle rows. */
+#define CFW_RVX_TOGGLE_ROW 0x40000000u
+uint32_t cfw_rvx_visible_locate(unsigned menu, uint32_t position, uint32_t *anchor);
 int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int selected,
                              uintptr_t *out);
 void cfw_rvx_toggle_row(unsigned menu, unsigned row);

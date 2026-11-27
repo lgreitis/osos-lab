@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Extension rows in Settings > Main Menu and Music Menu, before Reset Menu. */
+/* Extension rows in Settings > Main Menu and Music Menu, after the stock row
+ * their entry follows, Reset Menu last. */
 #include "ui_visibility.h"
 #include "osos.h"
 #include "patch.h"
@@ -19,18 +20,19 @@ static uint32_t native_count(unsigned menu)
     return menu ? OSOS_MUSIC_MENU_SETTINGS_COUNT : OSOS_MAIN_MENU_SETTINGS_COUNT;
 }
 
-enum { RVX_VISIBILITY_ROW = 0x40000000 };
+enum { RVX_VISIBILITY_ROW = CFW_RVX_TOGGLE_ROW };
+
+static uint32_t locate(unsigned menu, uint32_t position, uint32_t *anchor)
+{
+    if (!cfw_rvx_visible_rows(menu))
+        return position < native_count(menu) ? position : UINT32_MAX;
+    return cfw_rvx_visible_locate(menu, position, anchor);
+}
 
 static uint32_t displayed_index(unsigned menu, uint32_t row)
 {
-    uint32_t last = native_count(menu) - 1;
-    if (row >= last) {
-        unsigned added = cfw_rvx_visible_rows(menu);
-        if (row - last < added)
-            return RVX_VISIBILITY_ROW + (row - last);
-        row -= added;
-    }
-    return row < native_count(menu) ? row : UINT32_MAX;
+    uint32_t anchor;
+    return locate(menu, row, &anchor);
 }
 
 void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property, uintptr_t *out)
@@ -46,7 +48,7 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
         return osos_settings_indexed_property(model, type, property, index, out);
     unsigned menu = property == 0x890a;
     const uint32_t *rows = native_rows(menu);
-    uint32_t original = displayed_index(menu, index);
+    uint32_t anchor = 0, original = locate(menu, index, &anchor);
     if (original == UINT32_MAX)
         return 0;
     if (original & RVX_VISIBILITY_ROW) {
@@ -54,7 +56,8 @@ int cfw_ui_visibility_property(void *model, uint32_t type, uint32_t property,
         if (cfw_rvx_visible_property(menu, original - RVX_VISIBILITY_ROW, type,
                                      selected, out))
             return 1;
-        return osos_settings_indexed_property(model, type, property, 0, out);
+        /* Drawn like the row it follows: top level or indented. */
+        return osos_settings_indexed_property(model, type, property, anchor, out);
     }
     int result = osos_settings_indexed_property(model, type, property, original, out);
     if (result && type == OSOS_RESOURCE_BMAP) {

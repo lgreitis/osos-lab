@@ -88,6 +88,20 @@ int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int sel
     return 1;
 }
 
+/* The runtime's order with no extension row anchored on a native row: all of
+ * them before Reset Menu. */
+uint32_t cfw_rvx_visible_locate(unsigned menu, uint32_t position, uint32_t *anchor)
+{
+    (void)menu;
+    uint32_t last = OSOS_MAIN_MENU_SETTINGS_COUNT - 1;
+    *anchor = last - 1;
+    if (position < last)
+        return position;
+    if (position - last < rvx_rows)
+        return RVX_VISIBILITY_ROW + (position - last);
+    return position - rvx_rows == last ? last : UINT32_MAX;
+}
+
 void cfw_rvx_toggle_row(unsigned menu, unsigned row)
 {
     (void)menu;

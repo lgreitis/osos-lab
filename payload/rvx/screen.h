@@ -163,6 +163,7 @@ struct frame {
     int split;
     uint8_t leaving; /* popped: its controller is deactivated until destroyed */
     int16_t style;   /* the canvas layout's enter style it opened with, -1: its own */
+    uint8_t select_pending; /* ui_select while covered: `selected` on the next show */
 };
 extern struct frame *rvx_top;
 extern void *rvx_bank;
@@ -185,6 +186,7 @@ int rvx_native_action(void *, const char *, u32);
 void rvx_native_refresh(struct frame *);
 u32 rvx_row_count(struct frame *);
 const char *rvx_setting_label(Pkg *, uint16_t);
+const char *rvx_entry_label(const struct menu_entry *, Pkg *);
 const void *rvx_frame_bitmap(struct frame *, const struct bitmap *, u32 *size);
 int rvx_is_pane_icon(const u32 *image, u32 bytes);
 int rvx_push(Pkg *, const char *, void *);
@@ -197,7 +199,7 @@ void rvx_pop(Pkg *);
 void rvx_select(Pkg *, const char *, u32);
 int rvx_colors(Pkg *, const u32 *);
 int rvx_provider(Pkg *, const void *);
-void rvx_act(const struct context *, const struct row *);
+int rvx_act(const struct context *, const struct row *);
 extern const struct context *rvx_origin;
 const struct rvx_setting *rvx_declaration(Pkg *, uint16_t);
 

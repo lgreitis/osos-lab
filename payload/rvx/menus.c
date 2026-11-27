@@ -41,10 +41,15 @@ enum {
     MENU_CONTEXT = 0x7fe0
 };
 
-static const u32 tables[] = {0x1a, 0x1b, 2, 0x41, 0x33};
-static u32 last[5], menu_mask;
-static const void *sound_check_row;
-static u32 sound_check_size;
+static const u32 tables[] = {RES_MainMenu_Items,     RES_MusicMenu_Items,
+                             RES_ExtrasMenu_Items,   RES_SettingsMenu_Items,
+                             RES_VideosMenu_Items};
+/* The stock row an entry without `after` follows in each menu. */
+static const u32 anchors[] = {RES_MainMenu_Sleep_Item, RES_MusicMenu_Search_Item,
+                              RES_ExtrasMenu_Stopwatch_Item,
+                              RES_SettingsMenu_Legal_Item,
+                              RES_VideosMenu_Settings_Item};
+static u32 menu_mask;
 const u32 rvx_clear_bitmap[] = {0x1888, 0x00200004, 0, 0, 1, 1, 4, 0};
 
 int rvx_is_pane_icon(const u32 *image, u32 bytes)
@@ -56,6 +61,23 @@ int rvx_is_pane_icon(const u32 *image, u32 bytes)
 
 static struct context media;
 static struct osos_media_item media_item;
+/* The kind and append site of the context menu built last, and 1 between
+ * hiding its pop and the action that should open a screen. */
+static uint8_t menu_kind, menu_source, pop_hidden;
+static void context_pushed(void *controller, int pushed);
+
+/* An entry's row text: what `text` returns, else its label. */
+const char *rvx_entry_label(const struct menu_entry *e, Pkg *p)
+{
+    struct context ctx = {p, NULL, NULL, NULL, -1, NULL};
+    const char *text = e->row.text ? e->row.text(&ctx) : NULL;
+    return text ? text : e->row.label ? e->row.label : "";
+}
+
+static int value_row(const struct menu_entry *e)
+{
+    return e->row.kind == RV_ROW_KIND_SETTING || e->row.kind == RV_ROW_KIND_INFO;
+}
 
 static void install(Pkg *p, const struct menu_entry *e, u32 id)
 {
@@ -67,18 +89,20 @@ static void install(Pkg *p, const struct menu_entry *e, u32 id)
     i->entry = e;
     i->item = id;
     i->source_id = id + 1;
+    /* The item id is the title property, the source id the value's; the
+     * String resource keeps the label for context menus and toggles. */
     u32 source[] = {1,
                     12,
                     Resource_SORC,
-                    Service_String,
-                    id + 2,
+                    Service_Settings,
+                    id,
                     SourceDestination_Title,
                     12,
                     Resource_SORC,
                     Service_Settings,
                     i->source_id,
                     SourceDestination_InlineValue};
-    if ((e->host || (e->menus & MENU_SETTINGS)) && e->row.kind == RV_ROW_KIND_SETTING)
+    if ((e->host || (e->menus & MENU_SETTINGS)) && value_row(e))
         source[0] = 2;
     const char *label = e->row.label ? e->row.label : "";
     unsigned len = 0;
@@ -241,17 +265,6 @@ u32 rvx_guest_count(const struct core_screen *s)
     return n;
 }
 
-u32 rvx_guest_position(const struct core_screen *s, const struct screen *d, u32 index)
-{
-    u32 position = index;
-    for (u32 k = 0; k < index && k < d->list.count; k++)
-        position -= !row_shown(d, k);
-    for (const struct installed *i = installed; i; i = i->next)
-        position +=
-            guest_of(i, s) && i->host_row && setting_on(i) && i->host_index < index;
-    return position;
-}
-
 int rvx_guest_other_needed(const struct core_screen *s, int main_plain)
 {
     for (const struct installed *i = installed; i; i = i->next)
@@ -285,18 +298,13 @@ int rvx_guest_pane_property(const struct installed *i, void *controller, u32 fie
     }
     if (type != Property_String || (field != 0 && field != 3))
         return 0;
-    const char *text = e->row.label;
+    const char *text = NULL;
     if (field == 0) {
         text = pane ? (pane->text ? pane->text(&ctx) : pane->label) : NULL;
-        if (!text && e->caption) {
-            int n = rvx_get_int(i->pkg, e->caption);
-            const struct rvx_setting *v = rvx_declaration(i->pkg, e->caption);
-            text = v && v->labels && n >= 0 && (u32)n < v->label_count ? v->labels[n]
-                   : n                                                 ? "On"
-                                                                       : "Off";
-        }
+        if (!text && e->caption)
+            text = rvx_setting_label(i->pkg, e->caption);
     }
-    *out = (uintptr_t)(text ? text : "");
+    *out = (uintptr_t)(text ? text : rvx_entry_label(e, i->pkg));
     return 1;
 }
 
@@ -337,25 +345,26 @@ int cfw_rvx_property(u32 type, u32 property, uintptr_t *out)
         *out = (uintptr_t)(rvx_top->screen->title ? rvx_top->screen->title : "");
         return 1;
     }
-    if (type == OSOS_PROPERTY_STRING && property >= 0x72500000) {
-        for (struct installed *i = installed; i; i = i->next) {
-            if (property != i->source_id || i->entry->row.kind != 2)
-                continue;
-            uint16_t key = i->entry->row.key;
-            const struct rvx_setting *setting = rvx_declaration(i->pkg, key);
-            int n = rvx_get_int(i->pkg, key);
-            const char *label =
-                setting && setting->labels && (u32)n < setting->label_count
-                    ? setting->labels[n]
-                    : NULL;
-            if (label)
-                *out = (uintptr_t)label;
-            else if (setting && setting->type == 1)
-                *out = osos_settings_on_off(n);
-            else
-                return 0;
+    for (struct installed *i = installed; property >= 0x72500000 && i; i = i->next) {
+        const struct menu_entry *e = i->entry;
+        /* A model-backed title sets its list's row count: one row per title. */
+        if (property == i->item && type == Property_Count) {
+            *out = 1;
             return 1;
         }
+        if (property == i->item && type == OSOS_PROPERTY_STRING) {
+            *out = (uintptr_t)rvx_entry_label(e, i->pkg);
+            return 1;
+        }
+        if (property != i->source_id || type != OSOS_PROPERTY_STRING || !value_row(e))
+            continue;
+        /* An info row has the value row's look, for its lack of a chevron,
+         * and no value. */
+        const char *label = e->row.kind == RV_ROW_KIND_INFO
+                                ? ""
+                                : rvx_setting_label(i->pkg, e->row.key);
+        *out = (uintptr_t)(label ? label : "");
+        return 1;
     }
     if (rvx_native_property(type, property, out))
         return 1;
@@ -392,8 +401,10 @@ int rvx_menu_action(void *controller, const char *action, u32 arg, int stock)
                 }
                 const struct context *prior = rvx_origin;
                 rvx_origin = &ctx;
-                rvx_act(&ctx, &i->entry->row);
+                int result = rvx_act(&ctx, &i->entry->row);
                 rvx_origin = prior;
+                if (stock && i->entry->menus & 0xffe0u)
+                    context_pushed(controller, result == OK);
             }
             return 1;
         }
@@ -428,12 +439,58 @@ static unsigned append_context(void *menu, unsigned kind, void *controller, int 
 unsigned cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
                             int tv)
 {
+    menu_kind = tv ? 13 : 12;
+    menu_source = 0;
     return append_context(menu, tv ? 13 : 12, controller, row, item);
 }
+
+/* The list controller whose context menu opened last and the model row it
+ * opened on (-1 for a leading row such as All Albums). */
+static void *menu_list;
+static int32_t menu_row = -1;
+
+/* MediaListController_HandleShowContextualMenu: (controller). */
+static u32 menu_opening(u32 controller, const void *next)
+{
+    void *selection = NATIVE_CALL(UI_GetSelectionModel)();
+    int32_t visible = (int32_t)osos_selection_index(selection);
+    menu_list = NULL;
+    if (visible >= 0) {
+        typedef int32_t (*Map)(void *, int32_t);
+        Map map = RV_FIELD(RV_FIELD(controller, 0, void **),
+                           MediaListController_map_visible_row_method, Map);
+        menu_row = map((void *)controller, visible);
+        menu_list = (void *)controller;
+    }
+    return rvx_next(next, controller, 0, 0, 0, 0, 0);
+}
+
+/* The layout fields of the controller a context menu opened on, by menu kind;
+ * the nested playlists' when a song menu comes from their Cancel site. */
+static const struct {
+    uint16_t layout, cache;
+} menu_layouts[15] = {
+    [5] = {NowPlayingController_layout, NowPlayingController_layout_cache},
+    [6] = {SongListController_layout, SongListController_layout_cache},
+    [7] = {AlbumsController_layout, AlbumsController_layout_cache},
+    [8] = {ArtistsController_layout, ArtistsController_layout_cache},
+    [9] = {PodcastEpisodesController_layout, PodcastEpisodesController_layout_cache},
+    [10] = {ITunesUEpisodesController_layout, ITunesUEpisodesController_layout_cache},
+    [11] = {AudiobooksController_layout, AudiobooksController_layout_cache},
+    [12] = {MoviesController_layout, MoviesController_layout_cache},
+    [13] = {TVEpisodesController_layout, TVEpisodesController_layout_cache},
+    [14] = {NestedVideoPlaylistsController_layout,
+            NestedVideoPlaylistsController_layout_cache},
+};
 
 static u32 context_cancel(unsigned kind, unsigned source, void *menu, u32 label,
                           const char *name, u32 flags, const void *next)
 {
+    /* Video playlists share the nested playlists' builder and Cancel row. */
+    if (source == 1 && menu_list &&
+        RV_FIELD(menu_list, 0, const void *) ==
+            (const void *)ADDR_NestedVideoPlaylistsController_vtable)
+        kind = 14;
     if (!(menu_mask & (1u << kind)))
         return rvx_next(next, (u32)menu, label, (u32)name, flags, 0, 0);
     void *nav = ((void *(*)(void))0x08104d00)();
@@ -441,24 +498,30 @@ static u32 context_cancel(unsigned kind, unsigned source, void *menu, u32 label,
     if (c) {
         struct osos_media_item item;
         osos_media_item_init(&item);
-        void *selection = osos_ui_selection();
-        int row = selection ? osos_list_view_row(selection) : -1;
+        const struct osos_media_item *found = NULL;
+        int row = -1;
         if (kind == 5) {
             osos_player_current_item(osos_player_get(), &item);
-            row = -1;
-        } else if (source == 2 && row >= 0) {
-            void *g = osos_genius_get();
-            row = osos_genius_map_row(g, row);
-            if (row >= 0)
-                osos_genius_get_item(g, row, &item);
-        } else if (row >= 0 && (kind == 6 || kind >= 9)) {
-            if (source == 1 || kind >= 9)
-                row = osos_song_controller_map_row(c, row);
-            void *model = osos_song_controller_model(c);
-            if (model && row >= 0)
-                osos_song_model_get_item(model, row, &item);
+            found = &item;
+        } else if (c == menu_list) {
+            row = menu_row;
+            if (kind != 7 && kind != 8 && row >= 0) {
+                if (source == 2) {
+                    void *g = osos_genius_get();
+                    osos_genius_get_item(g, osos_genius_map_row(g, row), &item);
+                } else {
+                    void *model = osos_song_controller_model(c);
+                    if (model)
+                        osos_song_model_get_item(model, row, &item);
+                }
+                found = &item;
+            }
         }
-        append_context(menu, kind, c, row, &item);
+        if (found && !NATIVE_CALL(MediaItem_IsValid)((struct MediaItem *)found))
+            found = NULL;
+        menu_kind = (uint8_t)kind;
+        menu_source = (uint8_t)source;
+        append_context(menu, kind, c, row, found);
     }
     return rvx_next(next, (u32)menu, label, (u32)name, flags, 0, 0);
 }
@@ -478,12 +541,44 @@ CANCEL_HANDLER(episode_cancel, 9, 0)
 CANCEL_HANDLER(itunes_cancel, 10, 0)
 CANCEL_HANDLER(book_cancel, 11, 0)
 
+/* A context row that opens a screen hides the menu's pop, as Apple's View
+ * Album does, so no frame of the screen underneath shows between the two. */
 static u32 compare(const char *a, const char *b, const void *next)
 {
     for (struct installed *i = installed; i; i = i->next)
-        if (i->entry->row.kind == 0 && cfw_string_equal(a, i->action))
+        if (i->entry->row.kind == 0 && cfw_string_equal(a, i->action)) {
+            pop_hidden = 1;
             return 0;
+        }
     return rvx_next(next, (u32)a, (u32)b, 0, 0, 0, 0);
+}
+
+/* After a context row's action: when the row hid the pop and opened nothing,
+ * the layout under the menu shows again, prepared as it was. A controller
+ * without layouts keeps the stock slot and has nothing to show. */
+static void context_pushed(void *controller, int pushed)
+{
+    if (!pop_hidden)
+        return;
+    pop_hidden = 0;
+    void *switch_layout = RV_FIELD(RV_FIELD(controller, 0, void **),
+                                   ScreenController_switch_layout_method, void *);
+    unsigned kind = menu_kind == 6 && menu_source == 1 ? 15 : menu_kind;
+    if (pushed || switch_layout == (void *)ADDR_ScreenController_SwitchLayoutDefault ||
+        (kind < 15 && !menu_layouts[kind].cache))
+        return;
+    uint16_t layout = NestedPlaylistsController_layout,
+             cache = NestedPlaylistsController_layout_cache;
+    if (kind < 15) {
+        layout = menu_layouts[kind].layout;
+        cache = menu_layouts[kind].cache;
+    }
+    void *prepared = NATIVE_CALL(ControllerLayoutCache_GetOrInsert)(
+        (uint8_t *)controller + cache, RV_FIELD(controller, layout, u32));
+    if (prepared) {
+        void *manager = NATIVE_CALL(UI_GetLayoutManager)();
+        NATIVE_CALL(UI_DisplayPreparedLayout)(manager, prepared);
+    }
 }
 
 /* What MenuItem_SetVisible does after writing a row's visibility: an open
@@ -668,7 +763,7 @@ static const struct {
     MENU_HOOK(TV, 0xfeb04f69, action),
     MENU_HOOK(VIDEO_PLAYLIST, 0x81c25998, action),
     MENU_HOOK(SONG, 0x28d91140, song_cancel),
-    MENU_HOOK(SONG, 0x4a6e84ad, playlist_cancel),
+    {MENU_SONG | MENU_VIDEO_PLAYLIST, {0x4a6e84ad, (u32)playlist_cancel, -32768, 0, 0}},
     MENU_HOOK(SONG, 0xa7e35c24, genius_cancel),
     MENU_HOOK(PLAYING, 0xf257ea9f, playing_cancel),
     MENU_HOOK(ALBUM, 0x6213dc3d, album_cancel),
@@ -677,6 +772,7 @@ static const struct {
     MENU_HOOK(UNIVERSITY, 0x0226bcd8, itunes_cancel),
     MENU_HOOK(BOOK, 0x887dcf8d, book_cancel),
     MENU_HOOK(CONTEXT, 0x1e4c792e, compare),
+    MENU_HOOK(CONTEXT, 0x7cbb9c14 /* HandleShowContextualMenu_entry */, menu_opening),
 #undef MENU_HOOK
 };
 
@@ -685,6 +781,9 @@ void rvx_install_menus(void)
     if (!rvx_bank)
         return;
     u32 id = 0x72500000, claimed = 0;
+    /* The runtime's own rows come first after their anchor. */
+    for (u32 i = 0; i < rvx_core_entry_count; i++)
+        install(NULL, rvx_core_entries + i, id += 3);
     for (Pkg *p = rvx_packages; p; p = p->next) {
         if (p->state != 2)
             continue;
@@ -695,8 +794,6 @@ void rvx_install_menus(void)
             install(p, (const struct menu_entry *)d->entries + i, id += 3);
         claimed += claim_rows(p, d);
     }
-    for (u32 i = 0; i < rvx_core_entry_count; i++)
-        install(NULL, rvx_core_entries + i, id += 3);
     for (unsigned j = 0; claimed && j < sizeof stock_hooks / sizeof stock_hooks[0]; j++)
         rvx_bind_core(&stock_hooks[j]);
     if (!installed)
@@ -707,31 +804,6 @@ void rvx_install_menus(void)
     for (unsigned j = 0; j < sizeof actions / sizeof actions[0]; j++)
         if (menu_mask & actions[j].menus)
             rvx_bind_core(&actions[j].hook);
-    for (unsigned j = 0; j < 5; j++) {
-        u32 n;
-        const u32 *src = osos_resource_get(rvx_bank, 0x4954454d, tables[j], &n);
-        if (!src || n < 4)
-            continue;
-        u32 count = *src++;
-        n -= 4;
-        while (count-- && n >= 8) {
-            u32 size = src[0];
-            src += 2;
-            n -= 8;
-            if (size < 0x34 || size > n)
-                break;
-            last[j] = src[12];
-            if (j == 3 && src[12] == 0x0dad0c76 && size >= 0x6c) {
-                sound_check_row = src;
-                sound_check_size = size;
-            }
-            size = (size + 3) & ~3u;
-            if (size > n)
-                break;
-            src += size / 4;
-            n -= size;
-        }
-    }
 }
 
 void cfw_rvx_register_ui(void *bank)
@@ -753,8 +825,7 @@ static void host_rows(void *list, u32 table, u32 item, u32 metadata)
         if (!guest_of(i, s) || item != host_anchor(s, i->host_screen, i->host_index))
             continue;
         if (!i->host_row) {
-            const uint8_t *prototype =
-                core_lists_prototype(e->row.kind == RV_ROW_KIND_SETTING);
+            const uint8_t *prototype = core_lists_prototype(value_row(e));
             uint8_t *copy = prototype ? osos_import_alloc(ROW_BYTES) : NULL;
             if (!copy)
                 continue;
@@ -764,6 +835,7 @@ static void host_rows(void *list, u32 table, u32 item, u32 metadata)
             words[MenuRow_id / 4] = i->item;
             words[MenuRow_title / 4] = i->source_id;
             words[MenuRow_visible / 4] = setting_on(i);
+            copy[MenuRow_title_from_model] = 1;
             i->host_row = copy;
         }
         osos_resource_block_append(list, i->host_row, ROW_BYTES, metadata);
@@ -773,7 +845,7 @@ static void host_rows(void *list, u32 table, u32 item, u32 metadata)
 void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 bytes,
                       u32 metadata)
 {
-    if (!installed || bytes < 0x6c)
+    if (!installed || bytes != ROW_BYTES)
         return;
     unsigned slot = 0;
     while (slot < 5 && tables[slot] != table)
@@ -786,11 +858,15 @@ void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 byte
         const struct menu_entry *e = i->entry;
         /* A hosted row is in its host's list; its stock row is the fallback. */
         if (i->host || !(e->menus & (1u << slot)) ||
-            (e->after ? e->after : last[slot]) != item)
+            (e->after ? e->after : anchors[slot]) != item)
             continue;
-        int inline_value = slot == 3 && e->row.kind == 2 && sound_check_row;
-        const void *prototype = inline_value ? sound_check_row : row;
-        u32 size = inline_value ? sound_check_size : bytes;
+        /* Under Settings a copy of the Legal row, or of Sound Check's for a
+         * row with a value, whatever row it follows; elsewhere a copy of the
+         * row it follows. */
+        const void *prototype = row;
+        if (slot == 3 && core_lists_prototype(value_row(e)))
+            prototype = core_lists_prototype(value_row(e));
+        u32 size = bytes;
         if (!i->row[slot]) {
             uint8_t *copy = osos_import_alloc(size);
             if (!copy)
@@ -798,13 +874,10 @@ void cfw_rvx_menu_row(void *list, u32 table, u32 item, const void *row, u32 byte
             for (unsigned j = 0; j < size; j++)
                 copy[j] = ((const uint8_t *)prototype)[j];
             u32 *words = (void *)copy;
-            words[12] = i->item;
-            words[0x68 / 4] = i->source_id;
-            words[0x64 / 4] = !e->shown || rvx_get_int(i->pkg, e->shown);
-            if (slot < 2) {
-                words[0x60 / 4] = 5;
-                words[0x5c / 4] = (words[0x5c / 4] & 0xffff0000) | 4;
-            }
+            words[MenuRow_id / 4] = i->item;
+            words[MenuRow_title / 4] = i->source_id;
+            words[MenuRow_visible / 4] = !e->shown || rvx_get_int(i->pkg, e->shown);
+            copy[MenuRow_title_from_model] = 1;
             i->row[slot] = copy;
         }
         osos_resource_block_append(list, i->row[slot], size, metadata);
@@ -885,7 +958,7 @@ void cfw_rvx_menu_events(void *map, u32 screen, u32 layout)
         {0x0dad07e1, 11}, /* MediaLists_Audiobooks_Screen */
         {0x0dad0804, 12}, /* MediaLists_Movies_Screen */
         {0x0dad0802, 13}, /* MediaLists_TVEpisodes_Screen */
-        {0x0dad0812, 14}, /* MediaLists_NestedVideoPlaylists_Screen */
+        {0x0dad0812, 14}, /* MediaLists_MixedVideoTracks_Screen */
     };
 
     unsigned slot = 0, found = 0;
@@ -952,6 +1025,56 @@ int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int sel
     return 1;
 }
 
+/* Settings > Main Menu and Music Menu list Apple's rows from a table, Reset
+ * Menu last; the toggle rows of extensions follow the stock row their entry
+ * follows, unanchored ones come just before Reset Menu. */
+static const u32 *toggle_table(unsigned menu)
+{
+    return (const u32 *)(menu ? OSOS_MUSIC_MENU_SETTINGS_ROWS
+                              : OSOS_MAIN_MENU_SETTINGS_ROWS);
+}
+
+static u32 toggle_count(unsigned menu)
+{
+    return menu ? OSOS_MUSIC_MENU_SETTINGS_COUNT : OSOS_MAIN_MENU_SETTINGS_COUNT;
+}
+
+static int toggle_anchored(unsigned menu, u32 after)
+{
+    for (u32 a = 0; after && a + 1 < toggle_count(menu); a++)
+        if (toggle_table(menu)[a * 5] == after)
+            return 1;
+    return 0;
+}
+
+/* The list position as Apple's index or CFW_RVX_TOGGLE_ROW plus a toggle row,
+ * UINT32_MAX past the end; *anchor is the Apple index a toggle row follows. */
+uint32_t cfw_rvx_visible_locate(unsigned menu, uint32_t position, uint32_t *anchor)
+{
+    u32 count = toggle_count(menu), at = 0;
+    for (u32 a = 0; a < count; a++) {
+        int reset = a + 1 == count;
+        if (!reset && at++ == position)
+            return a;
+        unsigned n = 0;
+        for (struct installed *i = installed; i; i = i->next) {
+            if (!i->entry->shown || !(i->entry->menus & (1u << menu)))
+                continue;
+            u32 after = i->entry->after ? i->entry->after : anchors[menu];
+            int here = reset ? !toggle_anchored(menu, after)
+                             : after == toggle_table(menu)[a * 5];
+            if (here && at++ == position) {
+                *anchor = reset ? a - 1 : a;
+                return CFW_RVX_TOGGLE_ROW + n;
+            }
+            n++;
+        }
+        if (reset && at++ == position)
+            return a;
+    }
+    return UINT32_MAX;
+}
+
 void cfw_rvx_toggle_row(unsigned menu, unsigned row)
 {
     struct installed *i = visibility_entry(menu, row);
@@ -972,8 +1095,11 @@ static int guest_highlighted(Pkg *p)
 
 void rvx_setting_updated(Pkg *p, uint16_t key)
 {
-    if (rvx_top && (rvx_top->ctx.self == p || guest_highlighted(p)))
-        rvx_native_refresh(rvx_top);
+    /* Every open screen of the extension shows the value; a screen under
+     * another reads it when it shows again. */
+    for (struct frame *f = rvx_top; f; f = f->parent)
+        if (f->ctx.self == p || (f == rvx_top && guest_highlighted(p)))
+            rvx_native_refresh(f);
     for (struct installed *i = installed; i; i = i->next)
         if (i->pkg == p) {
             if (key == i->entry->shown && ((i->entry->menus & 0x1f) || i->host_row)) {

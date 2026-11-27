@@ -54,6 +54,54 @@ static int slide_in(struct frame *f, u32 layout, enum core_template template,
     return from == LayoutKind_FullScreen ? Transition_ScreenPush : Transition_Standard;
 }
 
+/* The layout a list screen opens in from `controller`'s screen: what it
+ * declares, else its parent's: a split list of the runtime or one of Apple's
+ * Settings lists (the Settings menu and its submenus share one class) gives
+ * split, anything else full width. */
+static int split_from(const struct screen *s, void *controller)
+{
+    if (s->layout != RV_LAYOUT_AUTO)
+        return s->layout == RV_LAYOUT_SPLIT;
+    const struct frame *parent = lookup(controller);
+    if (parent)
+        return core_lists_kind(parent->screen->kind) && parent->split;
+    return RV_FIELD(controller, 0, const void *) ==
+           (const void *)ADDR_SettingsMenuListController_vtable;
+}
+
+/* The controller on top of the navigation stack. */
+static void *top_controller(void)
+{
+    void *nav = ((void *(*)(void))ADDR_Navigator_Get)();
+    return nav ? RV_FIELD(nav, Navigator_top_controller, void *) : NULL;
+}
+
+static void select_row(struct frame *f, u32 row)
+{
+    u32 rows = rvx_row_count(f);
+    if (!rows)
+        return;
+    f->selected = row < rows ? row : rows - 1;
+    osos_ui_list_select(f->selected);
+}
+
+/* A list that shows again takes the row ui_select asked for while it was
+ * covered; the stock activation restores its saved row first. */
+static PATCH_ARM u32 activate(void *controller, u32 entering)
+{
+    struct frame *f = lookup(controller);
+    typedef u32 (*Activate)(void *, u32);
+    Activate stock =
+        f ? (Activate)f->native_methods[ScreenController_activate_method / 4] : NULL;
+    u32 result = stock ? stock(controller, entering) : 0;
+    f = f ? lookup(controller) : NULL;
+    if (f && f->select_pending) {
+        f->select_pending = 0;
+        select_row(f, f->selected);
+    }
+    return result;
+}
+
 static int present(struct frame *f, void *parent)
 {
     if (!parent) {
@@ -67,9 +115,7 @@ static int present(struct frame *f, void *parent)
     f->parent = rvx_top;
     uint8_t from =
         RV_FIELD(NATIVE_CALL(UI_GetLayoutManager)(), LayoutManager_kind, uint8_t);
-    f->split = core_lists_kind(f->screen->kind) &&
-               (f->screen->layout == RV_LAYOUT_SPLIT ||
-                (f->screen->layout == RV_LAYOUT_AUTO && from == LayoutKind_SplitList));
+    f->split = core_lists_kind(f->screen->kind) && split_from(f->screen, parent);
     int native = f->screen->kind != RV_SCREEN_KIND_CANVAS &&
                  f->screen->kind != RV_SCREEN_KIND_STOCK;
     int dialog = f->screen->kind == RV_SCREEN_KIND_DIALOG;
@@ -121,6 +167,9 @@ static int present(struct frame *f, void *parent)
                 if (f->screen->kind == RV_SCREEN_KIND_SLIDER)
                     f->stock_methods[3 + ScreenController_event_method / 4] =
                         (uintptr_t)event;
+                if (core_lists_kind(f->screen->kind))
+                    f->stock_methods[3 + ScreenController_activate_method / 4] =
+                        (uintptr_t)activate;
                 if (dialog)
                     rvx_dialog_attach(f);
                 *(uintptr_t **)c = f->stock_methods + 3;
@@ -240,20 +289,19 @@ void rvx_pop(Pkg *p)
         ((int (*)(void *, u32))0x081034f0)(f->ctx.controller, 0);
 }
 
+/* ui_select: a dynamic list's row, clamped to its count; on a covered list it
+ * is applied when the list shows again. */
 void rvx_select(Pkg *p, const char *id, u32 row)
 {
     for (struct frame *f = rvx_top; f; f = f->parent)
-        if (f->ctx.self == p && id && cfw_string_equal(f->screen->id, id)) {
-            /* A list's selection is a position: guests may sit before row. */
-            u32 rows = rvx_row_count(f);
-            if (f->screen->kind == RV_SCREEN_KIND_LIST && f->native) {
-                row = rvx_guest_position(f->native, f->screen, row);
-                rows += rvx_guest_count(f->native);
+        if (f->ctx.self == p && id && f->screen->kind == RV_SCREEN_KIND_DYNAMIC_LIST &&
+            cfw_string_equal(f->screen->id, id)) {
+            if (f->ctx.controller == top_controller()) {
+                select_row(f, row);
+            } else {
+                f->selected = row;
+                f->select_pending = 1;
             }
-            f->selected = row;
-            if (f == rvx_top && f->native && row < rows)
-                osos_ui_list_select(row);
-            osos_ui_invalidate();
             break;
         }
 }
@@ -296,29 +344,38 @@ static const struct screen *declared_setting_screen(Pkg *p, uint16_t key,
     return NULL;
 }
 
-void rvx_act(const struct context *ctx, const struct row *r)
+/* Runs a row's selection; for a row that opens a screen, whether it did. */
+int rvx_act(const struct context *ctx, const struct row *r)
 {
     Pkg *p = ctx->self;
     switch (r->kind) {
     case 0:
-        open_id(p, r->screen, NULL, ctx->controller);
-        break;
+        return open_id(p, r->screen, NULL, ctx->controller);
     case 1:
         if (r->action)
             r->action(ctx);
         break;
     case 2: {
+        /* A choice, multi-choice or slider screen of the setting opens: a
+         * declared one, else the one a labelled int with a screen kind makes.
+         * Otherwise Select steps a labelled int to its next label, as stock
+         * Shuffle and Repeat do, and flips anything else. */
         const struct rvx_setting *s = rvx_declaration(p, r->key);
-        if (!s)
-            break;
-        int n = rvx_get_int(p, r->key);
-        if (s->type == 1)
-            rvx_set_int(p, r->key, !n);
-        else if (!s->screen)
-            rvx_set_int(p, r->key, n >= s->maximum ? s->minimum : n + 1);
-        else {
-            unsigned module = 0;
-            const struct screen *declared = declared_setting_screen(p, r->key, &module);
+        unsigned module = 0;
+        const struct screen *declared = declared_setting_screen(p, r->key, &module);
+        int generated = s && s->type == RV_SETTING_TYPE_INT && s->labels &&
+                        s->label_count && s->screen;
+        if (!declared && !generated) {
+            int32_t v = rvx_get_int(p, r->key);
+            if (s && s->labels && s->label_count) {
+                if ((u32)v >= s->label_count)
+                    v = s->fallback; /* the label the row shows */
+                v = (u32)v + 1 >= s->label_count ? 0 : v + 1;
+            } else {
+                v = !v;
+            }
+            rvx_write_setting(p, r->key, RV_SETTING_TYPE_INT, &v, sizeof v);
+        } else {
             struct frame *f = frame(p, NULL);
             if (!f)
                 break;
@@ -339,17 +396,22 @@ void rvx_act(const struct context *ctx, const struct row *r)
         break;
     }
     }
+    return OK;
 }
 
+/* A setting's value as text: its label, the fallback's label for a value past
+ * the labels, On or Off without labels, NULL for a multi-choice. */
 const char *rvx_setting_label(Pkg *p, uint16_t key)
 {
-    int n = rvx_get_int(p, key);
+    int32_t n = rvx_get_int(p, key);
     const struct rvx_setting *s = rvx_declaration(p, key);
-    if (s && s->screen == RV_SCREEN_KIND_MULTI_CHOICE)
+    if (!s || !s->labels)
+        return n ? "On" : "Off";
+    if (s->screen == RV_SCREEN_KIND_MULTI_CHOICE)
         return NULL;
-    if (s && s->labels && n >= 0 && (u32)n < s->label_count)
-        return s->labels[n];
-    return s && s->type == 1 ? (n ? "On" : "Off") : NULL;
+    if ((u32)n >= s->label_count)
+        n = s->fallback;
+    return (u32)n < s->label_count ? s->labels[n] : NULL;
 }
 
 static void slide(struct frame *f, int steps)

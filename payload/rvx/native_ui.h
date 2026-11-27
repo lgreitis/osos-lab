@@ -275,8 +275,6 @@ const struct installed *rvx_guest_at(const struct core_screen *s,
 uint32_t rvx_guest_count(const struct core_screen *s);
 /* The position of declared row `index` in `s`, past the guests before it and
  * short of the hidden stock rows. */
-uint32_t rvx_guest_position(const struct core_screen *s, const struct screen *d,
-                            uint32_t index);
 /* 1 when a guest of the list screen `s` needs the split layout whose pane
  * hides the box when the list's first shows it (`main_plain` 0), or shows it
  * when the first hides it. */

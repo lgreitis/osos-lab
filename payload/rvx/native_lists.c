@@ -413,6 +413,7 @@ static const uint8_t *prototype(const struct core_screen *s, uint32_t i, int *va
         return core_lists_prototype(1);
     switch (d->kind) {
     case RV_SCREEN_KIND_CHOICE:
+        return stock_row(RES_Settings_EQ_Items, RES_Settings_EQ_Item);
     case RV_SCREEN_KIND_MULTI_CHOICE:
         return stock_row(RES_Settings_MainMenu_Items, RES_Settings_MainMenu_Item);
     default:
@@ -442,8 +443,7 @@ static int write_rows(struct core_screen *s, uint8_t *scratch)
                                                                 : RV_DETAIL_BESIDE;
         int action = d->kind == RV_SCREEN_KIND_LIST &&
                      d->list.rows[i].kind == RV_ROW_KIND_ACTION;
-        int checked =
-            d->kind == RV_SCREEN_KIND_CHOICE || d->kind == RV_SCREEN_KIND_MULTI_CHOICE;
+        int checked = d->kind == RV_SCREEN_KIND_MULTI_CHOICE;
         uint32_t words[6] = {MenuRow_id,
                              item,
                              MenuRow_title,
@@ -498,8 +498,7 @@ static int write_rows(struct core_screen *s, uint8_t *scratch)
             native_set(Resource_SORC, source, bindings, sizeof bindings);
         } else if (value)
             core_set_source2(source, item, source, SourceDestination_InlineValue);
-        else if (d->kind == RV_SCREEN_KIND_MULTI_CHOICE ||
-                 d->kind == RV_SCREEN_KIND_CHOICE)
+        else if (d->kind == RV_SCREEN_KIND_MULTI_CHOICE)
             core_set_source2(source, item, item, SourceDestination_RowBitmap);
         else
             core_set_source(source, item, 1);

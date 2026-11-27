@@ -155,6 +155,11 @@ void cfw_rvx_toggle_row(unsigned menu, unsigned row)
         host->toggle(menu, row);
 }
 
+uint32_t cfw_rvx_visible_locate(unsigned menu, uint32_t position, uint32_t *anchor)
+{
+    return host ? host->visible_locate(menu, position, anchor) : position;
+}
+
 uint32_t cfw_rvx_stock_view(uint32_t view)
 {
     return host ? host->stock_view(view) : view;
