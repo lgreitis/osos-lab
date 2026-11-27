@@ -172,6 +172,38 @@ static const struct rvx_hook game_hooks[] = {
      0},
 };
 
+#define ORDER_LIMIT 0x30 /* order slots in a MediaList */
+
+/* Replaces Apple's position lookup, which keeps an index of (entry, position)
+ * pairs sorted by address beside each order it is asked about: 8 bytes per entry,
+ * as large as a play-all queue, asked twice per track change. Scanning the order
+ * gives the same position. Returns the position, or -1 if absent, in r0. Apple's
+ * function also returns the entry in r1, and none of its thirteen callers reads
+ * it. */
+static u32 entry_position(u32 entry, u32 order, u32 reverse_arg, const void *next)
+{
+    (void)next;
+    uint8_t *list = entry ? RV_FIELD((uint8_t *)entry, MediaEntry_list, uint8_t *) : 0;
+    if (!list || !RV_FIELD((uint8_t *)entry, MediaEntry_parent, void *) || !order)
+        return UINT32_MAX;
+    uint8_t reverse = (uint8_t)reverse_arg;
+    NATIVE_CALL(MediaList_ResolveOrderMode)((struct MediaList *)list, &order, &reverse);
+    if (!order || order > ORDER_LIMIT ||
+        NATIVE_CALL(MediaList_BuildOrderIndex)((struct MediaList *)list, order))
+        return UINT32_MAX;
+    uint8_t *entries = RV_FIELD(list, MediaList_order_index + order * 4, uint8_t *);
+    u32 count = RV_FIELD(entries, MediaOrder_count, u32);
+    u32 *items = (u32 *)(entries + MediaOrder_entries);
+    for (u32 i = 0; i < count; i++)
+        if (items[i] == entry)
+            return reverse ? count - i - 1 : i;
+    return UINT32_MAX;
+}
+
+static const struct rvx_hook position_hook = {
+    RV_SITE_MediaList_GetEntryOrderIndex_entry, (u32)entry_position, 0,
+    RV_HOOK_MODE_REPLACE, 0};
+
 static void bind_all(const struct rvx_hook *hooks, u32 count)
 {
     for (u32 i = 0; i < count; i++)
@@ -184,4 +216,5 @@ void rvx_memory_bind(void)
     bind_all(read_ahead_hooks, 2);
     bind_all(pool_hooks, 2);
     bind_all(game_hooks, 2);
+    rvx_bind_core(&position_hook);
 }
