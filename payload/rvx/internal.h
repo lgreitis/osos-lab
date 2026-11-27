@@ -107,6 +107,8 @@ struct rvx_package {
     const char *strings;
     struct entry *catalog;
     u32 entries, state;
+    /* owner: FNV-1a of id; bytes and hash: the file's size and body hash. */
+    u32 owner, bytes, hash;
     struct rvx_module *modules;
     struct rvx_block *heap;
     File *files;
@@ -210,6 +212,26 @@ _Static_assert(sizeof(struct rvx_api) == 50 * 4 &&
                "RVX ABI");
 int rvx_load_module(Pkg *, u32);
 void rvx_install_menus(void);
+
+/* The running marker names the extension whose code the runtime calls directly;
+ * a crash there is attributed to it before any address lookup. */
+extern u32 cfw_rvx_running;
+static inline u32 rvx_enter(const Pkg *p)
+{
+    u32 outer = cfw_rvx_running;
+    cfw_rvx_running = p->owner;
+    return outer;
+}
+static inline void rvx_leave(u32 outer)
+{
+    cfw_rvx_running = outer;
+}
+struct panic_frame;
+struct cfw_crash_owner;
+int rvx_crash_owner(const struct panic_frame *, struct cfw_crash_owner *);
+/* Skips the package the crash mark names while its file is unchanged, and
+ * releases the mark once the package is missing or its file differs. */
+void rvx_quarantine(void);
 /* The entries of a main module are valid: a hosted one names another
  * extension's screen and at most one menu, a stock one at least one menu and
  * no host. */

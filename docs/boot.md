@@ -17,6 +17,10 @@ Attach it when you open an issue. Holding Menu and Center, or a flat battery
 before the next start, loses the report. A crash early in startup shows the
 register screen instead and saves no report; Center restarts there too.
 
+A crash inside an extension names it on the screen and in the report. That
+extension is skipped at every start until its `.rvx` file changes: replace it
+with another build, or delete it, start once and copy it back.
+
 ## RepriseOS boot
 
 ```mermaid

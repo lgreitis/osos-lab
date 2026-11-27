@@ -10,6 +10,7 @@ static const struct rvx_host *host;
 
 uint32_t rvx_insert_slot;
 void *rvx_chains[RVX_HOOK_SLOTS];
+uint32_t cfw_rvx_running;
 
 static int read_and_hash(void *f, void *dest, uint32_t n, uint32_t *hash)
 {
@@ -158,6 +159,11 @@ void cfw_rvx_toggle_row(unsigned menu, unsigned row)
 uint32_t cfw_rvx_stock_view(uint32_t view)
 {
     return host ? host->stock_view(view) : view;
+}
+
+int cfw_rvx_crash_owner(const struct panic_frame *frame, struct cfw_crash_owner *out)
+{
+    return host && host->crash_owner(frame, out);
 }
 
 uint32_t rvx_dispatch(uint32_t *registers, unsigned slot)

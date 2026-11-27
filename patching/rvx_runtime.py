@@ -82,6 +82,7 @@ def build_trailer(source, directory, resident, prefix, jobs, defines=()):
         "__aeabi_uidiv",
         "__aeabi_uidivmod",
         "cfw_store_get",
+        "cfw_recovery_release",
         "cfw_rvx_lock",
         "cfw_rvx_unlock",
         "cfw_rvx_sync",
@@ -112,6 +113,7 @@ def build_trailer(source, directory, resident, prefix, jobs, defines=()):
         "rvx_insert_slot",
         "rvx_chains",
         "rvx_trailer",
+        "cfw_rvx_running",
         "__payload_limit",
         "__payload_start",
     ]

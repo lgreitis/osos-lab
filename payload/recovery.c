@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "recovery.h"
 #include "osos.h"
+#include "store.h"
 #include <stddef.h>
 
 #define REG32(address) (*(volatile uint32_t *)(address))
@@ -65,7 +66,13 @@ int cfw_recovery_valid(void)
            CFW_CRASH_RECORD->checksum == checksum();
 }
 
-void cfw_recovery_capture(const struct panic_frame *frame)
+uint32_t cfw_recovery_owner(void)
+{
+    return cfw_recovery_valid() ? CFW_CRASH_RECORD->owner.hash : 0;
+}
+
+void cfw_recovery_capture(const struct panic_frame *frame,
+                          const struct cfw_crash_owner *owner)
 {
     clear();
     volatile uint8_t *p = (volatile uint8_t *)CFW_CRASH_RECORD;
@@ -73,6 +80,12 @@ void cfw_recovery_capture(const struct panic_frame *frame)
         p[i] = 0;
     CFW_CRASH_RECORD->firmware = CFW_FIRMWARE_ID;
     CFW_CRASH_RECORD->report_id = report_id;
+    if (owner) {
+        const uint8_t *from = (const uint8_t *)owner;
+        volatile uint8_t *to = (volatile uint8_t *)&CFW_CRASH_RECORD->owner;
+        for (uint32_t i = 0; i < sizeof *owner; i++)
+            to[i] = from[i];
+    }
     const uint8_t *from = (const uint8_t *)frame;
     volatile uint8_t *to = (volatile uint8_t *)&CFW_CRASH_RECORD->frame;
     for (uint32_t i = 0; i < sizeof *frame; i++)
@@ -109,6 +122,17 @@ static char *append(char *out, const char *value)
     return out;
 }
 
+static char *field(char *out, const char *key, const volatile char *value,
+                   uint32_t capacity)
+{
+    out = append(out, key);
+    out = append(out, ": ");
+    for (uint32_t i = 0; i < capacity && value[i]; i++)
+        *out++ = value[i];
+    *out++ = '\n';
+    return out;
+}
+
 static char *word(char *out, const char *key, uint32_t value)
 {
     out = append(out, key);
@@ -124,6 +148,12 @@ static uint32_t format(char *buffer)
     char *p = append(buffer, "RepriseOS crash report v1\n");
     p = word(p, "Report", CFW_CRASH_RECORD->report_id);
     p = word(p, "Firmware", CFW_CRASH_RECORD->firmware);
+    const volatile struct cfw_crash_owner *owner = &CFW_CRASH_RECORD->owner;
+    p = word(p, "Attributed owner", owner->hash);
+    p = field(p, "Extension", owner->name, sizeof owner->name);
+    p = field(p, "Extension ID", owner->id, sizeof owner->id);
+    p = field(p, "File", owner->file, sizeof owner->file);
+    p = word(p, "File size", owner->size);
     static const char *const labels[] = {
         "R0",   "R1",           "R2",          "R3",   "R4",         "R5",
         "R6",   "R7",           "R8",          "R9",   "R10",        "R11",
@@ -205,9 +235,66 @@ static uint32_t unused_id(uint32_t seed)
     return 0;
 }
 
+static unsigned read_marks(struct cfw_crash_mark *marks)
+{
+    uint32_t bytes = cfw_store_get(CFW_STORE_CRASHED, marks,
+                                   CFW_CRASH_MARKS * sizeof *marks);
+    return bytes / sizeof *marks;
+}
+
+static void write_marks(const struct cfw_crash_mark *marks, unsigned count)
+{
+    cfw_store_set(CFW_STORE_CRASHED, marks, count * sizeof *marks);
+}
+
+/* Marks the blamed extension in the store. The record stays until a boot finds
+ * the same mark already there: cfw_settings_boot() flushes the store after
+ * this, so the mark reaches the disk before the record can go. */
+static int mark_owner(void)
+{
+    const volatile struct cfw_crash_owner *owner = &CFW_CRASH_RECORD->owner;
+    if (!owner->hash)
+        return 1;
+    struct cfw_crash_mark marks[CFW_CRASH_MARKS];
+    unsigned count = read_marks(marks), at = 0;
+    while (at < count && marks[at].hash != owner->hash)
+        at++;
+    if (at < count && marks[at].size == owner->size && marks[at].content == owner->content)
+        return 1;
+    if (at == count && count == CFW_CRASH_MARKS) {
+        /* Full: the oldest mark makes room. */
+        for (unsigned i = 1; i < count; i++)
+            marks[i - 1] = marks[i];
+        at = count - 1;
+    } else if (at == count) {
+        count++;
+    }
+    marks[at].hash = owner->hash;
+    marks[at].size = owner->size;
+    marks[at].content = owner->content;
+    write_marks(marks, count);
+    return 0;
+}
+
+void cfw_recovery_release(uint32_t hash)
+{
+    if (!hash)
+        return;
+    struct cfw_crash_mark marks[CFW_CRASH_MARKS];
+    unsigned count = read_marks(marks), kept = 0;
+    for (unsigned i = 0; i < count; i++)
+        if (marks[i].hash != hash)
+            marks[kept++] = marks[i];
+    if (kept != count)
+        write_marks(marks, kept);
+    if (cfw_recovery_owner() == hash && CFW_CRASH_RECORD->written)
+        clear();
+}
+
 /* Writes the report of the last crash and picks the id the next crash will be
  * saved as. The record stays until a later boot reads the report back unchanged,
- * or finds a report it already saved deleted or edited. */
+ * or finds a report it already saved deleted or edited, and the mark of the
+ * blamed extension has survived a store flush. */
 void cfw_recovery_prepare(void)
 {
     typedef int (*directory_fn)(const char *, uint32_t);
@@ -215,13 +302,15 @@ void cfw_recovery_prepare(void)
     int directory =
         !((directory_fn)OSOS_DIRECTORY_CREATE_WITH_PARENTS)("/Reprise/Crashes", 0);
     if (cfw_recovery_valid() && CFW_CRASH_RECORD->report_id) {
+        int marked = mark_owner();
         char path[32], report[REPORT_BYTES];
         uint32_t bytes = format(report);
         cfw_recovery_path(path, CFW_CRASH_RECORD->report_id);
         enum report_match existing = matches(path, report, bytes);
         if (existing == REPORT_SAME ||
             (CFW_CRASH_RECORD->written && existing != REPORT_UNREADABLE)) {
-            clear();
+            if (marked)
+                clear();
         } else if (directory && existing != REPORT_UNREADABLE) {
             if (existing == REPORT_DIFFERENT) {
                 uint32_t id = unused_id(CFW_CRASH_RECORD->report_id);

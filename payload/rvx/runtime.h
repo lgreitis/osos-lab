@@ -38,3 +38,13 @@ unsigned cfw_rvx_visible_rows(unsigned menu);
 int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int selected,
                              uintptr_t *out);
 void cfw_rvx_toggle_row(unsigned menu, unsigned row);
+
+/* The id hash of the extension whose code the runtime entered directly (module
+ * entry, unload, changed); 0 otherwise. The runtime keeps it current. */
+extern uint32_t cfw_rvx_running;
+/* Fills `out` with the extension the crash is attributed to and returns 1; 0
+ * when the runtime is down or no extension owns the running marker, the
+ * exception LR, a saved register or a stack word. */
+struct panic_frame;
+struct cfw_crash_owner;
+int cfw_rvx_crash_owner(const struct panic_frame *frame, struct cfw_crash_owner *out);

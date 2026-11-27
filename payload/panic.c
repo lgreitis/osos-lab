@@ -3,6 +3,7 @@
 #include "panic.h"
 #include "native/bindings.h"
 #include "recovery.h"
+#include "rvx/runtime.h"
 #include "sad_ipod.h"
 #include <stddef.h>
 
@@ -310,8 +311,19 @@ static void render_line(const struct panic_frame *frame)
     if (cfw_recovery_valid() && CFW_CRASH_RECORD->report_id) {
         text(12, 16, 2, "WE RAN INTO AN ERROR");
         sad_ipod();
-        text(12, 52, 1, "REPRISEOS");
-        text(12, 76, 1, "CENTER WILL RESTART.");
+        if (CFW_CRASH_RECORD->owner.hash) {
+            char name[40];
+            unsigned i = 0;
+            for (; i < sizeof name - 1 && CFW_CRASH_RECORD->owner.name[i]; i++)
+                name[i] = CFW_CRASH_RECORD->owner.name[i];
+            name[i] = 0;
+            text(12, 52, 1, name[0] ? name : "EXTENSION ERROR");
+            text(12, 76, 1, "CENTER WILL RESTART WITHOUT");
+            text(12, 90, 1, "THIS EXTENSION.");
+        } else {
+            text(12, 52, 1, "REPRISEOS");
+            text(12, 76, 1, "CENTER WILL RESTART.");
+        }
         char path[32];
         cfw_recovery_path(path, CFW_CRASH_RECORD->report_id);
         text(12, 116, 1, "REPORT WILL BE SAVED AFTER RESTART:");
@@ -381,7 +393,12 @@ static void render_line(const struct panic_frame *frame)
 void cfw_panic_screen(const struct panic_frame *frame)
 {
     REG32(0x3c800000) = 0;
-    cfw_recovery_capture(frame);
+    /* The record is committed before the runtime's lookup runs, so a fault in
+     * the lookup leaves a report for the next start. */
+    cfw_recovery_capture(frame, NULL);
+    struct cfw_crash_owner owner;
+    if (cfw_rvx_crash_owner(frame, &owner))
+        cfw_recovery_capture(frame, &owner);
     uint32_t backlight[4];
     cfw_panic_backlight(backlight);
     cfw_recovery_backlight(backlight);

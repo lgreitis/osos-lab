@@ -3,6 +3,7 @@
 #define RVX_HOOK_SLOTS 224
 
 #ifndef __ASSEMBLER__
+#include "recovery.h"
 #include "runtime.h"
 
 extern void *rvx_chains[RVX_HOOK_SLOTS];
@@ -24,5 +25,6 @@ struct rvx_host {
     uint32_t api, firmware_id;
     int (*indexed_property)(uint32_t, uint32_t, uint32_t, uintptr_t *);
     uint32_t (*stock_view)(uint32_t);
+    int (*crash_owner)(const struct panic_frame *, struct cfw_crash_owner *);
 };
 #endif

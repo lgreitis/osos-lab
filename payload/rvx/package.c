@@ -128,6 +128,8 @@ static int inspect(Pkg *p, void *f)
     }
     if (hash != h.hash || osos_file_seek(f, sizeof h, 0))
         return 0;
+    p->bytes = bytes;
+    p->hash = hash;
     struct rvx_manifest *m = p->manifest = osos_import_alloc(metadata);
     if (!m || !read_exact(f, m, metadata) || m->magic != 0x464d5652 ||
         m->version != 4 || (m->minimum_api >> 16) != RVX_API_MAJOR ||
@@ -155,6 +157,7 @@ static int inspect(Pkg *p, void *f)
             return 0;
         p->id[i] = c;
     }
+    p->owner = rvx_hash(p->id);
     for (unsigned i = 0; i < m->sites; i++) {
         const struct rvx_site *raw = p->sites + i;
         if (!strings_valid(p, raw->name, 1) || (raw->address & 3) || raw->argc > 4 ||
@@ -320,7 +323,9 @@ static int link_module(Pkg *p, u32 index, const struct module_header *h, File *f
             return 0;
     cfw_rvx_sync(m->image, m->image + code);
     typedef const struct rvx_descriptor *(*entry_fn)(const struct rvx_api *, Pkg *);
+    u32 outer = rvx_enter(p);
     const struct rvx_descriptor *d = ((entry_fn)(m->image + h->entry))(&cfw_rvx_api, p);
+    rvx_leave(outer);
     if (!d)
         return index != 0 || p->manifest->category == 5;
     if (!within(m, d, 1, sizeof *d) || d->size != sizeof *d ||
@@ -349,8 +354,11 @@ static void release(Pkg *p, struct rvx_module *m)
     if (!m->image)
         return;
     m->loading = 1;
-    if (m->desc && m->desc->unload)
+    if (m->desc && m->desc->unload) {
+        u32 outer = rvx_enter(p);
         m->desc->unload();
+        rvx_leave(outer);
+    }
     rvx_stop_timers(p, m);
     rvx_remove_hooks(p, m);
     rvx_forget_colors(p, m->image, m->size);
@@ -461,8 +469,11 @@ static int start(Pkg *p)
         if (!p->records[i].preload && rvx_load_module(p, i) != OK)
             goto failed;
     p->state = 2;
-    if (p->modules[0].desc && p->modules[0].desc->changed)
+    if (p->modules[0].desc && p->modules[0].desc->changed) {
+        u32 outer = rvx_enter(p);
         p->modules[0].desc->changed(0xffff);
+        rvx_leave(outer);
+    }
     return 1;
 failed:
     for (u32 i = p->manifest->modules; i; i--)
@@ -504,6 +515,7 @@ void cfw_rvx_boot(void)
             osos_import_free(p);
         }
     }
+    rvx_quarantine();
     for (Pkg *p = rvx_packages; p; p = p->next)
         start(p);
     rvx_install_menus();

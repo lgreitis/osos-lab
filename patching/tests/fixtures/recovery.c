@@ -8,6 +8,7 @@
 #include "../../../payload/osos.h"
 #undef _Static_assert
 #include "../../../payload/recovery.h"
+#include "../../../payload/store.h"
 
 static struct cfw_crash_record retained;
 static uint32_t wheel[8], wheel_buttons;
@@ -82,6 +83,27 @@ static void fake_close(void *handle)
     assert(handle);
 }
 
+/* The store holds one record, the crash marks. */
+static struct cfw_crash_mark stored_marks[CFW_CRASH_MARKS];
+static uint32_t stored_bytes;
+static unsigned mark_writes;
+
+static uint32_t fake_store_get(uint32_t key, void *data, uint32_t capacity)
+{
+    assert(key == CFW_STORE_CRASHED);
+    uint32_t size = stored_bytes < capacity ? stored_bytes : capacity;
+    memcpy(data, stored_marks, size);
+    return size;
+}
+
+static void fake_store_set(uint32_t key, const void *data, uint32_t size)
+{
+    assert(key == CFW_STORE_CRASHED && size <= sizeof stored_marks);
+    memcpy(stored_marks, data, size);
+    stored_bytes = size;
+    mark_writes++;
+}
+
 static int fake_directory(const char *path, uint32_t volume)
 {
     assert(!strcmp(path, "/Reprise/Crashes") && !volume);
@@ -116,6 +138,8 @@ void cfw_rvx_sync(const void *start, const void *end)
     }
 }
 
+#define cfw_store_get fake_store_get
+#define cfw_store_set fake_store_set
 #define osos_file_open fake_open
 #define osos_file_read fake_read
 #define osos_file_write fake_write
@@ -143,7 +167,11 @@ static struct file *report_file(void)
     return find_file(path);
 }
 
-static void capture(void)
+static const struct cfw_crash_owner blamed = {
+    0x1234abcd, 4096, 0x9999, "org.example.crashy", "Crashy Extension", "crashy.rvx"};
+static const struct cfw_crash_owner other = {0x5555aaaa, 10, 0x77, "other", "Other", "o.rvx"};
+
+static void capture_owner(const struct cfw_crash_owner *owner)
 {
     struct panic_frame frame = {0};
     frame.type = 4;
@@ -151,8 +179,96 @@ static void capture(void)
     frame.stack_count = 0xffffffff;
     cfw_recovery_prepare();
     assert(report_id);
-    cfw_recovery_capture(&frame);
+    cfw_recovery_capture(&frame, owner);
     assert(cfw_recovery_valid() && retained.report_id == report_id);
+    assert(cfw_recovery_owner() == (owner ? owner->hash : 0));
+}
+
+static unsigned marks(void)
+{
+    return stored_bytes / sizeof *stored_marks;
+}
+
+static void capture(void)
+{
+    capture_owner(NULL);
+}
+
+/* The record of a blamed extension outlives its report until the same mark
+ * was found in the store at a later boot. */
+static void quarantine(void)
+{
+    stored_bytes = 0;
+    mark_writes = 0;
+    capture_owner(&blamed);
+    assert(!mark_writes);
+    cfw_recovery_prepare();
+    assert(mark_writes == 1 && marks() == 1);
+    assert(stored_marks[0].hash == blamed.hash && stored_marks[0].size == 4096 &&
+           stored_marks[0].content == 0x9999);
+    assert(cfw_recovery_valid() && retained.written);
+    assert(strstr(report_file()->data, "Attributed owner: 1234ABCD\n"));
+    assert(strstr(report_file()->data, "Extension: Crashy Extension\n"));
+    assert(strstr(report_file()->data, "Extension ID: org.example.crashy\n"));
+    assert(strstr(report_file()->data, "File: crashy.rvx\n"));
+    assert(strstr(report_file()->data, "File size: 00001000\n"));
+    /* A lost flush: the mark is written again and the record stays. */
+    stored_bytes = 0;
+    cfw_recovery_prepare();
+    assert(mark_writes == 2 && cfw_recovery_valid());
+    cfw_recovery_prepare();
+    assert(mark_writes == 2 && !cfw_recovery_valid());
+    assert(marks() == 1);
+
+    /* A mark of the same id for another file is replaced in place. */
+    stored_marks[0].content = 0x1111;
+    capture_owner(&blamed);
+    cfw_recovery_prepare();
+    assert(mark_writes == 3 && marks() == 1 && stored_marks[0].content == 0x9999);
+    assert(cfw_recovery_valid());
+    cfw_recovery_prepare();
+    assert(!cfw_recovery_valid());
+
+    /* A second extension is added after the first; the fifth drops the oldest. */
+    capture_owner(&other);
+    cfw_recovery_prepare();
+    assert(marks() == 2 && stored_marks[0].hash == blamed.hash &&
+           stored_marks[1].hash == other.hash);
+    cfw_recovery_prepare();
+    struct cfw_crash_owner third = other;
+    for (uint32_t i = 1; i <= 3; i++) {
+        third.hash = 0x100 + i;
+        capture_owner(&third);
+        cfw_recovery_prepare();
+        cfw_recovery_prepare();
+    }
+    assert(marks() == 4 && stored_marks[0].hash == other.hash &&
+           stored_marks[3].hash == 0x103);
+    cfw_recovery_release(0x102);
+    assert(marks() == 3 && stored_marks[2].hash == 0x103);
+    stored_bytes = 0;
+
+    /* The runtime releases a mark whose package is gone or changed. */
+    capture_owner(&blamed);
+    cfw_recovery_prepare();
+    assert(marks() == 1 && retained.written);
+    cfw_recovery_release(blamed.hash ^ 1);
+    assert(marks() == 1 && cfw_recovery_valid());
+    cfw_recovery_release(blamed.hash);
+    assert(!stored_bytes && !cfw_recovery_valid());
+    /* Before the report is saved, the release drops the mark only. */
+    capture_owner(&blamed);
+    fail_directory = 1;
+    cfw_recovery_prepare(); /* marks, cannot write */
+    assert(marks() == 1 && cfw_recovery_valid() && !retained.written);
+    cfw_recovery_release(blamed.hash);
+    assert(!stored_bytes && cfw_recovery_valid());
+    fail_directory = 0;
+    cfw_recovery_prepare();
+    assert(marks() == 1 && retained.written);
+    cfw_recovery_release(blamed.hash);
+    assert(!cfw_recovery_valid());
+    stored_bytes = 0;
 }
 
 /* A short write is kept and the report goes to a fresh id at the next boot. */
@@ -278,8 +394,13 @@ int main(void)
     cfw_recovery_prepare();
     assert(writes == before + 1);
 
+    quarantine();
+
     /* The longest report fits the buffer. */
     retained.frame.stack_count = PANIC_STACK_WORDS;
+    memset((void *)&retained.owner.id, 'x', sizeof retained.owner.id);
+    memset((void *)&retained.owner.name, 'x', sizeof retained.owner.name);
+    memset((void *)&retained.owner.file, 'x', sizeof retained.owner.file);
     char formatted[REPORT_BYTES + 1];
     assert(format(formatted) < REPORT_BYTES);
 
@@ -293,6 +414,6 @@ int main(void)
     assert(!center_pressed(&released, WHEEL_BUTTONS_VALUE));
     assert(center_pressed(&released, WHEEL_BUTTONS_VALUE | (WHEEL_CENTER << 16)));
     assert(committed_syncs >= 10);
-    puts("PASS: record integrity, report retries, id collisions, Center packets");
+    puts("PASS: record integrity, report retries, id collisions, crash marks, Center packets");
     return 0;
 }
