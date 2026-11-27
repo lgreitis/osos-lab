@@ -208,12 +208,14 @@ int hfs_upload_mount(uint64_t sectors, uint64_t *start, uint64_t *end,
         vol.bytes - (uint64_t)vol.blocks * vol.block_size >= vol.block_size ||
         !read_disk(NULL, vol.offset + 1024, header, 512))
         return UNSUPPORTED;
+    /* A zeroed alternate is what a publish cut short leaves. */
     uint8_t alt[512];
     if (!read_disk(NULL, vol.offset + vol.bytes - 1024, alt, 512) ||
-        memcmp(alt, header, 4) || memcmp(alt + 40, header + 40, 8) ||
-        (u32(header + 4) & ((1u << 7) | (1u << 15) | (1u << 30))) || !journal_clean() ||
-        u32(header + 48) > vol.blocks || !inline_fork(header + CATALOG) ||
-        !inline_fork(header + BITMAP) ||
+        ((memcmp(alt, header, 4) || memcmp(alt + 40, header + 40, 8)) &&
+         (alt[0] || memcmp(alt, alt + 1, sizeof(alt) - 1))) ||
+        (u32(header + 4) & ((1u << 7) | (1u << 12) | (1u << 15) | (1u << 30))) ||
+        !journal_clean() || u32(header + 48) > vol.blocks ||
+        !inline_fork(header + CATALOG) || !inline_fork(header + BITMAP) ||
         u64(header + BITMAP) < ((uint64_t)vol.blocks + 7) / 8 || !catalog_header())
         return UNSUPPORTED;
     *start = vol.offset / 512;
@@ -810,10 +812,15 @@ int hfs_upload_commit(void)
     }
     memcpy(header + BITMAP, fresh_map, 80);
     memcpy(header + CATALOG, fresh_cat, 80);
-    if (!transfer(vol.offset + vol.bytes - 1024, header, 512, true) || ata_flush() ||
-        !transfer(vol.offset + 1024, header, 512, true) || ata_flush())
+    /* fsck_hfs finds the B-trees through the alternate volume header, and
+     * through the primary one when the alternate is invalid. Zeroing the
+     * alternate before the primary is written keeps every interrupted publish
+     * repairable to what the primary header describes. */
+    uint8_t check[512] = {0};
+    if (!transfer(vol.offset + vol.bytes - 1024, check, 512, true) || ata_flush() ||
+        !transfer(vol.offset + 1024, header, 512, true) || ata_flush() ||
+        !transfer(vol.offset + vol.bytes - 1024, header, 512, true) || ata_flush())
         return BAD_IO;
-    uint8_t check[512];
     if (!read_disk(NULL, vol.offset + 1024, check, sizeof(check)) ||
         memcmp(check, header, 512) || !catalog_header())
         return BAD_IO;

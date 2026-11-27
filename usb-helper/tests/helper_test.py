@@ -28,7 +28,10 @@ MOCK = r"""
 #include <strings.h>
 #include <dirent.h>
 #define MIN(a,b) ((a)<(b)?(a):(b))
+#define MAX(a,b) ((a)>(b)?(a):(b))
 #define IF_MV(...)
+#define IF_MD(...)
+#define CACHEALIGN_ATTR
 typedef uint64_t sector_t;
 #define DIRENT dirent
 #define ATTR_DIRECTORY 0x10
@@ -44,6 +47,8 @@ bool fat_size(sector_t *, sector_t *);
 unsigned fat_get_cluster_size(void);
 void ata_sleepnow(void);
 int ata_flush(void);
+int ata_read_sectors(uint64_t, int, void *);
+int ata_write_sectors(uint64_t, int, const void *);
 bool file_exists(const char *);
 bool dir_exists(const char *);
 int test_mkdir(const char *);
