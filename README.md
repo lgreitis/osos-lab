@@ -59,13 +59,14 @@ RepriseOS package and builds a companion using that iPod's identity.
 
 ## Features
 
-- Dark Mode, with an On/Off toggle in Settings.
-
-Album Artists, File Info, Playback Queue (Play Next, Play Last and Up Next),
-Equalizer (the five-band custom EQ), Clicker Modes, iAP Auth Bypass,
-EU Volume Limit and Homebrew (apps and games from `/Reprise/Apps` and
+Appearance (Dark Mode, accent colours and themes from `/Reprise/Themes`),
+Night Shift, Album Artists, File Info, Playback Queue (Play Next, Play Last
+and Up Next), Equalizer (the five-band custom EQ), Clicker Modes, iAP Auth
+Bypass, EU Volume Limit and Homebrew (apps and games from `/Reprise/Apps` and
 `/Reprise/Games`) are extensions in the
-[extension catalog](https://repriseos.com/extensions/).
+[extension catalog](https://repriseos.com/extensions/). Themes are built with
+the compiler in the
+[extensions repository](https://github.com/RepriseOS/extensions/tree/main/themes).
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
 

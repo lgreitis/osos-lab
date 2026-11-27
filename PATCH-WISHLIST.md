@@ -1,7 +1,6 @@
 # Possible CFW Features
 
-Implemented features, including WIP Dark Mode, are listed in the
-[README](README.md#features).
+Implemented features are listed in the [README](README.md#features).
 
 ## Cover Flow song context menu
 
