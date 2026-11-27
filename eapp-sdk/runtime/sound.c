@@ -268,3 +268,138 @@ void eapp_sound_set_music_duck(struct eapp_sound *sound, uint32_t level,
     if (live(sound))
         GameSound_SetMusicDuck(sound->handle, level, milliseconds);
 }
+
+/* A stream's ring is one looping sound. A looping voice plays the frames up
+ * to the last and only interpolates towards that one, so the sound is the
+ * ring plus a copy of its first frame. The voice's frame cursor runs from 0
+ * to the ring's length in every pass, so the frames since the last look are
+ * the cursor's distance travelled, modulo the ring. */
+struct eapp_sound_stream {
+    struct eapp_sound *sound;
+    uint8_t *ring;
+    uint32_t frames, frame_bytes, rate;
+    uint32_t cursor; /* The voice's frame at the last look. */
+    uint32_t looked; /* eapp_ticks_ms() at the last look. */
+    uint32_t write;  /* The frame the next write fills. */
+    uint32_t queued; /* Frames written from the cursor on. */
+    uint8_t started;
+};
+
+struct eapp_sound_stream *eapp_sound_stream_create(uint32_t rate, uint32_t channels,
+                                                   uint32_t bits, uint32_t frames)
+{
+    if (!format_ok(rate, channels, bits) || frames < rate / 20)
+        return NULL;
+    uint32_t frame_bytes = channels * bits / 8;
+    if (frames > (UINT32_MAX - sizeof(struct eapp_sound_stream)) / frame_bytes - 1)
+        return NULL;
+    size_t bytes = ((size_t)frames + 1) * frame_bytes;
+    struct eapp_sound_stream *stream = eapp_alloc(sizeof *stream + bytes);
+    if (!stream)
+        return NULL;
+    memset(stream, 0, sizeof *stream + bytes);
+    stream->ring = (uint8_t *)(stream + 1);
+    stream->frames = frames;
+    stream->frame_bytes = frame_bytes;
+    stream->rate = rate;
+    stream->sound = eapp_sound_create(stream->ring, bytes, rate, channels, bits);
+    if (!stream->sound) {
+        eapp_free(stream);
+        return NULL;
+    }
+    GameSound_SetPlayCount(stream->sound->handle, 0);
+    return stream;
+}
+
+void eapp_sound_stream_free(struct eapp_sound_stream *stream)
+{
+    if (!stream)
+        return;
+    eapp_sound_free(stream->sound);
+    eapp_free(stream);
+}
+
+/* Copies the first frame behind the ring's end. */
+static void guard(struct eapp_sound_stream *stream)
+{
+    memcpy(stream->ring + stream->frames * stream->frame_bytes, stream->ring,
+           stream->frame_bytes);
+}
+
+/* Silences `count` frames from `from` on, round the ring. */
+static void silence(struct eapp_sound_stream *stream, uint32_t from, uint32_t count)
+{
+    uint32_t first = stream->frames - from < count ? stream->frames - from : count;
+    memset(stream->ring + from * stream->frame_bytes, 0, first * stream->frame_bytes);
+    memset(stream->ring, 0, (count - first) * stream->frame_bytes);
+    guard(stream);
+}
+
+/* Moves the cursor to the voice's and silences what it played. A voice taken
+ * by another sound starts the stream over. The cursor runs up to a mixing
+ * block ahead of the clock, so after three quarters of the ring's length of
+ * time its distance can hide a pass, and the whole ring counts as played. */
+static void advance(struct eapp_sound_stream *stream)
+{
+    if (!stream->started)
+        return;
+    if (!eapp_sound_playing(stream->sound)) {
+        silence(stream, 0, stream->frames);
+        stream->cursor = stream->write = stream->queued = stream->started = 0;
+        return;
+    }
+    uint32_t now = eapp_sound_position(stream->sound) % stream->frames;
+    uint32_t played = (now + stream->frames - stream->cursor) % stream->frames;
+    uint32_t ms = eapp_ticks_ms();
+    if ((uint64_t)(ms - stream->looked) * stream->rate * 4 >= (uint64_t)stream->frames * 3000)
+        played = stream->frames;
+    stream->looked = ms;
+    silence(stream, stream->cursor, played);
+    if (played > stream->queued) {
+        stream->write = now;
+        stream->queued = 0;
+    } else {
+        stream->queued -= played;
+    }
+    stream->cursor = now;
+}
+
+uint32_t eapp_sound_stream_space(struct eapp_sound_stream *stream)
+{
+    if (!stream)
+        return 0;
+    advance(stream);
+    return stream->frames - stream->queued;
+}
+
+uint32_t eapp_sound_stream_write(struct eapp_sound_stream *stream, const void *pcm,
+                                 uint32_t frames)
+{
+    if (!stream || !pcm)
+        return 0;
+    advance(stream);
+    uint32_t space = stream->frames - stream->queued;
+    if (frames > space)
+        frames = space;
+    uint32_t first =
+        stream->frames - stream->write < frames ? stream->frames - stream->write : frames;
+    memcpy(stream->ring + stream->write * stream->frame_bytes, pcm,
+           first * stream->frame_bytes);
+    memcpy(stream->ring, (const uint8_t *)pcm + first * stream->frame_bytes,
+           (frames - first) * stream->frame_bytes);
+    guard(stream);
+    stream->write = (stream->write + frames) % stream->frames;
+    stream->queued += frames;
+    if (!stream->started && stream->queued >= stream->frames / 2) {
+        eapp_sound_play(stream->sound);
+        stream->looked = eapp_ticks_ms();
+        stream->started = 1;
+    }
+    return frames;
+}
+
+void eapp_sound_stream_set_volume(struct eapp_sound_stream *stream, uint32_t volume)
+{
+    if (stream)
+        eapp_sound_set_volume(stream->sound, volume);
+}

@@ -28,3 +28,17 @@ The setters pass values to the host unchecked.
 | `set_music_duck` | The level the music fades to over a silence before the sound; it comes back after | none |
 
 The host cannot unchain `next`: a freed `next` sound keeps playing in turn until nothing names it.
+
+## Streams
+
+A stream plays PCM the app produces as it runs, such as an emulator's sound chip. It is one looping sound over a ring of frames on the heap, so it holds one of the 32 sounds until freed and a voice while it plays. As the oldest voice, it is the first one taken when all eight play.
+
+| Call | |
+|---|---|
+| `eapp_sound_stream_create(rate, channels, bits, frames)` | A ring of `frames` frames in the formats above, at least 50 ms (`rate / 20` frames) |
+| `eapp_sound_stream_space` | The frames a write takes at once |
+| `eapp_sound_stream_write(stream, pcm, frames)` | Copies up to `frames` frames and returns the frames taken |
+| `eapp_sound_stream_set_volume` | As `eapp_sound_set_volume` |
+| `eapp_sound_stream_free` | Stops and frees the stream |
+
+Playback starts once half the ring holds samples. The voice's cursor moves one mixing block at a time, and frames it has played turn silent, so a writer that falls behind or pauses leaves a gap and resumes at the cursor. Write every frame callback, with a ring of a few callbacks' worth of samples: 4,096 frames at 22,050 Hz hold 186 ms. When another sound takes the stream's voice, the stream starts over at the next write or space call.

@@ -754,6 +754,7 @@ struct fake_sound {
     uint32_t lead_in_ms, tail_ms, duck_level, duck_ms;
     int32_t pan;
     int next; /* -1 for none. */
+    uint32_t position; /* The voice's frame; Play rewinds it. */
     uint8_t state, attached, used;
     unsigned plays, stops;
 };
@@ -819,6 +820,7 @@ int GameSound_Play(int handle)
         return 0;
     assert(s->data && s->byte_count);
     s->attached = 1;
+    s->position = 0;
     set_ring_state(s, GameSoundState_Playing);
     ++s->plays;
     return 1;
@@ -859,7 +861,7 @@ int GameSound_IsPlaying(int handle)
 uint32_t GameSound_GetVoicePosition(int handle)
 {
     struct fake_sound *s = sound_at(handle);
-    return s && s->attached ? 123 : 0;
+    return s && s->attached ? s->position : 0;
 }
 
 static void end_sound(int handle)
@@ -1584,6 +1586,7 @@ static void check_sounds(void)
     assert(!eapp_sound_playing(tone) && eapp_sound_position(tone) == 0);
     eapp_sound_play(tone);
     assert(host->stops == 1 && host->plays == 1 && eapp_sound_playing(tone));
+    host->position = 123;
     assert(eapp_sound_position(tone) == 123);
     eapp_sound_play(tone);
     assert(host->stops == 2 && host->plays == 2);
@@ -1676,6 +1679,88 @@ static void check_sounds(void)
     assert(LIVE(0));
 }
 
+/* A stream over a ring of 400 frames, 50 ms at 8000 Hz: the host's sound is
+ * the ring and a copy of its first frame, the voice's cursor drives what a
+ * write may fill. */
+static void check_sound_stream(void)
+{
+    static int16_t pcm[400];
+    for (unsigned i = 0; i < 400; ++i)
+        pcm[i] = (int16_t)(i + 1);
+    assert(!eapp_sound_stream_create(7999, 1, 16, 400));
+    assert(!eapp_sound_stream_create(8000, 1, 16, 399));
+    assert(!eapp_sound_stream_create(48000, 2, 16, UINT32_MAX / 4));
+    struct eapp_sound_stream *stream = eapp_sound_stream_create(8000, 1, 16, 400);
+    assert(stream && host_sound_count == 1);
+    struct fake_sound *host = sound_at(0);
+    const int16_t *ring = host->data;
+    assert(host->byte_count == 401 * 2 && host->play_count == 0 && host->bits == 16);
+    assert(eapp_sound_stream_space(stream) == 400);
+
+    /* Playback starts at half the ring. */
+    assert(eapp_sound_stream_write(stream, pcm, 0) == 0);
+    assert(eapp_sound_stream_write(stream, pcm, 150) == 150 && host->plays == 0);
+    assert(eapp_sound_stream_write(stream, pcm + 150, 50) == 50 && host->plays == 1);
+    assert(!memcmp(ring, pcm, 200 * 2) && ring[400] == 1);
+    assert(eapp_sound_stream_space(stream) == 200);
+
+    /* Played frames turn silent, the guard frame follows frame 0, and a
+     * write wraps round the ring and stops at the cursor. */
+    host->position = 150;
+    assert(eapp_sound_stream_space(stream) == 350);
+    assert(ring[0] == 0 && ring[149] == 0 && ring[150] == 151 && ring[400] == 0);
+    assert(eapp_sound_stream_write(stream, pcm, 400) == 350);
+    assert(ring[200] == 1 && ring[399] == 200 && ring[0] == 201 && ring[149] == 350);
+    assert(ring[400] == 201 && eapp_sound_stream_space(stream) == 0);
+
+    /* The cursor passes the written frames: the next write starts at it. */
+    host->position = 100;
+    assert(eapp_sound_stream_space(stream) == 350);
+    host->position = 200;
+    assert(eapp_sound_stream_space(stream) == 400);
+    for (unsigned i = 0; i < 401; ++i)
+        assert(ring[i] == 0);
+    assert(eapp_sound_stream_write(stream, pcm, 1) == 1 && ring[200] == 1);
+
+    /* A voice taken by another sound starts the stream over. */
+    end_sound(0);
+    assert(eapp_sound_stream_space(stream) == 400 && ring[200] == 0);
+    assert(eapp_sound_stream_write(stream, pcm, 200) == 200 && host->plays == 2);
+    assert(ring[0] == 1 && ring[400] == 1);
+
+    /* Three quarters of the ring's length of time (37.5 ms) plays it all,
+     * whatever the cursor says. */
+    host->position = 10;
+    assert(eapp_sound_stream_space(stream) == 210);
+    clock_us += 37000;
+    host->position = 15;
+    assert(eapp_sound_stream_space(stream) == 215 && ring[15] == 16);
+    clock_us += 37500;
+    host->position = 20;
+    assert(eapp_sound_stream_space(stream) == 400 && ring[100] == 0 && ring[400] == 0);
+
+    eapp_sound_stream_set_volume(stream, 100);
+    assert(host->volume == 100);
+    assert(!eapp_sound_stream_space(NULL) && !eapp_sound_stream_write(NULL, pcm, 1));
+    assert(!eapp_sound_stream_write(stream, NULL, 1));
+    eapp_sound_stream_set_volume(NULL, 1);
+    eapp_sound_stream_free(NULL);
+    eapp_sound_stream_free(stream);
+    assert(host_sound_count == 0);
+
+    /* Stereo 8-bit frames are two bytes. */
+    stream = eapp_sound_stream_create(8000, 2, 8, 400);
+    assert(stream && (host = sound_at(0)) && host->byte_count == 401 * 2);
+    const uint8_t *bytes = host->data;
+    assert(eapp_sound_stream_write(stream, pcm, 200) == 200 && host->plays == 1);
+    assert(!memcmp(bytes, pcm, 400) && bytes[800] == bytes[0] && bytes[801] == bytes[1]);
+    host->position = 100;
+    assert(eapp_sound_stream_space(stream) == 300);
+    assert(bytes[199] == 0 && bytes[200] == ((const uint8_t *)pcm)[200]);
+    assert(bytes[800] == 0 && bytes[801] == 0);
+    eapp_sound_stream_free(stream);
+    assert(host_sound_count == 0);
+}
 
 static void check_music(void)
 {
@@ -2027,6 +2112,7 @@ int main(void)
     check_saves();
     wav_files();
     check_sounds();
+    check_sound_stream();
     check_music();
     check_system();
     check_start();

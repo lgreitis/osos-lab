@@ -12,7 +12,7 @@ contributors. The headers and runtime of the game SDK are MIT since its
 commit 82f8d90; its runtime.mk, game_package.py, tests and doom/artwork.py
 are GPL-3.0-only. Modified by the RevolaOS authors since 2026-11-13.
 
-Copied into RepriseOS at 7b732ac with the package paths under /Reprise.
+Copied into RepriseOS at 4ca117d with the package paths under /Reprise.
 
 Files that carry an "Adapted from" or copyright header keep that header.
 

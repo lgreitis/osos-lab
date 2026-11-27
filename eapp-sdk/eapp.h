@@ -11,7 +11,7 @@
 /* The SDK version. The minor goes up with every change to what an app builds
  * against; the major when a call or a layout changes meaning. */
 #define EAPP_SDK_MAJOR 2
-#define EAPP_SDK_MINOR 25
+#define EAPP_SDK_MINOR 26
 
 #ifdef __cplusplus
 extern "C" {
@@ -366,6 +366,28 @@ void eapp_sound_set_next(struct eapp_sound *sound, struct eapp_sound *next);
  * 0 ms leaves the music alone. */
 void eapp_sound_set_music_duck(struct eapp_sound *sound, uint32_t level,
                                uint32_t milliseconds);
+
+/* A stream: PCM the app produces as it runs, such as an emulator's audio.
+ * It is one looping sound over a ring of `frames` frames on the heap, so it
+ * holds one of the thirty-two sounds until freed and a voice while it
+ * plays; as the oldest voice it is the first one taken. Playback starts
+ * when half the ring holds samples. Frames the voice has played turn
+ * silent, so a writer that falls behind or pauses leaves a gap and goes on
+ * at the voice's frame. Write once per frame callback at least, with a ring
+ * of a few callbacks' worth of samples. */
+struct eapp_sound_stream;
+
+/* NULL for a format the host refuses, a ring under 50 ms (rate / 20
+ * frames), or no free sound or heap. */
+struct eapp_sound_stream *eapp_sound_stream_create(uint32_t rate, uint32_t channels,
+                                                   uint32_t bits, uint32_t frames);
+void eapp_sound_stream_free(struct eapp_sound_stream *stream);
+/* Frames a write takes at once: the ring less the frames queued to play. */
+uint32_t eapp_sound_stream_space(struct eapp_sound_stream *stream);
+/* Copies up to `frames` frames from `pcm` and returns the frames taken. */
+uint32_t eapp_sound_stream_write(struct eapp_sound_stream *stream, const void *pcm,
+                                 uint32_t frames);
+void eapp_sound_stream_set_volume(struct eapp_sound_stream *stream, uint32_t volume);
 
 /* Music: the iPod's player, through the host. A command is queued for the
  * host's UI task: state, track_count and the settings read back at once,

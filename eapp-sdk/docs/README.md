@@ -10,7 +10,7 @@ An app is a flat image that Apple's eApp host, the runtime behind the iPod games
 | [OpenGL ES](opengl.md) | The host's software renderer |
 | [Maths](maths.md) | Fixed point, angles, easing, random numbers |
 | [Files](files.md) | Package files, data files, the save store, folders |
-| [Sound](sound.md) | Sound samples mixed over the music |
+| [Sound](sound.md) | Sound samples and streams mixed over the music |
 | [Music](music.md) | The iPod's player and the app's own playback list |
 | [Library](library.md) | Songs, playlists, covers and photos, the player list |
 | [Device](device.md) | Clock, backlight, language, battery, heap, log |

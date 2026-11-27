@@ -2,7 +2,7 @@
 
 The SDK for apps and games on Apple's eApp host, the runtime in the iPod Classic 2.0.5 firmware behind the iPod games from iTunes. An app reaches the host through the image's import list by interface name, as Apple's games do. Packages run under RepriseOS, where the Homebrew extension lists them under Extras, and from `iPod_Control/games_RO/<id>/` on any 2.0.5 firmware that skips the game signature check.
 
-A copy of the Revola eApp SDK at `7b732acf4008` (SDK 2.25), with the package paths under `/Reprise`. [LICENSE-MIT](LICENSE-MIT), [COPYING](COPYING) and [NOTICE](NOTICE) come with it.
+A copy of the Revola eApp SDK at `4ca117d678f6` (SDK 2.26), with the package paths under `/Reprise`. [LICENSE-MIT](LICENSE-MIT), [COPYING](COPYING) and [NOTICE](NOTICE) come with it.
 
 ## Layout
 
