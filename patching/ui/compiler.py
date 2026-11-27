@@ -99,7 +99,6 @@ class DocumentCompiler:
             instances = blocks(resources.added["SSin", instances_id])
             for _, instance in instances:
                 if word(instance, 4) == template:
-                    self.canvas_binding = word(instance, 0)
                     put(instance, 0x10, word(instance, 0x10) & ~0x00FF0000)
             resources.replace("SSin", instances_id, pack_blocks(instances))
         resources.add("SCST", screen, root.factory.encode("ascii"))
@@ -114,53 +113,6 @@ class DocumentCompiler:
             + event("button.menu.up", "navigator.PopTopScreen")
             + event("button.menu.pressandhold", "navigator.PopToMainScreen"),
         )
-
-    def menu_previews(self):
-        resources = self.resources
-        entries = self.document.menu_previews
-        if not entries:
-            return
-        view_type = int.from_bytes(b"rvxp", "big")
-        template = resources.allocate()
-        self.string_ids[self.document.root.name + "_MenuPaneTemplate"] = template
-        view = blocks(resources.stock("View", "Settings_Legal_Template"))[0][1][:0x5C]
-        view[:0x30] = struct.pack("<12i", 160, 0, 0, 23, 0, 0, 217, 0, 6, 160, 0, 5)
-        view_id = resources.allocate()
-        self.string_ids[self.document.root.name + "_PaneView"] = view_id
-        put(view, 0x30, view_id)
-        put(view, 0x4C, view_type)
-        resources.add("View", template, pack_blocks([(view_type, view)]))
-        resources.add(
-            "TMLT", template, resources.stock("TMLT", "Settings_Brightness_Template")
-        )
-        view_layout = resources.allocate()
-        resources.add("VLyt", view_layout, pack_blocks([]))
-        resources.set_events("TEVT", view_layout, struct.pack("<I", 0))
-        for name, screen, layout in entries:
-            preview = resources.allocate(name)
-            resources.runtime_name(name)
-            resources.clone_layout(layout, preview)
-            for _, group in blocks(resources.added["SLyt", preview]):
-                instances_id = word(group, 0)
-                instances = blocks(resources.added["SSin", instances_id])
-                # A custom view still needs the native parent rectangle and binding table.
-                instance = next(
-                    data
-                    for _, data in instances
-                    if word(data, 4) in (0x0DAD01C1, 0x0DAD01B9, 0x0DAD0C2E)
-                )
-                # These panes use the canvas's full parent rectangle and empty bindings.
-                put(instance, 0, self.canvas_binding)
-                put(instance, 4, template)
-                put(instance, 8, view_layout)
-                put(instance, 0x10, word(instance, 0x10) & ~0x00FF0000)
-                resources.replace("SSin", instances_id, pack_blocks(instances))
-            layouts = blocks(resources.current("SLst", screen))
-            kind, slot = next(
-                (k, Resource(d)) for k, d in layouts if word(d, 0) == layout
-            )
-            put(slot, 0, preview)
-            resources.replace("SLst", screen, pack_blocks([*layouts, (kind, slot)]))
 
     def paragraph_views(self, text):
         resources = self.resources
@@ -424,18 +376,12 @@ def compile_document(resources, document, text=""):
             builder.list_page(document.root)
         if document.root.kind == "canvas":
             builder.canvas_page(document.root)
-            builder.menu_previews()
 
     for name, text in document.strings.items():
         compiled.string_ids[name] = resource_id = resources.allocate()
         resources.add("Str ", resource_id, text.encode("utf-8") + b"\0")
 
     if builder is not None:
-        if document.preview and not document.after:
-            title = resources.allocate()
-            builder.string_ids[document.root.name + "_PaneTitle"] = title
-            builder.add_settings_preview(resources.source("", title))
-            resources.runtime_name(document.root.name + "_Preview")
         builder.insert_settings()
         compiled.string_ids.update(builder.string_ids)
     return compiled

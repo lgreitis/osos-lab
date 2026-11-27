@@ -124,7 +124,6 @@ const struct cfw_resource cfw_resources[] = {
     {0x53747220, 99, sizeof(label), label},
     {OSOS_RESOURCE_BMAP, 26, sizeof(icon), icon},
     {0x56696577, RVX_CanvasTemplate, sizeof(icon), icon},
-    {0x56696577, RVX_MenuPaneTemplate, sizeof(icon), icon},
     {0x56696577, 28, sizeof(icon), icon},
 };
 const uint32_t cfw_resource_count = sizeof cfw_resources / sizeof *cfw_resources;
@@ -172,11 +171,6 @@ int main(void)
     cfw_rvx_has_canvas = 1;
     id = 0;
     assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_CanvasTemplate);
-    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == 28);
-    cfw_rvx_has_menu_pane = 1;
-    id = 0;
-    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_CanvasTemplate);
-    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_MenuPaneTemplate);
     assert(cfw_next_template(&bank, &id, &bytes) == icon && id == 28);
     cfw_install_resources(&bank);
     assert(installed == 1 && name_id == ALBUM_ARTISTS);
