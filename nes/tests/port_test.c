@@ -92,6 +92,34 @@ void eapp_free(void *p)
     }
 }
 
+/* The sound stream: its rate, whether one exists and the frames written. */
+static struct eapp_sound_stream {
+    int live;
+} stream;
+static uint32_t stream_rate, stream_frames;
+
+struct eapp_sound_stream *eapp_sound_stream_create(uint32_t rate, uint32_t channels,
+                                                   uint32_t bits, uint32_t frames)
+{
+    assert(!stream.live && channels == 1 && bits == 16 && frames >= 2);
+    stream.live = 1;
+    stream_rate = rate;
+    return &stream;
+}
+
+void eapp_sound_stream_free(struct eapp_sound_stream *s)
+{
+    assert(!s || s == &stream);
+    stream.live = 0;
+}
+
+uint32_t eapp_sound_stream_write(struct eapp_sound_stream *s, const void *pcm, uint32_t frames)
+{
+    assert(s == &stream && s->live && pcm);
+    stream_frames += frames;
+    return frames;
+}
+
 uint32_t eapp_ticks_ms(void)
 {
     return now;
@@ -270,7 +298,10 @@ int main(void)
     eapp_application.frame(&frame);
     assert(emulated_frames == 0);
     button(EAPP_BUTTON_CENTER); /* PAL video system. */
-    assert(InfoNES_Pal);
+    assert(InfoNES_Pal && stream.live && stream_rate == 441 * 50);
+    /* The 22050 Hz pulse constant, scaled from the NTSC to the PAL clock. */
+    extern DWORD ApuPulseMagic;
+    assert(ApuPulseMagic == (DWORD)((uint64_t)0x512b3800 * 1662607 / 1789773));
     mapper_vsync = MapperVSync;
     MapperVSync = count_frame;
     mapper_hsync = MapperHSync;
@@ -289,7 +320,7 @@ int main(void)
     assert(cpu_cycles - before_cycles == 198 * 312 * 1705 / 16);
     unsigned before_stall = emulated_frames;
     advance(&frame, 2000);
-    assert(emulated_frames == before_stall + 2);
+    assert(emulated_frames == before_stall + 3);
     assert(PPU_Scanline == SCAN_VBLANK_START + 1);
     assert(pixels[0] == 0x1234 && pixels[320 * 240 + 1] == 0x1234);
     assert(pixels[1 + 100 * 320 + 100] != 0);
@@ -398,12 +429,12 @@ int main(void)
     assert(emulated_frames == before_wrap + 2);
     pause_game(&frame);
     choose_pause_item(3); /* Game list. */
-    assert(allocations == 2);
+    assert(allocations == 2 && !stream.live && stream_frames % 441 == 0 && stream_frames);
     button(EAPP_BUTTON_CENTER);
     assert(allocations == 4);
     button(EAPP_BUTTON_NEXT);
     button(EAPP_BUTTON_CENTER);
-    assert(!InfoNES_Pal);
+    assert(!InfoNES_Pal && stream.live && stream_rate == 367 * 60);
     mapper_vsync = MapperVSync;
     MapperVSync = count_frame;
     mapper_hsync = MapperHSync;
@@ -411,9 +442,11 @@ int main(void)
     eapp_application.frame(&frame);
     before_scanlines = scanlines;
     unsigned before_ntsc = emulated_frames;
+    uint32_t before_samples = stream_frames;
     for (unsigned i = 0; i < 100; ++i)
         advance(&frame, 10);
     assert(emulated_frames - before_ntsc == 60);
+    assert(stream_frames - before_samples == 60 * 367);
     assert(scanlines - before_scanlines == 60 * 262);
     assert(RAM[0] == 61);
     assert(!exit_requested);

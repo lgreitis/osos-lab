@@ -1,7 +1,7 @@
 # NES for RepriseOS
 
 InfoNES port on the [eApp SDK](../eapp-sdk/README.md). Supports iNES mappers 0, 1,
-2, 3, 4, 7 and 66. No audio, saves or NES 2.0 support.
+2, 3, 4, 7 and 66, with sound. No saves or NES 2.0 support.
 
 ## Build and install
 

@@ -44,6 +44,13 @@ static struct eapp_menu pause_menu = {.title = "PAUSED", .items = pause_items, .
 static bool held[6], running, paused, locked, choosing_region, menu_is_up;
 static uint32_t last_frame_ms, frame_credit;
 static uint8_t pending_buttons;
+/* The APU renders ApuSamplesPerSync samples per emulated frame at 22050 Hz
+ * (pAPU_QUALITY 2); the stream plays them at the rate the frame loop makes
+ * them. */
+extern unsigned int ApuSamplesPerSync;
+extern DWORD ApuPulseMagic, ApuTriangleMagic, ApuNoiseMagic, ApuCycleRate;
+static struct eapp_sound_stream *sound;
+static int32_t dc_in, dc_out;
 
 static uint8_t button_mask(unsigned button)
 {
@@ -90,6 +97,8 @@ static void pause_input(const struct eapp_input_event *event)
         break;
     case GAME_LIST:
         InfoNES_ReleaseRom();
+        eapp_sound_stream_free(sound);
+        sound = NULL;
         running = paused = false;
         clear_input();
         break;
@@ -125,11 +134,15 @@ static void start_game(void)
             nes_error = "UNSUPPORTED ROM";
         return;
     }
-    APU_Mute = 1;
     paused = false;
     choosing_region = true;
     if (NesHeader.byReserve[1] & 1)
         region_menu.selected = 0;
+}
+
+static DWORD pal_clock(DWORD ntsc)
+{
+    return (DWORD)((uint64_t)ntsc * 1662607 / 1789773);
 }
 
 static void input(const struct eapp_input_event *event)
@@ -150,6 +163,20 @@ static void input(const struct eapp_input_event *event)
         enum eapp_menu_action action = eapp_menu_input(&region_menu, event);
         if (action == EAPP_MENU_SELECT) {
             InfoNES_Pal = region_menu.selected == 0;
+            /* InfoNES_pAPUInit loaded the NTSC constants, which assume a
+             * 1789773 Hz CPU; a PAL CPU runs at 1662607 Hz, 50 frames of
+             * 441 samples. */
+            if (InfoNES_Pal) {
+                ApuSamplesPerSync = 441;
+                ApuPulseMagic = pal_clock(ApuPulseMagic);
+                ApuTriangleMagic = pal_clock(ApuTriangleMagic);
+                ApuNoiseMagic = pal_clock(ApuNoiseMagic);
+                ApuCycleRate = pal_clock(ApuCycleRate);
+            }
+            eapp_sound_stream_free(sound);
+            sound = eapp_sound_stream_create(ApuSamplesPerSync * (InfoNES_Pal ? 50 : 60), 1,
+                                             16, 4096);
+            dc_in = dc_out = 0;
             choosing_region = false;
             resume_game();
         } else if (action == EAPP_MENU_BACK) {
@@ -222,9 +249,11 @@ static void frame(const struct eapp_frame *frame)
     frame_credit += (elapsed > 100 ? 100 : elapsed) * (InfoNES_Pal ? 50 : 60);
     unsigned frames = frame_credit / 1000;
     frame_credit %= 1000;
-    /* Drop overdue work instead of bursting through a long input-stale batch. */
-    if (frames > 2)
-        frames = 2;
+    /* Drop overdue work instead of bursting through a long input-stale batch.
+     * Three frames per call keep 60 Hz, and the sound stream fed, with calls
+     * up to 50 ms apart. */
+    if (frames > 3)
+        frames = 3;
     for (unsigned i = 0; i < frames; ++i) {
         /* Keep CPU/PPU timing on skipped frames; render only the newest frame. */
         FrameCnt = i + 1 < frames ? 1 : 0;
@@ -329,12 +358,18 @@ void InfoNES_SoundClose(void)
 {
 }
 
+/* The five channels summed as upstream's ports do, scaled to 16 bits; the
+ * sum only goes up from silence, so a one-pole high-pass takes its DC. */
 void InfoNES_SoundOutput(int count, BYTE *a, BYTE *b, BYTE *c, BYTE *d, BYTE *e)
 {
-    (void)count;
-    (void)a;
-    (void)b;
-    (void)c;
-    (void)d;
-    (void)e;
+    int16_t pcm[441];
+    if (!sound || count > 441)
+        return;
+    for (int i = 0; i < count; ++i) {
+        int32_t in = (a[i] + b[i] + c[i] + d[i] + e[i]) * 24;
+        dc_out = in - dc_in + dc_out * 255 / 256;
+        dc_in = in;
+        pcm[i] = dc_out > 32767 ? 32767 : dc_out < -32768 ? -32768 : (int16_t)dc_out;
+    }
+    eapp_sound_stream_write(sound, pcm, (uint32_t)count);
 }
