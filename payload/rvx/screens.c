@@ -340,13 +340,12 @@ static PATCH_ARM void draw(void *view, void *arg, const int32_t *clip)
     osos_view_local_rect(view, bounds);
     int width = bounds[3] - bounds[1], height = bounds[2] - bounds[0];
     if (osos_view_id(view) == RVX_PaneView) {
-        rvx_begin_draw(context, bounds, NULL);
+        rvx_begin_draw(context, bounds);
         rvx_draw_menu_pane(width, height);
     } else if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
         struct frame *f = rvx_top;
         f->view = view;
-        rvx_begin_draw(context, bounds, f->damage.w ? &f->damage : NULL);
-        f->damage.w = 0;
+        rvx_begin_draw(context, bounds);
         rvx_graphics.fill(&(struct rect){0, 0, width, height}, rvx_graphics.color(0));
         if (f->screen->canvas.draw)
             f->screen->canvas.draw(&f->ctx, &rvx_graphics, width, height);

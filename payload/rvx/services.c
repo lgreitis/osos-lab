@@ -182,8 +182,7 @@ static void log_text(Pkg *p, const char *s)
 
 static void redraw(Pkg *p)
 {
-    if (rvx_top && rvx_top->ctx.self == p)
-        rvx_top->damage.w = 0;
+    (void)p;
     osos_ui_invalidate();
 }
 
@@ -203,16 +202,6 @@ static void invalidate_rect(Pkg *p, const void *rect)
     if (!f || f->ctx.self != p || !r || !f->view || r->w <= 0 || r->h <= 0)
         return;
     int x = r->x, y = r->y, right = x + r->w, bottom = y + r->h;
-    if (f->damage.w) {
-        if (x > f->damage.x)
-            x = f->damage.x;
-        if (y > f->damage.y)
-            y = f->damage.y;
-        if (right < f->damage.x + f->damage.w)
-            right = f->damage.x + f->damage.w;
-        if (bottom < f->damage.y + f->damage.h)
-            bottom = f->damage.y + f->damage.h;
-    }
     if (x < 0)
         x = 0;
     if (y < 0)
@@ -223,8 +212,11 @@ static void invalidate_rect(Pkg *p, const void *rect)
         bottom = 217;
     if (x >= right || y >= bottom)
         return;
-    f->damage = (struct rect){x, y, right - x, bottom - y};
-    osos_ui_invalidate();
+    /* Only that part of the canvas, in the root's space; the firmware clips
+     * the draw to what it repaints. */
+    const int32_t *view = (const int32_t *)((const uint8_t *)f->view + 0x80);
+    int32_t part[] = {view[0] + y, view[1] + x, view[0] + bottom, view[1] + right};
+    osos_ui_invalidate_rect(part);
 }
 
 static u32 string_id(Pkg *p, const char *s)

@@ -145,14 +145,13 @@ struct frame {
     struct cached_bitmap *bitmaps;
     uintptr_t *stock_methods;
     const uintptr_t *native_methods;
-    struct rect damage;
     int consumed, held_button, split;
 };
 extern struct frame *rvx_top;
 extern void *rvx_bank;
 extern const struct graphics rvx_graphics;
 void rvx_register_controller(void);
-void rvx_begin_draw(void *context, const int32_t *bounds, const struct rect *dirty);
+void rvx_begin_draw(void *context, const int32_t *bounds);
 int rvx_prepare_native(struct frame *, u32 *screen, u32 *layout);
 int rvx_native_property(u32, u32, uintptr_t *);
 int rvx_native_action(void *, const char *, u32);
