@@ -19,6 +19,8 @@
 #define RVX_GAME_BLOCKS (8u * RVX_MIB)
 /* Read-ahead that still plays ALAC at 1 Mbps with seeking and skipping. */
 #define RVX_PLAYER_FLOOR (2u * RVX_MIB)
+/* Heap that growing the cache for a game leaves free for the game and the UI. */
+#define RVX_GROW_HEAP_MARGIN (1u * RVX_MIB)
 
 /* The block cache after the import: max(heap - import - reserve, floor). */
 static inline uint32_t rvx_block_cache_size(uint32_t heap_total, uint32_t import_cost,
@@ -44,4 +46,20 @@ static inline uint32_t rvx_media_read_ahead(uint32_t cache_bytes)
                       : RVX_PLAYER_FLOOR;
     return cache_bytes > RVX_PLAYER_RESERVE + minimum ? cache_bytes - RVX_PLAYER_RESERVE
                                                       : minimum;
+}
+
+/* Blocks to add to a cache of total blocks so that request blocks fit beside the
+ * kept blocks of clients that do not share theirs, leaving RVX_GROW_HEAP_MARGIN of
+ * heap_free unused. */
+static inline uint32_t rvx_block_cache_shortfall(uint32_t total, uint32_t kept,
+                                                 uint32_t request, uint32_t heap_free,
+                                                 uint32_t block_bytes)
+{
+    if (!block_bytes || kept + request <= total)
+        return 0;
+    uint32_t wanted = kept + request - total;
+    uint32_t spare = heap_free > RVX_GROW_HEAP_MARGIN
+                         ? (heap_free - RVX_GROW_HEAP_MARGIN) / block_bytes
+                         : 0;
+    return wanted < spare ? wanted : spare;
 }

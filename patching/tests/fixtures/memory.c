@@ -28,5 +28,13 @@ int main(void)
     assert(rvx_media_read_ahead(10 * MIB) == 2 * MIB);
     assert(rvx_media_read_ahead(6 * MIB) == 2 * MIB);
     assert(rvx_media_read_ahead(0) == 2 * MIB);
+
+    /* Growing for a game: the shortfall, capped by the heap above a 1 MiB margin. */
+    uint32_t block = 512 * 1024;
+    assert(rvx_block_cache_shortfall(28, 10, 16, 40 * MIB, block) == 0);
+    assert(rvx_block_cache_shortfall(12, 10, 16, 40 * MIB, block) == 14);
+    assert(rvx_block_cache_shortfall(12, 10, 16, 4 * MIB, block) == 6);
+    assert(rvx_block_cache_shortfall(12, 10, 16, MIB, block) == 0);
+    assert(rvx_block_cache_shortfall(12, 10, 16, 40 * MIB, 0) == 0);
     return 0;
 }
