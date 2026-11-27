@@ -21,6 +21,7 @@ class PayloadTests(unittest.TestCase):
                 "store",
                 "osos_handoff",
                 "storage",
+                "memory",
             ):
                 with self.subTest(fixture=name):
                     executable = directory / name

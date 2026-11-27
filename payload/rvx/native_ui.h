@@ -6,7 +6,6 @@
 #include "osos.h"
 #include "../../rvx-sdk/rv_api.h"
 #include "../../rvx-sdk/osos-2.0.5.h"
-#define NATIVE_CALL(name) ((__typeof__(&name))ADDR_##name)
 
 /* screen.h mirrors the SDK's UI structs field for field. */
 _Static_assert(sizeof(struct row) == sizeof(struct rv_row) &&

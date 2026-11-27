@@ -7,6 +7,8 @@ typedef uint32_t u32;
 typedef struct rvx_package Pkg;
 typedef struct rvx_file File;
 typedef void (*ListFn)(const char *, int, void *);
+/* A firmware function by its ADDR_ constant, with the prototype's type. */
+#define NATIVE_CALL(name) ((__typeof__(&name))ADDR_##name)
 
 struct rvx_hook {
     u32 site, value;
@@ -133,6 +135,8 @@ void cfw_rvx_write(uintptr_t, u32);
 /* 1 for a flash adapter, 0 for a hard disk or when `identify` (the 256 words of
  * ATA IDENTIFY) is empty. */
 int rvx_storage_is_flash(const uint16_t *identify);
+/* Apple's memory policy, adjusted at boot (memory.c). */
+void rvx_memory_bind(void);
 
 u32 rvx_hash(const char *);
 int rvx_load(Pkg *, u32);
