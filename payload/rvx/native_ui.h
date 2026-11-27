@@ -183,6 +183,10 @@ enum core_template { CORE_TEMPLATE_SLIDER, CORE_TEMPLATE_EMPTY, CORE_TEMPLATES }
 
 uint32_t core_template(enum core_template kind);
 uint32_t core_pane_template(void);
+/* A copy of a stock template's views, then of `second`'s when set, under new
+ * ids and built as a template; view `replaced` (-1 for none) becomes the Games
+ * pane's image view in its box. Stays for the session. 0 on failure. */
+uint32_t core_templates_copy(uint32_t stock, uint32_t second, int replaced);
 uint32_t core_text_template(struct core_screen *s);
 uint32_t core_resource_take(uint32_t count);
 uint32_t core_clone_ids(const struct screen *d);
