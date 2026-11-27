@@ -71,7 +71,8 @@ static void fill(const struct rect *r, u32 c)
     int32_t bounds[] = {top + r->y, left + r->x, top + r->y + r->h, left + r->x + r->w};
     uint8_t bytes[4];
     rgba(c, bytes);
-    osos_graphics_set_mode(gc, 0);
+    /* Copy for an opaque colour, Blend (0x22) below 0xff alpha. */
+    osos_graphics_set_mode(gc, (c >> 24) == 0xff ? 0 : 0x22);
     osos_graphics_set_color(gc, bytes);
     osos_graphics_fill_rect_unmapped(gc, bounds);
 }
