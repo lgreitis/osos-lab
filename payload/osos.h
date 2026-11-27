@@ -12,14 +12,6 @@
 /* Native action handlers receive this argument when queried for support. */
 #define OSOS_ACTION_SUPPORT_QUERY 0xdeadbeef
 
-/* A null signature skips signature verification when opening the manifest. */
-static inline void osos_game_manifest_reader_init(void *reader, const char *manifest,
-                                                  uint8_t mode, const char *signature)
-{
-    typedef void (*fn)(void *, const char *, uint8_t, const char *);
-    ((fn)OSOS_GAME_MANIFEST_READER_INIT)(reader, manifest, mode, signature);
-}
-
 /* Apple's libstdc++ string stores one pointer and owns its backing storage. */
 struct osos_string {
     char *data;
