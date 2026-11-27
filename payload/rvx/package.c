@@ -4,7 +4,7 @@
 #include "cfw.h"
 #include "osos.h"
 #include "store.h"
-#include "../../game-sdk/runtime/native_directory.h"
+#include "directory.h"
 
 /* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.89. */
 struct rvx_header {

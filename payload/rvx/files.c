@@ -2,7 +2,7 @@
 #include "screen.h"
 #include "cfw.h"
 #include "osos.h"
-#include "../../game-sdk/runtime/native_directory.h"
+#include "directory.h"
 
 struct rvx_file {
     File *next;
