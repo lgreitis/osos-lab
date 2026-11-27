@@ -11,7 +11,7 @@ mod recipe;
 
 use recipe::{slice, Fingerprint, Recipe, MAX_OUTPUT};
 
-pub const INTERFACE: &str = "classic7g-file-v1";
+pub const INTERFACE: &str = "classic7g-file-v2";
 const SYSINFO_OFFSET: usize = 0x25100;
 const SYSINFO_BYTES: usize = 0x120;
 pub(crate) const INPUT_FILES: &[(&str, &str)] = &[

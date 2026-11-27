@@ -5,7 +5,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 
-INTERFACE = "classic7g-file-v1"
+INTERFACE = "classic7g-file-v2"
 MAX_OUTPUT = 0xC00000
 
 
