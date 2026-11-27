@@ -60,7 +60,10 @@ static void fill(const struct rect *r, u32 c)
 
 static void font(unsigned index)
 {
-    static const u32 ids[] = {0x0dad0000, 0x0dad0020, 0x0dad0000};
+    /* RV_FONT_TITLE is the title bar's RES_Font_BoldSmall, RV_FONT_TEXT the
+     * text pages' RES_Font_RegularSmall, RV_FONT_LARGE the preview caption's
+     * RES_Font_Bold. */
+    static const u32 ids[] = {0x0dad0001, 0x0dad0020, 0x0dad0000};
     if (index > 2)
         index = 1;
     if (!(fonts[index][0] & ~1u)) {
