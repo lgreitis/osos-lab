@@ -11,6 +11,10 @@
 /* screen.h mirrors the SDK's UI structs field for field. */
 _Static_assert(sizeof(struct row) == sizeof(struct rv_row) &&
                    offsetof(struct row, id) == offsetof(struct rv_row, id) &&
+                   offsetof(struct row, stock) == offsetof(struct rv_row, stock) &&
+                   sizeof(struct pane) == sizeof(struct rv_pane) &&
+                   offsetof(struct pane, plain) ==
+                       offsetof(struct rv_pane, plain_icon) &&
                    sizeof(struct context_row) == sizeof(struct rv_context_row) &&
                    sizeof(struct menu_entry) == sizeof(struct rv_menu_entry) &&
                    offsetof(struct menu_entry, host) ==

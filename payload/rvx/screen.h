@@ -14,7 +14,12 @@ struct row {
     const char *label;
     uint8_t kind, reserved;
     uint16_t key;
-    const char *screen;
+
+    union {
+        const char *screen;
+        u32 stock;
+    };
+
     void (*action)(const struct context *);
     const char *(*text)(const struct context *);
     const char *id;
@@ -31,6 +36,7 @@ struct pane {
     const struct bitmap *bitmap;
     const char *(*text)(const struct context *);
     const struct bitmap *(*image)(const struct context *);
+    uint8_t plain;
 };
 
 struct pane_extra {

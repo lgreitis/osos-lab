@@ -4,7 +4,7 @@ description = "Exercise RVX screens, rows and menu input on the iPod."
 version = "0.1.0"
 author = "RepriseOS"
 license = "GPL-3.0-only"
-api = "1.86"
+api = "1.89"
 category = "other"
 
 [[module]]

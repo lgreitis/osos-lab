@@ -49,10 +49,11 @@ enum {
     RVX_MODULES = 15,
     RVX_FIRMWARE_ID = 0x660eb6ff,
     RVX_API_MAJOR = 1,
-    RVX_API = (RVX_API_MAJOR << 16) | 86,
-    /* rv_row and rv_menu_entry grew in 1.86: an image an older SDK packed lays
-     * its rows and entries out with the wrong stride. */
-    RVX_API_LAYOUT = (RVX_API_MAJOR << 16) | 86
+    RVX_API = (RVX_API_MAJOR << 16) | 89,
+    /* rv_row and rv_menu_entry grew in 1.86 and rv_pane in 1.89: an image an
+     * older SDK packed lays its rows, entries and panes out with the wrong
+     * stride. */
+    RVX_API_LAYOUT = (RVX_API_MAJOR << 16) | 89
 };
 
 enum {

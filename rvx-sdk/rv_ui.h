@@ -50,8 +50,13 @@
      .kind = RV_ROW_KIND_SETTING,                                                      \
      .key = (key_)__VA_OPT__(, ) __VA_ARGS__}
 /* A row that shows text_() as its label and does nothing when chosen. */
-#define RV_ROW_INFO(label_, text_)                                                     \
-    {.label = (label_), .kind = RV_ROW_KIND_INFO, .text = (text_)}
+#define RV_ROW_INFO(label_, text_, ...)                                                \
+    {.label = (label_),                                                                \
+     .kind = RV_ROW_KIND_INFO,                                                         \
+     .text = (text_)__VA_OPT__(, ) __VA_ARGS__}
+/* A stock Settings row moved into a list screen of the main module. */
+#define RV_ROW_STOCK(stock_, ...)                                                      \
+    {.kind = RV_ROW_KIND_STOCK, .stock = (stock_)__VA_OPT__(, ) __VA_ARGS__}
 
 /* Screens. */
 #define RV_SCREEN_LIST(id_, title_, rows_, ...)                                        \
@@ -98,7 +103,7 @@
      .dialog.detail = (detail_),                                                       \
      .dialog.buttons = (buttons_),                                                     \
      .dialog.count = RV_COUNT(buttons_),                                               \
-     .dialog.chosen = (chosen_) __VA_OPT__(, ) __VA_ARGS__}
+     .dialog.chosen = (chosen_)__VA_OPT__(, ) __VA_ARGS__}
 #define RV_SCREEN_CANVAS(id_, title_, draw_, input_, ...)                              \
     {.id = (id_),                                                                      \
      .title = (title_),                                                                \

@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 #define RV_API_MAJOR 1
-#define RV_API_MINOR 86
+#define RV_API_MINOR 89
 #define RV_API_VERSION ((RV_API_MAJOR << 16) | RV_API_MINOR)
 
 /* A field of an Apple struct at an offset of the symbols header:
@@ -136,6 +136,9 @@ enum rv_row_kind {
                             the screen of an int with labels and a screen kind, steps one
                             without to its next label */
     RV_ROW_KIND_INFO,    /* shows `label` or `text`; does nothing when chosen */
+    RV_ROW_KIND_STOCK,   /* a stock Settings row `stock` moved into a list screen of the main
+                            module while the extension runs, with Apple's title, behaviour
+                            and pane. `label` NULL */
 };
 
 /* What every UI callback receives: where it runs. `controller` is the Apple
@@ -167,7 +170,10 @@ struct rv_row {
     uint8_t kind;
     uint8_t reserved;
     uint16_t key;
-    const char *screen;
+    union {
+        const char *screen;
+        uint32_t stock; /* an RV_SETTINGS_* anchor of rv_menus.h */
+    };
     void (*action)(const struct rv_context *ctx);
     const char *(*text)(const struct rv_context *ctx);
     /* A name other extensions anchor their hosted rows on (rv_menu_entry
@@ -350,12 +356,14 @@ enum rv_row_status {
 /* What a pane shows while a row is highlighted: a caption and a bitmap, or
  * from the callbacks as they are now. An entry's pane is the menu's pane
  * (docs/sdk/menus.md); a list screen's per-row pane is the Settings preview
- * pane beside it, a caption line and an icon on the system's box. */
+ * pane beside it, a caption line and an icon on the system's box, or without
+ * the box for a row without a bitmap or with `plain_icon`. */
 struct rv_pane {
     const char *caption;
     const struct rv_bitmap *bitmap;
     const char *(*caption_text)(const struct rv_context *ctx);
     const struct rv_bitmap *(*bitmap_for)(const struct rv_context *ctx);
+    uint8_t plain_icon; /* list screens: 1 shows the bitmap without the system's box */
 };
 
 /* The parts of a menu pane only some shapes have: the 130 x 128 pane's two

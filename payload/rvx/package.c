@@ -7,7 +7,7 @@
 #include "store.h"
 #include "../../game-sdk/runtime/native_directory.h"
 
-/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.86. */
+/* RVX format 1 and RVMF version 4, as emitted by Revola SDK 1.89. */
 struct rvx_header {
     uint32_t magic, format, sdk_api, firmware, manifest_bytes, entries, hash;
 };

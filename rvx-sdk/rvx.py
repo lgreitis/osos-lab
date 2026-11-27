@@ -619,9 +619,7 @@ def pack(prefix, out, toml, elves, api, firmware, libraries=()):
             f"{api >> 16}.{api & 0xFFFF}"
         )
     if api >= manifest.LAYOUT_API and wanted < manifest.LAYOUT_API:
-        raise ValueError(
-            'rows and entries changed layout in API 1.86; set api = "1.86"'
-        )
+        raise ValueError('row panes changed layout in API 1.89; set api = "1.89"')
     for warning in warnings(toml, document):
         print(f"warning: {warning}", file=sys.stderr)
     names = [module["name"] for module in document["module"]]
