@@ -16,6 +16,7 @@ cargo run -- --help
 cargo run -- devices
 cargo run -- check
 cargo run -- nor-dump --output nor.bin
+cargo run -- mac-dfu-guard
 cargo run -- firmware inspect --ipsw /path/to/firmware.ipsw
 cargo run -- firmware extract --ipsw /path/to/firmware.ipsw --output osos.img1
 cargo run -- decrypt --input osos.img1 --output osos-body.bin
@@ -25,6 +26,19 @@ cargo test --workspace -j 8
 Device commands use BootROM DFU. Select an iPod with `--device BUS:ADDRESS`;
 use `--json` for machine-readable results. Decryption outputs the IMG1 body
 with AES padding. Raw ciphertext accepts `--skip-bytes`, `--offset`, and `--size`.
+
+On macOS, `AMPDevicesAgent` sends Apple's recovery image to an iPod in BootROM
+DFU, which leaves it in recovery mode. The agent and Finder's
+`AMPDeviceDiscoveryAgent` skip devices while their `ignore-devices` user default
+is true, so DFU commands set it in both domains while they run and put the
+previous values back afterwards. The previous values go to `mac-dfu-guard.plist`
+under the installer's application support directory, a lock on
+`mac-dfu-guard.lock` marks a live session, and a start restores a marker whose
+lock is free. A restore only touches keys that are still `true`. The iPod is
+unprotected between commands and while it enters DFU, so run
+`reprise mac-dfu-guard` in a second terminal first and stop it with Ctrl-C when
+done. Only one holder exists at a time; DFU commands refuse to run while the
+desktop installer holds the keys.
 
 Build the upload helper with [`usb-helper/build.py`](../usb-helper/build.py).
 `upload` accepts `--helper DIR` or `--bundle DIR --key FILE`; `bundle` provides

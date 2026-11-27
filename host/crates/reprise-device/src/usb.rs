@@ -16,6 +16,7 @@ const TIMEOUT: Duration = Duration::from_millis(50);
 mod apple;
 #[cfg(any(windows, test))]
 mod apple_packet;
+pub mod mac_dfu_guard;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceSelector {

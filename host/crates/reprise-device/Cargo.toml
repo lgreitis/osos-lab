@@ -20,5 +20,10 @@ rusb.workspace = true
 serde_json.workspace = true
 getrandom = "0.3"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
+libc = "0.2"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Devices_DeviceAndDriverInstallation", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Threading", "Win32_Security"] }
