@@ -2,7 +2,6 @@
 #include "ui_visibility.h"
 #include "osos.h"
 #include "patch.h"
-#include "resources.h"
 #include "rvx/runtime.h"
 #include "store.h"
 
@@ -46,14 +45,6 @@ PATCH_ARM int cfw_settings_property(void *model, uint32_t type, uint32_t propert
 {
     if (cfw_rvx_property(type, property, out))
         return 1;
-
-    if (type == OSOS_RESOURCE_BMAP) {
-        const void *bitmap = cfw_resource_bitmap(property);
-        if (bitmap) {
-            *out = (uintptr_t)bitmap;
-            return 1;
-        }
-    }
 
     int result = osos_settings_property(model, type, property, out);
     if (result)

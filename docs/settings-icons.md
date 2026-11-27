@@ -1,7 +1,7 @@
 # Custom Settings icons
 
 Settings previews should match Apple's shaded grayscale symbols. Use
-`settings-info.png` in `payload/assets/` as a finished reference; an
+`payload/rvx/assets/settings-info.png` as a finished reference; an
 extension's icon is built the same way with the shared `settings_icon.py` in
 the extensions repository.
 
@@ -29,6 +29,7 @@ python3 tools/settings_icon.py icon.svg icon.png
 The renderer applies the native bevel, gradient and reflection at 8×
 resolution, then downsamples to the native size. Commit both the SVG and PNG.
 The info icon was originally rendered from a font and has no SVG source.
-Declare the PNG with `format="gray8"` in the feature's `.ui` file and bind it
-to the Settings preview. Reusing an existing appropriate icon is fine; toggles
-with changing previews must supply an image in both states.
+A PNG in `payload/rvx/assets/` goes into the asset trailer after the runtime
+in `osos-cfw.bin`; the runtime's own row names it by its file stem in a
+`struct bitmap`, as an extension names an asset of its package. An extension
+ships its icons in its own package.

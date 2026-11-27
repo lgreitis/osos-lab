@@ -1,15 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Compile the OSOS payload and resolve its patches into an assembly recipe."""
 
-import json
 import struct
 from dataclasses import dataclass
 
-from .. import core_assets, declarations, rvx_runtime, ui
-from ..declarations import Copy, Kind
+from .. import core_assets, declarations, rvx_runtime
+from ..declarations import Kind
 from ..symbols import require
 from ..toolchain import compile_payload
-from ..ui.codegen import resource_symbols
 from .segments import Input, Recipe
 
 BASE = 0x08000000
@@ -36,36 +34,26 @@ def arm_call(address, destination):
     return 0xEB000000 | ((delta >> 2) & 0xFFFFFF)
 
 
-def payload_units(source, generated_ui):
+def payload_units(source):
     units = [
         (path.name, [])
         for path in sorted(source.iterdir())
         if path.suffix in (".c", ".S") and not path.name.endswith(".lds.S")
     ]
-    return [*units, ("rvx/arm.S", []), ("rvx/gate.c", []), (str(generated_ui), [])]
+    return [*units, ("rvx/arm.S", []), ("rvx/gate.c", [])]
 
 
 def build_recipe(
     source,
     directory,
     fingerprint,
-    templates,
     prefix,
     jobs,
     revision,
     version="0.0.0-dev",
 ):
     native = source / "native"
-    bindings = json.loads((native / "ui.json").read_text())["bindings"]
-    resources = ui.Resources(templates, bindings)
-    generated_ui = ui.generate(
-        resources,
-        [],
-        directory,
-        revision,
-        version,
-    )
-    units = payload_units(source, generated_ui)
+    units = payload_units(source)
     units.append((str(source / "patches/patches.c"), []))
     code, symbols = compile_payload(
         directory,
@@ -78,9 +66,6 @@ def build_recipe(
         includes=(native, source / "patches"),
         thumb_symbols=True,
     )
-    for (kind, resource_id), symbol in resource_symbols(resources).items():
-        if kind == "BMap" and require(symbols, symbol) % 4:
-            raise ValueError(f"Embedded bitmap {resource_id:#x} is not word-aligned")
     patches = declarations.collect(directory, "payload", prefix)
     used = require(symbols, "__payload_end") - require(symbols, "__payload_start")
     capacity = require(symbols, "__payload_limit") - require(symbols, "__payload_start")
@@ -121,20 +106,6 @@ def payload_layout(code, symbols, original_size):
     return layout
 
 
-def resolve_copy(patch, symbols, layout):
-    if (
-        patch.offset < 0
-        or patch.size <= 0
-        or patch.offset + patch.size > patch.array_size
-    ):
-        raise ValueError(f"Copy exceeds array: {patch.symbol}")
-    if patch.source < BASE:
-        raise ValueError("Copy source outside native firmware")
-    destination = require(symbols, patch.symbol) - layout.start + patch.offset
-    source = Input("osos", patch.source - BASE + layout.load_offset, patch.size)
-    return destination, source
-
-
 def resolve_write(patch, symbols, layout):
     address = patch.address
     value = patch.value if patch.kind == Kind.WORD else require(symbols, patch.symbol)
@@ -158,15 +129,12 @@ def resolve_write(patch, symbols, layout):
 
 
 def resolve_patches(recipe, patches, symbols, layout):
-    writes, copies = [], []
+    writes = []
     for patch in patches:
-        if isinstance(patch, Copy):
-            copies.append(resolve_copy(patch, symbols, layout))
-        else:
-            offset, after = resolve_write(patch, symbols, layout)
-            recipe.expect("osos", offset, patch.expected)
-            writes.append((offset, after))
-    return writes, copies
+        offset, after = resolve_write(patch, symbols, layout)
+        recipe.expect("osos", offset, patch.expected)
+        writes.append((offset, after))
+    return writes
 
 
 def size_header_writes(recipe, original_size, output_size):
@@ -183,14 +151,14 @@ def build(code, patches, symbols, fingerprint, trailer=b""):
     original_size = fingerprint["bytes"]
     layout = payload_layout(code, symbols, original_size)
     recipe = Recipe({"osos": fingerprint})
-    writes, copies = resolve_patches(recipe, patches, symbols, layout)
+    writes = resolve_patches(recipe, patches, symbols, layout)
     writes.extend(
         size_header_writes(
             recipe, original_size, original_size + layout.reserved_size + len(trailer)
         )
     )
     recipe.overlay(Input("osos", 0, original_size), writes)
-    recipe.overlay(code, copies)
+    recipe.overlay(code, [])
     recipe.zero(layout.reserved_size - len(code))
     if trailer:
         recipe.overlay(trailer, [])
