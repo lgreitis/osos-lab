@@ -28,7 +28,7 @@ pub use img1::classic_img1_body_range;
 pub use nor::{NorDump, NorProgress, NorReport, NOR_SIZE};
 pub use nor_image::{AppleNorImage, APPLE_LOADER_BYTES};
 pub use syscfg::{Identity, SysCfg};
-pub use usb::{discover, DeviceInfo, DeviceSelector, Session};
+pub use usb::{discover, mac_dfu_guard, DeviceInfo, DeviceSelector, Session};
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -50,6 +50,8 @@ pub enum Error {
     /// that never enumerates or a DFU return that never comes.
     #[error("{0}")]
     TimedOut(String),
+    #[error("Another RepriseOS installer is working with an iPod; close it first")]
+    OtherInstaller,
     #[error("{operation}: received {actual} bytes, expected {expected}")]
     ShortTransfer {
         operation: &'static str,

@@ -16,3 +16,6 @@ reprise-device = { path = "../reprise-device" }
 reprise-bundle = { path = "../reprise-bundle" }
 serde.workspace = true
 serde_json.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"

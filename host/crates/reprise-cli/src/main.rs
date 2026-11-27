@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use reprise_device::{
-    check_saved, discover, CheckReport, Cleanup, DeviceSelector, Event, Session, SysCfg,
+    check_saved, discover, mac_dfu_guard, CheckReport, Cleanup, DeviceSelector, Event, Session,
+    SysCfg,
 };
 mod bundle;
 mod decrypt;
@@ -49,6 +50,7 @@ Usage:
   reprise nor-dump --output NEW_FILE [--device BUS:ADDRESS] [--json]
   reprise check-files --bootrom FILE --syscfg FILE [--json]
   reprise syscfg FILE [--json]
+  reprise mac-dfu-guard
 
   reprise decrypt --input FILE --output NEW_FILE
     [--skip-bytes BYTES] [--offset BYTES] [--size BYTES] [--chunk BYTES] [--iv HEX]
@@ -85,6 +87,10 @@ Installation requires a bundle matching the checked device.
 --device uses decimal BUS:ADDRESS from `reprise devices`, not USB VID:PID.
 Omit it when only one DFU device is connected.
 
+On macOS, the system sends Apple's recovery image to an iPod in DFU and moves it
+out of DFU. Commands that use DFU stop this while they run; start mac-dfu-guard
+in a second terminal before putting the iPod into DFU, and stop it with Ctrl-C.
+
 check-files accepts saved SysCfg or a NOR dump beginning with SysCfg.
 nor-dump checks the device, then reads/cross-checks the full 1 MiB NOR using
 512-byte data replies, shifted reads, and slow edge reads.
@@ -118,6 +124,21 @@ enum Command {
         output: String,
         selector: Option<DeviceSelector>,
     },
+    MacDfuGuard,
+}
+
+impl Command {
+    fn uses_dfu(&self) -> bool {
+        matches!(
+            self,
+            Command::DfuState { .. }
+                | Command::Check { .. }
+                | Command::NorDump { .. }
+                | Command::Decrypt(_)
+                | Command::Upload(_)
+                | Command::Firmware(firmware::Args::DecryptNor { .. })
+        )
+    }
 }
 
 fn parse_options<'a>(
@@ -160,6 +181,7 @@ fn parse(args: &[String]) -> Result<(Command, bool), String> {
                 | "upload"
                 | "bundle"
                 | "firmware"
+                | "mac-dfu-guard"
         )
         && matches!(args[1].as_str(), "--help" | "-h")
     {
@@ -168,6 +190,7 @@ fn parse(args: &[String]) -> Result<(Command, bool), String> {
     let command = match args.first().map(String::as_str) {
         None | Some("help" | "--help" | "-h") if args.len() <= 1 => Command::Help,
         Some("devices") if args.len() == 1 => Command::Devices,
+        Some("mac-dfu-guard") if args.len() == 1 => Command::MacDfuGuard,
         Some("syscfg") if args.len() == 2 && !args[1].starts_with('-') => Command::Syscfg {
             path: args[1].clone(),
         },
@@ -223,6 +246,52 @@ fn open_session(selector: Option<DeviceSelector>) -> CliResult<Session> {
         }
         error => error.into(),
     })
+}
+
+/// Keep macOS away from the iPod for a DFU command. A guard already held by
+/// `reprise mac-dfu-guard` covers the command too.
+fn dfu_guard() -> CliResult<Option<mac_dfu_guard::MacDfuGuard>> {
+    match mac_dfu_guard::MacDfuGuard::acquire() {
+        Ok(guard) => Ok(Some(guard)),
+        Err(reprise_device::Error::OtherInstaller) if mac_dfu_guard::standalone_running() => {
+            Ok(None)
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
+/// Restore the macOS keys on Ctrl-C, SIGTERM and SIGHUP. The signals are
+/// blocked in every thread and taken by one waiting thread, because the
+/// restore cannot run inside a signal handler. A signal the parent set to be
+/// ignored, as `nohup` and background shell jobs do, stays ignored.
+#[cfg(target_os = "macos")]
+fn restore_on_signals() {
+    // SAFETY: plain libc signal calls on locally owned structures.
+    unsafe {
+        let mut set: libc::sigset_t = std::mem::zeroed();
+        libc::sigemptyset(&mut set);
+        let mut any = false;
+        for signal in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
+            let mut current: libc::sigaction = std::mem::zeroed();
+            libc::sigaction(signal, std::ptr::null(), &mut current);
+            if current.sa_sigaction != libc::SIG_IGN {
+                libc::sigaddset(&mut set, signal);
+                any = true;
+            }
+        }
+        if !any {
+            return;
+        }
+        libc::pthread_sigmask(libc::SIG_BLOCK, &set, std::ptr::null_mut());
+        std::thread::spawn(move || {
+            let mut signal = 0;
+            if libc::sigwait(&set, &mut signal) != 0 {
+                return;
+            }
+            let _ = mac_dfu_guard::restore_now();
+            std::process::exit(128 + signal);
+        });
+    }
 }
 
 fn parse_selector(value: &str) -> Result<DeviceSelector, String> {
@@ -322,6 +391,11 @@ fn write_check_event(event: &Event, json: bool, out: &mut impl Write) -> io::Res
 }
 
 fn run(command: Command, json: bool) -> CliResult<u8> {
+    let _guard = if command.uses_dfu() {
+        dfu_guard()?
+    } else {
+        None
+    };
     match command {
         Command::Help => {
             io::stdout().lock().write_all(HELP.as_bytes())?;
@@ -398,6 +472,19 @@ fn run(command: Command, json: bool) -> CliResult<u8> {
         Command::Bundle(args) => return bundle::run(args, json),
         Command::Upload(args) => return upload::run(args, json),
         Command::Decrypt(args) => return decrypt::run(args, json),
+        Command::MacDfuGuard => {
+            if !cfg!(target_os = "macos") {
+                return Err("mac-dfu-guard only runs on macOS".into());
+            }
+            let _guard = mac_dfu_guard::MacDfuGuard::acquire_standalone()?;
+            writeln!(
+                io::stderr().lock(),
+                "macOS leaves iPods in DFU alone until Ctrl-C"
+            )?;
+            loop {
+                std::thread::park();
+            }
+        }
         Command::NorDump { output, selector } => {
             ensure_new_output(&output)?;
             let mut session = open_session(selector)?;
@@ -444,6 +531,12 @@ fn run(command: Command, json: bool) -> CliResult<u8> {
 }
 
 fn main() -> ExitCode {
+    mac_dfu_guard::install_panic_hook();
+    #[cfg(target_os = "macos")]
+    restore_on_signals();
+    if let Err(error) = mac_dfu_guard::recover_stale() {
+        let _ = writeln!(io::stderr().lock(), "Warning: {error}");
+    }
     let args: Vec<_> = env::args().skip(1).collect();
     let json = args.iter().any(|s| s == "--json");
     let result = parse(&args)
