@@ -224,21 +224,6 @@ int hfs_upload_mount(uint64_t sectors, uint64_t *start, uint64_t *end,
     return 0;
 }
 
-/* The uploader accepts printable ASCII components. Only folds whose result is
- * ASCII or ignorable can affect their ordering against UTF-16 catalog keys
- * (HFS Plus FastUnicodeCompare, TN1150). */
-static unsigned folded(unsigned c)
-{
-    if (!c)
-        return 0xffff;
-    if (c >= 'A' && c <= 'Z')
-        return c + 32;
-    if ((c >= 0x200c && c <= 0x200f) || (c >= 0x202a && c <= 0x202e) ||
-        (c >= 0x206a && c <= 0x206f) || c == 0xfeff)
-        return 0;
-    return c;
-}
-
 struct item {
     uint32_t parent, id;
     char *name;
@@ -248,24 +233,6 @@ static struct item path_items[MAX_COMPONENTS];
 static char path_buf[192];
 static unsigned path_count;
 static uint32_t next_cnid;
-
-static int compare(const uint8_t *key, uint32_t parent, const char *name)
-{
-    uint32_t id = u32(key + 2);
-    if (id != parent)
-        return id < parent ? -1 : 1;
-    unsigned count = u16(key + 6);
-    for (unsigned i = 0; i < count; ++i) {
-        unsigned c = folded(u16(key + 8 + 2 * i));
-        if (!c)
-            continue;
-        unsigned target = folded((uint8_t)*name);
-        if (!*name || c != target)
-            return !*name || c > target ? 1 : -1;
-        ++name;
-    }
-    return *name ? -1 : 0;
-}
 
 typedef int (*leaf_visit)(const uint8_t *, unsigned, void *);
 
@@ -298,69 +265,67 @@ static int visit_leaves(leaf_visit visit, void *arg)
     return seen == old_count && previous == old_last ? 0 : UNSUPPORTED;
 }
 
-struct lookup {
-    uint32_t parent, id;
-    const char *name;
-    unsigned type;
-};
-
-static int match_record(const uint8_t *rec, unsigned size, void *arg)
+/* A catalog lookup: 1 when found, 0 when missing, otherwise an error code. */
+static int found(enum hfs_result rc)
 {
-    struct lookup *q = arg;
-    int cmp = compare(rec, q->parent, q->name);
-    if (cmp > 0)
-        return 1;
-    if (cmp)
-        return 0;
-    unsigned key = u16(rec) + 2;
-    const uint8_t *v = rec + key;
-    q->type = u16(v);
-    if ((q->type != 1 && q->type != 2) || size - key < (q->type == 1 ? 88u : 248u))
-        return UNSUPPORTED;
-    q->id = u32(v + 8);
-    return 1;
+    return rc == HFS_OK          ? 1
+           : rc == HFS_NOT_FOUND ? 0
+           : rc == HFS_IO        ? BAD_IO
+                                 : UNSUPPORTED;
 }
 
-static int plan_path(const char *path, bool create)
+/* Walk an absolute path into path_items, the last component a file or, with
+ * folder, a folder. 1 when it exists, with value at its record in old_node;
+ * 0 when a component is missing or of the other kind. With create, missing
+ * components get new IDs and are marked for creation, and a component of the
+ * other kind is an error. */
+static int walk_path(const char *path, bool create, bool folder, const uint8_t **value)
 {
     size_t len = strlen(path);
-    if (!len || len >= sizeof(path_buf) || *path != '/')
+    if (len < 2 || len >= sizeof(path_buf) || *path != '/')
         return UNSUPPORTED;
     memcpy(path_buf, path + 1, len);
-    char *name = path_buf;
     uint32_t parent = ROOT_FOLDER;
     path_count = 0;
     next_cnid = u32(header + 64);
-    while (*name) {
+    for (char *name = path_buf;;) {
         char *slash = strchr(name, '/');
         if (slash)
             *slash = 0;
         if (!*name || path_count == MAX_COMPONENTS)
             return UNSUPPORTED;
-        struct lookup q = {parent, 0, name, 0};
-        int rc = visit_leaves(match_record, &q);
+        const uint8_t *v = NULL;
+        int rc = 0;
+        /* Nothing exists below a folder that is still to be created. */
+        if (!path_count || !path_items[path_count - 1].create)
+            rc = found(hfs_find_record(&vol, header + CATALOG, parent, name,
+                                       strlen(name), &v, old_node, sizeof(old_node)));
         if (rc < 0)
             return rc;
-        if (q.type && q.type != (slash ? 1u : 2u))
-            return UNSUPPORTED;
-        if (!q.type && !create)
+        unsigned type = rc ? u16(v) : 0;
+        if (type && type != (slash || folder ? 1u : 2u))
+            return create ? UNSUPPORTED : 0;
+        if (!type && !create)
             return 0;
-        if (!q.type && (next_cnid < 16 || next_cnid == UINT32_MAX))
+        if (!type && (next_cnid < 16 || next_cnid == UINT32_MAX))
             return UNSUPPORTED;
         struct item *p = &path_items[path_count++];
-        *p = (struct item){parent, q.type ? q.id : next_cnid++, name, slash != NULL,
-                           !q.type};
+        *p = (struct item){parent, type ? u32(v + 8) : next_cnid++, name, slash != NULL,
+                           !type};
         parent = p->id;
-        if (!slash)
-            return q.type ? 1 : 0;
+        if (!slash) {
+            if (value)
+                *value = v;
+            return type ? 1 : 0;
+        }
         name = slash + 1;
     }
-    return UNSUPPORTED;
 }
 
+/* 1 when path is a file, 0 when it is missing or not a file. */
 int hfs_upload_exists(const char *path)
 {
-    return plan_path(path, false);
+    return walk_path(path, false, false, NULL);
 }
 
 struct run {
@@ -446,9 +411,9 @@ static int alloc_fork(uint8_t *fork, uint64_t bytes)
 
 int hfs_upload_plan(const char *path, uint32_t size, bool overwrite)
 {
-    int rc = plan_path(path, true);
-    if (rc < 0 || !path_count)
-        return rc < 0 ? rc : UNSUPPORTED;
+    int rc = walk_path(path, true, false, NULL);
+    if (rc < 0)
+        return rc;
     if (!strcasecmp(path, "/.journal") || !strcasecmp(path, "/.journal_info_block"))
         return UNSUPPORTED;
     if (rc && !overwrite)
@@ -539,21 +504,12 @@ static struct addition additions[2 * MAX_COMPONENTS];
 static unsigned add_count, add_pos;
 static uint32_t leaf_records, changed_parents, replaced_count;
 
-static int ascii_cmp(const char *a, const char *b)
-{
-    while (*a && *b && folded((uint8_t)*a) == folded((uint8_t)*b)) {
-        ++a;
-        ++b;
-    }
-    return (*a ? (int)folded((uint8_t)*a) : 0) - (*b ? (int)folded((uint8_t)*b) : 0);
-}
-
 static void queue_record(struct addition a)
 {
     unsigned i = add_count++;
     while (i && (additions[i - 1].parent > a.parent ||
                  (additions[i - 1].parent == a.parent &&
-                  ascii_cmp(additions[i - 1].name, a.name) > 0))) {
+                  strcasecmp(additions[i - 1].name, a.name) > 0))) {
         additions[i] = additions[i - 1];
         --i;
     }
@@ -606,7 +562,7 @@ static int copy_record(const uint8_t *rec, unsigned size, void *unused)
     (void)unused;
     while (add_pos < add_count) {
         struct addition *a = &additions[add_pos];
-        int cmp = compare(rec, a->parent, a->name);
+        int cmp = hfs_key_compare(rec, a->parent, a->name, strlen(a->name));
         if (!cmp)
             return UNSUPPORTED;
         if (cmp < 0)
