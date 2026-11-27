@@ -113,7 +113,6 @@ def build_trailer(source, directory, resident, prefix, jobs):
         "rvx_insert_slot",
         "rvx_chains",
         "cfw_rvx_has_canvas",
-        "cfw_rvx_has_menu_pane",
     ]
     layout = (
         "\n".join(f"{n} = {require(resident, n):#x};" for n in absolute)

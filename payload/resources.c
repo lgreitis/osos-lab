@@ -7,7 +7,7 @@
 #include "rvx/runtime.h"
 #include "screen_ui.h"
 
-uint8_t cfw_rvx_has_canvas, cfw_rvx_has_menu_pane;
+uint8_t cfw_rvx_has_canvas;
 
 PATCH_ARM void cfw_ui_append_resource_block(void *list, void *data, uint32_t size,
                                             uint32_t metadata)
@@ -52,8 +52,7 @@ PATCH_ARM const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size
     }
     for (uint32_t i = start; i < cfw_resource_count; i++) {
         const struct cfw_resource *resource = &cfw_resources[i];
-        if ((resource->id == RVX_CanvasTemplate && !cfw_rvx_has_canvas) ||
-            (resource->id == RVX_MenuPaneTemplate && !cfw_rvx_has_menu_pane))
+        if (resource->id == RVX_CanvasTemplate && !cfw_rvx_has_canvas)
             continue;
         if (resource->type == 0x56696577) { /* View */
             *id = resource->id;
