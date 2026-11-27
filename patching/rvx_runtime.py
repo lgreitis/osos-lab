@@ -30,7 +30,7 @@ def relocation_words(raw, mirror, base, memory_size):
     return relocations
 
 
-def build_trailer(source, directory, resident, prefix, jobs):
+def build_trailer(source, directory, resident, prefix, jobs, defines=()):
     out = directory / "rvx"
     out.mkdir(exist_ok=True)
     sources = sorted(
@@ -46,6 +46,7 @@ def build_trailer(source, directory, resident, prefix, jobs):
                 prefix + "gcc",
                 *FLAGS,
                 *RUNTIME_CFLAGS,
+                *defines,
                 *(
                     ["-fno-tree-loop-distribute-patterns"]
                     if path.name == "rv_libc.c"
@@ -110,6 +111,9 @@ def build_trailer(source, directory, resident, prefix, jobs):
         "rvx_insert_vector",
         "rvx_insert_slot",
         "rvx_chains",
+        "rvx_trailer",
+        "__payload_limit",
+        "__payload_start",
     ]
     layout = (
         "\n".join(f"{n} = {require(resident, n):#x};" for n in absolute)

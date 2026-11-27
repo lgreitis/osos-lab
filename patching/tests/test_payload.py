@@ -53,9 +53,7 @@ class PayloadTests(unittest.TestCase):
             directory = Path(temporary)
             generate(
                 Resources(metadata["resources"], bindings),
-                [
-                    root / "payload/cfw_info.ui",
-                ],
+                [],
                 directory,
                 "test",
             )

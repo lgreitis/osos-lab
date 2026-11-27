@@ -3,6 +3,8 @@
 #include "cfw.h"
 #include "osos.h"
 #include "../../game-sdk/runtime/native_directory.h"
+#include "native/layout.h"
+#include "runtime.h"
 
 struct rvx_file {
     File *next;
@@ -376,10 +378,81 @@ int rvx_provider(Pkg *p, const void *new_provider)
     return OK;
 }
 
+/* The runtime's own bitmaps: payload/rvx/assets/<name>.png as menu masks,
+ * lz-compressed behind a header and an entry table after the runtime image
+ * in /osos-cfw.bin, entry offsets relative to the trailer. Read while shown,
+ * like an extension's optional asset; a theme's provider does not see them. */
+#define CORE_ASSETS_MAGIC 0x41435652u /* RVCA */
+#define CORE_ASSETS_MAX 16
+#define CORE_ASSET_MAX_BYTES (64u << 10)
+#define CORE_ASSETS_MAX_BYTES (CORE_ASSETS_MAX * CORE_ASSET_MAX_BYTES)
+
+struct core_assets_header {
+    u32 magic, count, bytes, reserved;
+};
+
+extern const unsigned char __payload_limit[], __payload_start[];
+
+static int file_read_exact(void *f, void *out, u32 n)
+{
+    u32 got;
+    return !osos_file_read(f, out, n, &got) && got == n;
+}
+
+static void *core_bitmap_load(const char *name, u32 *n)
+{
+    struct osos_path path;
+    void *f, *out = NULL;
+    osos_path_init(&path, "/osos-cfw.bin");
+    if (osos_file_open(&path, 1, &f))
+        return NULL;
+    u32 runtime = CFW_PAYLOAD_FILE_OFFSET + (u32)(__payload_limit - __payload_start);
+    u32 base = (runtime + rvx_trailer.stored + rvx_trailer.relocations * 2 + 3) & ~3u;
+    u32 hash = rvx_hash(name);
+    struct core_assets_header h;
+    struct entry e;
+    if (osos_file_seek(f, base, 0) || !file_read_exact(f, &h, sizeof h) ||
+        h.magic != CORE_ASSETS_MAGIC || !h.count || h.count > CORE_ASSETS_MAX ||
+        h.bytes > CORE_ASSETS_MAX_BYTES || h.bytes < sizeof h + h.count * sizeof e)
+        goto done;
+    for (u32 i = 0; i < h.count; i++) {
+        if (!file_read_exact(f, &e, sizeof e))
+            goto done;
+        if (e.name == hash)
+            break;
+        if (i + 1 == h.count)
+            goto done;
+    }
+    if (e.kind != 2 || e.codec > 1 || e.size < 28 || e.size > CORE_ASSET_MAX_BYTES ||
+        !e.stored || e.offset > h.bytes || e.stored > h.bytes - e.offset ||
+        (!e.codec && e.stored != e.size) || osos_file_seek(f, base + e.offset, 0))
+        goto done;
+    uint8_t *src = osos_import_alloc(e.stored);
+    if (!src)
+        goto done;
+    if (file_read_exact(f, src, e.stored) && (out = rvx_alloc(NULL, e.size)) != NULL) {
+        int ok = e.codec ? rvx_decode(src, e.stored, out, e.size) : 1;
+        for (u32 i = 0; ok && !e.codec && i < e.size; i++)
+            ((uint8_t *)out)[i] = src[i];
+        if (!ok) {
+            rvx_free(NULL, out);
+            out = NULL;
+        }
+    }
+    osos_import_free(src);
+    if (out)
+        *n = e.size;
+done:
+    osos_file_close(f);
+    return out;
+}
+
 void *rvx_bitmap_load(Pkg *p, const char *name, u32 *n)
 {
     if (!name)
         return NULL;
+    if (!p)
+        return core_bitmap_load(name, n);
     u32 owner = rvx_hash(p->id), id = rvx_hash(name);
     void *bitmap = NULL;
     if (provider && provider->replacement && provider->read) {

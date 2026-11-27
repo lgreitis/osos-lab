@@ -5,7 +5,7 @@ import json
 import struct
 from dataclasses import dataclass
 
-from .. import declarations, rvx_runtime, ui
+from .. import core_assets, declarations, rvx_runtime, ui
 from ..declarations import Copy, Kind
 from ..symbols import require
 from ..toolchain import compile_payload
@@ -60,7 +60,7 @@ def build_recipe(
     resources = ui.Resources(templates, bindings)
     generated_ui = ui.generate(
         resources,
-        [source / name for name in ("cfw_info.ui",)],
+        [],
         directory,
         revision,
         version,
@@ -88,7 +88,13 @@ def build_recipe(
         f"CFW reservation: {used:,} / {capacity:,} bytes used; {capacity - used:,} free",
         flush=True,
     )
-    trailer, spec = rvx_runtime.build_trailer(source, directory, symbols, prefix, jobs)
+    display = "Development" if version.startswith("0.0.0-dev") else version
+    defines = (f'-DCFW_VERSION_TEXT="{display}"', f'-DCFW_REVISION="{revision}"')
+    trailer, spec = rvx_runtime.build_trailer(
+        source, directory, symbols, prefix, jobs, defines
+    )
+    # The runtime's bitmaps follow the image and its relocations, word-aligned.
+    trailer += bytes(-len(trailer) % 4) + core_assets.build(source / "rvx/assets")
     if capacity + len(trailer) > require(symbols, "__payload_capacity"):
         raise ValueError("RVX runtime exceeds the companion load limit")
     header = require(symbols, "rvx_trailer") - require(symbols, "__payload_start")

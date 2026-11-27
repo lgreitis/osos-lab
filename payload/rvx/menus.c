@@ -690,6 +690,8 @@ void rvx_install_menus(void)
             install(p, (const struct menu_entry *)d->entries + i, id += 3);
         claimed += claim_rows(p, d);
     }
+    for (u32 i = 0; i < rvx_core_entry_count; i++)
+        install(NULL, rvx_core_entries + i, id += 3);
     for (unsigned j = 0; claimed && j < sizeof stock_hooks / sizeof stock_hooks[0]; j++)
         rvx_bind_core(&stock_hooks[j]);
     if (!installed)
