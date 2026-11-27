@@ -5,7 +5,7 @@ import json
 import struct
 from dataclasses import dataclass
 
-from .. import assets, declarations, rvx_runtime, ui
+from .. import declarations, rvx_runtime, ui
 from ..declarations import Copy, Kind
 from ..symbols import require
 from ..toolchain import compile_payload
@@ -65,7 +65,6 @@ def build_recipe(
             for name in (
                 "cfw_info.ui",
                 "media_menus.ui",
-                "dark_mode.ui",
                 "rvx/screen.ui",
             )
         ],
@@ -74,11 +73,6 @@ def build_recipe(
         version,
     )
     units = payload_units(source, generated_ui)
-    catalog = json.loads((source.parent / "firmware/bitmaps.json").read_text())
-    if catalog["schema"] != 1 or catalog["input"] != fingerprint:
-        raise ValueError("Bitmap metadata does not match the pinned OSOS")
-    generated_assets = assets.generate(catalog, directory)
-    units.append((str(generated_assets), []))
     units.append((str(source / "patches/patches.c"), []))
     code, symbols = compile_payload(
         directory,

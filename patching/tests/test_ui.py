@@ -61,7 +61,7 @@ class UiTests(unittest.TestCase):
         expected = {
             "CFW_Info_Screen",
             "CFW_Info_Layout",
-            *[f"CFW_{name}_Preview" for name in ("Info", "DarkMode")],
+            "CFW_Info_Preview",
         }
         self.assertEqual(resources.runtime_names, expected)
         table = code.split("cfw_resource_names[] = {", 1)[1].split("};", 1)[0]
@@ -321,74 +321,6 @@ class UiTests(unittest.TestCase):
         self.assertIn(b"CFW_Info_Screen", appended)
         self.assertIn(b"navigator.PushScreen", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
-
-    def test_settings_toggle_preserves_stock_rows_and_has_no_navigation(self):
-        root = Path(__file__).resolve().parents[2]
-        metadata = json.loads((root / "firmware/ui.json").read_text())
-        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
-        resources = Resources(metadata["resources"], bindings)
-        document = parser.read(root / "payload/dark_mode.ui")
-        compiled = compile_document(resources, document)
-        stock = blocks(resources.stock("ITEM", "SettingsMenu_Items"))
-        rows = menu_rows(resources, bindings["SettingsMenu_Items"])
-        self.assertNotIn(("ITEM", bindings["SettingsMenu_Items"]), resources.added)
-        # Pinned 2.0.5 Brightness ID; 0x0dad0c71 is Backlight Timer.
-        anchor = next(
-            i for i, (_, row) in enumerate(rows) if word(row, 0x30) == 0x0DAD0C72
-        )
-        _, toggle = rows.pop(anchor + 1)
-        for (_, before), (_, after) in zip(stock, rows, strict=True):
-            self.assertEqual(before.data, after.data)
-            self.assertEqual(before.origins, after.origins)
-        prototype = next(
-            row
-            for _, row in stock
-            if word(row, 0x30) == bindings["SettingsMenu_ListItem_SoundCheck"]
-        )
-        for start, end in ((0, 0x30), (0x34, 0x68), (0x6C, 0x98)):
-            self.assertEqual(toggle[start:end].origins, prototype[start:end].origins)
-            self.assertEqual(toggle[start:end].data, prototype[start:end].data)
-        sources = blocks(resources.added["SORC", word(toggle, 0x68)])
-        self.assertEqual(
-            [word(sources[1][1], offset) for offset in (0, 4, 8)],
-            [0x8900, compiled.string_ids["CFW_DarkMode_Value"], 10],
-        )
-        appended = b"".join(
-            resources.event_extensions["CEVT", bindings["SettingsMenus_Main_Screen"]]
-        )
-        self.assertNotIn(
-            ("CEVT", bindings["SettingsMenus_Main_Screen"]), resources.added
-        )
-        self.assertIn(b"CFW_DarkMode_Toggle", appended)
-        self.assertNotIn(b"navigator.PushScreen", appended)
-        self.assertNotIn(b"ShowSetting_Legal", appended)
-        self.assertNotIn("CFW_DarkMode_Screen", resources.names)
-        preview = next(
-            data for (kind, _), data in resources.added.items() if kind == "VLyt"
-        )
-        views = dict(blocks(preview))
-        stock_views = dict(
-            blocks(resources.stock("VLyt", "SettingsInfo_Template_Brightness_Layout"))
-        )
-        for view, suffix in (
-            ("Settings_Icon_View", "Image"),
-            ("Settings_InfoDetail_View", "Text"),
-        ):
-            view_id = bindings[view]
-            options = dict(blocks(views[view_id]))
-            source = word(options[0x534F5243], 0)
-            binding = blocks(resources.added["SORC", source])[0][1]
-            self.assertEqual(
-                [word(binding, offset) for offset in (0, 4, 8)],
-                [0x8900, compiled.string_ids["CFW_DarkMode_Preview" + suffix], 1],
-            )
-            for kind, original in blocks(stock_views[view_id]):
-                if kind != 0x534F5243:
-                    self.assertEqual(options[kind].data, original.data)
-                    self.assertEqual(options[kind].origins, original.origins)
-        base_panel = 0x0DAD0C2F
-        self.assertEqual(views[base_panel].data, stock_views[base_panel].data)
-        self.assertEqual(views[base_panel].origins, stock_views[base_panel].origins)
 
     def test_media_menus_bind_select_hold_on_movie_and_tv_lists(self):
         root = Path(__file__).resolve().parents[2]

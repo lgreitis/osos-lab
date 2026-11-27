@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "screen.h"
 #include "osos.h"
-#include "dark_mode.h"
 #include "../../rvx-sdk/osos-2.0.5.h"
 
 static void *gc;
@@ -10,11 +9,10 @@ static struct rect area;
 static u32 fonts[3][2];
 static Pkg *color_owner;
 static const u32 *roles;
-static const u32 palettes[][11] = {
-    {0xffffffff, 0xff202020, 0xff2688db, 0xffffffff, 0xff555555, 0xff202020, 0xff1479d5,
-     0xff5da9eb, 0xff53a6ee, 0xff2278cc, 0xff196bb8},
-    {0xff181818, 0xffe8e8e8, 0xff157fc4, 0xffffffff, 0xffa8a8a8, 0xffe8e8e8, 0xff30abff,
-     0xff318ac0, 0xff257dab, 0xff145e90, 0xff104c73}};
+/* The stock light look until an extension sets the colour roles. */
+static const u32 palette[11] = {0xffffffff, 0xff202020, 0xff2688db, 0xffffffff,
+                                0xff555555, 0xff202020, 0xff1479d5, 0xff5da9eb,
+                                0xff53a6ee, 0xff2278cc, 0xff196bb8};
 
 void rvx_begin_draw(void *context, const int32_t *bounds, const struct rect *dirty)
 {
@@ -54,7 +52,7 @@ int rvx_colors(Pkg *p, const u32 *r)
 
 static u32 color(uint8_t role)
 {
-    return (roles ? roles : palettes[!!cfw_dark_mode_enabled()])[role < 11 ? role : 0];
+    return (roles ? roles : palette)[role < 11 ? role : 0];
 }
 
 static void rgba(u32 c, uint8_t out[4])
@@ -262,7 +260,6 @@ struct cached_bitmap {
     struct cached_bitmap *next;
     u32 id;
     void *data;
-    int dark;
     u32 size;
 };
 
@@ -281,9 +278,8 @@ const void *rvx_frame_bitmap(struct frame *f, const struct bitmap *bitmap, u32 *
     if (!bitmap || !bitmap->name || !f)
         return NULL;
     u32 id = rvx_hash(bitmap->name);
-    int dark = cfw_dark_mode_enabled();
     for (struct cached_bitmap *b = f->bitmaps; b; b = b->next)
-        if (b->id == id && b->dark == dark) {
+        if (b->id == id) {
             if (size)
                 *size = b->size;
             return b->data;
@@ -300,7 +296,6 @@ const void *rvx_frame_bitmap(struct frame *f, const struct bitmap *bitmap, u32 *
     b->size = bytes;
     if (size)
         *size = bytes;
-    b->dark = dark;
     b->id = id;
     b->data = data;
     b->next = f->bitmaps;

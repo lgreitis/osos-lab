@@ -54,7 +54,6 @@ class PayloadTests(unittest.TestCase):
             generate(
                 Resources(metadata["resources"], bindings),
                 [
-                    root / "payload/dark_mode.ui",
                     root / "payload/media_menus.ui",
                     root / "payload/cfw_info.ui",
                     root / "payload/rvx/screen.ui",
@@ -66,9 +65,7 @@ class PayloadTests(unittest.TestCase):
                 "media_menus",
                 "ui_visibility",
                 "menu_resources",
-                "bitmap_assets",
                 "rvx_compression",
-                "dark_mode",
                 "store",
                 "osos_handoff",
             ):
