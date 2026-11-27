@@ -370,10 +370,7 @@ static PATCH_ARM void draw(void *view, void *arg, const int32_t *clip)
     osos_view_bind_graphics(view, context);
     osos_view_local_rect(view, bounds);
     int width = bounds[3] - bounds[1], height = bounds[2] - bounds[0];
-    if (osos_view_id(view) == RVX_PaneView) {
-        rvx_begin_draw(context, bounds, NULL);
-        rvx_draw_menu_pane(width, height);
-    } else if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
+    if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
         struct frame *f = rvx_top;
         f->view = view;
         rvx_begin_draw(context, bounds, f->damage.w ? &f->damage : NULL);
@@ -464,7 +461,6 @@ void rvx_register_controller(void)
     view_table[3 + 0x74 / 4] = (uintptr_t)draw;
     controller_table[3 + ScreenController_event_method / 4] = (uintptr_t)event;
     controller_table[4] = (uintptr_t)destroy;
-    osos_register_view_factory(0x72767870, create_view);
     osos_register_view_factory(0x72767863, create_view);
     osos_ui_register_controllers(osos_controller_registry(), "RVXScreen", NULL,
                                  create_controller);

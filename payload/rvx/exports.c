@@ -20,4 +20,5 @@ const struct rvx_host rvx_exports __attribute__((used, section(".rvx.exports")))
     .capability_magic = "RepriseRVX1",
     .api = RVX_API,
     .firmware_id = RVX_FIRMWARE_ID,
+    .stock_view = rvx_stock_view,
 };

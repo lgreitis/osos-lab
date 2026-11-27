@@ -15,6 +15,10 @@ void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
 int cfw_rvx_indexed_property(uint32_t type, uint32_t property, uint32_t index,
                              uintptr_t *out);
 int cfw_rvx_property(uint32_t type, uint32_t property, uintptr_t *out);
+/* The stock view a view of a template the runtime copied was copied from;
+ * any other view id unchanged. Code that treats a view specially by its id
+ * sees the copy as the original. */
+uint32_t cfw_rvx_stock_view(uint32_t view);
 void cfw_rvx_reset(void);
 void cfw_rvx_hold(int locked);
 
@@ -23,4 +27,4 @@ int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int sel
                              uintptr_t *out);
 void cfw_rvx_toggle_row(unsigned menu, unsigned row);
 
-extern uint8_t cfw_rvx_has_canvas, cfw_rvx_has_menu_pane;
+extern uint8_t cfw_rvx_has_canvas;

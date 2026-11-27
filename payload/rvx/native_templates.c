@@ -318,6 +318,13 @@ static int write_copy(struct core_writer *w, uint32_t t, const void *views)
     return 1;
 }
 
+/* The copies made so far, for rvx_stock_view. */
+static struct {
+    uint32_t id, stock, second, views;
+} copies[8];
+
+static unsigned copies_made;
+
 uint32_t core_templates_copy(uint32_t stock_template, uint32_t second_template,
                              int replaced)
 {
@@ -326,12 +333,42 @@ uint32_t core_templates_copy(uint32_t stock_template, uint32_t second_template,
     copy_second =
         second_template ? stock(Resource_View, second_template, &bytes) : NULL;
     copy_replaced = replaced;
-    if (!views || (second_template && !copy_second))
+    if (!views || (second_template && !copy_second) ||
+        copies_made == sizeof copies / sizeof copies[0])
         return 0;
     ids = 1 + core_blocks_count(views) +
           (copy_second ? core_blocks_count(copy_second) : 0);
     uint32_t id = build(stock_template, ids, write_copy);
-    return id && construct(id) ? id : 0;
+    if (!id || !construct(id))
+        return 0;
+    copies[copies_made].id = id;
+    copies[copies_made].stock = stock_template;
+    copies[copies_made].second = second_template;
+    copies[copies_made].views = ids - 1;
+    copies_made++;
+    return id;
+}
+
+uint32_t rvx_stock_view(uint32_t view)
+{
+    uint32_t bytes;
+    struct core_block block;
+    for (unsigned c = 0; c < copies_made; c++) {
+        uint32_t i = view - (copies[c].id + 1);
+        if (i >= copies[c].views)
+            continue;
+        const void *views = stock(Resource_View, copies[c].stock, &bytes);
+        uint32_t count = views ? core_blocks_count(views) : 0;
+        if (i >= count) {
+            views = copies[c].second ? stock(Resource_View, copies[c].second, &bytes)
+                                     : NULL;
+            i -= count;
+        }
+        if (views && core_block_at(views, i, &block) &&
+            block.bytes >= ViewDescriptor_id + 4)
+            return core_word_at(block.data, ViewDescriptor_id);
+    }
+    return view;
 }
 
 uint32_t core_text_template(struct core_screen *s)

@@ -221,6 +221,7 @@ struct screen;
 int rvx_stock_rows_valid(const Pkg *, const struct screen *, u32, int main_module);
 void rvx_release_screen(Pkg *p, u32 index);
 void *rvx_bitmap_load(Pkg *, const char *, u32 *);
+uint32_t rvx_stock_view(uint32_t view);
 
 int rvx_preload_assets(Pkg *);
 
