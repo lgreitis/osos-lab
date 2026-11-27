@@ -258,53 +258,20 @@ static int write_slider(struct core_writer *w, uint32_t t, const void *views)
     return 1;
 }
 
-/* Canvas: one view of the canvas type in the Legal template's first view's
- * descriptor, over the status bar's divider row down to the bottom edge, its
- * extents fixed (anchor modes 6 and 5) so the parent's content does not move
- * it. The Brightness template's styles. */
-#define CANVAS_TOP 23
-#define CANVAS_BOTTOM 217
-#define CANVAS_RIGHT 320
+/* Canvas: the full-screen image view with the canvas type, below the 20 px
+ * title bar. Zero edge offsets with mode 0 fill the parent. */
+#define CANVAS_TOP 20
 
 static int write_canvas(struct core_writer *w, uint32_t t, const void *views)
 {
-    uint32_t bytes;
-    const void *legal = stock(Resource_View, RES_Settings_Legal_Template, &bytes);
-    struct core_block view;
-    (void)views;
-    if (!legal || !core_block_at(legal, 0, &view) || view.bytes < View_options_bytes)
+    struct core_block image;
+    if (!core_block_at(views, 0, &image) || image.bytes < View_options_bytes)
         return 0;
-    uint32_t words[] = {ViewDescriptor_left_offset,
-                        0,
-                        ViewDescriptor_left_reference_view,
-                        0,
-                        ViewDescriptor_left_anchor_mode,
-                        0,
-                        ViewDescriptor_top_offset,
-                        CANVAS_TOP,
-                        ViewDescriptor_top_reference_view,
-                        0,
-                        ViewDescriptor_top_anchor_mode,
-                        0,
-                        ViewDescriptor_bottom_offset,
-                        CANVAS_BOTTOM,
-                        ViewDescriptor_bottom_reference_view,
-                        0,
-                        ViewDescriptor_bottom_anchor_mode,
-                        6,
-                        ViewDescriptor_right_offset,
-                        CANVAS_RIGHT,
-                        ViewDescriptor_right_reference_view,
-                        0,
-                        ViewDescriptor_right_anchor_mode,
-                        5,
-                        ViewDescriptor_id,
-                        t + 1,
-                        ViewDescriptor_type,
-                        CORE_VIEW_CANVAS};
+    uint32_t words[] = {ViewDescriptor_top_offset, CANVAS_TOP, ViewDescriptor_id, t + 1,
+                        ViewDescriptor_type, CORE_VIEW_CANVAS};
     core_write_word(w, 1);
     uint32_t begin = core_write_block_begin(w, CORE_VIEW_CANVAS);
-    core_write_copy(w, view.data, View_options_bytes, words,
+    core_write_copy(w, image.data, image.bytes, words,
                     sizeof words / sizeof words[0] / 2);
     core_write_block_end(w, begin);
     return 1;
@@ -459,7 +426,7 @@ static const struct {
 } templates[CORE_TEMPLATES] = {
     [CORE_TEMPLATE_SLIDER] = {RES_Settings_Brightness_Template, 3, write_slider, 1},
     [CORE_TEMPLATE_EMPTY] = {RES_Calendar_Empty_Template, 2, write_empty, 0},
-    [CORE_TEMPLATE_CANVAS] = {RES_Settings_Brightness_Template, 2, write_canvas, 0},
+    [CORE_TEMPLATE_CANVAS] = {RES_FullScreenImage_Template, 2, write_canvas, 1},
 };
 
 static uint32_t built[CORE_TEMPLATES]; /* 0 until built */

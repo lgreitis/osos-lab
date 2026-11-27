@@ -203,15 +203,27 @@ static void invalidate_tree(uint8_t *view, uint32_t depth)
             invalidate_tree(children[i], depth + 1);
 }
 
+/* The canvas view's rectangle {top, left, bottom, right} in the root's space,
+ * or NULL when the caller's canvas is not on top. */
+static const int32_t *canvas_view(Pkg *p)
+{
+    struct frame *f = rvx_shown();
+    if (!f || f->ctx.self != p || f->screen->kind != RV_SCREEN_KIND_CANVAS || !f->view)
+        return NULL;
+    return (const int32_t *)((const uint8_t *)f->view + View_bounds);
+}
+
 static void invalidate(Pkg *p)
 {
-    (void)p;
-    osos_ui_invalidate();
+    const int32_t *view = canvas_view(p);
+    if (view)
+        osos_ui_invalidate_rect(view);
 }
 
 static void redraw(Pkg *p)
 {
-    invalidate(p);
+    (void)p;
+    osos_ui_invalidate();
     uint8_t *root = NATIVE_CALL(UI_GetRootView)();
     if (root)
         invalidate_tree(root, 0);
@@ -228,25 +240,14 @@ static void refresh(Pkg *p, const char *s)
 
 static void invalidate_rect(Pkg *p, const void *rect)
 {
-    struct frame *f = rvx_top;
+    const int32_t *view = canvas_view(p);
     const struct rect *r = rect;
-    if (!f || f->ctx.self != p || !r || !f->view || r->w <= 0 || r->h <= 0)
-        return;
-    int x = r->x, y = r->y, right = x + r->w, bottom = y + r->h;
-    if (x < 0)
-        x = 0;
-    if (y < 0)
-        y = 0;
-    if (right > 320)
-        right = 320;
-    if (bottom > 217)
-        bottom = 217;
-    if (x >= right || y >= bottom)
+    if (!view || !r || r->w <= 0 || r->h <= 0)
         return;
     /* Only that part of the canvas, in the root's space; the firmware clips
      * the draw to what it repaints. */
-    const int32_t *view = (const int32_t *)((const uint8_t *)f->view + 0x80);
-    int32_t part[] = {view[0] + y, view[1] + x, view[0] + bottom, view[1] + right};
+    int32_t part[] = {view[0] + r->y, view[1] + r->x, view[0] + r->y + r->h,
+                      view[1] + r->x + r->w};
     osos_ui_invalidate_rect(part);
 }
 

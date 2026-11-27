@@ -319,8 +319,13 @@ void rvx_refresh_pane(Pkg *p)
 
 void rvx_theme_changed(void)
 {
-    for (struct frame *f = rvx_top; f; f = f->parent)
+    /* A canvas copies pixels while it draws, so its decoded bitmaps can go:
+     * the next draw asks the new provider. */
+    for (struct frame *f = rvx_top; f; f = f->parent) {
+        if (f->screen->kind == RV_SCREEN_KIND_CANVAS)
+            rvx_clear_bitmaps(f);
         rvx_native_refresh(f);
+    }
     core_panes_refresh(NULL, 0);
     osos_ui_invalidate();
 }

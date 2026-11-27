@@ -6,8 +6,24 @@
 
 struct frame *rvx_top;
 const struct context *rvx_origin;
-static u32 wheel[13];
-static int wheel_ready;
+/* Wheel motion per step, as the stock menu lists count it: their MenuView
+ * overrides the accumulator's threshold with 4 for an ordinary row height and
+ * raises the multiplier ceiling to 32. */
+enum { WHEEL_THRESHOLD = 4, WHEEL_INTERVAL = 350, WHEEL_MAX_MULTIPLIER = 32 };
+static u32 wheel[WheelAccumulator_bytes / 4];
+/* The buttons whose press the screen on top consumed, so their release is its
+ * too, and the screen that saw them. */
+static uint8_t pressed;
+static const struct frame *pressed_frame;
+
+/* The top frame, not counting one being popped. */
+struct frame *rvx_shown(void)
+{
+    struct frame *f = rvx_top;
+    while (f && f->leaving)
+        f = f->parent;
+    return f;
+}
 
 static void refresh_title(void)
 {
@@ -18,7 +34,25 @@ static void refresh_title(void)
 }
 
 static PATCH_ARM u32 destroy(void *controller, u32 mode);
+static struct frame *lookup(void *controller);
 static PATCH_ARM int event(void *controller, void *e);
+
+/* A slider or canvas slides in as Settings > About does, through its
+ * template's styles; from a split list it may instead start at the pane, as
+ * Extras > Stopwatch does, with Stopwatch's own style. Over another full
+ * screen the two share the template, which then would not move, so the whole
+ * screen slides. */
+static int slide_in(struct frame *f, u32 layout, enum core_template template,
+                    uint8_t from)
+{
+    int pane = f->screen->transition == RV_TRANSITION_FROM_PANE &&
+               from == LayoutKind_SplitList;
+    f->style = pane ? core_templates_enter_style(RES_Stopwatch_Template,
+                                                 LayoutKind_SplitList)
+                    : -1;
+    core_clone_set_style(layout, core_template(template), f->style);
+    return from == LayoutKind_FullScreen ? Transition_ScreenPush : Transition_Standard;
+}
 
 static int present(struct frame *f, void *parent)
 {
@@ -48,11 +82,9 @@ static int present(struct frame *f, void *parent)
         u32 value = rvx_get_int(f->ctx.self, f->screen->choice.key);
         f->selected = value < f->screen->choice.count ? value : 0;
     }
-    if (!wheel_ready) {
-        osos_wheel_accumulator_init(wheel, 5, 1, 350);
-        wheel_ready = 1;
-    }
-    osos_wheel_accumulator_reset(wheel);
+    osos_wheel_accumulator_init(wheel, WHEEL_THRESHOLD, 1, WHEEL_INTERVAL);
+    typedef void (*SetMax)(void *, int);
+    ((SetMax)ADDR_WheelAccumulator_SetMaxMultiplier)(wheel, WHEEL_MAX_MULTIPLIER);
     void *c = NULL;
     if (native || f->screen->kind == RV_SCREEN_KIND_STOCK) {
         if (!native && f->screen->stock.screen != RV_STOCK_SCREEN_GAMES) {
@@ -73,17 +105,8 @@ static int present(struct frame *f, void *parent)
             int transition = dialog     ? Transition_ForegroundPush
                              : f->split ? Transition_Standard
                                         : Transition_ScreenPush;
-            if (f->screen->kind == RV_SCREEN_KIND_SLIDER) {
-                int pane = f->screen->transition == RV_TRANSITION_FROM_PANE &&
-                           from == LayoutKind_SplitList;
-                core_clone_set_style(
-                    layout, core_template(CORE_TEMPLATE_SLIDER),
-                    pane ? core_templates_enter_style(RES_Stopwatch_Template,
-                                                      LayoutKind_SplitList)
-                         : -1);
-                if (from != LayoutKind_FullScreen)
-                    transition = Transition_Standard;
-            }
+            if (f->screen->kind == RV_SCREEN_KIND_SLIDER)
+                transition = slide_in(f, layout, CORE_TEMPLATE_SLIDER, from);
             c = osos_create_screen_controller(osos_controller_registry(), screen,
                                               layout, transition);
             if (c) {
@@ -110,8 +133,9 @@ static int present(struct frame *f, void *parent)
         u32 screen, layout;
         rvx_top = f;
         if (rvx_prepare_canvas(&screen, &layout))
-            c = osos_create_screen_controller(osos_controller_registry(), screen,
-                                              layout, f->screen->transition ? 2 : 3);
+            c = osos_create_screen_controller(
+                osos_controller_registry(), screen, layout,
+                slide_in(f, layout, CORE_TEMPLATE_CANVAS, from));
     }
     if (!c) {
         rvx_top = f->parent;
@@ -211,8 +235,9 @@ int rvx_push(Pkg *p, const char *id, void *arg)
 
 void rvx_pop(Pkg *p)
 {
-    if (rvx_top && rvx_top->ctx.self == p)
-        ((int (*)(void *, u32))0x081034f0)(rvx_top->ctx.controller, 0);
+    struct frame *f = rvx_shown();
+    if (f && f->ctx.self == p)
+        ((int (*)(void *, u32))0x081034f0)(f->ctx.controller, 0);
 }
 
 void rvx_select(Pkg *p, const char *id, u32 row)
@@ -327,32 +352,101 @@ const char *rvx_setting_label(Pkg *p, uint16_t key)
     return s && s->type == 1 ? (n ? "On" : "Off") : NULL;
 }
 
-static int rvx_input(struct frame *f, const struct input *in)
+static void slide(struct frame *f, int steps)
 {
     const struct screen *s = f->screen;
-    if (s->kind == RV_SCREEN_KIND_SLIDER) {
-        int step = in->kind == 0 ? in->delta : 0;
-        if (in->kind == 2 && (in->button == 2 || in->button == 3))
-            step = in->button == 2 ? -1 : 1;
-        if (step && s->choice.count) {
-            int value = rvx_get_int(f->ctx.self, s->choice.key) + step;
-            if (value < 0)
-                value = 0;
-            if ((u32)value >= s->choice.count)
-                value = s->choice.count - 1;
-            rvx_set_int(f->ctx.self, s->choice.key, value);
+    int value = rvx_get_int(f->ctx.self, s->choice.key);
+    int last = (int)s->choice.count - 1;
+    if (last < 0)
+        return;
+    value = value < 0 ? 0 : value > last ? last : value;
+    int next = value + steps < 0 ? 0 : value + steps > last ? last : value + steps;
+    if (next != value)
+        rvx_set_int(f->ctx.self, s->choice.key, next);
+}
+
+static int key_of(u32 key)
+{
+    switch (key) {
+    case UIKey_Center:
+        return RV_BUTTON_CENTER;
+    case UIKey_Menu:
+        return RV_BUTTON_MENU;
+    case UIKey_Previous:
+        return RV_BUTTON_PREVIOUS;
+    case UIKey_Next:
+        return RV_BUTTON_NEXT;
+    case UIKey_Play:
+        return RV_BUTTON_PLAY;
+    default:
+        return -1;
+    }
+}
+
+/* 1 when the screen consumed the event; what it leaves goes to Apple's
+ * handler, which runs the layout's bindings (Menu pops). A release goes where
+ * its press went. */
+static int rvx_input(struct frame *f, u32 kind, void *e)
+{
+    const struct screen *s = f->screen;
+    struct input in = {0};
+    if (kind == InputEvent_Wheel) {
+        u32 speed = ((u32(*)(void *))ADDR_WheelEvent_GetSpeed)(e);
+        osos_wheel_decode(e);
+        int steps = osos_wheel_accumulator_step(
+            wheel, RV_FIELD(e, InputEvent_wheel_delta, int32_t), speed);
+        if (!steps)
+            return 1;
+        /* One detent moves one step, as a stock list does, unless the wheel
+         * turns fast enough to scroll by more. */
+        if (((int (*)(void *, u32))ADDR_WheelAccumulator_IsSlowTurn)(wheel, speed))
+            steps = steps > 0 ? 1 : -1;
+        if (s->kind == RV_SCREEN_KIND_SLIDER) {
+            slide(f, steps);
             return 1;
         }
+        in.kind = RV_INPUT_WHEEL;
+        in.delta = (int16_t)steps;
+    } else if (kind == InputEvent_ButtonDown || kind == InputEvent_ButtonUp ||
+               kind == InputEvent_ButtonPressAndHold) {
+        int key = key_of(osos_button_ui_key(e));
+        /* A held Menu is the system's way to the main menu. */
+        if (key < 0 || (kind == InputEvent_ButtonPressAndHold && key == RV_BUTTON_MENU))
+            return 0;
+        if (s->kind == RV_SCREEN_KIND_SLIDER) {
+            if ((key != RV_BUTTON_PREVIOUS && key != RV_BUTTON_NEXT) ||
+                kind == InputEvent_ButtonPressAndHold)
+                return 0;
+            if (kind == InputEvent_ButtonDown)
+                slide(f, key == RV_BUTTON_NEXT ? 1 : -1);
+            return 1;
+        }
+        in.kind = kind == InputEvent_ButtonDown           ? RV_INPUT_PRESS
+                  : kind == InputEvent_ButtonPressAndHold ? RV_INPUT_LONG_PRESS
+                                                          : RV_INPUT_RELEASE;
+        in.button = (uint8_t)key;
+    } else {
         return 0;
     }
-    if (s->kind == RV_SCREEN_KIND_CANVAS && s->canvas.input &&
-        s->canvas.input(&f->ctx, in))
+    void *controller = f->ctx.controller;
+    int consumed = s->kind == RV_SCREEN_KIND_CANVAS && s->canvas.input &&
+                   s->canvas.input(&f->ctx, &in);
+    if (lookup(controller) != f) /* the callback closed the screen */
         return 1;
-    if (in->kind == 2 && in->button == 1) {
-        rvx_pop(f->ctx.self);
-        return 1;
+    if (in.kind == RV_INPUT_WHEEL || in.kind == RV_INPUT_LONG_PRESS)
+        return consumed;
+    uint8_t bit = (uint8_t)(1u << in.button);
+    if (f != pressed_frame) {
+        pressed = 0;
+        pressed_frame = f;
     }
-    return 0;
+    if (in.kind == RV_INPUT_PRESS) {
+        pressed = consumed ? pressed | bit : pressed & ~bit;
+        return consumed;
+    }
+    consumed = (pressed & bit) != 0;
+    pressed &= ~bit;
+    return consumed;
 }
 
 static struct frame *lookup(void *controller)
@@ -366,38 +460,8 @@ static struct frame *lookup(void *controller)
 static PATCH_ARM int event(void *controller, void *e)
 {
     struct frame *f = lookup(controller);
-    if (f) {
-        const u32 *w = e;
-        struct input in = {0};
-        if (w[1] == 0x15) {
-            osos_wheel_decode(e);
-            in.delta = osos_wheel_accumulator_step(wheel, (int32_t)w[3], 0);
-            if (!in.delta || rvx_input(f, &in))
-                return 1;
-        } else if (w[1] == 6 || w[1] == 0xd || w[1] == 8) {
-            in.kind = w[1] == 6 ? 1 : w[1] == 8 ? 4 : 2;
-            static const uint8_t keys[] = {0x6f, 0x6e, 0x59, 0x5a, 0x10};
-            unsigned k = 0;
-            while (k < 5 && keys[k] != osos_button_ui_key(e))
-                k++;
-            if (k < 5) {
-                if (in.kind == 2 && f->held_button == (int)k + 1) {
-                    f->held_button = 0;
-                    return 1;
-                }
-                in.button = k;
-                int used = rvx_input(f, &in);
-                if (lookup(controller) != f)
-                    return 1;
-                if (in.kind == 4 && used)
-                    f->held_button = k + 1;
-                if (in.kind == 1)
-                    f->consumed = used;
-                if (used || (in.kind == 2 && f->consumed))
-                    return 1;
-            }
-        }
-    }
+    if (f && rvx_input(f, RV_FIELD(e, InputEvent_kind, u32), e))
+        return 1; /* also when the callback closed the screen */
     if (f && f->native_methods) {
         typedef int (*Event)(void *, void *);
         return ((Event)f->native_methods[ScreenController_event_method / 4])(controller,
@@ -408,22 +472,29 @@ static PATCH_ARM int event(void *controller, void *e)
 
 static PATCH_ARM void draw(void *view, void *arg, const int32_t *clip)
 {
-    (void)arg;
-    (void)clip;
-    u32 context[17];
+    /* Canvas screens share the template's view: it draws the canvas on top,
+     * not counting one being popped. Under another kind of screen it draws
+     * the canvas it last drew, which slides out after a pop. */
+    struct frame *top = rvx_shown();
+    struct frame *f = top && top->screen->kind == RV_SCREEN_KIND_CANVAS ? top : NULL;
+    if (f)
+        f->view = view;
+    else
+        for (f = rvx_top; f && f->view != view; f = f->parent) {
+        }
+    if (!f || !f->screen->canvas.draw) {
+        typedef void (*Draw)(void *, void *, const int32_t *);
+        ((const Draw *)OSOS_VIEW_VTABLE)[View_draw_method / 4](view, arg, clip);
+        return;
+    }
+    u32 context[GraphicsContext_bytes / 4];
     int32_t bounds[4];
     osos_graphics_construct(context);
     osos_view_bind_graphics(view, context);
     osos_view_local_rect(view, bounds);
-    int width = bounds[3] - bounds[1], height = bounds[2] - bounds[0];
-    if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
-        struct frame *f = rvx_top;
-        f->view = view;
-        rvx_begin_draw(context, bounds);
-        rvx_graphics.fill(&(struct rect){0, 0, width, height}, rvx_graphics.color(0));
-        if (f->screen->canvas.draw)
-            f->screen->canvas.draw(&f->ctx, &rvx_graphics, width, height);
-    }
+    rvx_begin_draw(context, bounds);
+    f->screen->canvas.draw(&f->ctx, &rvx_graphics, bounds[3] - bounds[1],
+                           bounds[2] - bounds[0]);
 }
 
 static uintptr_t view_table[(12 + 0x104) / 4], controller_table[(12 + 0x128) / 4];
@@ -458,6 +529,8 @@ static PATCH_ARM u32 destroy(void *controller, u32 mode)
             link = &(*link)->parent;
         if (*link)
             *link = f->parent;
+        if (pressed_frame == f)
+            pressed_frame = NULL;
         if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS)
             refresh_title();
         if (f->stock_methods)
@@ -475,6 +548,45 @@ static PATCH_ARM u32 destroy(void *controller, u32 mode)
                 if (f->ctx.self == p && f->module == module)
                     return result;
             rvx_release_screen(p, module);
+        }
+    }
+    return result;
+}
+
+/* A canvas shown again gives the shared canvas layout its own style back,
+ * whatever screen covered it. */
+static PATCH_ARM u32 canvas_activate(void *controller, u32 entering)
+{
+    typedef u32 (*Activate)(void *, u32);
+    const Activate *stock = (const Activate *)OSOS_CONTROLLER_SCREEN_VTABLE;
+    struct frame *f = lookup(controller);
+    u32 screen, layout;
+    if (f && f->screen->kind == RV_SCREEN_KIND_CANVAS &&
+        rvx_prepare_canvas(&screen, &layout))
+        core_clone_set_style(layout, core_template(CORE_TEMPLATE_CANVAS), f->style);
+    return stock[ScreenController_activate_method / 4](controller, entering);
+}
+
+/* A pop deactivates the controller before the transition draws the screens
+ * once more; the controller is destroyed after it. */
+static PATCH_ARM u32 deactivate(void *controller, u32 leaving)
+{
+    typedef u32 (*Deactivate)(void *, u32);
+    const Deactivate *stock = (const Deactivate *)OSOS_CONTROLLER_SCREEN_VTABLE;
+    u32 result = stock[ScreenController_deactivate_method / 4](controller, leaving);
+    struct frame *f = leaving ? lookup(controller) : NULL;
+    if (f) {
+        f->leaving = 1;
+        /* Every canvas screen is the same layout, so a pop back to one
+         * switches no layout: it takes that screen's style again and its view
+         * is redrawn here. */
+        struct frame *top = rvx_shown();
+        if (top && top->screen->kind == RV_SCREEN_KIND_CANVAS) {
+            u32 screen, layout;
+            if (rvx_prepare_canvas(&screen, &layout))
+                core_clone_set_style(layout, core_template(CORE_TEMPLATE_CANVAS),
+                                     top->style);
+            osos_ui_invalidate();
         }
     }
     return result;
@@ -501,9 +613,10 @@ copy_methods(uintptr_t *dest, const uintptr_t *src, unsigned count)
 static u32 hold_changed(u32 system, u32 locked, const void *next)
 {
     u32 result = rvx_next(next, system, locked, 0, 0, 0, 0);
-    if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
-        struct input in = {3, 0, !!locked};
-        rvx_input(rvx_top, &in);
+    struct frame *f = rvx_shown();
+    if (f && f->screen->kind == RV_SCREEN_KIND_CANVAS && f->screen->canvas.input) {
+        struct input in = {RV_INPUT_HOLD, 0, !!locked};
+        f->screen->canvas.input(&f->ctx, &in);
     }
     return result;
 }
@@ -518,9 +631,13 @@ void rvx_register_controller(void)
     copy_methods(controller_table,
                  (const uintptr_t *)(OSOS_CONTROLLER_SCREEN_VTABLE - 12),
                  sizeof controller_table / sizeof *controller_table);
-    view_table[3 + 0x74 / 4] = (uintptr_t)draw;
+    view_table[3 + View_draw_method / 4] = (uintptr_t)draw;
     controller_table[3 + ScreenController_event_method / 4] = (uintptr_t)event;
     controller_table[4] = (uintptr_t)destroy;
+    controller_table[3 + ScreenController_deactivate_method / 4] =
+        (uintptr_t)deactivate;
+    controller_table[3 + ScreenController_activate_method / 4] =
+        (uintptr_t)canvas_activate;
     osos_register_view_factory(CORE_VIEW_CANVAS, create_view);
     osos_ui_register_controllers(osos_controller_registry(), CORE_CANVAS_FACTORY, NULL,
                                  create_controller);

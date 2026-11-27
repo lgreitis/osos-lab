@@ -160,7 +160,9 @@ struct frame {
     struct cached_bitmap *bitmaps;
     uintptr_t *stock_methods;
     const uintptr_t *native_methods;
-    int consumed, held_button, split;
+    int split;
+    uint8_t leaving; /* popped: its controller is deactivated until destroyed */
+    int16_t style;   /* the canvas layout's enter style it opened with, -1: its own */
 };
 extern struct frame *rvx_top;
 extern void *rvx_bank;
@@ -169,6 +171,7 @@ extern void *rvx_bank;
 u32 rvx_pop_to_screen(u32 screen, u32 push_history, u32 skip_history, const void *next);
 extern const struct graphics rvx_graphics;
 void rvx_register_controller(void);
+struct frame *rvx_shown(void);
 void rvx_begin_draw(void *context, const int32_t *bounds);
 int rvx_prepare_native(struct frame *, u32 *screen, u32 *layout);
 /* The shared canvas screen and its layout; 0 when it cannot be built. */
