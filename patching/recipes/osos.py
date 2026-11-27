@@ -65,7 +65,6 @@ def build_recipe(
             for name in (
                 "cfw_info.ui",
                 "media_menus.ui",
-                "rvx/screen.ui",
             )
         ],
         directory,

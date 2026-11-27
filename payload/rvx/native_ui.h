@@ -179,7 +179,17 @@ static inline uint32_t core_lists_context_ids(const struct screen *d)
     ((s)->id + (s)->ids - CORE_LIST_SPLIT_IDS -                                        \
      core_lists_context_ids((s)->declaration))
 
-enum core_template { CORE_TEMPLATE_SLIDER, CORE_TEMPLATE_EMPTY, CORE_TEMPLATES };
+enum core_template {
+    CORE_TEMPLATE_SLIDER,
+    CORE_TEMPLATE_EMPTY,
+    CORE_TEMPLATE_CANVAS,
+    CORE_TEMPLATES
+};
+
+/* The canvas view type ('rvxc') and the controller class of the canvas
+ * screen, both registered by screens.c. */
+#define CORE_VIEW_CANVAS 0x72767863
+#define CORE_CANVAS_FACTORY "RVXScreen"
 
 uint32_t core_template(enum core_template kind);
 uint32_t core_pane_template(void);
@@ -194,6 +204,7 @@ uint32_t core_lists_screen_id(const struct core_screen *s, int split);
 int core_clone_list(struct core_screen *s, int split);
 int core_clone_text(struct core_screen *s);
 int core_clone_slider(struct core_screen *s);
+int core_clone_canvas(struct core_screen *s);
 int core_clone_dialog(struct core_screen *s);
 int core_clone_stock(struct core_screen *s);
 int core_clone_layout(const struct layout_clone *, uint32_t *, uint8_t *, uint32_t);

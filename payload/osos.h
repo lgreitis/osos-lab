@@ -44,13 +44,6 @@ static inline void osos_resource_set(void *bank, uint32_t type, uint32_t id,
     ((fn)OSOS_RESOURCE_SET)(bank, type, id, data, size);
 }
 
-/* Advance an active resource enumeration; ROM banks enumerate the stock index. */
-static inline const void *osos_resource_next(void *bank, uint32_t *id, uint32_t *size)
-{
-    typedef const void *(*fn)(void *, uint32_t *, uint32_t *);
-    return ((fn)OSOS_RESOURCE_NEXT)(bank, id, size);
-}
-
 static inline void *osos_resource_get(void *bank, uint32_t type, uint32_t id,
                                       uint32_t *size)
 {

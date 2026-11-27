@@ -26,5 +26,3 @@ unsigned cfw_rvx_visible_rows(unsigned menu);
 int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int selected,
                              uintptr_t *out);
 void cfw_rvx_toggle_row(unsigned menu, unsigned row);
-
-extern uint8_t cfw_rvx_has_canvas;

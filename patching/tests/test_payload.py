@@ -56,7 +56,6 @@ class PayloadTests(unittest.TestCase):
                 [
                     root / "payload/media_menus.ui",
                     root / "payload/cfw_info.ui",
-                    root / "payload/rvx/screen.ui",
                 ],
                 directory,
                 "test",

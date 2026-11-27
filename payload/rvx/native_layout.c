@@ -425,7 +425,7 @@ int core_clone_text(struct core_screen *s)
 
 /* Ids of a slider or canvas: id screen, +1 layout, +2 title, +3.. layout clones,
  * +8 the bar's source, +9 the value text's. Both are the Brightness layout over
- * a plain resource screen controller, whose event slot canvas.c replaces. The
+ * a plain resource screen controller, whose event slot screens.c replaces. The
  * full-screen background stays under a canvas too: Settings shares it, so it
  * holds still when the screen opens or closes. Otherwise it enters into the
  * window on a pop, in front of the layer the leaving screen slides out on. */
@@ -475,6 +475,28 @@ int core_clone_slider(struct core_screen *s)
     core_set_source(rows, rows, 1);
     core_set_source(rows + 1, rows + 1, 1);
     return clone_brightness(s, template, &views, events, bytes);
+}
+
+/* The canvas screen: the Brightness layout with the canvas template in the
+ * bar's place (the bar's instance binds no views: the bar's and the value's
+ * sources are in the template), Menu popping and held Menu going to the main
+ * menu; the canvas controller class (screens.c) sees every other key first. */
+int core_clone_canvas(struct core_screen *s)
+{
+    uint32_t template = core_template(CORE_TEMPLATE_CANVAS);
+    struct core_writer measure = {NULL, 0};
+    core_clone_layout_events(&measure);
+    uint8_t *events = template ? osos_import_alloc(measure.at) : NULL;
+    if (!events)
+        return 0;
+    struct core_writer w = {events, 0};
+    core_clone_layout_events(&w);
+    int built = clone_brightness(s, template, NULL, events, w.at);
+    osos_import_free(events);
+    if (!built)
+        return 0;
+    set(Resource_SCST, s->id, CORE_CANVAS_FACTORY, sizeof CORE_CANVAS_FACTORY - 1);
+    return 1;
 }
 
 /* Ids of a dialog: id screen, +1 layout, +2 title, +3.. layout clones, +7 the

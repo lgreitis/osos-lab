@@ -12,8 +12,6 @@ class Item:
     text_file: str = ""
     select: str = "return"
     layout: str = "inline"
-    factory: str = ""
-    view_type: str = ""
 
 
 @dataclass
