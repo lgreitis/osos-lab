@@ -72,7 +72,7 @@ def build_newlib(cross_prefix, jobs):
     if target != "arm-elf-eabi":
         raise RuntimeError("This recipe requires the workspace arm-elf-eabi toolchain")
 
-    build = ROOT / "build" / "newlib"
+    build = ROOT / "vendor" / "newlib-build"
     if (build / target / "newlib" / "libc.a").exists():
         return
 
@@ -112,7 +112,7 @@ def build_newlib(cross_prefix, jobs):
 
 
 def fetch_shareware():
-    path = ROOT / "assets/doom1.wad"
+    path = ROOT / "doom1.wad"
     if path.exists():
         data = path.read_bytes()
     else:

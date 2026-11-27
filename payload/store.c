@@ -141,6 +141,13 @@ void cfw_store_set(uint32_t key, const void *data, uint32_t size)
     dirty = 1;
 }
 
+void cfw_store_clear(void)
+{
+    if (store[2] > HEADER * 4)
+        dirty = 1;
+    store[2] = HEADER * 4;
+}
+
 void cfw_store_flush(void)
 {
     if (!dirty || blocked)

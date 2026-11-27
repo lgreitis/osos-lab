@@ -189,7 +189,6 @@ class Resources:
         self.event_aliases = {}
         self.event_extensions = {}
         self.menu_items = []
-        self.visibility = []
         self.next_id = 0x0CF00000
 
     def native(self, name):

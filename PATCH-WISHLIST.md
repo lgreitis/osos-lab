@@ -1,16 +1,11 @@
 # Possible CFW Features
 
-Implemented features, including Album Artists and WIP Dark Mode, are listed in the
+Implemented features, including WIP Dark Mode, are listed in the
 [README](README.md#features).
 
 ## Cover Flow song context menu
 
 Allow opening a song's context menu when browsing through Cover Flow.
-
-## Five-band parametric EQ
-
-Investigate whether the EQ can support five custom bands instead of the current
-three.
 
 ## FairPlay DRM
 

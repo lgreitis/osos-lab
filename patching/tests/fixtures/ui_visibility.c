@@ -1,45 +1,144 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include <assert.h>
-#include "../../../payload/ui_visibility.h"
-#include "legacy_visibility.h"
+#include <stdint.h>
+/* Native layout assertions assume 32-bit pointers; this fixture runs on the host. */
+#define _Static_assert(...)
+#include "../../../payload/osos.h"
+#undef _Static_assert
+#define CFW_PATCH_H
+#define PATCH_ARM
 
-static uint32_t visible[4], available[4] = {3, 3, 3, 1};
-const struct cfw_ui_visibility cfw_ui_visibility[] = {
-    {101, 1, {11, 21}, {2, 3}, 2, "a", &visible[0], &available[0]},
-    {202, 2, {12, 22}, {2, 3}, 1, "b", &visible[1], &available[1]},
-    {303, 3, {13, 23}, {3, 1}, 0, "c", &visible[2], &available[2]},
-    {404, 4, {14, 0}, {2, 0}, 1, "d", &visible[3], &available[3]},
-};
-const uint32_t cfw_ui_visibility_count = 4;
+/* Three native rows, the last one Reset Menu; the second is checked. */
+static const uint32_t native_rows_table[15] = {1, 0, 0, 0, 0, 2, 0, 0, 0, 1, 3};
+#undef OSOS_MAIN_MENU_SETTINGS_ROWS
+#undef OSOS_MUSIC_MENU_SETTINGS_ROWS
+#undef OSOS_MAIN_MENU_SETTINGS_COUNT
+#undef OSOS_MUSIC_MENU_SETTINGS_COUNT
+#define OSOS_MAIN_MENU_SETTINGS_ROWS ((uintptr_t)native_rows_table)
+#define OSOS_MUSIC_MENU_SETTINGS_ROWS ((uintptr_t)native_rows_table)
+#define OSOS_MAIN_MENU_SETTINGS_COUNT 3
+#define OSOS_MUSIC_MENU_SETTINGS_COUNT 3
+
+static uint32_t selected_row, native_index = UINT32_MAX, toggled = UINT32_MAX;
+static unsigned rvx_rows = 2, rvx_toggled = 99, notifications;
+
+static uint32_t selection_index(void *selection)
+{
+    (void)selection;
+    return selected_row;
+}
+
+static void *ui_selection(void)
+{
+    return &selected_row;
+}
+
+static int indexed_property(void *model, uint32_t type, uint32_t property,
+                            uint32_t index, uintptr_t *out)
+{
+    (void)model;
+    (void)type;
+    (void)property;
+    native_index = index;
+    *out = 1;
+    return 1;
+}
+
+static uintptr_t ui_bitmap(uint32_t id)
+{
+    return id;
+}
+
+static void notify(void *model, uint32_t type, uint32_t property)
+{
+    (void)model;
+    (void)type;
+    (void)property;
+    notifications++;
+}
+
+static void menu_toggle(void *model, unsigned menu, uint32_t index)
+{
+    (void)model;
+    (void)menu;
+    toggled = index;
+}
+
+#define osos_selection_index selection_index
+#define osos_ui_selection ui_selection
+#define osos_settings_indexed_property indexed_property
+#define osos_ui_bitmap ui_bitmap
+#define osos_model_notify notify
+#define osos_menu_toggle menu_toggle
+#include "../../../payload/ui_visibility.c"
+
+unsigned cfw_rvx_visible_rows(unsigned menu)
+{
+    (void)menu;
+    return rvx_rows;
+}
+
+int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int selected,
+                             uintptr_t *out)
+{
+    (void)menu;
+    (void)type;
+    (void)selected;
+    *out = 100 + row;
+    return 1;
+}
+
+void cfw_rvx_toggle_row(unsigned menu, unsigned row)
+{
+    (void)menu;
+    rvx_toggled = row;
+}
 
 int main(void)
 {
-    const uint32_t rows[] = {1, 0, 0, 0, 0, 2, 0, 0, 0, 0,
-                             3, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    const uint32_t expected[2][8] = {
-        {0, 1, CFW_UI_CUSTOM_ROW, CFW_UI_CUSTOM_ROW | 1, CFW_UI_CUSTOM_ROW | 3, 2,
-         CFW_UI_CUSTOM_ROW | 2, 3},
-        {0, CFW_UI_CUSTOM_ROW | 2, 1, 2, CFW_UI_CUSTOM_ROW, CFW_UI_CUSTOM_ROW | 1, 3},
-    };
-    for (unsigned menu = 0; menu < 2; menu++) {
-        uint32_t displayed = menu ? 7 : 8;
-        assert(cfw_ui_visibility_extra_count(menu, rows, 4) == displayed - 4);
-        assert(cfw_ui_visibility_extra_count(menu, rows + 15, 1) == 0);
-        for (uint32_t row = 0; row < displayed; row++)
-            assert(cfw_ui_visibility_index(menu, row, rows, 4) == expected[menu][row]);
-        assert(cfw_ui_visibility_index(menu, displayed, rows, 4) == UINT32_MAX);
+    /* Extension rows sit between the native rows and Reset Menu. */
+    const uint32_t expected[] = {
+        0, 1, RVX_VISIBILITY_ROW, RVX_VISIBILITY_ROW + 1, 2, UINT32_MAX};
+    for (uint32_t row = 0; row < 6; row++) {
+        selected_row = row;
+        assert(cfw_ui_main_menu_index(NULL) == expected[row]);
+        assert(cfw_ui_music_menu_index(NULL) == expected[row]);
     }
-    for (uint32_t bits = 0; bits < 4; bits++) {
-        struct cfw_ui_visibility_file file = cfw_ui_visibility_encode(101, bits);
-        assert(cfw_ui_visibility_valid(&file, 101));
-        assert(!cfw_ui_visibility_valid(&file, 202));
-        file.visible ^= 1;
-        assert(!cfw_ui_visibility_valid(&file, 101));
-        file = cfw_ui_visibility_encode(101, bits);
-        file.version++;
-        assert(!cfw_ui_visibility_valid(&file, 101));
-    }
-    struct cfw_ui_visibility_file invalid = cfw_ui_visibility_encode(101, 4);
-    assert(!cfw_ui_visibility_valid(&invalid, 101));
+    uintptr_t count = 3;
+    cfw_ui_visibility_adjust_property(OSOS_PROPERTY_COUNT, 0x8909, &count);
+    assert(count == 5);
+    count = 3;
+    cfw_ui_visibility_adjust_property(OSOS_PROPERTY_COUNT, 0x1234, &count);
+    assert(count == 3);
+
+    uintptr_t out = 0;
+    selected_row = 0;
+    assert(cfw_ui_visibility_property(NULL, OSOS_PROPERTY_STRING, 0x890a, 3, &out));
+    assert(out == 101);
+    assert(cfw_ui_visibility_property(NULL, OSOS_PROPERTY_STRING, 0x890a, 4, &out));
+    assert(native_index == 2 && out == 1);
+    assert(cfw_ui_visibility_property(NULL, OSOS_RESOURCE_BMAP, 0x8909, 1, &out));
+    assert(native_index == 1 && out == OSOS_MENU_CHECKED_BITMAP);
+    selected_row = 4;
+    assert(cfw_ui_visibility_property(NULL, OSOS_RESOURCE_BMAP, 0x8909, 4, &out));
+    assert(out == OSOS_MENU_RESET_BITMAP);
+    assert(!cfw_ui_visibility_property(NULL, OSOS_PROPERTY_STRING, 0x8909, 5, &out));
+
+    /* Extension rows toggle themselves; Reset Menu and rows past the end do nothing. */
+    cfw_ui_music_menu_toggle(NULL, RVX_VISIBILITY_ROW + 1);
+    assert(rvx_toggled == 1 && notifications == 1 && toggled == UINT32_MAX);
+    cfw_ui_main_menu_toggle(NULL, 1);
+    assert(toggled == 1);
+    toggled = UINT32_MAX;
+    cfw_ui_main_menu_toggle(NULL, 2);
+    cfw_ui_main_menu_toggle(NULL, UINT32_MAX);
+    assert(toggled == UINT32_MAX && notifications == 1);
+
+    /* Without extension rows the native list is unchanged. */
+    rvx_rows = 0;
+    selected_row = 2;
+    assert(cfw_ui_main_menu_index(NULL) == 2);
+    selected_row = 3;
+    assert(cfw_ui_main_menu_index(NULL) == UINT32_MAX);
     return 0;
 }

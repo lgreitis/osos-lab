@@ -11,7 +11,6 @@ static void fill(void *, const void *, const unsigned char *, uint32_t, void *);
 #include "../../../payload/osos.h"
 #include "../../../payload/dark_mode.h"
 #include "dark_mode_ui.h"
-#include "custom_eq_ui.h"
 #include "cfw_info_ui.h"
 #undef _Static_assert
 #define CFW_PATCH_H
@@ -27,6 +26,11 @@ int cfw_assets_prepare(void)
 void cfw_assets_set_enabled(int value)
 {
     assets_active = value;
+}
+
+uint32_t cfw_rvx_stock_view(uint32_t view)
+{
+    return view;
 }
 
 int cfw_assets_enabled(void)
@@ -71,6 +75,14 @@ void cfw_store_set(uint32_t key, const void *data, uint32_t size)
     memcpy(&stored_record, data, 4);
     stored = 1;
     store_sets++;
+}
+
+static int store_clears;
+
+void cfw_store_clear(void)
+{
+    stored = 0;
+    store_clears++;
 }
 
 int cfw_store_migrating(void)
@@ -184,9 +196,8 @@ static uintptr_t resource(uint32_t id)
 
 const void *cfw_resource_bitmap(uint32_t id)
 {
-    return id == CFW_DarkMode_Moon || id == CFW_EQ_Icon || id == CFW_Info_Icon
-               ? (const void *)(uintptr_t)id
-               : NULL;
+    return id == CFW_DarkMode_Moon || id == CFW_Info_Icon ? (const void *)(uintptr_t)id
+                                                          : NULL;
 }
 
 static void graphics_fill(void *context, const int32_t *rect);
@@ -270,31 +281,11 @@ static int settings_property(void *value, uint32_t type, uint32_t property,
                              uintptr_t *out)
 {
     assert(value == &model);
-    /* The native Clicker bitmap getter crashes for the two extra output modes. */
-    assert(type != OSOS_RESOURCE_BMAP || property != 0x8925);
+    (void)type;
     stock_properties++;
     *out = 5;
     return property == 123;
 }
-
-static uint32_t clicker_value;
-static uintptr_t preference_methods[0xe0 / 4];
-static uintptr_t *preference_object = preference_methods;
-
-static uint32_t get_preference(void *object, uint32_t property, uint32_t type)
-{
-    assert(object == &preference_object && property == 0x608c && type == 0x6000);
-    return clicker_value;
-}
-
-static void set_preference(void *object, uint32_t property, uint32_t type,
-                           uint32_t value)
-{
-    assert(object == &preference_object && property == 0x608c && type == 0x6000);
-    clicker_value = value;
-}
-
-#include "../../../payload/clicker.c"
 
 void cfw_ui_visibility_adjust_property(uint32_t type, uint32_t property, uintptr_t *out)
 {
@@ -318,7 +309,6 @@ static char boot_calls[16];
 static unsigned boot_count, native_flushes, store_flushes;
 static const char *deleted[4];
 static unsigned delete_count;
-static unsigned eq_legacy_cleanups;
 static int native_preferences_object;
 
 static void boot_step(char step)
@@ -330,21 +320,6 @@ static void boot_step(char step)
 void cfw_store_load(void)
 {
     boot_step('S');
-}
-
-void cfw_eq_load_preferences(void)
-{
-    boot_step('E');
-}
-
-void cfw_eq_delete_legacy(void)
-{
-    eq_legacy_cleanups++;
-}
-
-void cfw_ui_visibility_load_preferences(void)
-{
-    boot_step('V');
 }
 
 void cfw_rvx_reset(void)
@@ -390,11 +365,6 @@ void cfw_preferences_delete(const char *name)
     deleted[delete_count++] = name;
 }
 
-void cfw_ui_visibility_delete_legacy(void)
-{
-    cfw_preferences_delete("menus");
-}
-
 static int reset_model;
 
 static void native_reset(void *value)
@@ -403,40 +373,10 @@ static void native_reset(void *value)
     boot_step('N');
 }
 
-void cfw_eq_reset_preferences(void)
-{
-    boot_step('Q');
-}
-
 static void native_flush(void *preferences)
 {
     assert(preferences == &native_preferences_object);
     native_flushes++;
-}
-
-int cfw_file_info_action(const char *action, uint32_t argument)
-{
-    (void)action;
-    (void)argument;
-    return 0;
-}
-
-int cfw_file_info_property(uint32_t type, uint32_t property, uintptr_t *out)
-{
-    (void)type;
-    (void)property;
-    (void)out;
-    return 0;
-}
-
-int cfw_file_info_indexed_property(uint32_t type, uint32_t property, uint32_t index,
-                                   uintptr_t *out)
-{
-    (void)type;
-    (void)property;
-    (void)index;
-    (void)out;
-    return 0;
 }
 
 #define osos_settings_action settings_action
@@ -450,13 +390,12 @@ static void check_settings_lifecycle(void)
 {
     boot_count = 0;
     cfw_settings_boot(&native_preferences_object);
-    assert(!strcmp(boot_calls, "SEVRF"));
+    assert(!strcmp(boot_calls, "SRF"));
     cfw_settings_sleep();
     assert(native_flushes == 1 && store_flushes == 2);
     unsigned before = delete_count;
     cfw_store_delete_legacy();
-    assert(eq_legacy_cleanups == 1);
-    assert(delete_count == before + 1 && !strcmp(deleted[before], "menus"));
+    assert(delete_count == before);
 }
 
 static void check_reset_all_settings(void)
@@ -470,7 +409,8 @@ static void check_reset_all_settings(void)
     boot_count = 0;
     memset(boot_calls, 0, sizeof(boot_calls));
     cfw_settings_reset(&reset_model);
-    assert(!strcmp(boot_calls, "NQ"));
+    assert(!strcmp(boot_calls, "N"));
+    assert(store_clears == 1 && stored); /* Cleared, then Off written. */
     assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
     assert(redraws == previous_redraws + 1 && notifications == previous_notifications);
     assert(icon_notifications == previous_icons + 2);
@@ -494,34 +434,11 @@ static void check_reset_all_settings(void)
     resetting = 0;
 }
 
-static void check_clicker(void)
-{
-    const uint32_t modes[] = {0x608e, 0x6090, 0x608f, 0x608d};
-    preference_methods[0xdc / 4] = (uintptr_t)get_preference;
-    preference_methods[0xd4 / 4] = (uintptr_t)set_preference;
-    model.preferences = &preference_object;
-    clicker_value = modes[0];
-    int previous_notifications = notifications;
-    int previous_properties = stock_properties;
-    assert(
-        cfw_settings_action(NULL, "ToggleSetting_Clicker", OSOS_ACTION_SUPPORT_QUERY));
-    assert(clicker_value == modes[0] && notifications == previous_notifications);
-
-    for (unsigned i = 0; i < 4; i++) {
-        uintptr_t image;
-        assert(cfw_settings_property(&model, OSOS_RESOURCE_BMAP, 0x8925, &image));
-        assert(image == (i == 0 ? 0x0dad0c04u : 0x0dad0c03u));
-        assert(stock_properties == previous_properties);
-        assert(cfw_settings_action(&controller, "ToggleSetting_Clicker", 0));
-        assert(clicker_value == modes[(i + 1) % 4]);
-    }
-}
-
 int main(void)
 {
     check_cached_colors();
     uintptr_t value = 0;
-    const uint32_t icons[] = {CFW_EQ_Icon, CFW_Info_Icon};
+    const uint32_t icons[] = {CFW_Info_Icon};
     for (unsigned i = 0; i < sizeof(icons) / sizeof(icons[0]); i++) {
         assert(cfw_settings_property(&model, OSOS_RESOURCE_BMAP, icons[i], &value));
         assert(value == icons[i] && !stock_properties);
@@ -644,16 +561,6 @@ int main(void)
     assert(!cfw_dark_mode_enabled() && stored_record == DARK_MODE_OFF_RECORD);
     assert(redraws == 4 && notifications == 4);
     assert(!preview_invalidations);
-    check_clicker();
     check_settings_lifecycle();
     check_reset_all_settings();
-}
-
-int cfw_up_next_property(void *model, uint32_t type, uint32_t property, uintptr_t *out)
-{
-    (void)model;
-    (void)type;
-    (void)property;
-    (void)out;
-    return 0;
 }

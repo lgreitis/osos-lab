@@ -112,12 +112,6 @@ void cfw_rvx_reset(void)
         host->reset();
 }
 
-void cfw_rvx_hold(int locked)
-{
-    if (host)
-        host->hold(locked);
-}
-
 void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row,
                       uint32_t bytes, uint32_t metadata)
 {
@@ -131,10 +125,10 @@ void cfw_rvx_menu_events(void *map, uint32_t screen)
         host->events(map, screen);
 }
 
-void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item, int tv)
+unsigned cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
+                            int tv)
 {
-    if (host)
-        host->video(menu, controller, row, item, tv);
+    return host ? host->video(menu, controller, row, item, tv) : 0;
 }
 
 int cfw_rvx_indexed_property(uint32_t type, uint32_t property, uint32_t index,
@@ -163,6 +157,11 @@ void cfw_rvx_toggle_row(unsigned menu, unsigned row)
 {
     if (host)
         host->toggle(menu, row);
+}
+
+uint32_t cfw_rvx_stock_view(uint32_t view)
+{
+    return host ? host->stock_view(view) : view;
 }
 
 uint32_t rvx_dispatch(uint32_t *registers, unsigned slot)

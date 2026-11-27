@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Emit C source and headers from compiled resources and bindings."""
 
-import json
 import struct
 
 from .resources import Resource
@@ -10,65 +9,19 @@ from .resources import Resource
 def emit_header(document, string_ids=None):
     if document.root:
         name = document.root.name
-    elif document.music_entry:
-        name = document.music_entry["id"]
-    elif document.main_entry:
-        name = document.main_entry["id"]
     else:
         name = next(iter(document.strings), None) or document.events[0].handler
-    prefix = name.lower()
     guard = name.upper() + "_UI_GENERATED_H"
-    lines = [f"#ifndef {guard}", f"#define {guard}", '#include "ui.h"', "", "enum {"]
-    lines.extend(f"    {item.name.upper()} = {item.slot}," for item in document.fields)
-    lines += [
-        f"    {name.upper()}_FIELDS = {len(document.fields)}",
-        "};",
-        "",
-    ]
-    if document.fields:
-        lines.append(
-            f"extern const struct cfw_ui_field {prefix}_fields[{len(document.fields)}];"
-        )
+    lines = [f"#ifndef {guard}", f"#define {guard}", '#include "ui.h"', ""]
     lines.extend(
         f"#define {name} {value:#x}u" for name, value in (string_ids or {}).items()
     )
-    for value in document.values.values():
-        lines.append(f"extern const int32_t {value.name}[{len(value.numbers)}];")
     return "\n".join([*lines, "", "#endif", ""])
 
 
-def array(name, values, public=False, ctype="uint32_t"):
-    prefix = "" if public else "static "
-    text = ", ".join(str(value) if value < 0 else f"{value:#x}" for value in values)
-    return f"{prefix}const {ctype} {name}[] = {{{text}}};"
-
-
-def string_array(name, values):
-    return (
-        f"static const char *const {name}[] = {{"
-        + ", ".join(json.dumps(v, ensure_ascii=False) for v in values)
-        + "};"
-    )
-
-
-def emit_bindings(document):
-    lines = []
-    prefix = document.root.name.lower()
-    for values in document.values.values():
-        lines.append(array(values.name, values.numbers, public=True, ctype="int32_t"))
-        lines.append(string_array(values.name + "_labels", values.labels))
-    if document.fields:
-        lines.append(
-            f"const struct cfw_ui_field {prefix}_fields[{len(document.fields)}] = {{"
-        )
-        for item in document.fields:
-            values = document.values[item.choices]
-            lines.append(
-                f"    {{{len(values.labels)}, {item.default_index}, "
-                f"{json.dumps(item.title)}, {item.choices}_labels}},"
-            )
-        lines.append("};")
-    return lines
+def array(name, values, ctype="uint32_t"):
+    text = ", ".join(f"{value:#x}" for value in values)
+    return f"static const {ctype} {name}[] = {{{text}}};"
 
 
 def emit_resource_data(name, data, *, mutable=False, aligned=False):
@@ -173,33 +126,5 @@ def emit_events(resources):
     lines += [
         "};",
         f"const uint32_t cfw_ui_event_alias_count = {len(resources.event_aliases)};",
-    ]
-    return lines
-
-
-def emit_visibility(resources):
-    lines, entries, keys = [], [], set()
-    for i, entry in enumerate(resources.visibility):
-        key = 2166136261
-        for byte in entry["id"].encode():
-            key = ((key ^ byte) * 16777619) & 0xFFFFFFFF
-        if key in keys:
-            raise ValueError("Duplicate menu visibility preference key")
-        keys.add(key)
-        lines.append(f"static uint32_t ui_visible_{i} = {entry['defaults']};")
-        lines.append(f"static uint32_t ui_available_{i} = {entry.get('available', 3)};")
-        # Legacy import: pre-store per-entry visibility file.
-        filename = f"iPod_Control\\Device\\CFWMenu_{key:08x}"
-        items = ", ".join(f"{entry['items'][m]:#x}" for m in ("Main", "Music"))
-        anchors = ", ".join(f"{entry['anchors'][m]:#x}" for m in ("Main", "Music"))
-        entries.append(
-            f"    {{{key:#x}, {entry['title']:#x}, {{{items}}}, {{{anchors}}}, "
-            f"{entry['defaults']}, {json.dumps(filename)}, &ui_visible_{i}, &ui_available_{i}}},"
-        )
-    lines += [
-        "const struct cfw_ui_visibility cfw_ui_visibility[] = {",
-        *entries,
-        "};",
-        f"const uint32_t cfw_ui_visibility_count = {len(entries)};",
     ]
     return lines

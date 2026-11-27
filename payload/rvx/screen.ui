@@ -1,10 +1,4 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 <ui>
   <canvas id="RVX" title="" factory="RVXScreen" view-type="rvxc"/>
-  <settings-preview/>
-  <menu-preview id="RVX_PlainPane" screen="0x0dad0c6a" layout="0x0dad0c7d"/>
-  <menu-preview id="RVX_MainPane" screen="0x0dad076e" layout="0x0dad0798"/>
-  <menu-preview id="RVX_MusicPane" screen="0x0dad07c8" layout="0x0dad07d5"/>
-  <menu-preview id="RVX_ExtrasPane" screen="0x0dad01cc" layout="0x0dad01d6"/>
-  <menu-preview id="RVX_VideosPane" screen="0x0dad0816" layout="0x0dad081d"/>
 </ui>

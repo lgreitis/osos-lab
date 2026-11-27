@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SDK = ROOT.parent / "eapp-sdk"
 output = ROOT / "build/port-test"
 output.parent.mkdir(parents=True, exist_ok=True)
 subprocess.run(
@@ -21,15 +22,15 @@ subprocess.run(
         "-Wno-unused-function",
         "-x",
         "c",
-        "-I" + str(ROOT.parent / "game-sdk/include"),
+        "-I" + str(SDK),
+        "-I" + str(SDK / "runtime"),
+        "-I" + str(SDK / "include"),
+        "-I" + str(SDK / "firmware"),
         "-I" + str(ROOT / "vendor/infones/src"),
         "-I" + str(ROOT / "src"),
         str(ROOT / "tests/port_test.c"),
         *[str(ROOT / "src" / p) for p in ("nes_app.c", "rom.c", "mappers.c")],
-        *[
-            str(ROOT.parent / "game-sdk/runtime" / p)
-            for p in ("text.c", "ui.c", "wheel.c")
-        ],
+        *[str(SDK / "runtime" / p) for p in ("draw.c", "ui.c", "wheel.c")],
         *[
             str(ROOT / "vendor/infones/src" / p)
             for p in ("InfoNES.cpp", "InfoNES_pAPU.cpp", "K6502.cpp")

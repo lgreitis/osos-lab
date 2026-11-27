@@ -2,7 +2,7 @@
 #include "screen.h"
 #include "cfw.h"
 #include "osos.h"
-#include "../../game-sdk/runtime/native_directory.h"
+#include "directory.h"
 
 struct rvx_file {
     File *next;
@@ -58,7 +58,7 @@ static int build_path(Pkg *p, const char *name, int content, int folder,
     path->volume = 0;
     unsigned len = 0;
     return append(path->text, &len,
-                  content ? "/Revola/" : "/Revola/Data/Extensions/") &&
+                  content ? "/Reprise/" : "/Reprise/Data/Extensions/") &&
            (content || (append(path->text, &len, p->id) &&
                         (!*name || append(path->text, &len, "/")))) &&
            append(path->text, &len, name);

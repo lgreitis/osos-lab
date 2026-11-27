@@ -79,6 +79,17 @@
  
  /* Develop Scroll Registers */
  #define InfoNES_SetupScr() \
+--- a/src/InfoNES_pAPU.h
++++ b/src/InfoNES_pAPU.h
+@@ -165,7 +165,7 @@
+ /* these values subject to change without notice.                    */
+ /*-------------------------------------------------------------------*/
+ extern int ApuQuality;
+-#define pAPU_QUALITY 3
++#define pAPU_QUALITY 2
+ 
+ /*-------------------------------------------------------------------*/
+ /*  Rectangle Wave #1 resources                                      */
 --- a/src/InfoNES_System.h
 +++ b/src/InfoNES_System.h
 @@ -38,6 +38,7 @@

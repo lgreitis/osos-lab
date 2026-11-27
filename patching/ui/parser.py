@@ -5,7 +5,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .model import Document, Item, ScreenEvent, Values
+from .model import Document, Item, ScreenEvent
 
 
 def attributes(node, required="", optional="", children=()):
@@ -26,37 +26,11 @@ def integer(node, key, default=None, minimum=-(1 << 31), maximum=(1 << 31) - 1):
     return value
 
 
-def range_label(number, scale, signed, suffix):
-    prefix = ""
-    if number < 0:
-        prefix = "-"
-    elif signed and number:
-        prefix = "+"
-    digits = len(str(scale)) - 1
-    label = str(abs(number) // scale)
-    if digits:
-        label += f".{abs(number) % scale:0{digits}d}"
-    return prefix + label + suffix
-
-
-def validate_values(value):
-    if not 1 <= len(value.labels) <= 1024:
-        raise ValueError(f"Expected 1..1024 choices: {value.name}")
-    if len(set(value.numbers)) != len(value.numbers):
-        raise ValueError(f"Duplicate UI choice value: {value.name}")
-
-
-def validate_slots(fields):
-    fields.sort(key=lambda item: item.slot)
-    if [item.slot for item in fields] != list(range(len(fields))):
-        raise ValueError("Settings slots must be unique and contiguous from zero")
-
-
 class Parser:
     """Track document-wide names and bindings while reading nested menu nodes."""
 
     def __init__(self):
-        self.document = Document(None, {}, [])
+        self.document = Document(None)
         self.names = set()
         self.entry = None
 
@@ -66,42 +40,23 @@ class Parser:
         attributes(
             tree,
             children=(
-                "values",
-                "range",
                 "text",
                 "canvas",
                 "list",
                 "toggle",
-                "setting",
                 "settings-entry",
-                "settings-preview",
-                "menu-preview",
                 "string",
                 "screen-event",
                 "layout-event",
-                "music-entry",
                 "bitmap",
-                "main-entry",
             ),
         )
         for node in tree:
             self.parse_declaration(node)
         self.apply_settings_entry()
         document = self.document
-        if (
-            document.root is None
-            and not document.strings
-            and not document.events
-            and document.music_entry is None
-            and document.main_entry is None
-        ):
+        if document.root is None and not document.strings and not document.events:
             raise ValueError("Incomplete UI declaration")
-        # Only canvas pages read settings; nothing else would emit their storage.
-        if document.fields and (
-            document.root is None or document.root.kind != "canvas"
-        ):
-            raise ValueError("Settings require a canvas page")
-        validate_slots(document.fields)
         return document
 
     def identifier(self, node):
@@ -116,33 +71,29 @@ class Parser:
 
     def parse_declaration(self, node):
         document = self.document
-        if node.tag in ("values", "range"):
-            value = (
-                self.parse_values(node)
-                if node.tag == "values"
-                else self.parse_range(node)
-            )
-            validate_values(value)
-            document.values[value.name] = value
-        elif node.tag in ("text", "toggle", "canvas", "list"):
+        if node.tag in ("text", "toggle", "canvas", "list"):
             if document.root is not None:
                 raise ValueError("Expected one root page per UI declaration")
             if node.tag in ("toggle", "canvas", "list"):
+                if node.tag == "canvas" and not {"factory", "view-type"} <= set(
+                    node.attrib
+                ):
+                    raise ValueError("A canvas needs factory and view-type")
                 attributes(
                     node,
-                    "id title",
-                    "select layout"
-                    if node.tag == "list"
-                    else "factory view-type"
+                    "id title factory view-type"
                     if node.tag == "canvas"
-                    else "",
+                    else "id title",
+                    "select layout" if node.tag == "list" else "",
                 )
                 document.root = Item(
                     node.tag, self.identifier(node), node.attrib["title"]
                 )
                 if node.tag == "canvas":
-                    document.root.factory = node.get("factory", "CFWCanvas")
-                    document.root.view_type = node.get("view-type", "cfwc")
+                    document.root.factory = node.attrib["factory"]
+                    document.root.view_type = node.attrib["view-type"]
+                    if not document.root.factory:
+                        raise ValueError("A canvas needs a factory name")
                     if len(document.root.view_type.encode("ascii")) != 4:
                         raise ValueError(
                             "A canvas view type needs four ASCII characters"
@@ -156,20 +107,6 @@ class Parser:
                         raise ValueError("<list> layout must be inline or stacked")
             else:
                 document.root = self.parse_text(node)
-        elif node.tag == "setting":
-            self.parse_setting(node)
-        elif node.tag == "menu-preview":
-            attributes(node, "id screen layout")
-            document.menu_previews.append(
-                (
-                    self.identifier(node),
-                    int(node.attrib["screen"], 0),
-                    int(node.attrib["layout"], 0),
-                )
-            )
-        elif node.tag == "settings-preview":
-            attributes(node)
-            document.preview = "image"
         elif node.tag == "settings-entry":
             attributes(node, "menu after", "open preview image caption")
             if self.entry is not None:
@@ -201,84 +138,6 @@ class Parser:
                     "SEVT",
                 )
             )
-        elif node.tag == "music-entry":
-            attributes(
-                node,
-                "id title after screen layout open highlight",
-                "main-after main-visible music-visible",
-            )
-            if document.music_entry is not None:
-                raise ValueError("Duplicate Music menu entry")
-            self.identifier(node)
-            document.music_entry = dict(node.attrib)
-            for attribute, default in (
-                ("main-visible", "false"),
-                ("music-visible", "true"),
-            ):
-                value = node.get(attribute, default)
-                if value not in ("true", "false"):
-                    raise ValueError(f"Invalid {attribute} on <music-entry>")
-                document.music_entry[attribute] = value
-        elif node.tag == "main-entry":
-            attributes(node, "id title after open hilite preview", "message")
-            if document.main_entry is not None:
-                raise ValueError("Duplicate main menu entry")
-            self.identifier(node)
-            document.main_entry = dict(node.attrib)
-
-    def parse_values(self, node):
-        attributes(node, "id", children=("value",))
-        value = Values(self.identifier(node))
-        for child in node:
-            attributes(child, "number label")
-            value.numbers.append(integer(child, "number"))
-            value.labels.append(child.attrib["label"])
-        return value
-
-    def parse_range(self, node):
-        attributes(
-            node, "id first last step", "scale suffix signed", children=("value",)
-        )
-        value = Values(self.identifier(node))
-        # Named choices such as Auto precede the generated numeric sequence.
-        for child in node:
-            attributes(child, "number label")
-            value.numbers.append(integer(child, "number"))
-            value.labels.append(child.attrib["label"])
-        first, last, step = (integer(node, key) for key in ("first", "last", "step"))
-        scale = integer(node, "scale", "1")
-        signed = node.get("signed", "false")
-        if (
-            not step
-            or (last - first) * step < 0
-            or (last - first) % step
-            or scale not in (1, 10, 100, 1000)
-            or signed not in ("true", "false")
-        ):
-            raise ValueError(f"Invalid UI range: {value.name}")
-        if len(value.numbers) + (last - first) // step + 1 > 1024:
-            raise ValueError("UI selectors support at most 1024 choices")
-        numbers = list(range(first, last + (1 if step > 0 else -1), step))
-        value.numbers += numbers
-        value.labels += [
-            range_label(number, scale, signed == "true", node.get("suffix", ""))
-            for number in numbers
-        ]
-        return value
-
-    def parse_setting(self, node):
-        attributes(node, "id title values slot default")
-        name, ref = self.identifier(node), node.attrib["values"]
-        if ref not in self.document.values:
-            raise ValueError(f"Unknown values for {name}: {ref}")
-        item = Item("setting", name, node.attrib["title"], choices=ref)
-        item.slot = integer(node, "slot", minimum=0, maximum=99)
-        default = integer(node, "default")
-        choices = self.document.values[ref].numbers
-        if default not in choices:
-            raise ValueError(f"Invalid default for {name}: {default}")
-        item.default_index = choices.index(default)
-        self.document.fields.append(item)
 
     def parse_text(self, node):
         attributes(node, "id title file")

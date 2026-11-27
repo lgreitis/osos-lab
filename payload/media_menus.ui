@@ -1,0 +1,6 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<ui>
+  <!-- Movies and TV episodes have no native contextual menu binding. -->
+  <layout-event layout="MediaLists_Movies_Layout" event="button.select.pressandhold" handler="HandleShowContextualMenu"/>
+  <layout-event layout="MediaLists_TVEpisodes_Layout" event="button.select.pressandhold" handler="HandleShowContextualMenu"/>
+</ui>

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#include "game_api.h"
+#include "eapp.h"
 #include <stdbool.h>
 #include "InfoNES.h"
 #include "InfoNES_System.h"
@@ -7,11 +7,11 @@
 
 const char *nes_error;
 
-static bool read_exact(struct game_file *file, void *data, unsigned size)
+static bool read_exact(struct eapp_file *file, void *data, unsigned size)
 {
     BYTE *out = data;
     while (size) {
-        int count = game_file_read(file, out, size);
+        int count = eapp_file_read(file, out, size);
         if (count <= 0)
             return false;
         out += count;
@@ -22,14 +22,14 @@ static bool read_exact(struct game_file *file, void *data, unsigned size)
 
 void InfoNES_ReleaseRom(void)
 {
-    game_free(ROM);
-    game_free(VROM);
+    eapp_free(ROM);
+    eapp_free(VROM);
     ROM = VROM = NULL;
 }
 
 int InfoNES_ReadRom(const char *path)
 {
-    struct game_file *file = game_file_open(path);
+    struct eapp_file *file = eapp_file_open(path);
     nes_error = "CANNOT OPEN ROM";
     if (!file)
         return -1;
@@ -44,7 +44,7 @@ int InfoNES_ReadRom(const char *path)
             NesHeader.byID[2] == 'S' && NesHeader.byID[3] == 0x1a &&
             !(NesHeader.byInfo2 & 0x0f) && NesHeader.byReserve[0] <= 1 &&
             !(NesHeader.byReserve[1] & ~1) && prg && prg + chr <= 4 * 1024 * 1024 &&
-            game_file_size(file) >= 16 + trainer + prg + chr;
+            eapp_file_size(file) >= 16 + trainer + prg + chr;
     for (unsigned i = 2; i < 8; ++i)
         valid = valid && NesHeader.byReserve[i] == 0;
     valid = valid && (mapper == 0 || mapper == 1 || mapper == 2 || mapper == 3 ||
@@ -58,13 +58,13 @@ int InfoNES_ReadRom(const char *path)
     if (mapper == 0 || mapper == 2 || mapper == 7)
         valid = valid && chr <= 8192;
     if (!valid) {
-        game_file_close(file);
+        eapp_file_close(file);
         return -1;
     }
 
     InfoNES_MemorySet(SRAM, 0, SRAM_SIZE);
-    ROM = game_alloc(prg);
-    VROM = chr ? game_alloc(chr) : NULL;
+    ROM = eapp_alloc(prg);
+    VROM = chr ? eapp_alloc(chr) : NULL;
     nes_error = "NOT ENOUGH GAME MEMORY";
     valid = ROM && (!chr || VROM);
     if (valid) {
@@ -72,7 +72,7 @@ int InfoNES_ReadRom(const char *path)
         valid = (!trainer || read_exact(file, SRAM + 0x1000, trainer)) &&
                 read_exact(file, ROM, prg) && (!chr || read_exact(file, VROM, chr));
     }
-    game_file_close(file);
+    eapp_file_close(file);
     if (!valid) {
         InfoNES_ReleaseRom();
         return -1;

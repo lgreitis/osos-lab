@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
-#include "game_api.h"
+#include "eapp.h"
 #include "i_system.h"
 #include "z_zone.h"
 
@@ -58,7 +58,7 @@ void Z_Free(void *pointer)
     allocated_bytes -= block->bytes;
     --allocated_count;
     block->id = 0;
-    game_free(block);
+    eapp_free(block);
 }
 
 static int purge_one(void)
@@ -83,7 +83,7 @@ void *Z_Malloc(int size, int tag, void *user)
     unsigned bytes = (unsigned)size + sizeof(struct zone_block);
     struct zone_block *block;
     for (;;) {
-        block = bytes <= ZONE_BUDGET - allocated_bytes ? game_alloc(bytes) : NULL;
+        block = bytes <= ZONE_BUDGET - allocated_bytes ? eapp_alloc(bytes) : NULL;
         if (block)
             break;
         if (!purge_one())
