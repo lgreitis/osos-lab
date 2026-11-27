@@ -214,6 +214,11 @@ void rvx_install_menus(void);
  * no host. */
 struct menu_entry;
 int rvx_entries_valid(const Pkg *, const struct menu_entry *, u32);
+/* The stock Settings rows (RV_ROW_STOCK) of a module's list screens are
+ * valid: in the main module, in a list with an id, rows of the Settings
+ * table, each once in the extension and in no started extension. */
+struct screen;
+int rvx_stock_rows_valid(const Pkg *, const struct screen *, u32, int main_module);
 void rvx_release_screen(Pkg *p, u32 index);
 void *rvx_bitmap_load(Pkg *, const char *, u32 *);
 

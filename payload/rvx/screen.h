@@ -165,6 +165,9 @@ struct frame {
 };
 extern struct frame *rvx_top;
 extern void *rvx_bank;
+/* NavigatorAction_PopToScreen filter: a pop to the Settings menu ends on the
+ * newest open list holding a moved Settings row. */
+u32 rvx_pop_to_screen(u32 screen, u32 push_history, u32 skip_history, const void *next);
 extern const struct graphics rvx_graphics;
 void rvx_register_controller(void);
 void rvx_begin_draw(void *context, const int32_t *bounds, const struct rect *dirty);

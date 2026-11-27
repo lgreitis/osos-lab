@@ -20,6 +20,15 @@ const struct core_screen *rvx_native_table_screen(u32 table)
     return NULL;
 }
 
+const struct core_screen *rvx_native_find(const Pkg *owner, const struct screen *d)
+{
+    for (const struct core_screen *s = layouts; s; s = s->next)
+        if (s->owner == owner && s->kind == d->kind && d->id &&
+            cfw_string_equal(s->name, d->id))
+            return s;
+    return NULL;
+}
+
 const struct core_screen *rvx_native_screen_of(u32 screen, int *split)
 {
     for (const struct core_screen *s = layouts; s; s = s->next)
@@ -76,7 +85,7 @@ int rvx_prepare_native(struct frame *f, u32 *screen_id, u32 *layout_id)
     }
     f->native = s;
     *screen_id = split ? core_lists_screen_id(s, 1) : s->id;
-    *layout_id = *screen_id + 1;
+    *layout_id = list ? core_lists_initial_layout(s, d, split) : *screen_id + 1;
     return 1;
 }
 
@@ -95,7 +104,7 @@ u32 rvx_row_count(struct frame *f)
     const struct screen *d = f->screen;
     switch (d->kind) {
     case RV_SCREEN_KIND_LIST:
-        return d->list.count;
+        return d->list.count - rvx_stock_hidden(d);
     case RV_SCREEN_KIND_DYNAMIC_LIST:
         return d->dynamic.count ? d->dynamic.count(&f->ctx) : 0;
     case RV_SCREEN_KIND_MULTI_CHOICE:
@@ -188,20 +197,26 @@ int rvx_native_property(u32 type, u32 id, uintptr_t *out)
                                             : NULL;
         if (guest)
             return rvx_guest_pane_property(guest, f->ctx.controller, field, type, out);
-        const struct pane *p =
-            d->kind == RV_SCREEN_KIND_LIST && d->list.panes && selected < d->list.count
-                ? d->list.panes + selected
-                : NULL;
-        if ((field == 1 || field == 2) && type == Property_Bitmap) {
+        /* A stock row's highlight switches to its own Settings layout
+         * (native_lists.c); its pane at this index is unused. */
+        const struct pane *p = d->kind == RV_SCREEN_KIND_LIST && d->list.panes &&
+                                       selected < d->list.count &&
+                                       d->list.rows[selected].kind != RV_ROW_KIND_STOCK
+                                   ? d->list.panes + selected
+                                   : NULL;
+        if (field == 2 && type == Property_Bitmap) {
+            /* The box view is shared by every Settings pane and keeps the last
+             * bitmap bound to it: the layout shows or hides it. */
+            *out = osos_ui_bitmap(RES_SettingsPreview_Background_Image);
+            return 1;
+        }
+        if (field == 1 && type == Property_Bitmap) {
             const struct bitmap *b =
                 p ? (p->image ? p->image(&f->ctx) : p->bitmap) : d->bitmap;
             u32 size = 0;
             const u32 *image = rvx_frame_bitmap(f, b, &size);
-            *out = (uintptr_t)rvx_clear_bitmap;
-            if (rvx_is_pane_icon(image, size))
-                *out = field == 1
-                           ? (uintptr_t)image
-                           : osos_ui_bitmap(RES_SettingsPreview_Background_Image);
+            *out = rvx_is_pane_icon(image, size) ? (uintptr_t)image
+                                                 : (uintptr_t)rvx_clear_bitmap;
             return 1;
         }
         if (type != Property_String)
@@ -396,7 +411,7 @@ PATCH_ARM int rvx_native_action(void *controller, const char *name, u32 argument
         u32 i = d->kind == RV_SCREEN_KIND_LIST
                     ? (id - rows) / 2
                     : osos_selection_index(osos_ui_selection());
-        if (i >= rvx_row_count(f))
+        if (i >= (d->kind == RV_SCREEN_KIND_LIST ? d->list.count : rvx_row_count(f)))
             return 1;
         /* A list keeps the highlighted position: guests may sit before row i. */
         f->selected = d->kind == RV_SCREEN_KIND_LIST

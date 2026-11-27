@@ -47,6 +47,8 @@ struct core_writer {
 
 void core_write_bytes(struct core_writer *w, const void *data, uint32_t bytes);
 void core_write_word(struct core_writer *w, uint32_t value);
+/* Overwrites the word at `at`, for a count written before its items. */
+void core_write_word_at(struct core_writer *w, uint32_t at, uint32_t value);
 /* A copy of `data` with words changed; `words` are {offset, value} pairs. */
 void core_write_copy(struct core_writer *w, const void *data, uint32_t bytes,
                      const uint32_t *words, uint32_t count);
@@ -114,12 +116,37 @@ static inline int core_lists_per_row_pane(const struct screen *d)
 }
 
 /* Ids the split layout of a list screen takes after the full layout's: its
- * screen, its layout, the pane, four layout clones, and the pane's caption,
- * icon, box and title sources (the title names the highlighted row when the
- * pane follows it). */
-#define CORE_LIST_SPLIT_IDS 11
+ * screen, its layout, the pane, four layout clones, the pane's caption, icon,
+ * box and title sources (the title names the highlighted row when the pane
+ * follows it), then the other split layout (the pane's box shown or hidden,
+ * the opposite of the first's), its pane and four layout clones. */
+#define CORE_LIST_SPLIT_IDS 17
 #define CORE_LIST_PANE_CAPTION(screen) ((screen) + 7)
 #define CORE_LIST_PANE_TITLE(screen) ((screen) + 10)
+#define CORE_LIST_PANE_OTHER(screen) ((screen) + 11)
+
+/* 1 for a row pane shown without the box: a plain icon or no bitmap. */
+static inline int core_lists_plain_pane(const struct pane *p)
+{
+    return !p || p->plain || (!p->bitmap && !p->image);
+}
+
+/* 1 for a hosted entry shown without the box: the entry's plain icon or no
+ * bitmap; its pane's plain flag is for a list's own rows. */
+static inline int core_lists_plain_entry(const struct menu_entry *e)
+{
+    return e->plain || !e->pane || (!e->pane->bitmap && !e->pane->image);
+}
+
+/* The stock Settings rows a list screen may take (RV_ROW_STOCK): one slot per
+ * row of the Settings table, whose ids are contiguous. Each takes
+ * CORE_LIST_STOCK_IDS ids after the rows' for the clone of its Settings
+ * layout, which the split layout switches to while the row is highlighted. */
+#define CORE_SETTINGS_ROWS 18
+_Static_assert(RES_SettingsMenu_ResetSettings_Item - RES_SettingsMenu_About_Item ==
+                   CORE_SETTINGS_ROWS - 1,
+               "Settings row ids");
+#define CORE_LIST_STOCK_IDS 6
 
 #define CORE_CLONE_SCRATCH_BYTES 1536
 /* First row item id (list), paragraph source id (text), bar source id (slider)
@@ -129,6 +156,11 @@ static inline int core_lists_per_row_pane(const struct screen *d)
 /* The Legal row, or with `value` Sound Check's: the ROW_BYTES rows of an
  * extension's list copy them. */
 const uint8_t *core_lists_prototype(int value);
+/* Apple's row `id` of the stock Settings table, the bytes its lists and menu
+ * registry hold; NULL for no such row. */
+const uint8_t *core_lists_settings_row(uint32_t id);
+/* How many stock Settings rows (RV_ROW_STOCK) a list screen declares. */
+uint32_t core_lists_stock_count(const struct screen *d);
 
 struct core_screen {
     struct core_screen *next;
@@ -160,9 +192,48 @@ int core_clone_text(struct core_screen *s);
 int core_clone_slider(struct core_screen *s);
 int core_clone_dialog(struct core_screen *s);
 int core_clone_layout(const struct layout_clone *, uint32_t *, uint8_t *, uint32_t);
-int core_clone_screen(uint32_t, uint32_t, uint32_t, uint32_t, const void *, uint32_t,
-                      uint8_t *, uint32_t);
+
+/* A layout cloned from a stock one, for a screen's layout list. */
+struct core_layout_entry {
+    uint32_t stock, clone;
+};
+
+/* The screen's own resources: SCST from `controller_screen`, SLst from
+ * `layouts_screen` with the first layout replaced and then `count` more
+ * `layouts`, each as a copy of its stock layout's entry in the list of
+ * `entries_screen`, CEVT from `events`. */
+int core_clone_screen(uint32_t screen, uint32_t layout, uint32_t controller_screen,
+                      uint32_t layouts_screen, uint32_t entries_screen,
+                      const struct core_layout_entry *layouts, uint32_t count,
+                      const void *events, uint32_t event_bytes, uint8_t *scratch,
+                      uint32_t scratch_bytes);
 void core_clone_layout_events(struct core_writer *);
+/* Names a layout "Rv<id>" (core_screens_handler_name) in Apple's name map, for
+ * a navigator.SwitchLayout binding. The entry lives in Apple's heap for the
+ * boot; naming the same id again changes nothing. */
+void core_clone_name_layout(uint32_t layout);
+/* Copies the events of a stock CEVT or SEVT stream named `name`, or whose
+ * names start with it unless `whole`, verbatim and without a count; returns
+ * how many. */
+uint32_t core_clone_copy_events(struct core_writer *w, const void *stream,
+                                const char *name, int whole);
+
+/* An event of a stock stream found by name: its handler and its action's
+ * first argument, as unterminated text with lengths; NULL for none. */
+struct core_event {
+    const uint8_t *handler, *argument;
+    uint32_t handler_bytes, argument_bytes;
+};
+
+int core_clone_find_event(const void *stream, const char *name, struct core_event *out);
+/* The layout a list screen declared by `d` opens on: its own, or the first
+ * row's stock layout clone when a split list starts on a stock row. */
+uint32_t core_lists_initial_layout(const struct core_screen *s, const struct screen *d,
+                                   int split);
+/* The split layout a hosted row whose pane is `plain` (no box) switches to:
+ * the list's first, or the other one when the list has built it. */
+uint32_t core_lists_pane_layout(const struct core_screen *s, const struct screen *d,
+                                int plain);
 int core_list_empty(struct core_screen *, uint32_t, uint32_t *, uint8_t *, uint32_t);
 uint32_t core_screen_menu_events(struct core_writer *, const struct core_screen *);
 int core_screen_menu_build(const struct core_screen *, uint8_t *, uint32_t);
@@ -173,6 +244,8 @@ const struct core_screen *rvx_native_table_screen(uint32_t table);
 /* The list screen record one of whose layouts has the screen id `screen`, with
  * *split 1 for the split layout; NULL for a stock screen. */
 const struct core_screen *rvx_native_screen_of(uint32_t screen, int *split);
+/* The record of `owner`'s screen declared by `d`; NULL until first pushed. */
+const struct core_screen *rvx_native_find(const Pkg *owner, const struct screen *d);
 
 /* Hosted menu rows (menus.c). */
 struct installed;
@@ -184,8 +257,18 @@ const struct installed *rvx_guest_at(const struct core_screen *s,
                                      uint32_t *index);
 /* The guests shown in the list screen `s`. */
 uint32_t rvx_guest_count(const struct core_screen *s);
-/* The position of declared row `index` in `s`, past the guests before it. */
-uint32_t rvx_guest_position(const struct core_screen *s, uint32_t index);
+/* The position of declared row `index` in `s`, past the guests before it and
+ * short of the hidden stock rows. */
+uint32_t rvx_guest_position(const struct core_screen *s, const struct screen *d,
+                            uint32_t index);
+/* 1 when a guest of the list screen `s` needs the split layout whose pane
+ * hides the box when the list's first shows it (`main_plain` 0), or shows it
+ * when the first hides it. */
+int rvx_guest_other_needed(const struct core_screen *s, int main_plain);
+/* Stock Settings rows moved into list screens (menus.c): whether Apple shows
+ * row `item`, and how many of the stock rows of `d` it hides. */
+int rvx_stock_shown(uint32_t item);
+uint32_t rvx_stock_hidden(const struct screen *d);
 /* A guest's pane fields as its host's split layout asks them: 0 the caption,
  * 1 the icon, 2 the box behind it, 3 the label. */
 int rvx_guest_pane_property(const struct installed *i, void *controller, uint32_t field,

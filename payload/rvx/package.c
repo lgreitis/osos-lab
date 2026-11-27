@@ -332,6 +332,13 @@ static int link_module(Pkg *p, u32 index, const struct module_header *h, File *f
         !within(m, d->entries, d->entry_count, sizeof(struct menu_entry)) ||
         (index == 0 && !rvx_entries_valid(p, d->entries, d->entry_count)))
         return 0;
+    const struct screen *screens = d->screens;
+    for (u32 i = 0; i < d->screen_count; i++) /* kind 0: a list's rows */
+        if (screens[i].kind == 0 &&
+            !within(m, screens[i].list.rows, screens[i].list.count, sizeof(struct row)))
+            return 0;
+    if (!rvx_stock_rows_valid(p, screens, d->screen_count, index == 0))
+        return 0;
     m->desc = d;
     for (u32 i = 0; i < d->count; i++)
         if (rvx_bind(p, d->hooks + i) != OK)
