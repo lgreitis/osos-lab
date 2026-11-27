@@ -61,8 +61,8 @@ static int present(struct frame *f, void *parent)
         }
         f->stock_methods = osos_import_alloc(12 + 0x200);
         if (f->stock_methods) {
-            u32 screen = RES_Games_Menu_Screen, layout = RES_Games_Menu_Layout;
-            if (native && !rvx_prepare_native(f, &screen, &layout)) {
+            u32 screen, layout;
+            if (!rvx_prepare_native(f, &screen, &layout)) {
                 osos_import_free(f->stock_methods);
                 osos_import_free(f);
                 return NO_MEMORY;

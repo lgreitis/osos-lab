@@ -191,6 +191,7 @@ int core_clone_list(struct core_screen *s, int split);
 int core_clone_text(struct core_screen *s);
 int core_clone_slider(struct core_screen *s);
 int core_clone_dialog(struct core_screen *s);
+int core_clone_stock(struct core_screen *s);
 int core_clone_layout(const struct layout_clone *, uint32_t *, uint8_t *, uint32_t);
 
 /* A layout cloned from a stock one, for a screen's layout list. */
