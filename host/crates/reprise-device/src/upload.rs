@@ -7,8 +7,8 @@ mod transport;
 use crate::{exact, invalid, Cleanup, DeviceInfo, Error, Result, Session};
 pub use image::UploadHelper;
 use protocol::{
-    helper_error, next_payload, word, Status, ACKNOWLEDGE, CANCEL, COMPLETE, READY, RESULT_ADDR,
-    RESULT_SIZE, START, VERIFYING,
+    helper_error, more_files, next_payload, word, Status, ACKNOWLEDGE, CANCEL, COMPLETE, READY,
+    RESULT_ADDR, RESULT_SIZE, START, VERIFYING,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -84,7 +84,8 @@ pub struct Uploaded {
     pub cleanup: Cleanup,
 }
 
-/// `reports` covers the files that were verified before the failure.
+/// `reports` covers the files of every batch whose last file was verified before
+/// the failure. On FAT32, files of the failed batch may be in place without one.
 #[derive(Debug, thiserror::Error, Serialize)]
 #[error("{message}")]
 pub struct UploadFailure {
@@ -254,25 +255,33 @@ fn transfer(
 
 /// Sends every file through one helper session: the first is configured in the
 /// image, each further one is queued with NEXT once the previous one is verified.
-/// Returns the last status after ACKNOWLEDGE; `reports` grows per verified file.
+/// With `batches`, files go in batches of up to `BATCH_FILES`, all but the last
+/// marked with `MORE_FILES`; an HFS+ volume publishes a batch with its last file.
+/// Returns the last status after ACKNOWLEDGE; `reports` grows by a batch once its
+/// last file is verified.
+#[allow(clippy::too_many_arguments)]
 fn transfer_files(
     bulk: &mut impl BulkTransport,
     files: &mut [UploadFile<'_>],
     hashed: &[Hashed],
     nonce: &[u8; 16],
     device: &DeviceInfo,
+    batches: bool,
     reports: &mut Vec<UploadReport>,
     emit: &mut Emit<'_>,
 ) -> Result<Status> {
     let mut last = None;
+    let mut batch = Vec::new();
+    let count = files.len();
     for (index, file) in files.iter_mut().enumerate() {
         let (size, sha) = hashed[index];
+        let more = batches && more_files(index, count);
         let started = Instant::now();
         // Reported before NEXT so a cancelling `emit` stops between files.
         progress(emit, index, "prepare", 0, 1)?;
         let status = (|| {
             if index > 0 {
-                bulk.next(&next_payload(nonce, size, &sha, &file.options))?;
+                bulk.next(&next_payload(nonce, size, &sha, &file.options, more))?;
             }
             let status = transfer(bulk, file.input, nonce, size, index, emit)?;
             status.complete(&sha, &file.options)?;
@@ -282,7 +291,7 @@ fn transfer_files(
             context: file.options.destination.clone(),
             source: Box::new(e),
         })?;
-        reports.push(UploadReport {
+        batch.push(UploadReport {
             schema_version: 2,
             device: device.clone(),
             nonce: nonce.iter().map(|b| format!("{b:02x}")).collect(),
@@ -292,6 +301,9 @@ fn transfer_files(
             overwrite: file.options.overwrite,
             seconds: started.elapsed().as_secs_f64(),
         });
+        if !more {
+            reports.append(&mut batch);
+        }
         let _ = progress(emit, index, "complete", u64::from(size), u64::from(size));
         last = Some(status);
     }
@@ -470,6 +482,7 @@ impl Session {
                 size,
                 &sha,
                 &files[0].options,
+                helper.hfs_batches && more_files(0, files.len()),
             )?;
             Ok((hashed, image))
         })();
@@ -503,6 +516,7 @@ impl Session {
                 &hashed,
                 &nonce,
                 &info,
+                helper.hfs_batches,
                 &mut reports,
                 &mut emit,
             );

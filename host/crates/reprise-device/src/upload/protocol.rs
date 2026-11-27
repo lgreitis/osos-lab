@@ -13,6 +13,22 @@ pub(super) const CONFIG_SIZE: usize = 248;
 pub(super) const READY: u32 = 1;
 pub(super) const VERIFYING: u32 = 3;
 pub(super) const COMPLETE: u32 = 4;
+/// Mode bit: further files of the same batch follow. An HFS+ volume publishes
+/// a batch with its last file; FAT32 ignores the bit. Only helpers with the
+/// `hfs_batches` capability take it.
+pub(super) const MORE_FILES: u32 = 4;
+/// Files one batch holds at most (`HFS_BATCH` in the helper's hfs-upload.h).
+pub(super) const BATCH_FILES: usize = 64;
+
+/// Whether file `index` of `count` is followed by another file of its batch.
+pub(super) fn more_files(index: usize, count: usize) -> bool {
+    index + 1 < count && !(index + 1).is_multiple_of(BATCH_FILES)
+}
+
+/// The wire mode of an upload: 0 create or 1 replace, with `MORE_FILES`.
+pub(super) fn upload_mode(options: &UploadOptions, more: bool) -> u32 {
+    u32::from(options.overwrite) | if more { MORE_FILES } else { 0 }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Status {
@@ -107,7 +123,16 @@ impl Status {
     pub(super) fn complete(&self, sha: &[u8; 32], options: &UploadOptions) -> Result<()> {
         let b = &self.raw;
         if self.rc() != 0 {
-            return Err(helper_error(self.rc(), self.error_no()));
+            // A batch readback names the file that failed in the path.
+            let path = &b[128..];
+            let path = String::from_utf8_lossy(
+                &path[..path.iter().position(|c| *c == 0).unwrap_or(path.len())],
+            );
+            let error = helper_error(self.rc(), self.error_no());
+            if path != options.destination {
+                return Err(invalid(format!("{error} ({path})")));
+            }
+            return Err(error);
         }
         if self.state() != COMPLETE
             || self.rc() != 0
@@ -136,7 +161,8 @@ impl Status {
 }
 
 /// The helper's 248-byte file config after its 16-byte tag or nonce: size, mode
-/// (0 create, 1 replace, 2 inspect storage), SHA-256 and path.
+/// (0 create, 1 replace, either with `MORE_FILES`, 2 inspect storage, 3 remove the
+/// installation), SHA-256 and path.
 pub(super) fn write_config(config: &mut [u8], size: u32, mode: u32, sha: &[u8; 32], path: &str) {
     config[16..20].copy_from_slice(&size.to_le_bytes());
     config[20..24].copy_from_slice(&mode.to_le_bytes());
@@ -150,13 +176,14 @@ pub(super) fn next_payload(
     size: u32,
     sha: &[u8; 32],
     options: &UploadOptions,
+    more: bool,
 ) -> [u8; CONFIG_SIZE] {
     let mut payload = [0; CONFIG_SIZE];
     payload[..16].copy_from_slice(nonce);
     write_config(
         &mut payload,
         size,
-        u32::from(options.overwrite),
+        upload_mode(options, more),
         sha,
         &options.destination,
     );
@@ -183,6 +210,7 @@ pub(super) fn helper_error(rc: i32, errno: u32) -> Error {
         -323 => "Mac-formatted disk (Apple Partition Map) without a supported HFS+ volume",
         -316 => "Failed to replace the destination",
         -317 => "Destination does not read back as uploaded",
+        -318 => "The session ended before its HFS+ batch was published",
         -411 => "USB disconnected during upload",
         -412 => "Incomplete USB transfer",
         -415 => "Upload helper timed out",

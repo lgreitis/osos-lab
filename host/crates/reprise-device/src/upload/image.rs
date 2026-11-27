@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 use super::{
-    protocol::{word, write_config, CONFIG_SIZE},
+    protocol::{upload_mode, word, write_config, CONFIG_SIZE},
     UploadOptions,
 };
 use crate::{exact, firmware, invalid, Result};
@@ -29,6 +29,8 @@ struct Manifest {
     #[serde(default)]
     batch_upload: bool,
     #[serde(default)]
+    hfs_batches: bool,
+    #[serde(default)]
     usb: UsbIdentity,
 }
 
@@ -51,8 +53,8 @@ impl Default for UsbIdentity {
 
 struct Config<'a> {
     size: u32,
-    // Wire field `overwrite`: 0 create, 1 replace, 2 inspect storage, 3 remove the
-    // installation.
+    // Wire field `overwrite`: 0 create, 1 replace, either with `MORE_FILES`,
+    // 2 inspect storage, 3 remove the installation.
     mode: u32,
     sha: &'a [u8; 32],
     destination: &'a str,
@@ -67,6 +69,7 @@ pub struct UploadHelper {
     pub(super) storage_inspection: bool,
     pub(super) file_removal: bool,
     pub(super) batch_upload: bool,
+    pub(super) hfs_batches: bool,
     pub(super) usb: UsbIdentity,
 }
 
@@ -117,6 +120,7 @@ impl UploadHelper {
             storage_inspection: m.storage_inspection,
             file_removal: m.file_removal,
             batch_upload: m.batch_upload,
+            hfs_batches: m.hfs_batches,
             usb: m.usb,
         })
     }
@@ -139,6 +143,12 @@ impl UploadHelper {
         self.batch_upload
     }
 
+    /// The helper takes the `MORE_FILES` mode bit and publishes an HFS+ batch
+    /// with its last file.
+    pub fn supports_hfs_batches(&self) -> bool {
+        self.hfs_batches
+    }
+
     pub fn validate_platform(&self) -> Result<()> {
         if cfg!(windows) && !self.usb.winusb {
             return Err(invalid("This bundle's upload helper lacks Windows WinUSB support. Select a rebuilt firmware bundle."));
@@ -153,6 +163,7 @@ impl UploadHelper {
         size: u32,
         sha: &[u8; 32],
         options: &UploadOptions,
+        more: bool,
     ) -> Result<Vec<u8>> {
         options.validate()?;
         self.prepare_config(
@@ -162,7 +173,7 @@ impl UploadHelper {
                 size,
                 sha,
                 destination: &options.destination,
-                mode: u32::from(options.overwrite),
+                mode: upload_mode(options, more),
             },
         )
     }
