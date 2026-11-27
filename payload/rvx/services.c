@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "screen.h"
+#include "native_ui.h"
 #include "cfw.h"
 #include "osos.h"
 #include "patch.h"
@@ -178,11 +179,38 @@ static void log_text(Pkg *p, const char *s)
     rvx_last_log[n] = 0;
 }
 
-static void redraw(Pkg *p)
+#define VIEW_TREE_DEPTH 16 /* deeper than any stock screen; bounds a broken tree */
+
+/* A view on its own compositor layer keeps its pixels until its own window is
+ * dirtied, so a change to colours or artwork dirties every view. Only container
+ * views (their find slot is View_FindViewById) carry the child array. */
+static void invalidate_tree(uint8_t *view, uint32_t depth)
+{
+    NATIVE_CALL(View_InvalidateRect)(view, (const int32_t *)(view + View_bounds));
+    void **vtable = RV_FIELD(view, 0, void **);
+    if (depth > VIEW_TREE_DEPTH ||
+        vtable[View_find_view_method / 4] != (void *)ADDR_View_FindViewById)
+        return;
+    uint32_t count = RV_FIELD(view, View_child_count, uint32_t);
+    uint8_t **children = RV_FIELD(view, View_child_items, uint8_t **);
+    for (uint32_t i = 0; children && i < count; i++)
+        if (children[i])
+            invalidate_tree(children[i], depth + 1);
+}
+
+static void invalidate(Pkg *p)
 {
     if (rvx_top && rvx_top->ctx.self == p)
         rvx_top->damage.w = 0;
     osos_ui_invalidate();
+}
+
+static void redraw(Pkg *p)
+{
+    invalidate(p);
+    uint8_t *root = NATIVE_CALL(UI_GetRootView)();
+    if (root)
+        invalidate_tree(root, 0);
 }
 
 static void refresh(Pkg *p, const char *s)
@@ -191,7 +219,7 @@ static void refresh(Pkg *p, const char *s)
         if (f->ctx.self == p &&
             (!s || (f->screen->id && cfw_string_equal(f->screen->id, s))))
             rvx_native_refresh(f);
-    redraw(p);
+    invalidate(p);
 }
 
 static void invalidate_rect(Pkg *p, const void *rect)
@@ -263,7 +291,7 @@ const struct rvx_api cfw_rvx_api = {
     .push = rvx_push,
     .pop = rvx_pop,
     .refresh = refresh,
-    .invalidate = redraw,
+    .invalidate = invalidate,
     .debug = no_debug,
     .asset_load = rvx_asset_load,
     .asset_read = rvx_asset_read,
