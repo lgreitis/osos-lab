@@ -542,15 +542,13 @@ static int readback(const char *path, uint32_t expected, const uint8_t *sha256)
         return -1;
     if (!hfs)
         size = filesize(fd);
-    if (size != expected)
-        return -1;
     struct sha256 again;
     sha256_init(&again);
-    for (unsigned pos = 0; pos < size;) {
+    bool ok = size == expected;
+    for (unsigned pos = 0; ok && pos < size;) {
         unsigned count = MIN(size - pos, UPLOAD_CHUNK);
-        if (hfs ? hfs_upload_read(pos, UPLOAD_DATA, count) != 0
-                : read(fd, UPLOAD_DATA, count) != (ssize_t)count)
-            return -1;
+        ok = hfs ? hfs_upload_read(pos, UPLOAD_DATA, count) == 0
+                 : read(fd, UPLOAD_DATA, count) == (ssize_t)count;
         sha256_update(&again, UPLOAD_DATA, count);
         pos += count;
     }
@@ -561,7 +559,7 @@ static int readback(const char *path, uint32_t expected, const uint8_t *sha256)
         rc = close(fd);
         fd = -1;
     }
-    return rc || memcmp(digest, sha256, 32);
+    return !ok || rc || memcmp(digest, sha256, 32);
 }
 
 void upload_verify_step(void)
@@ -622,11 +620,11 @@ void upload_verify_step(void)
         upload_fail(-316);
         return;
     }
+    /* The volume stays mounted for the next file; the host's final request closes it. */
+    writes_enabled = false;
     if (readback(UPLOAD_RESULT->path, current.size, UPLOAD_RESULT->source_sha256)) {
         upload_fail(-317);
         return;
     }
-    /* The volume stays mounted for the next file; the host's final request closes it. */
-    writes_enabled = false;
     UPLOAD_RESULT->state = 4;
 }
