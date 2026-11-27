@@ -71,8 +71,16 @@ RV_MENU_ENTRY(RV_MENU_SETTINGS, RV_SETTINGS_EQ, RV_ROW_SETTING("Crossfeed", KEY_
 | `.host_after` is NULL | after the host list's last row, so a host that gives no row an id still takes guests at the end |
 | `menus` is 0 (`RV_MENUS_ENTRY(0, 0, row, .host = ..., ...)`) | nowhere without the host |
 
-The screen must be one of the host's main module. In both places the row behaves as a menu row: `.caption_setting` and `.shown_by` apply, and `RV_ROW_SETTING` shows its value inline. A host list declared with `RV_SCREEN_LIST_PANES` shows the guest's `.pane` caption and icon beside it like its own rows'; a list with one pane of its own keeps that. On a list with guests `ctx->row` is the highlighted position, which counts the guests before it, in the host's context menu rows and in `api->ui_select`'s row.
+The screen must be one of the host's main module. In both places the row behaves as a menu row: `.caption_setting` and `.shown_by` apply, and `RV_ROW_SETTING` shows its value inline. A host list declared with `RV_SCREEN_LIST_PANES` shows the guest's `.pane` caption and icon beside it like its own rows' (without the box for a guest with `.plain_icon` or no bitmap); a list with one pane of its own keeps that. On a list with guests `ctx->row` is the highlighted position, which counts the guests before it, in the host's context menu rows and in `api->ui_select`'s row.
 
 The place is decided when the extensions start at boot: installing or removing the host takes effect after a restart. A guest with `.shown_by` appears and disappears in an open host list as the setting changes.
 
 A hosted entry costs one row record and, once the host's list has been built, one row copy of 152 bytes; the host pays nothing.
+
+## Moved stock rows
+
+A list screen of the main module can take one of Apple's Settings rows: `RV_ROW_STOCK(RV_SETTINGS_SOUND_CHECK, .id = "sound-check")`. While the extension is installed the row is in that list and hidden in Settings; without the extension, after a restart, the row is back in Settings. Rows anchored on it in Settings keep their place: a hidden row still anchors. The row stays Apple's in both places: its title, its value and what choosing it does (Sound Check flips in place, EQ opens its screen, Volume Limit opens its screen or the EU question, and both return to the list). In a list declared with `RV_SCREEN_LIST_PANES` the row's highlight shows its Settings pane, through a clone of the row's own Settings layout. The `rv_pane` at its index is unused. The list needs an `id`.
+
+One extension at a time may move a row; a second that names the same row fails to load. Apple shows and hides Volume Limit and Radio Regions itself as their state changes; the copy in the list follows.
+
+A moved row costs its 152-byte row copy once the list has been built, the same as a declared row, Apple's bindings for it in the list's events and, once the split layout is built, the clone of its Settings layout.

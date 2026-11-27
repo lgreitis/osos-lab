@@ -10,8 +10,9 @@ An extension declares its UI in the descriptor and the core draws it as stock sc
 | `RV_ROW_ACTION(label, fn)` | calls `fn` |
 | `RV_ROW_SETTING(label, key)` | shows a setting's value; flips a bool, steps a labelled int to its next label or opens the setting's screen |
 | `RV_ROW_INFO(label, text)` | shows `text` (or `label`); does nothing when chosen |
+| `RV_ROW_STOCK(stock)` | moves one of Apple's Settings rows (an `RV_SETTINGS_*`) into the list; see [Moved stock rows](menus.md#moved-stock-rows) |
 
-`RV_ROW_PUSH`, `RV_ROW_ACTION` and `RV_ROW_SETTING` take `.id = "name"` after their arguments, the name other extensions anchor [hosted entries](menus.md#hosted-entries) on.
+Every row macro takes `.id = "name"` after its arguments, the name other extensions anchor [hosted entries](menus.md#hosted-entries) on.
 
 ## Settings
 
@@ -22,7 +23,7 @@ An extension declares its UI in the descriptor and the core draws it as stock sc
 | Screen | What the user sees |
 |---|---|
 | `RV_SCREEN_LIST(id, title, rows)` | a menu, full width or beside the Settings preview pane as the screen it opens from decides; `.layout` overrides |
-| `RV_SCREEN_LIST_PANES(id, title, rows, panes)` | the same with an `rv_pane` per row: the caption and icon shown while the row is highlighted, static or from `.caption_text` and `.bitmap_for` |
+| `RV_SCREEN_LIST_PANES(id, title, rows, panes)` | the same with an `rv_pane` per row: the caption and icon shown while the row is highlighted, static or from `.caption_text` and `.bitmap_for`; the icon stands on the system's box, which a row without a bitmap, or with `.plain_icon`, leaves out |
 | `RV_SCREEN_CHOICE`, `RV_SCREEN_MULTI_CHOICE`, `RV_SCREEN_SLIDER` | a screen over a setting, with its own title; beside Settings a choice screen's pane names the highlighted choice under its `.bitmap`, like Settings > EQ |
 | `RV_SCREEN_TEXT(id, title, paragraphs)` | a text page of up to 12 paragraphs |
 | `RV_SCREEN_DYNAMIC_LIST(id, title, count, row)` | rows from callbacks, with an inline or stacked detail; `.dynamic.select` when choosing a row does something |
