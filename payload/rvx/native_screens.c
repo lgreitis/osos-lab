@@ -77,6 +77,7 @@ int rvx_prepare_native(struct frame *f, u32 *screen_id, u32 *layout_id)
         int ok = list                               ? core_clone_list(s, split)
                  : d->kind == RV_SCREEN_KIND_TEXT   ? core_clone_text(s)
                  : d->kind == RV_SCREEN_KIND_DIALOG ? core_clone_dialog(s)
+                 : d->kind == RV_SCREEN_KIND_STOCK  ? core_clone_stock(s)
                                                     : core_clone_slider(s);
         s->declaration = NULL;
         if (!ok)
@@ -292,7 +293,7 @@ static void refresh_pane(struct frame *f)
 
 void rvx_native_refresh(struct frame *f)
 {
-    if (!f || !f->native)
+    if (!f || !f->native || f->screen->kind == RV_SCREEN_KIND_STOCK)
         return;
     u32 first = CORE_SCREEN_ROWS(f->native);
     if (f->screen->kind == RV_SCREEN_KIND_LIST)

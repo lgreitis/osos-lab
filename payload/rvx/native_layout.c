@@ -528,3 +528,49 @@ int core_clone_dialog(struct core_screen *s)
     osos_import_free(scratch);
     return built;
 }
+
+/* Ids of a stock screen: id screen, +1 layout, +2 title, +3.. layout clones. The
+ * stock screen's controller class, list binding and events over a layout clone
+ * whose title is the extension's; the stock layout's events are stored under the
+ * clone, as the controller's handlers are bound by layout id. */
+int core_clone_stock(struct core_screen *s)
+{
+    static const struct {
+        uint32_t screen, layout, title_view;
+    } stocks[] = {
+        [RV_STOCK_SCREEN_GAMES] = {RES_Games_Menu_Screen, RES_Games_Menu_Layout,
+                                   RES_StatusBarWhite_Text},
+    };
+
+    uint32_t which = s->declaration->stock.screen, next = s->id + 3, event_bytes,
+             cevt_bytes;
+    if (which >= sizeof stocks / sizeof stocks[0] || !stocks[which].screen)
+        return 0;
+    const void *events = stock(Resource_SEVT, stocks[which].layout, &event_bytes);
+    const void *cevt = stock(Resource_CEVT, stocks[which].screen, &cevt_bytes);
+    if (!events || !cevt)
+        return 0;
+    uint8_t *scratch = osos_import_alloc(CORE_CLONE_SCRATCH_BYTES);
+    if (!scratch)
+        return 0;
+    core_set_source(s->id + 2, s->id + 2, 1);
+    struct layout_clone c = {stocks[which].layout,
+                             s->id + 1,
+                             stocks[which].title_view,
+                             s->id + 2,
+                             0,
+                             0,
+                             0,
+                             NULL,
+                             0};
+    int built = core_clone_layout(&c, &next, scratch, CORE_CLONE_SCRATCH_BYTES) &&
+                next <= CORE_SCREEN_ROWS(s);
+    if (built) {
+        set(Resource_SEVT, s->id + 1, events, event_bytes);
+        built = core_clone_screen(s->id, s->id + 1, stocks[which].screen,
+                                  stocks[which].screen, 0, NULL, 0, cevt, cevt_bytes,
+                                  scratch, CORE_CLONE_SCRATCH_BYTES);
+    }
+    osos_import_free(scratch);
+    return built;
+}
