@@ -572,6 +572,16 @@ unsigned hfs_upload_staged(void)
     return staged_count;
 }
 
+/* Free space a batch needs besides its files: the catalog and bitmap copies,
+ * sized for 8 new entries. */
+uint64_t hfs_upload_overhead(void)
+{
+    uint64_t bytes, round = vol.block_size - 1;
+    if (catalog_bytes(true, COPY_EXTRA(8), &bytes))
+        return UINT64_MAX;
+    return bytes + ((u64(header + BITMAP) + round) & ~round);
+}
+
 int hfs_upload_data(uint32_t pos, void *data, unsigned len, bool write)
 {
     return staged_count && fork_io(staged[staged_count - 1].data, pos, data, len, write)

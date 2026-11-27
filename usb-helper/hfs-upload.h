@@ -18,6 +18,8 @@ int hfs_upload_data(uint32_t pos, void *data, unsigned len, bool write);
 int hfs_upload_commit(void);
 /* Files staged and not yet published. */
 unsigned hfs_upload_staged(void);
+/* Free space a batch needs besides its files, sized for 8 new entries. */
+uint64_t hfs_upload_overhead(void);
 /* Roots one removal takes. */
 #define HFS_REMOVE_ROOTS 16
 

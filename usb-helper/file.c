@@ -338,8 +338,12 @@ bool upload_prepare_hfs(uint64_t sectors)
     if (current.overwrite == 2) {
         int companion = hfs_upload_exists("/Reprise/Firmware/loader.bin");
         int osos = hfs_upload_exists("/Reprise/Firmware/reprise.bin");
-        if (companion < 0 || osos < 0 || free_bytes < current.size) {
-            upload_fail(companion < 0 ? companion : osos < 0 ? osos : -322);
+        rc = companion < 0 ? companion : osos < 0 ? osos : 0;
+        uint64_t overhead = hfs_upload_overhead();
+        if (!rc && (overhead > free_bytes || free_bytes - overhead < current.size))
+            rc = -322;
+        if (rc) {
+            upload_fail(rc);
             return true;
         }
         STORAGE_RESULT->existing_files = companion | (osos << 1);
