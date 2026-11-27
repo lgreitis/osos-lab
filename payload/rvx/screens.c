@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "native_ui.h"
-#include "screen_ui.h"
 #include "cfw.h"
 #include "osos.h"
 #include "patch.h"
@@ -13,8 +12,9 @@ static int wheel_ready;
 static void refresh_title(void)
 {
     void *model = ((void *(*)(void))0x081e0ff4)();
-    if (model)
-        osos_model_notify(model, OSOS_NOTIFY_ALL, RVX_Title);
+    u32 title = rvx_canvas_title();
+    if (model && title)
+        osos_model_notify(model, OSOS_NOTIFY_ALL, title);
 }
 
 static PATCH_ARM u32 destroy(void *controller, u32 mode);
@@ -107,9 +107,11 @@ static int present(struct frame *f, void *parent)
             }
         }
     } else {
+        u32 screen, layout;
         rvx_top = f;
-        c = osos_create_screen_controller(osos_controller_registry(), RVX_Screen,
-                                          RVX_Layout, f->screen->transition ? 2 : 3);
+        if (rvx_prepare_canvas(&screen, &layout))
+            c = osos_create_screen_controller(osos_controller_registry(), screen,
+                                              layout, f->screen->transition ? 2 : 3);
     }
     if (!c) {
         rvx_top = f->parent;
@@ -507,8 +509,8 @@ void rvx_register_controller(void)
     view_table[3 + 0x74 / 4] = (uintptr_t)draw;
     controller_table[3 + ScreenController_event_method / 4] = (uintptr_t)event;
     controller_table[4] = (uintptr_t)destroy;
-    osos_register_view_factory(0x72767863, create_view);
-    osos_ui_register_controllers(osos_controller_registry(), "RVXScreen", NULL,
+    osos_register_view_factory(CORE_VIEW_CANVAS, create_view);
+    osos_ui_register_controllers(osos_controller_registry(), CORE_CANVAS_FACTORY, NULL,
                                  create_controller);
     rvx_bind_core(&hold_hook);
 }

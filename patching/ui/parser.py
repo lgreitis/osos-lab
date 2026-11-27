@@ -41,7 +41,6 @@ class Parser:
             tree,
             children=(
                 "text",
-                "canvas",
                 "list",
                 "toggle",
                 "settings-entry",
@@ -71,33 +70,18 @@ class Parser:
 
     def parse_declaration(self, node):
         document = self.document
-        if node.tag in ("text", "toggle", "canvas", "list"):
+        if node.tag in ("text", "toggle", "list"):
             if document.root is not None:
                 raise ValueError("Expected one root page per UI declaration")
-            if node.tag in ("toggle", "canvas", "list"):
-                if node.tag == "canvas" and not {"factory", "view-type"} <= set(
-                    node.attrib
-                ):
-                    raise ValueError("A canvas needs factory and view-type")
+            if node.tag in ("toggle", "list"):
                 attributes(
                     node,
-                    "id title factory view-type"
-                    if node.tag == "canvas"
-                    else "id title",
+                    "id title",
                     "select layout" if node.tag == "list" else "",
                 )
                 document.root = Item(
                     node.tag, self.identifier(node), node.attrib["title"]
                 )
-                if node.tag == "canvas":
-                    document.root.factory = node.attrib["factory"]
-                    document.root.view_type = node.attrib["view-type"]
-                    if not document.root.factory:
-                        raise ValueError("A canvas needs a factory name")
-                    if len(document.root.view_type.encode("ascii")) != 4:
-                        raise ValueError(
-                            "A canvas view type needs four ASCII characters"
-                        )
                 if node.tag == "list":
                     document.root.select = node.get("select", "return")
                     document.root.layout = node.get("layout", "inline")

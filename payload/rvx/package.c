@@ -504,7 +504,6 @@ void cfw_rvx_boot(void)
             osos_import_free(p);
         }
     }
-    cfw_rvx_has_canvas = rvx_packages != NULL;
     for (Pkg *p = rvx_packages; p; p = p->next)
         start(p);
     rvx_install_menus();

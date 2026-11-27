@@ -29,5 +29,4 @@ extern const uint32_t cfw_resource_name_count;
 
 void cfw_install_resources(void *bank);
 const void *cfw_resource_bitmap(uint32_t id);
-const void *cfw_next_template(void *bank, uint32_t *id, uint32_t *size);
 #endif

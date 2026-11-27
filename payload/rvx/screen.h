@@ -172,6 +172,10 @@ extern const struct graphics rvx_graphics;
 void rvx_register_controller(void);
 void rvx_begin_draw(void *context, const int32_t *bounds, const struct rect *dirty);
 int rvx_prepare_native(struct frame *, u32 *screen, u32 *layout);
+/* The shared canvas screen and its layout; 0 when it cannot be built. */
+int rvx_prepare_canvas(u32 *screen, u32 *layout);
+/* The property the canvas screen's title is bound to, 0 until it is built. */
+u32 rvx_canvas_title(void);
 int rvx_native_property(u32, u32, uintptr_t *);
 int rvx_dialog_valid(const struct screen *);
 void rvx_dialog_attach(struct frame *);

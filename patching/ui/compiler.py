@@ -58,62 +58,6 @@ class DocumentCompiler:
         put(layouts[0][1], 0, layout_id)
         resources.add("SLst", screen_id, pack_blocks(layouts))
 
-    def canvas_page(self, root):
-        resources = self.resources
-        screen = resources.allocate(root.name + "_Screen")
-        layout = resources.allocate(root.name + "_Layout")
-        template = resources.allocate()
-        self.string_ids[root.name + "_CanvasTemplate"] = template
-        prototype = blocks(resources.stock("View", "Settings_Legal_Template"))[0][1]
-        view = Resource(prototype[:0x5C])
-        # Cover the status bar's final divider row. Bottom/right are independent extents.
-        view[:0x30] = struct.pack("<12i", 0, 0, 0, 23, 0, 0, 217, 0, 6, 320, 0, 5)
-        put(view, 0x30, resources.allocate())
-        view_type = int.from_bytes(root.view_type.encode("ascii"), "big")
-        put(view, 0x4C, view_type)
-        resources.add("View", template, pack_blocks([(view_type, view)]))
-        resources.add(
-            "TMLT", template, resources.stock("TMLT", "Settings_Brightness_Template")
-        )
-        title = resources.allocate()
-        self.string_ids.update(
-            {
-                root.name + "_Screen": screen,
-                root.name + "_Layout": layout,
-                root.name + "_Title": title,
-            }
-        )
-        resources.clone_layout(
-            resources.native("Settings_Brightness_Screen_Default"),
-            layout,
-            resources.source(root.title, title)
-            if root.title
-            else resources.property_source(0x8900, title),
-            {resources.native("Settings_Brightness_Template"): template},
-            view_bindings={
-                resources.native("Settings_Brightness_Template"): pack_blocks([])
-            },
-        )
-        for _, group in blocks(resources.added["SLyt", layout]):
-            instances_id = word(group, 0)
-            instances = blocks(resources.added["SSin", instances_id])
-            for _, instance in instances:
-                if word(instance, 4) == template:
-                    put(instance, 0x10, word(instance, 0x10) & ~0x00FF0000)
-            resources.replace("SSin", instances_id, pack_blocks(instances))
-        resources.add("SCST", screen, root.factory.encode("ascii"))
-        resources.set_events("CEVT", screen, struct.pack("<I", 0))
-        layouts = blocks(resources.stock("SLst", "Settings_Brightness_Screen"))
-        put(layouts[0][1], 0, layout)
-        resources.add("SLst", screen, pack_blocks(layouts))
-        resources.set_events(
-            "SEVT",
-            layout,
-            struct.pack("<I", 2)
-            + event("button.menu.up", "navigator.PopTopScreen")
-            + event("button.menu.pressandhold", "navigator.PopToMainScreen"),
-        )
-
     def paragraph_views(self, text):
         resources = self.resources
         # Each Legal paragraph sizes itself to its text and anchors below its predecessor.
@@ -370,8 +314,6 @@ def compile_document(resources, document, text=""):
             builder.text_page(text)
         if document.root.kind == "list":
             builder.list_page(document.root)
-        if document.root.kind == "canvas":
-            builder.canvas_page(document.root)
 
     for name, text in document.strings.items():
         compiled.string_ids[name] = resource_id = resources.allocate()

@@ -70,14 +70,6 @@ void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *dat
 
 static void osos_resource_set(void *, uint32_t, uint32_t, const void *, uint32_t);
 
-static const void *osos_resource_next(void *bank, uint32_t *id, uint32_t *size)
-{
-    (void)bank;
-    (void)id;
-    (void)size;
-    return NULL;
-}
-
 static void osos_string_init(struct osos_string *s, const char *text)
 {
     s->data = text;
@@ -119,7 +111,6 @@ static const unsigned char label[] = "Albums";
 const struct cfw_resource cfw_resources[] = {
     {0x53747220, 99, sizeof(label), label},
     {OSOS_RESOURCE_BMAP, 26, sizeof(icon), icon},
-    {0x56696577, RVX_CanvasTemplate, sizeof(icon), icon},
     {0x56696577, 28, sizeof(icon), icon},
 };
 const uint32_t cfw_resource_count = sizeof cfw_resources / sizeof *cfw_resources;
@@ -161,13 +152,6 @@ int main(void)
     }
     destroy(&registration);
     assert(!allocations);
-    uint32_t id = 0, bytes = 0;
-    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == 28);
-    assert(!cfw_next_template(&bank, &id, &bytes));
-    cfw_rvx_has_canvas = 1;
-    id = 0;
-    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_CanvasTemplate);
-    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == 28);
     cfw_install_resources(&bank);
     assert(installed == 1 && name_id == EXAMPLE);
     assert(cfw_resource_bitmap(26) == icon && !cfw_resource_bitmap(99));

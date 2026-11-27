@@ -187,63 +187,6 @@ class UiTests(unittest.TestCase):
         self.assertIn(b"TEST_Screen", events)
         self.assertIn("TEST_Rows", compiled.string_ids)
 
-    def test_canvas_has_fixed_extents_without_scroll_or_brightness_bindings(self):
-        root = Path(__file__).resolve().parents[2]
-        metadata = json.loads((root / "firmware/ui.json").read_text())
-        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
-        resources = Resources(metadata["resources"], bindings)
-        compile_document(
-            resources,
-            parser.parse(
-                '<ui><canvas id="TEST" title="Test" factory="TestCanvas" '
-                'view-type="tstc"/></ui>'
-            ),
-        )
-        screen = resources.names["TEST_Screen"]
-        self.assertEqual(resources.added["SCST", screen].data, b"TestCanvas")
-        [(template, views)] = [
-            (resource_id, data)
-            for (kind, resource_id), data in resources.added.items()
-            if kind == "View"
-        ]
-        [(kind, view)] = blocks(views)
-        self.assertEqual((kind, word(view, 0x4C)), (0x74737463, 0x74737463))
-        # Overlap the header divider; extents remain independent of parent content.
-        self.assertEqual(
-            struct.unpack("<12i", view[:0x30].data),
-            (0, 0, 0, 23, 0, 0, 217, 0, 6, 320, 0, 5),
-        )
-        layout = resources.names["TEST_Layout"]
-        instances = [
-            instance
-            for _, group in blocks(resources.added["SLyt", layout])
-            for _, instance in blocks(resources.current("SSin", word(group, 0)))
-        ]
-        canvas = next(
-            instance for instance in instances if word(instance, 4) == template
-        )
-        self.assertEqual(word(canvas, 0x10) >> 16 & 0xFF, 0)
-        self.assertEqual(blocks(resources.current("VCvs", word(canvas, 0))), [])
-        events = event_resource(resources, "SEVT", layout)
-        self.assertEqual(
-            events.data,
-            struct.pack("<I", 2)
-            + event("button.menu.up", "navigator.PopTopScreen")
-            + event("button.menu.pressandhold", "navigator.PopToMainScreen"),
-        )
-
-    def test_canvas_requires_a_factory_and_a_four_character_view_type(self):
-        for data in (
-            '<ui><canvas id="TEST" title="Test"/></ui>',
-            '<ui><canvas id="TEST" title="Test" factory="TestCanvas"/></ui>',
-            '<ui><canvas id="TEST" title="Test" view-type="tstc"/></ui>',
-            '<ui><canvas id="TEST" title="Test" factory="" view-type="tstc"/></ui>',
-            '<ui><canvas id="TEST" title="Test" factory="TestCanvas" '
-            'view-type="test5"/></ui>',
-        ):
-            with self.subTest(data=data), self.assertRaises(ValueError):
-                parser.parse(data)
-
     def test_layout_reuses_unchanged_instance_resources(self):
         resources = Resources(
             [], {"StatusBarWhite_Template": 100, "StatusBarWhite_Text": 101}

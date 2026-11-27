@@ -90,6 +90,28 @@ int rvx_prepare_native(struct frame *f, u32 *screen_id, u32 *layout_id)
     return 1;
 }
 
+/* The canvas screen every canvas opens on, built on the first push. */
+static struct core_screen canvas = {.kind = RV_SCREEN_KIND_CANVAS, .ids = 8};
+
+int rvx_prepare_canvas(u32 *screen_id, u32 *layout_id)
+{
+    if (!canvas.id && !(canvas.id = core_resource_take(canvas.ids)))
+        return 0;
+    if (!canvas.built) {
+        if (!core_clone_canvas(&canvas))
+            return 0;
+        canvas.built = 1;
+    }
+    *screen_id = canvas.id;
+    *layout_id = canvas.id + 1;
+    return 1;
+}
+
+u32 rvx_canvas_title(void)
+{
+    return canvas.built ? canvas.id + 2 : 0;
+}
+
 static struct frame *owner_of(u32 id)
 {
     if ((id >> 24) != 0x71)

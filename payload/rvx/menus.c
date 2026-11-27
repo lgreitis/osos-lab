@@ -3,7 +3,6 @@
 #include "runtime.h"
 #include "osos.h"
 #include "cfw.h"
-#include "screen_ui.h"
 
 void *rvx_bank;
 
@@ -328,7 +327,8 @@ void rvx_theme_changed(void)
 
 int cfw_rvx_property(u32 type, u32 property, uintptr_t *out)
 {
-    if (type == OSOS_PROPERTY_STRING && property == RVX_Title && rvx_top) {
+    u32 title = rvx_canvas_title();
+    if (type == OSOS_PROPERTY_STRING && title && property == title && rvx_top) {
         *out = (uintptr_t)(rvx_top->screen->title ? rvx_top->screen->title : "");
         return 1;
     }

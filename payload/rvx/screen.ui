@@ -1,4 +1,0 @@
-<!-- SPDX-License-Identifier: GPL-3.0-only -->
-<ui>
-  <canvas id="RVX" title="" factory="RVXScreen" view-type="rvxc"/>
-</ui>
