@@ -43,6 +43,11 @@ static unsigned out_count, out_end, height;
 static uint8_t catalog_batch[256 * 1024];
 static unsigned batch_bytes;
 static uint32_t batch_start;
+/* The index record of each node written, from node 1 up to index_nodes, so
+ * the index levels need not read back the nodes below them. */
+static uint8_t index_records[1024 * 1024];
+static unsigned index_bytes, index_cursor;
+static uint32_t index_nodes;
 
 static unsigned u16(const uint8_t *p)
 {
@@ -466,15 +471,20 @@ static void start_allocation(void)
     attr_free_count = 0;
 }
 
-/* Bytes of a catalog copy holding growth times the used nodes plus extra. */
-static int catalog_bytes(unsigned growth, unsigned extra, uint64_t *bytes)
+/* Bytes of a catalog copy holding the used nodes plus extra and, with spare,
+ * room for later native insertions: an eighth of the used nodes, at most one
+ * clump, the step macOS grows the catalog by. */
+static int catalog_bytes(bool spare, uint32_t extra, uint64_t *bytes)
 {
     if (!catalog_node(header + CATALOG, 0, child))
         return BAD_IO;
     uint32_t free_nodes = u32(child + 40);
     if (free_nodes >= original_nodes)
         return UNSUPPORTED;
-    uint64_t nodes = (uint64_t)(original_nodes - free_nodes) * growth + extra;
+    uint32_t used = original_nodes - free_nodes;
+    uint64_t nodes = (uint64_t)used + extra;
+    if (spare)
+        nodes += MIN(used / 8, u32(header + CATALOG + 8) / node_size);
     if (nodes > UINT32_MAX || nodes * node_size > vol.bytes)
         return NO_SPACE;
     *bytes = (nodes * node_size + vol.block_size - 1) & ~((uint64_t)vol.block_size - 1);
@@ -483,10 +493,10 @@ static int catalog_bytes(unsigned growth, unsigned extra, uint64_t *bytes)
 
 /* Allocate the catalog copy, the attributes file when asked, and the bitmap,
  * in that order, from blocks the current bitmap marks free. */
-static int prepare_copies(unsigned growth, unsigned extra, bool attributes)
+static int prepare_copies(bool spare, uint32_t extra, bool attributes)
 {
     uint64_t cat_bytes;
-    int rc = catalog_bytes(growth, extra, &cat_bytes);
+    int rc = catalog_bytes(spare, extra, &cat_bytes);
     if (!rc)
         rc = alloc_fork(fresh_cat, cat_bytes);
     if (!rc)
@@ -504,9 +514,8 @@ static int prepare_copies(unsigned growth, unsigned extra, bool attributes)
     return rc;
 }
 
-/* A dense new catalog normally uses fewer nodes. The copy reserves growth room
- * for the new records, upper levels, and a subsequent native insertion. */
-#define COPY_GROWTH 2
+/* A dense new catalog normally uses fewer nodes. An upload's copy reserves
+ * room for the new records and upper levels besides the spare nodes. */
 #define COPY_EXTRA(created) (4 * (created) + 16)
 
 /* Stage a file: plan its path and allocate its data fork, keeping room for
@@ -552,7 +561,7 @@ int hfs_upload_plan(const char *path, uint32_t size, bool overwrite)
      * before the file is sent rather than at the publish. */
     uint32_t used = used_blocks, cursor = alloc_cursor;
     if (!rc)
-        rc = prepare_copies(COPY_GROWTH, COPY_EXTRA(created_count), false);
+        rc = prepare_copies(true, COPY_EXTRA(created_count), false);
     used_blocks = used;
     alloc_cursor = cursor;
     return rc;
@@ -585,6 +594,14 @@ static bool flush_node(bool last)
     w32(out_node + 4, out_id == first_at_level ? 0 : out_id - 1);
     w16(out_node + 10, out_count);
     w16(out_node + node_size - 2 * (out_count + 1), out_end);
+    unsigned key = 2 + u16(out_node + 14);
+    if (index_nodes == out_id - 1 && key <= 518 &&
+        key + 4 <= sizeof(index_records) - index_bytes) {
+        memcpy(index_records + index_bytes, out_node + 14, key);
+        w32(index_records + index_bytes + key, out_id);
+        index_bytes += key + 4;
+        index_nodes = out_id;
+    }
     if (!batch_bytes)
         batch_start = out_id;
     memcpy(catalog_batch + batch_bytes, out_node, node_size);
@@ -802,7 +819,7 @@ static int finish_catalog(void);
 static void start_tree(void)
 {
     leaf_records = 0;
-    batch_bytes = 0;
+    batch_bytes = index_bytes = index_cursor = index_nodes = 0;
     out_id = first_at_level = height = 1;
     init_node(height);
 }
@@ -849,13 +866,20 @@ static int finish_catalog(void)
         first_at_level = ++out_id;
         init_node(++height);
         for (uint32_t id = first; id <= last; ++id) {
-            if (!catalog_node(tree_fresh, id, child))
-                return BAD_IO;
-            unsigned n = 2 + u16(child + 14);
+            uint8_t *rec = index_records + index_cursor;
+            if (id > index_nodes) {
+                if (!catalog_node(tree_fresh, id, child))
+                    return BAD_IO;
+                rec = child + 14;
+            }
+            unsigned n = 2 + u16(rec);
             if (n > 518 || n + 4 > node_size - 14)
                 return UNSUPPORTED;
-            w32(child + 14 + n, id);
-            if (!append_record(child + 14, n + 4))
+            if (id > index_nodes)
+                w32(rec + n, id);
+            else
+                index_cursor += n + 4;
+            if (!append_record(rec, n + 4))
                 return BAD_IO;
         }
         if (!flush_node(true))
@@ -908,7 +932,7 @@ static int publish(int32_t files, int32_t folders);
 
 int hfs_upload_commit(void)
 {
-    int rc = prepare_copies(COPY_GROWTH, COPY_EXTRA(created_count), false);
+    int rc = prepare_copies(true, COPY_EXTRA(created_count), false);
     if (!rc)
         rc = build_catalog();
     if (rc)
@@ -1257,7 +1281,7 @@ int hfs_upload_remove(struct hfs_removal *set, unsigned count)
     if (attributes && !inline_fork(header + ATTRIBUTES))
         return UNSUPPORTED;
     start_allocation();
-    rc = prepare_copies(1, 16, attributes);
+    rc = prepare_copies(false, 16, attributes);
     if (rc)
         return rc;
 
