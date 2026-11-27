@@ -119,10 +119,10 @@ void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row
         host->row(list, table, item, row, bytes, metadata);
 }
 
-void cfw_rvx_menu_events(void *map, uint32_t screen)
+void cfw_rvx_menu_events(void *map, uint32_t screen, uint32_t layout)
 {
     if (host)
-        host->events(map, screen);
+        host->events(map, screen, layout);
 }
 
 unsigned cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,

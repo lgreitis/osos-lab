@@ -54,7 +54,6 @@ class PayloadTests(unittest.TestCase):
             generate(
                 Resources(metadata["resources"], bindings),
                 [
-                    root / "payload/media_menus.ui",
                     root / "payload/cfw_info.ui",
                 ],
                 directory,

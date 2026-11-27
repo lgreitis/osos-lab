@@ -60,13 +60,7 @@ def build_recipe(
     resources = ui.Resources(templates, bindings)
     generated_ui = ui.generate(
         resources,
-        [
-            source / name
-            for name in (
-                "cfw_info.ui",
-                "media_menus.ui",
-            )
-        ],
+        [source / name for name in ("cfw_info.ui",)],
         directory,
         revision,
         version,

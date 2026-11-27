@@ -265,26 +265,6 @@ class UiTests(unittest.TestCase):
         self.assertIn(b"navigator.PushScreen", appended)
         self.assertNotIn(b"ShowSetting_Legal", appended)
 
-    def test_media_menus_bind_select_hold_on_movie_and_tv_lists(self):
-        root = Path(__file__).resolve().parents[2]
-        metadata = json.loads((root / "firmware/ui.json").read_text())
-        bindings = json.loads((root / "payload/native/ui.json").read_text())["bindings"]
-        resources = Resources(metadata["resources"], bindings)
-        document = parser.read(root / "payload/media_menus.ui")
-        compile_document(resources, document)
-        self.assertEqual(
-            [item.screen for item in document.events],
-            ["MediaLists_Movies_Layout", "MediaLists_TVEpisodes_Layout"],
-        )
-        for item_event in document.events:
-            events = b"".join(
-                resources.event_extensions[
-                    item_event.kind, resources.native(item_event.screen)
-                ]
-            )
-            self.assertIn(b"button.select.pressandhold", events)
-            self.assertIn(b"HandleShowContextualMenu", events)
-
     def test_layout_event_extends_the_native_layout_events(self):
         document = parser.parse(
             '<ui><layout-event layout="0x20" event="button.select.pressandhold" '

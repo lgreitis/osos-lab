@@ -819,7 +819,45 @@ static unsigned context_events(const struct installed *i, uint8_t *buffer)
     return w.at;
 }
 
-void cfw_rvx_menu_events(void *map, u32 screen)
+/* Reads an event stream into a layout's event map. */
+static void read_events(void *map, const void *event, unsigned size)
+{
+    struct osos_string bytes;
+    u32 allocator = 0, stream[31];
+    osos_string_init_bytes(&bytes, event, size, &allocator);
+    osos_string_stream_init(stream, &bytes, 0xc);
+    osos_string_destroy(&bytes);
+    osos_ui_event_map_read(stream, map);
+    osos_string_stream_destroy(stream, 2, 0);
+}
+
+/* The media list layouts that bind no long press of Select while the other
+ * layouts of their screens do: movies, TV episodes, video playlist tracks and
+ * the songs of a one-album artist. They get the binding every other media list
+ * has; its handler opens the stock context menu, or for the first two the one
+ * media_menus.c builds from the extensions' rows. */
+static void unbound_long_press(void *map, u32 layout)
+{
+    static const u32 layouts[] = {
+        RES_MediaLists_Movies_WithTime_Layout,
+        RES_MediaLists_TVEpisodes_Plain_Layout,
+        RES_MediaLists_MixedVideoTracks_WithSubInfo_Layout,
+        RES_MediaLists_Songs_WithArtistAndArtwork_Layout,
+    };
+    unsigned i = 0;
+    while (i < sizeof layouts / sizeof layouts[0] && layouts[i] != layout)
+        i++;
+    if (i == sizeof layouts / sizeof layouts[0])
+        return;
+    uint8_t event[128]; /* 67 bytes: a count, the name, '1', the handler, no action */
+    struct core_writer w = {event, 0};
+    core_write_word(&w, 1);
+    core_write_event(&w, "button.select.pressandhold", "HandleShowContextualMenu", NULL,
+                     NULL, 0);
+    read_events(map, event, w.at);
+}
+
+void cfw_rvx_menu_events(void *map, u32 screen, u32 layout)
 {
     static const u32 screens[] = {0x0dad076e, 0x0dad07c8, 0x0dad01cc, 0x0dad0c6a,
                                   0x0dad0816};
@@ -844,6 +882,7 @@ void cfw_rvx_menu_events(void *map, u32 screen)
     };
 
     unsigned slot = 0, found = 0;
+    unbound_long_press(map, layout);
     while (slot < 5 && screens[slot] != screen)
         slot++;
     if (slot < 5)
@@ -862,17 +901,11 @@ void cfw_rvx_menu_events(void *map, u32 screen)
     for (struct installed *i = installed; i; i = i->next) {
         if (host ? !guest_of(i, host) : !(i->entry->menus & (1u << slot)))
             continue;
-        struct osos_string bytes;
-        u32 allocator = 0, stream[31];
         uint8_t event[256];
         unsigned size = host       ? host_events(i, host, screen, split, event)
                         : slot < 5 ? menu_events(i, slot, event)
                                    : context_events(i, event);
-        osos_string_init_bytes(&bytes, event, size, &allocator);
-        osos_string_stream_init(stream, &bytes, 0xc);
-        osos_string_destroy(&bytes);
-        osos_ui_event_map_read(stream, map);
-        osos_string_stream_destroy(stream, 2, 0);
+        read_events(map, event, size);
     }
 }
 
