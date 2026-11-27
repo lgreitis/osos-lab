@@ -86,7 +86,7 @@ uint8_t test_buffer[65536] __attribute__((aligned(32)));
 struct upload_result test_result;
 struct storage_result test_storage;
 static int fault, mounts, sleeps, opens;
-static bool corrupt;
+static bool corrupt, renamed;
 void filesystem_init(void) {}
 int disk_mount_all(void) { mounts++; return fault==11 ? 0 : 1; }
 int disk_unmount_all(void) { return fault==6 ? 0 : 1; }
@@ -102,15 +102,17 @@ int hfs_upload_exists(const char *p) {(void)p;abort();}
 int hfs_upload_plan(const char *p, uint32_t s, bool o) {(void)p;(void)s;(void)o;abort();}
 int hfs_upload_data(uint32_t o, void *p, unsigned n, bool w) {(void)o;(void)p;(void)n;(void)w;abort();}
 int hfs_upload_commit(void) {abort();}
+int hfs_upload_open(const char *p, uint32_t *s) {(void)p;(void)s;abort();}
+int hfs_upload_read(uint32_t o, void *p, unsigned n) {(void)o;(void)p;(void)n;abort();}
 bool file_exists(const char *p) {return access(p+1,F_OK)==0;}
 bool dir_exists(const char *p) {struct stat s; return !stat(p+1,&s) && S_ISDIR(s.st_mode);}
 int test_mkdir(const char *p) {assert(upload_write_allowed(394224,1));return mkdir(p+1,0700);}
 int test_open(const char *p,int flags,...) {opens++; return open(p+1,flags,0600);}
 int test_close(int fd) {int r=close(fd);return fault==5 ? -1 : r;}
-ssize_t test_read(int fd,void *p,size_t n) {ssize_t r=read(fd,p,n);if(fault==1 && !corrupt && r>0){((uint8_t*)p)[0]^=1;corrupt=true;}return r;}
+ssize_t test_read(int fd,void *p,size_t n) {if(fault==20&&renamed)return -1;ssize_t r=read(fd,p,n);if(fault==1 && !corrupt && r>0){((uint8_t*)p)[0]^=1;corrupt=true;}return r;}
 ssize_t test_write(int fd,const void *p,size_t n) {assert(upload_write_allowed(394224,1));if(fault==2)return -1;return write(fd,p,n);}
 int test_fsync(int fd) {if(fault==3)return -1;return fsync(fd);}
-int test_rename(const char *a,const char *b) {assert(upload_write_allowed(394224,1));if(fault==4)return -1;return rename(a+1,b+1);}
+int test_rename(const char *a,const char *b) {assert(upload_write_allowed(394224,1));if(fault==4)return -1;renamed=true;return rename(a+1,b+1);}
 int test_remove(const char *p) {assert(upload_write_allowed(394224,1));if(fault==17&&strstr(p,"state.bin"))return -1;return unlink(p+1);}
 int test_rmdir(const char *p) {assert(upload_write_allowed(394224,1));return rmdir(p+1);}
 DIR *test_opendir(const char *p) {return opendir(p[1] ? p+1 : ".");}
@@ -249,6 +251,7 @@ int main(int argc,char **argv)
         close(f);
         return 0;
     }
+    if(fault==20){assert(test_result.rc==-317);assert(present("os.bin"));close_repeatedly();return 0;}
     close_repeatedly();
     assert(test_result.state==4);
     if(fault){assert(test_result.rc);if(exists)original();return 0;}
@@ -437,6 +440,9 @@ extern struct storage_result test_storage;
         for fault in [14, 15]:
             with self.subTest(fault=fault):
                 self.run_file(65537, True, False, fault, second="/b.bin")
+
+    def test_destination_that_does_not_read_back_fails(self):
+        self.run_file(70000, 1, False, 20)
 
     def test_failures_preserve_existing_file(self):
         for fault in range(1, 9):

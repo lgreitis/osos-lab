@@ -782,3 +782,22 @@ int hfs_upload_commit(void)
         return BAD_IO;
     return 0;
 }
+
+static uint8_t readback_fork[80];
+
+int hfs_upload_open(const char *path, uint32_t *size)
+{
+    const uint8_t *v;
+    if (walk_path(path, false, false, &v) != 1)
+        return BAD_IO;
+    memcpy(readback_fork, v + 88, 80);
+    if (u32(readback_fork))
+        return BAD_IO;
+    *size = u32(readback_fork + 4);
+    return 0;
+}
+
+int hfs_upload_read(uint32_t pos, void *data, unsigned len)
+{
+    return fork_io(readback_fork, pos, data, len, false) ? 0 : BAD_IO;
+}

@@ -474,6 +474,38 @@ static int create_parents(const char *path)
     return 0;
 }
 
+/* Read a file under its final name, the one the bootloader opens, and hash it
+   again. Its data was verified before the rename or the HFS+ publish, so a
+   mismatch here is a directory or allocation fault of the path. */
+static int readback(const char *path, uint32_t expected, const uint8_t *sha256)
+{
+    uint32_t size;
+    if (hfs ? hfs_upload_open(path, &size) != 0 : (fd = open(path, O_RDONLY)) < 0)
+        return -1;
+    if (!hfs)
+        size = filesize(fd);
+    if (size != expected)
+        return -1;
+    struct sha256 again;
+    sha256_init(&again);
+    for (unsigned pos = 0; pos < size;) {
+        unsigned count = MIN(size - pos, UPLOAD_CHUNK);
+        if (hfs ? hfs_upload_read(pos, UPLOAD_DATA, count) != 0
+                : read(fd, UPLOAD_DATA, count) != (ssize_t)count)
+            return -1;
+        sha256_update(&again, UPLOAD_DATA, count);
+        pos += count;
+    }
+    uint8_t digest[32];
+    sha256_final(&again, digest);
+    int rc = 0;
+    if (!hfs) {
+        rc = close(fd);
+        fd = -1;
+    }
+    return rc || memcmp(digest, sha256, 32);
+}
+
 void upload_verify_step(void)
 {
     unsigned left = current.size - UPLOAD_RESULT->verified;
@@ -504,6 +536,9 @@ void upload_verify_step(void)
         writes_enabled = false;
         if (rc)
             upload_fail(rc);
+        else if (readback(UPLOAD_RESULT->path, current.size,
+                          UPLOAD_RESULT->source_sha256))
+            upload_fail(-317);
         else
             UPLOAD_RESULT->state = 4;
         return;
@@ -521,6 +556,10 @@ void upload_verify_step(void)
     writes_enabled = true;
     if (create_parents(UPLOAD_RESULT->path) || rename(temporary, UPLOAD_RESULT->path)) {
         upload_fail(-316);
+        return;
+    }
+    if (readback(UPLOAD_RESULT->path, current.size, UPLOAD_RESULT->source_sha256)) {
+        upload_fail(-317);
         return;
     }
     /* The volume stays mounted for the next file; the host's final request closes it. */

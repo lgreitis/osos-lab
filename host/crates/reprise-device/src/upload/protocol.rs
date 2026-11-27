@@ -182,6 +182,7 @@ pub(super) fn helper_error(rc: i32, errno: u32) -> Error {
         -326 => "The HFS+ volume was not cleanly unmounted. Mount it on the Mac, then eject it before entering DFU",
         -323 => "Mac-formatted disk detected (Apple Partition Map). Use FAT32 with Master Boot Record (MBR); HFS/HFS+ is not supported",
         -316 => "Failed to replace the destination",
+        -317 => "Destination does not read back as uploaded",
         -411 => "USB disconnected during upload",
         -412 => "Incomplete USB transfer",
         -415 => "Upload helper timed out",

@@ -9,4 +9,7 @@ int hfs_upload_exists(const char *path);
 int hfs_upload_plan(const char *path, uint32_t size, bool overwrite);
 int hfs_upload_data(uint32_t pos, void *data, unsigned len, bool write);
 int hfs_upload_commit(void);
+/* Read back a published file through the catalog. */
+int hfs_upload_open(const char *path, uint32_t *size);
+int hfs_upload_read(uint32_t pos, void *data, unsigned len);
 #endif
