@@ -16,7 +16,7 @@ own identity in its companion.
 
 ## RVX extensions
 
-RepriseOS 0.4.0 supports RVX API 1.82. Connect the iPod, let it mount, then choose
+RepriseOS 0.4.0 supports RVX API 1.89. Connect the iPod, let it mount, then choose
 **Manage extensions** in RepriseOS Installer 0.3.0 to install from the
 [extension catalog](https://repriseos.com/extensions/). Choose **Restart iPod** to load your changes.
 
@@ -34,6 +34,8 @@ based on the Revola SDK.
 - `game-sdk/`: deferred, incomplete homebrew runtime for the stock Games loader; it does not support sound.
 - `doom/`: deferred, incomplete Doom port.
 - `nes/`: deferred, incomplete InfoNES port built on the game SDK.
+  These three still package for `iPod_Control/games_RO`, where the firmware checks
+  signatures; a package folder goes under `/Reprise/Games/<id>/` for the Homebrew extension.
 - `patching/`: Python recipe builder, native UI generation, and framework tests.
 - `firmware/`: pinned Apple inputs, hardware eligibility and native UI metadata.
 - `loader/` and `patches/`: Apple companion loader and Rockbox bootloader patches.
@@ -60,8 +62,9 @@ RepriseOS package and builds a companion using that iPod's identity.
 - Dark Mode, with an On/Off toggle in Settings.
 
 Album Artists, File Info, Playback Queue (Play Next, Play Last and Up Next),
-Equalizer (the five-band custom EQ), Clicker Modes, iAP Auth Bypass and
-EU Volume Limit are extensions in the
+Equalizer (the five-band custom EQ), Clicker Modes, iAP Auth Bypass,
+EU Volume Limit and Homebrew (apps and games from `/Reprise/Apps` and
+`/Reprise/Games`) are extensions in the
 [extension catalog](https://repriseos.com/extensions/).
 
 The game SDK and [Doom port](doom/README.md) are unfinished.
