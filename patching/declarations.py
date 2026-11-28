@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Decode build-only C records into firmware writes and array copies."""
+"""Decode build-only C records into firmware writes."""
 
 import struct
 from dataclasses import dataclass
@@ -15,7 +15,6 @@ class Kind(IntEnum):
     POINTER = 2
     CALL = 3
     JUMP = 4
-    COPY = 5
 
 
 @dataclass(frozen=True)
@@ -25,15 +24,6 @@ class Write:
     expected: bytes
     value: int = 0
     symbol: str = ""
-
-
-@dataclass(frozen=True)
-class Copy:
-    symbol: str
-    offset: int
-    array_size: int
-    source: int
-    size: int
 
 
 def parse(data):
@@ -51,13 +41,10 @@ def parse(data):
         symbol = raw.split(b"\0", 1)[0].decode("ascii")
         if kind != Kind.WORD and not symbol:
             raise ValueError("Patch is missing its target symbol")
-        if kind == Kind.COPY:
-            patches.append(Copy(symbol, expected, extra, address, value))
-        else:
-            before = struct.pack("<I", expected)
-            if kind == Kind.JUMP:
-                before += struct.pack("<I", extra)
-            patches.append(Write(kind, address, before, value, symbol))
+        before = struct.pack("<I", expected)
+        if kind == Kind.JUMP:
+            before += struct.pack("<I", extra)
+        patches.append(Write(kind, address, before, value, symbol))
 
     return patches
 

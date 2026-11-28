@@ -3,6 +3,7 @@
 #pragma once
 
 #define RV_SITE_Preferences_LoadFile_call 0x45b7a111
+#define RV_SITE_MenuItem_SetVisible_branch 0x9c27e8b1
 #define RV_SITE_ResourceBlockList_AppendBorrowedBlock_call 0x6a870ad1
 #define RV_SITE_Settings_Property_slot 0x7986a911
 #define RV_SITE_Settings_IndexedProperty_slot 0x34f2f35c
@@ -74,10 +75,26 @@
 #define RV_SITE_ArtworkDatabase_FindByDbid_08046494_call 0x0554342d
 #define RV_SITE_TrackData_ArtworkId_word 0x7d80f227
 #define RV_SITE_ITunesDB_ImportTrackDataset_call 0x76284307
+#define RV_SITE_ITunesDB_DiscardMhod_call 0x77a80033
+#define RV_SITE_ITunesDB_SkipMhod_call 0x8a4916ac
+#define RV_SITE_TrackData_DestroyStorage_call 0xfcacf807
+#define RV_SITE_MediaBrowser_BuildArtists_RefreshCounts_call 0x144a4223
+#define RV_SITE_MediaBrowser_BuildArtists_SecondaryInit_call 0x7498a522
+#define RV_SITE_LibraryBrowser_BuildArtists_slot 0x951238f2
+#define RV_SITE_MediaBrowser_ClearArtists_entry 0x0a565c26
+#define RV_SITE_MediaBrowser_ReadArtistName_entry 0x966e63fd
+#define RV_SITE_MediaBrowser_ReadArtistJumpLabel_entry 0x7f8feaae
+#define RV_SITE_MediaBrowser_ArtistFilterCompare_call 0x50e520db
+#define RV_SITE_AlbumGroup_literal 0x9a3cad7f
+#define RV_SITE_AlbumSubtitle_slot 0x3770ae31
+#define RV_SITE_LibraryBrowser_Destroy_entry 0x4747c776
+#define RV_SITE_MediaListSelection_SelectArtworkSource_call 0x5007cdba
+#define RV_SITE_AlbumArtworkProvider_Create_call 0x88b4c62b
 #define RV_SITE_USB_HandleVendorDeviceRead_call 0x18ea1c99
 #define RV_SITE_USB_DispatchNoDataRequest_call 0xe33b3715
 #define RV_SITE_DiskClient_Yield_slot 0x0321740a
 #define RV_SITE_DiskModeExit_PopToMainScreen_call 0x5b4b8520
+#define RV_SITE_NavigatorAction_PopToScreen_call 0xc8e9acee
 /* Upstream ID, unsupported on RepriseOS 2.0.5. */
 #define RV_SITE_IRQ_Dispatch_entry 0x3b916f07
 #define RV_SITE_TextView_DrawString_entry 0x52587f80

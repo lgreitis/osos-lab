@@ -207,10 +207,10 @@ fn output_is_created_exclusively_with_a_report() {
         nor_installer: vec![4],
     };
     let report = artifacts.write(&out).unwrap();
-    assert_eq!(fs::read(out.join("osos-cfw.bin")).unwrap(), [1, 2]);
-    assert_eq!(report.files["cfw-loader.bin"].sha256, sha256(&[3]));
+    assert_eq!(fs::read(out.join("reprise.bin")).unwrap(), [1, 2]);
+    assert_eq!(report.files["loader.bin"].sha256, sha256(&[3]));
     assert!(artifacts.write(&out).is_err());
-    assert_eq!(fs::read(out.join("osos-cfw.bin")).unwrap(), [1, 2]);
+    assert_eq!(fs::read(out.join("reprise.bin")).unwrap(), [1, 2]);
 }
 
 #[test]

@@ -49,7 +49,11 @@ enum {
     RVX_MODULES = 15,
     RVX_FIRMWARE_ID = 0x660eb6ff,
     RVX_API_MAJOR = 1,
-    RVX_API = (RVX_API_MAJOR << 16) | 82
+    RVX_API = (RVX_API_MAJOR << 16) | 91,
+    /* rv_row and rv_menu_entry grew in 1.86 and rv_pane in 1.89: an image an
+     * older SDK packed lays its rows, entries and panes out with the wrong
+     * stride. */
+    RVX_API_LAYOUT = (RVX_API_MAJOR << 16) | 89
 };
 
 enum {
@@ -66,7 +70,8 @@ enum {
 struct rvx_manifest {
     u32 magic, version, minimum_api, flags, modules, sites, strings;
     uint16_t text[7], content, libraries, category;
-    u32 content_count, requires_count;
+    u32 content_count;
+    uint16_t library_count, optional_count; /* the optional ids come last */
 };
 
 struct module_record {
@@ -115,7 +120,7 @@ struct rvx_package {
 extern Pkg *rvx_packages;
 
 int rvx_bind(Pkg *, const struct rvx_hook *);
-void rvx_bind_menu(const struct rvx_hook *);
+void rvx_bind_core(const struct rvx_hook *);
 int rvx_unbind(Pkg *, const struct rvx_hook *);
 void rvx_remove_hooks(Pkg *, const struct rvx_module *);
 u32 rvx_next(const void *, u32, u32, u32, u32, u32, u32);
@@ -129,6 +134,7 @@ u32 rvx_hash(const char *);
 int rvx_load(Pkg *, u32);
 void rvx_unload(Pkg *, u32);
 const void *rvx_service(Pkg *, u32);
+const void *rvx_extension_service(const char *);
 void *rvx_alloc(Pkg *, u32);
 void rvx_free(Pkg *, void *);
 void rvx_cleanup(Pkg *);
@@ -194,19 +200,29 @@ extern const struct rvx_api {
     u32 (*next7)(const void *, u32, u32, u32, u32, u32, u32, u32);
     const void *(*service)(Pkg *, u32);
     int (*provider)(Pkg *, const void *), (*firmware)(Pkg *, File **);
-    u32 reprise_id;
-    u32 (*legacy_preference)(u32, void *, u32);
-    u32 (*album_artist_read)(void *, uint16_t *, u32);
+    const void *(*extension_service)(const char *);
+    u32 (*stock_view)(u32);
 } cfw_rvx_api;
 
-_Static_assert(sizeof(struct rvx_api) == 51 * 4 &&
+_Static_assert(sizeof(struct rvx_api) == 50 * 4 &&
                    sizeof(struct rvx_descriptor) == 48 &&
                    sizeof(struct rvx_manifest) == 56 && sizeof(struct entry) == 20,
                "RVX ABI");
 int rvx_load_module(Pkg *, u32);
 void rvx_install_menus(void);
+/* The entries of a main module are valid: a hosted one names another
+ * extension's screen and at most one menu, a stock one at least one menu and
+ * no host. */
+struct menu_entry;
+int rvx_entries_valid(const Pkg *, const struct menu_entry *, u32);
+/* The stock Settings rows (RV_ROW_STOCK) of a module's list screens are
+ * valid: in the main module, in a list with an id, rows of the Settings
+ * table, each once in the extension and in no started extension. */
+struct screen;
+int rvx_stock_rows_valid(const Pkg *, const struct screen *, u32, int main_module);
 void rvx_release_screen(Pkg *p, u32 index);
 void *rvx_bitmap_load(Pkg *, const char *, u32 *);
+uint32_t rvx_stock_view(uint32_t view);
 
 int rvx_preload_assets(Pkg *);
 

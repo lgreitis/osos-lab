@@ -351,7 +351,7 @@ extern struct storage_result test_storage;
                     True,
                     False,
                     0,
-                    "/osos-cfw.bin",
+                    "/Reprise/Firmware/reprise.bin",
                     second="/themes/dark/theme.bin",
                 )
 

@@ -59,12 +59,6 @@ def export(build_dir, helper, version, minimum, out):
                     "data": str((build_dir / (name + ".data")).resolve()),
                 },
             }
-        spec["components"]["osos"]["files"].update(
-            {
-                "dark_mode": str((build_dir / "dark-mode.bin").resolve()),
-                "bitmap_catalog": str((build_dir / "dark-mode.json").resolve()),
-            }
-        )
         descriptor = directory / "nor.json"
         descriptor.write_text(json.dumps(nor_spec) + "\n")
         spec["components"]["nor"] = {

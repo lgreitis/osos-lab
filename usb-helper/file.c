@@ -143,8 +143,8 @@ void upload_prepare_hfs(uint64_t sectors)
         prepare_file();
         return;
     }
-    int companion = hfs_upload_exists("/cfw-loader.bin");
-    int osos = hfs_upload_exists("/osos-cfw.bin");
+    int companion = hfs_upload_exists("/Reprise/Firmware/loader.bin");
+    int osos = hfs_upload_exists("/Reprise/Firmware/reprise.bin");
     if (companion < 0 || osos < 0 || free_bytes < current.size) {
         upload_fail(companion < 0 ? companion : osos < 0 ? osos : -322);
         return;
@@ -199,7 +199,8 @@ void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
     STORAGE_RESULT->free_bytes = (uint64_t)free_kib * 1024;
     STORAGE_RESULT->sector_bytes = bytes;
     STORAGE_RESULT->existing_files =
-        file_exists("/cfw-loader.bin") | (file_exists("/osos-cfw.bin") << 1);
+        file_exists("/Reprise/Firmware/loader.bin") |
+        (file_exists("/Reprise/Firmware/reprise.bin") << 1);
     UPLOAD_RESULT->state = 4;
 }
 

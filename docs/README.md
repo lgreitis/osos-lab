@@ -8,7 +8,7 @@ not establish device behavior for new changes.
 - [Boot sequence](boot.md): system selection and Apple handoff.
 - [NOR bootloader](nor.md): firmware volume, drivers and image loading.
 - [OSOS runtime](osos.md): relocation, memory, storage and audio.
-- [iAP accessory authentication bypass](iap-auth.md): the auth gate and patch (2.0.5).
+- [iAP accessory authentication bypass](iap-auth.md): the auth gate and the call sites the extension binds (2.0.5).
 - [Custom Settings icons](settings-icons.md): artwork style and rendering command.
 
 Input fingerprints and analysis are retained in [firmware](../firmware/) and [analysis profiles](../ghidra/profiles/) and
