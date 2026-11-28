@@ -1,5 +1,6 @@
 /* OSOS 2.0.5 RVX site IDs, stock instruction words and ARM calling conventions. */
     {0x45b7a111, 0x08058808, 0xeb010fa3, CALL, 1, 1, 0x0}, /* Preferences_LoadFile_call */
+    {0x9c27e8b1, 0x0827e3a8, 0xeafc5b10, BRANCH, 1, 2, 0x0}, /* MenuItem_SetVisible_branch */
     {0x6a870ad1, 0x0817a88c, 0xebffffd6, CALL, 1, 4, 0x0}, /* ResourceBlockList_AppendBorrowedBlock_call */
     {0x7986a911, 0x08997b60, 0x081e11f4, VTABLE, 1, 4, 0x0}, /* Settings_Property_slot */
     {0x34f2f35c, 0x08997b7c, 0x081e30ac, VTABLE, 1, 20, 0x0}, /* Settings_IndexedProperty_slot */
@@ -70,10 +71,26 @@
     {0x8ddac977, 0x0804581c, 0xebffff91, CALL, 1, 20, 0x0}, /* ArtworkDatabase_FindByDbid_0804581c_call */
     {0x0554342d, 0x08046494, 0xebfffc73, CALL, 1, 20, 0x0}, /* ArtworkDatabase_FindByDbid_08046494_call */
     {0x76284307, 0x08058f1c, 0xeb00c559, CALL, 1, 1, 0x0}, /* ITunesDB_ImportTrackDataset_call */
+    {0x77a80033, 0x0808b194, 0xeb001e12, CALL, 1, 4, 0xa400}, /* ITunesDB_DiscardMhod_call */
+    {0x8a4916ac, 0x0808b1ac, 0xebff7793, CALL, 1, 4, 0xa400}, /* ITunesDB_SkipMhod_call */
+    {0xfcacf807, 0x0803e650, 0xeb024527, CALL, 1, 1, 0x0}, /* TrackData_DestroyStorage_call */
+    {0x144a4223, 0x08106808, 0xebfd09f6, CALL, 1, 1, 0x0}, /* MediaBrowser_BuildArtists_RefreshCounts_call */
+    {0x7498a522, 0x08133bac, 0xebfc550d, CALL, 1, 1, 0x0}, /* MediaBrowser_BuildArtists_SecondaryInit_call */
+    {0x951238f2, 0x0898cb90, 0x08130e44, VTABLE, 1, 1, 0x0}, /* LibraryBrowser_BuildArtists_slot */
+    {0x0a565c26, 0x0804e850, 0xe92d4ff8, ENTRY, 1, 1, 0x0}, /* MediaBrowser_ClearArtists_entry */
+    {0x966e63fd, 0x08047b54, 0xe92d41f0, ENTRY, 1, 3, 0x0}, /* MediaBrowser_ReadArtistName_entry */
+    {0x7f8feaae, 0x08047bc8, 0xe92d41f0, ENTRY, 1, 3, 0x0}, /* MediaBrowser_ReadArtistJumpLabel_entry */
+    {0x50e520db, 0x080d7bd8, 0xebfd8a65, CALL, 1, 20, 0x50004}, /* MediaBrowser_ArtistFilterCompare_call */
+    {0x9a3cad7f, 0x08048fe4, 0x080bf518, WORD, 0, 0, 0x0}, /* AlbumGroup_literal */
+    {0x3770ae31, 0x0898cbf4, 0x08133168, VTABLE, 1, 3, 0x0}, /* AlbumSubtitle_slot */
+    {0x4747c776, 0x08133c30, 0xe92d4010, ENTRY, 1, 1, 0x0}, /* LibraryBrowser_Destroy_entry */
+    {0x5007cdba, 0x08169e30, 0xebffff98, CALL, 1, 2, 0x0}, /* MediaListSelection_SelectArtworkSource_call */
+    {0x88b4c62b, 0x08138c34, 0xeb001cfd, CALL, 1, 2, 0x0}, /* AlbumArtworkProvider_Create_call */
     {0x18ea1c99, 0x0828a820, 0xebfffe95, CALL, 1, 2, 0x0}, /* USB_HandleVendorDeviceRead_call */
     {0xe33b3715, 0x0828a458, 0xeb0000c8, CALL, 1, 1, 0x0}, /* USB_DispatchNoDataRequest_call */
     {0x0321740a, 0x08996ba0, 0x081d8258, VTABLE, 0, 1, 0x0}, /* DiskClient_Yield_slot */
     {0x5b4b8520, 0x0810b65c, 0xeb05f82c, CALL, 1, 0, 0x0}, /* DiskModeExit_PopToMainScreen_call */
+    {0xc8e9acee, 0x08129bc4, 0xeb057ed7, CALL, 1, 3, 0x0}, /* NavigatorAction_PopToScreen_call */
     {0x52587f80, 0x082883f8, 0xe92d40f0, ENTRY, 1, 3, 0x0}, /* TextView_DrawString_entry */
     {0xa08204f0, 0x081a8f0c, 0xeb02c305, CALL, 1, 3, 0x400}, /* MarqueeTextView_DrawColor_call */
     {0x9aa6f322, 0x082872a8, 0xebff4a1e, CALL, 1, 3, 0x600}, /* TextView_DrawColor_call */

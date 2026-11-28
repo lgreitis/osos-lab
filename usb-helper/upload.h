@@ -9,8 +9,14 @@
 #define UPLOAD_CHUNK 65536u
 #define UPLOAD_LIMIT 0x7fffffffu
 
+/* Mode bit of an upload: further files of the same batch follow. HFS+
+   publishes a batch with its last file; FAT32 ignores the bit. */
+#define UPLOAD_MORE 4u
+
 struct upload_config {
     uint8_t tag[16];
+    /* overwrite: 0 create, 1 replace, 2 inspect storage, 3 remove the installation;
+       uploads may add UPLOAD_MORE. */
     uint32_t size, overwrite;
     uint8_t sha256[32];
     char path[192];
@@ -40,7 +46,7 @@ struct storage_result {
 };
 
 void upload_prepare(uint64_t start, uint64_t end, unsigned bytes);
-void upload_prepare_hfs(uint64_t sectors);
+bool upload_prepare_hfs(uint64_t sectors);
 void upload_next(const struct upload_config *next);
 void upload_start(void);
 void upload_write(unsigned bytes);

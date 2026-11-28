@@ -11,7 +11,7 @@ address 0 with the SDK linker script and --emit-relocs, so the R_ARM_ABS32
 entries survive; text, rodata, data and bss form one segment. Asset files are
 relative to manifest.toml.
 
---library names the manifest of a library the extension requires. A word that
+--library names the manifest of a library the extension lists. A word that
 names one of its exports (linked as 0 from the imports script) becomes an
 import the core fills in with the library's address. A library's own exports
 come from its ELF symbol table. The file layout and the lz codec are in the
@@ -234,13 +234,25 @@ def absolute_symbols(symbol_table):
     return names
 
 
-def relocation_tables(relocation_table, absolute, imported=None):
+def undefined_symbols(symbol_table):
+    """Names of undefined symbols in `readelf -sW` output: weak references the
+    link left unresolved."""
+    names = set()
+    for line in symbol_table.splitlines():
+        parts = line.split()
+        if len(parts) == 8 and parts[0].rstrip(":").isdigit() and parts[6] == "UND":
+            names.add(parts[7])
+    return names
+
+
+def relocation_tables(relocation_table, absolute, imported=None, undefined=()):
     """The R_ARM_ABS32 words in `readelf -rW` output, sorted into the offsets
     the loader moves with the image and the imports it fills in: (offset,
     library id, name) for a word naming a symbol in `imported`, which maps an
     export name to its library's id. Words naming any other absolute symbol
     are firmware addresses and stay as linked; one linked as 0 is an export
-    of a library the build did not name. A relative relocation naming an
+    of a library the build did not name. A word naming an `undefined` symbol
+    would point into the image once moved. A relative relocation naming an
     export is a short call, which cannot reach a library."""
     offsets = []
     imports = []
@@ -271,6 +283,11 @@ def relocation_tables(relocation_table, absolute, imported=None):
         if kind == "R_ARM_ABS32":
             if name in imported:
                 imports.append((int(parts[0], 16), imported[name], name))
+            elif name in undefined:
+                raise ValueError(
+                    f"{name} is undefined; a weak function must come from a library "
+                    "passed with --library"
+                )
             elif name not in absolute:
                 offsets.append(int(parts[0], 16))
             elif int(parts[3], 16) == 0:
@@ -293,8 +310,13 @@ def abs32_offsets(relocation_table, absolute):
 
 
 def relocations(prefix, elf, imported=None):
-    absolute = absolute_symbols(run([prefix + "readelf", "-sW", elf]))
-    return relocation_tables(run([prefix + "readelf", "-rW", elf]), absolute, imported)
+    symbol_table = run([prefix + "readelf", "-sW", elf])
+    return relocation_tables(
+        run([prefix + "readelf", "-rW", elf]),
+        absolute_symbols(symbol_table),
+        imported,
+        undefined_symbols(symbol_table),
+    )
 
 
 def module_image(values, image, offsets, imports=(), exports=()):
@@ -316,10 +338,15 @@ def module_image(values, image, offsets, imports=(), exports=()):
         raise ValueError("segment layout is not text, data, bss in order")
     if (entry & ~1) >= data_start:
         raise ValueError(f"entry outside text: {entry:#x}")
+    if entry & 3 == 2:
+        raise ValueError(f"ARM entry not word-aligned: {entry:#x}")
     for offset in offsets:
         if offset % 4 or offset > data_end - 4:
             raise ValueError(f"relocation outside image: {offset:#x}")
     body = bytes(image).ljust(data_end, b"\0")[:data_end]
+    for offset in offsets:
+        if struct.unpack_from("<I", body, offset)[0] > bss_end:
+            raise ValueError(f"relocated word at {offset:#x} points past the bss")
     import_table = []
     for offset, library, name in imports:
         if offset % 4 or offset > data_end - 4:
@@ -551,14 +578,15 @@ def read_module(prefix, elf, scratch, imported=None, exports=()):
 
 def imported_names(document, libraries):
     """Export name to library id over the library manifests a user packs
-    against; each must be one the manifest requires."""
-    required = manifest.requires(document)
+    against; each must be one the manifest lists, required or optional."""
+    required, optional = manifest.libraries(document)
+    listed = required + optional
     imported = {}
     seen = set()
     for library in libraries:
         identifier = library.get("id")
-        if identifier not in required:
-            raise ValueError(f"{document.get('id')} does not require {identifier}")
+        if identifier not in listed:
+            raise ValueError(f"{document.get('id')} does not list {identifier}")
         if identifier in seen:
             raise ValueError(f"library {identifier} passed twice")
         seen.add(identifier)
@@ -590,6 +618,8 @@ def pack(prefix, out, toml, elves, api, firmware, libraries=()):
             f"the manifest asks for API {document['api']}, the SDK is "
             f"{api >> 16}.{api & 0xFFFF}"
         )
+    if api >= manifest.LAYOUT_API and wanted < manifest.LAYOUT_API:
+        raise ValueError('row panes changed layout in API 1.89; set api = "1.89"')
     for warning in warnings(toml, document):
         print(f"warning: {warning}", file=sys.stderr)
     names = [module["name"] for module in document["module"]]
@@ -656,7 +686,7 @@ def main():
         default=[],
         type=Path,
         metavar="manifest.toml",
-        help="a required library whose exports the modules may import",
+        help="a listed library whose exports the modules may import",
     )
     args = parser.parse_args()
     try:

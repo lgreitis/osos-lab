@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use super::image::{relocate_cold_init, COLD_INIT_SIZE, COLD_INIT_TAG, ROM_END, ROM_START};
-use super::protocol::{CONFIG_SIZE, NEXT};
+use super::protocol::{more_files, upload_mode, BATCH_FILES, CONFIG_SIZE, NEXT};
 use super::*;
 use crate::firmware;
 use crate::DeviceInfo;
@@ -45,13 +45,13 @@ fn put(b: &mut [u8], offset: usize, value: u32) {
 
 fn options() -> UploadOptions {
     UploadOptions {
-        destination: "/osos-cfw.bin".into(),
+        destination: "/Reprise/Firmware/reprise.bin".into(),
         overwrite: true,
     }
 }
 
 fn status(size: u32, state: u32, sha: &[u8; 32]) -> Status {
-    status_at(size, state, sha, "/osos-cfw.bin")
+    status_at(size, state, sha, "/Reprise/Firmware/reprise.bin")
 }
 
 fn status_at(size: u32, state: u32, sha: &[u8; 32], path: &str) -> Status {
@@ -330,6 +330,14 @@ fn batch(
     bulk: &mut BatchFake,
     emit: &mut Emit<'_>,
 ) -> (Result<Status>, Vec<UploadReport>, Vec<[u8; 32]>) {
+    batched(bulk, true, emit)
+}
+
+fn batched(
+    bulk: &mut BatchFake,
+    batches: bool,
+    emit: &mut Emit<'_>,
+) -> (Result<Status>, Vec<UploadReport>, Vec<[u8; 32]>) {
     let data: Vec<Vec<u8>> = bulk
         .files
         .iter()
@@ -358,6 +366,7 @@ fn batch(
         &hashed,
         &[7; 16],
         &device(),
+        batches,
         &mut reports,
         emit,
     );
@@ -366,8 +375,8 @@ fn batch(
 
 const BATCH: [(u32, &str); 3] = [
     (0, "/themes/default/theme.bin"),
-    (513, "/cfw-loader.bin"),
-    (70000, "/osos-cfw.bin"),
+    (513, "/Reprise/Firmware/loader.bin"),
+    (70000, "/Reprise/Firmware/reprise.bin"),
 ];
 
 #[test]
@@ -392,7 +401,10 @@ fn batch_queues_each_further_file_with_next_and_acknowledges_once() {
         bulk.payloads.iter().zip(BATCH.iter().enumerate().skip(1))
     {
         assert_eq!(word(payload, 16), *size);
-        assert_eq!(word(payload, 20), 1);
+        assert_eq!(
+            word(payload, 20),
+            if index + 1 < BATCH.len() { 5 } else { 1 }
+        );
         assert_eq!(&payload[24..56], &hashes[index]);
         assert_eq!(&payload[56..56 + path.len()], path.as_bytes());
         assert!(payload[56 + path.len()..].iter().all(|b| *b == 0));
@@ -411,21 +423,24 @@ fn batch_queues_each_further_file_with_next_and_acknowledges_once() {
 }
 
 #[test]
-fn batch_stops_at_the_first_bad_file_and_keeps_the_verified_reports() {
+fn batch_stops_at_the_first_bad_file_and_drops_the_reports_of_its_batch() {
     let mut bulk = BatchFake::new(&BATCH);
     bulk.corrupt = Some(1);
     let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
     let error = result.unwrap_err().to_string();
-    assert!(error.starts_with("/cfw-loader.bin: "), "{error}");
+    assert!(
+        error.starts_with("/Reprise/Firmware/loader.bin: "),
+        "{error}"
+    );
     assert_eq!(bulk.commands, vec![START, NEXT, START]);
-    assert_eq!(reports.len(), 1);
+    assert!(reports.is_empty());
 
     let mut bulk = BatchFake::new(&BATCH);
     bulk.stale = true;
     let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
     assert!(result.unwrap_err().to_string().contains("not ready"));
     assert_eq!(bulk.commands, vec![START, NEXT]);
-    assert_eq!(reports.len(), 1);
+    assert!(reports.is_empty());
 
     let mut bulk = BatchFake::new(&BATCH);
     let (result, reports, _) = batch(&mut bulk, &mut |p| {
@@ -437,7 +452,69 @@ fn batch_stops_at_the_first_bad_file_and_keeps_the_verified_reports() {
     });
     assert!(result.unwrap_err().to_string().contains("cancelled"));
     assert_eq!(bulk.commands, vec![START, NEXT, START]);
-    assert_eq!(reports.len(), 2);
+    assert!(reports.is_empty());
+}
+
+#[test]
+fn without_hfs_batches_every_file_is_its_own_batch() {
+    let mut bulk = BatchFake::new(&BATCH);
+    bulk.corrupt = Some(1);
+    let (result, reports, _) = batched(&mut bulk, false, &mut |_| Ok(()));
+    assert!(result.is_err());
+    assert_eq!(reports.len(), 1);
+    let mut bulk = BatchFake::new(&BATCH);
+    let (result, reports, _) = batched(&mut bulk, false, &mut |_| Ok(()));
+    result.unwrap();
+    assert_eq!(reports.len(), 3);
+    assert!(bulk.payloads.iter().all(|p| word(p, 20) == 1));
+}
+
+#[test]
+fn only_files_followed_by_another_of_their_batch_carry_the_more_files_bit() {
+    assert!(!more_files(0, 1));
+    assert!(more_files(0, 2));
+    assert!(more_files(BATCH_FILES - 2, BATCH_FILES + 1));
+    assert!(!more_files(BATCH_FILES - 1, BATCH_FILES + 1));
+    assert!(!more_files(BATCH_FILES, BATCH_FILES + 1));
+    assert_eq!(upload_mode(&options(), true), 5);
+    assert_eq!(upload_mode(&options(), false), 1);
+}
+
+#[test]
+fn a_failed_batch_readback_names_the_failing_file() {
+    let mut failed = status_at(1, COMPLETE, &[9; 32], "/Reprise/Extensions/eq.rvx");
+    put(&mut failed.raw, 28, -317i32 as u32);
+    let error = failed
+        .complete(&[9; 32], &options())
+        .unwrap_err()
+        .to_string();
+    assert!(error.ends_with("(/Reprise/Extensions/eq.rvx)"), "{error}");
+    let mut failed = status(1, COMPLETE, &[9; 32]);
+    put(&mut failed.raw, 28, -317i32 as u32);
+    let error = failed
+        .complete(&[9; 32], &options())
+        .unwrap_err()
+        .to_string();
+    assert!(!error.contains("(/Reprise"), "{error}");
+}
+
+#[test]
+fn batches_end_every_batch_files_and_keep_the_reports_of_finished_batches() {
+    let files = [(1, "/Reprise/f.bin"); BATCH_FILES + 1];
+    let mut bulk = BatchFake::new(&files);
+    let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
+    result.unwrap();
+    assert_eq!(reports.len(), files.len());
+    let modes: Vec<u32> = bulk.payloads.iter().map(|p| word(p, 20)).collect();
+    let mut expected = vec![5; BATCH_FILES - 2];
+    expected.extend([1, 1]);
+    assert_eq!(modes, expected);
+
+    let mut bulk = BatchFake::new(&files);
+    bulk.corrupt = Some(BATCH_FILES);
+    let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
+    assert!(result.is_err());
+    assert_eq!(reports.len(), BATCH_FILES);
 }
 
 #[test]
@@ -446,9 +523,14 @@ fn a_lost_device_mid_file_reports_the_ipod_stopped() {
     bulk.unplug = Some(2);
     let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
     let error = result.unwrap_err();
-    assert!(error.to_string().starts_with("/osos-cfw.bin: "), "{error}");
+    assert!(
+        error
+            .to_string()
+            .starts_with("/Reprise/Firmware/reprise.bin: "),
+        "{error}"
+    );
     assert!(error.device_stopped());
-    assert_eq!(reports.len(), 2);
+    assert!(reports.is_empty());
 
     let mut bulk = BatchFake::new(&BATCH);
     bulk.corrupt = Some(1);
@@ -465,6 +547,43 @@ fn helpers_without_batch_upload_take_one_file() {
 }
 
 #[test]
+fn file_removal_is_a_manifest_capability() {
+    assert!(!fixture_helper().unwrap().supports_file_removal());
+    let image = include_bytes!("../../../../../usb-helper/tests/fixtures/upload.dfu");
+    let mut manifest: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "../../../../../usb-helper/tests/fixtures/manifest.json"
+    ))
+    .unwrap();
+    manifest["file_removal"] = true.into();
+    let helper = UploadHelper::from_bytes(image, &serde_json::to_vec(&manifest).unwrap()).unwrap();
+    assert!(helper.supports_file_removal());
+}
+
+#[test]
+fn removal_result_reports_deleted_and_remaining_entries() {
+    let mut raw = vec![0; 32];
+    put(&mut raw, 8, 1000);
+    put(&mut raw, 28, 1 | 2 | 8 | 64);
+    let report = super::removal_report(&raw).unwrap();
+    assert!(report.companion && report.firmware && report.staged_uploads);
+    assert!(!report.extensions && report.extensions_left);
+    assert!(!report.companion_left && !report.firmware_left && !report.staged_uploads_left);
+    assert_eq!(
+        report.leftovers(),
+        ["/Reprise, /Revola/Extensions, /Revola/Data or /themes"]
+    );
+    put(&mut raw, 28, 15);
+    assert!(super::removal_report(&raw).unwrap().leftovers().is_empty());
+    put(&mut raw, 28, 0);
+    assert!(super::removal_report(&raw).unwrap().leftovers().is_empty());
+    put(&mut raw, 28, 256);
+    assert!(super::removal_report(&raw).is_err());
+    put(&mut raw, 28, 0);
+    put(&mut raw, 8, 0);
+    assert!(super::removal_report(&raw).is_err());
+}
+
+#[test]
 fn batch_upload_is_a_manifest_capability() {
     assert!(!fixture_helper().unwrap().supports_batch_upload());
     let image = include_bytes!("../../../../../usb-helper/tests/fixtures/upload.dfu");
@@ -475,6 +594,19 @@ fn batch_upload_is_a_manifest_capability() {
     manifest["batch_upload"] = true.into();
     let helper = UploadHelper::from_bytes(image, &serde_json::to_vec(&manifest).unwrap()).unwrap();
     assert!(helper.supports_batch_upload());
+}
+
+#[test]
+fn hfs_batches_are_a_manifest_capability() {
+    assert!(!fixture_helper().unwrap().supports_hfs_batches());
+    let image = include_bytes!("../../../../../usb-helper/tests/fixtures/upload.dfu");
+    let mut manifest: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "../../../../../usb-helper/tests/fixtures/manifest.json"
+    ))
+    .unwrap();
+    manifest["hfs_batches"] = true.into();
+    let helper = UploadHelper::from_bytes(image, &serde_json::to_vec(&manifest).unwrap()).unwrap();
+    assert!(helper.supports_hfs_batches());
 }
 
 #[test]
@@ -591,11 +723,7 @@ fn mac_format_error_reaches_the_caller_and_preserves_diagnostics() {
     .unwrap_err()
     .to_string();
     assert!(error.contains("Apple Partition Map"), "{error}");
-    assert!(
-        error.contains("FAT32 with Master Boot Record (MBR)"),
-        "{error}"
-    );
-    assert!(error.contains("HFS/HFS+ is not supported"), "{error}");
+    assert!(error.contains("without a supported HFS+ volume"), "{error}");
     assert_eq!(bulk.commands, [ACKNOWLEDGE]);
     assert_eq!(bulk.save_sectors, Some(true));
 
@@ -726,7 +854,7 @@ fn helper_validation_rejects_old_images_and_invalid_slots() {
     let helper = UploadHelper::from_bytes(&image, &serde_json::to_vec(&m).unwrap()).unwrap();
     for rom in [vec![], vec![0; crate::BOOTROM_SIZE]] {
         assert!(helper
-            .prepare(&rom, &[7; 16], 1, &[9; 32], &options())
+            .prepare(&rom, &[7; 16], 1, &[9; 32], &options(), false)
             .is_err());
     }
     for key in ["nonce_offset", "config_offset", "cold_init_offset"] {
@@ -807,7 +935,7 @@ fn paths_reject_traversal_aliases_and_reserved_temporary_names() {
             "{path}"
         );
     }
-    for path in ["/osos-cfw.bin", "/folder/os patched.bin"] {
+    for path in ["/Reprise/Firmware/reprise.bin", "/folder/os patched.bin"] {
         assert!(UploadOptions {
             destination: path.into(),
             overwrite: true
@@ -823,7 +951,14 @@ fn saved_rom_prepares_fixture_helper() {
     let rom = std::fs::read(std::env::var("REPRISE_TEST_BOOTROM").unwrap()).unwrap();
     let helper = fixture_helper().unwrap();
     let patched = helper
-        .prepare(&rom, &[7; 16], 13 * 1024 * 1024 + 17, &[9; 32], &options())
+        .prepare(
+            &rom,
+            &[7; 16],
+            13 * 1024 * 1024 + 17,
+            &[9; 32],
+            &options(),
+            false,
+        )
         .unwrap();
     assert_eq!(
         word(&patched, helper.config_offset + 16),
@@ -835,8 +970,8 @@ fn saved_rom_prepares_fixture_helper() {
         &[9; 32]
     );
     assert_eq!(
-        &patched[helper.config_offset + 56..helper.config_offset + 69],
-        b"/osos-cfw.bin"
+        &patched[helper.config_offset + 56..helper.config_offset + 85],
+        b"/Reprise/Firmware/reprise.bin"
     );
     assert_eq!(
         &patched[helper.nonce_offset..helper.nonce_offset + 16],
@@ -871,7 +1006,7 @@ fn saved_rom_prepares_fixture_helper() {
     let mut corrupt = rom;
     corrupt[0] ^= 1;
     assert!(helper
-        .prepare(&corrupt, &[7; 16], 1, &[9; 32], &options())
+        .prepare(&corrupt, &[7; 16], 1, &[9; 32], &options(), false)
         .is_err());
 }
 

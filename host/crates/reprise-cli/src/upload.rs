@@ -206,7 +206,7 @@ pub(super) fn run(args: Args, json: bool) -> CliResult<u8> {
             } else {
                 writeln!(
                     io::stderr().lock(),
-                    "Error: {}\nVerified before the error: {}\nDFU cleanup: {:?}",
+                    "Error: {}\nFiles in place before the error: {}\nDFU cleanup: {:?}",
                     error.message,
                     error.reports.len(),
                     error.cleanup

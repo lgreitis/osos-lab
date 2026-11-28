@@ -87,7 +87,7 @@ def verify(disk):
                     results = struct.unpack("<4I", gdb.read(symbols["result"], 16))
                 with QMP(run) as qmp:
                     for i, (name, addr) in enumerate(
-                        [("osos-cfw.bin", 0x0B000000), ("cfw-loader.bin", 0x0BC00000)]
+                        [("reprise.bin", 0x0B000000), ("loader.bin", 0x0BC00000)]
                     ):
                         expected = (ROOT / "build" / name).read_bytes()
                         rc, size = results[2 * i : 2 * i + 2]

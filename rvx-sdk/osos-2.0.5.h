@@ -871,6 +871,9 @@ int MediaItem_GetChapterTitleAt(struct MediaItem *item, int position_ms,
                                 struct NativeString *out);
 uint16_t MediaItem_GetEQSettingsId(struct MediaItem *item);
 int MediaItem_GetChapterIndexAt(struct MediaItem *item, uint32_t position_ms);
+uint32_t MediaItem_IsCompilation(struct MediaItem *item);
+void MediaItem_GetAlbum(struct MediaItem *item, struct NativeString *out);
+void MediaItem_GetArtist(struct MediaItem *item, struct NativeString *out);
 void MediaItem_GetFileType(struct MediaItem *item, struct NativeString *out);
 void MediaItem_GetComment(struct MediaItem *item, struct NativeString *out);
 void MediaItem_GetCategory(struct MediaItem *item, struct NativeString *out);
@@ -910,9 +913,13 @@ int MediaListController_MapVisibleRow(void *controller, int row);
 int NestedPlaylists_MapVisibleRow(void *controller, int row);
 int OnTheGo_AddBrowserSelection(void *otg, int row, void *browser, int save);
 uint32_t MediaListSelection_SelectArtworkSource(void *selection, uint32_t category);
+void MediaListSelection_SetList(void *selection, void *model_reference,
+                                uint32_t category, uint32_t list_option, uint8_t extra);
 void *MediaListSelection_GetInstance(void);
 void *MediaListSelection_SetTitle(void *selection, const struct NativeString *title);
 void ArtworkSession_Stop(void *session);
+void *ListArtworkSession_Get(void);
+int ListArtworkSession_SetSource(void *session, uint32_t selector);
 void *ArtworkSession_Construct(void *session, const char *name);
 void *ArtworkSession_Destroy(void *session);
 int ArtworkSession_Attach(void *session, void *listener);
@@ -1098,6 +1105,7 @@ void Preferences_MarkDirty(void *preferences);
 void Preferences_SetClickerRoute(void *browser, uint32_t route);
 uint32_t Preferences_GetClickerRoute(void *browser);
 void *PreferencesService_Get(void);
+uint32_t PreferencesService_Get60BC(void *service);
 int File_DeleteLegacyPath(void *path);
 void Runtime_Abort(void);
 void Runtime_ReportUncaughtException(int kind, const char *what);
@@ -1176,6 +1184,8 @@ void CppString_Destroy(void *string);
 int String_CompareCString(const char *left, const char *right);
 void StringInputStream_Init(void *stream, void *string, uint32_t mode);
 void StringInputStream_Destroy(void *stream, uint32_t flags, void *storage);
+struct NativeString *NativeString_InitCopy(struct NativeString *string,
+                                           const struct NativeString *source);
 struct NativeString *NativeString_InitEmpty(struct NativeString *string);
 struct NativeString *NativeString_Destroy(struct NativeString *string);
 char *NativeString_GetUtf8(struct NativeString *string);
@@ -1246,6 +1256,9 @@ int ScreenController_HandleEvent(void *controller, void *event);
 uint32_t ResourceScreen_Activate(void *controller, uint32_t entering);
 uint32_t ResourceScreen_Deactivate(void *controller, uint32_t leaving);
 int MenuItem_SetVisible(uint32_t item_id, uint32_t visible);
+void Navigator_PopToScreen(uint32_t screen_id, uint32_t push_history, uint32_t skip_history);
+void *Source_LoadDescriptors(uint32_t resource_id);
+void *TextMenuRow_Initialize(void *row, int submenu);
 void ContextMenuItems_Append(void *items, uint32_t item_id, const char *action,
                              uint32_t flags);
 void *ContextMenuItems_Init(void *items, uint8_t flag);
@@ -1310,6 +1323,7 @@ int Controller_ExecuteNavigatorAction(void *controller, void *action,
                                       int action_context, uint8_t *stop_dispatch);
 void Navigator_PopTop(uint32_t flags);
 void Navigator_PopToMainScreen(void);
+void Navigator_PopToMainScreenOnly(void);
 void Navigator_PopToPixoMainScreen(void);
 int ExtrasMenu_DispatchAction(void *controller, const char *action, uint32_t argument);
 void *UI_ConstructScreenDefinition(void *definition, uint32_t screen_id,
@@ -1355,6 +1369,7 @@ int NavigatorProperties_Has(void *properties, void *key);
 int NavigatorProperties_GetInteger(void *properties, void *key);
 void NavigatorProperties_SetInteger(void *properties, void *key, const uint32_t *value);
 void *NavigatorProperties_SetString(void *properties, void *key, void *value);
+void NavigatorProperties_SetPointer(void *properties, void *key, void *value);
 int NavigatorProperties_Remove(void *properties, void *key);
 void Navigator_Push(void *navigator, void *controller, uint32_t flags);
 void *UI_GetRootOwner(void);
@@ -1368,6 +1383,7 @@ void KeyboardView_DrawKeyRow(void *view, void *context, const int32_t *rect);
 void KeyboardView_DrawKey(void *view, void *context, int key, const int32_t *rect,
                           int selected);
 void OptionBarView_Draw(void *view, void *draw_argument, const int32_t *clip);
+void OptionBarView_SetSelected(void *bar, uint32_t index);
 void CalendarView_DrawClipped(void *view, void *draw_argument, const int32_t *clip);
 void CalendarDayCell_Draw(void *view, void *draw_argument, const int32_t *clip);
 void GLAlbumArtView_Draw(void *view, void *draw_argument, const int32_t *clip);
@@ -1485,6 +1501,7 @@ extern uint8_t NavigatorProperties[];
 extern void *const TextView_vtable[];
 extern void *const SelectedRowTextView_vtable[];
 extern void *const MenuList_vtable[];
+extern void *const TextMenuRow_vtable[];
 extern void *const MenuListModel_vtable[];
 extern void *const GLAlbumArtView_vtable[];
 extern uint8_t SelectionBar_RamGradient[2][4];
@@ -2247,6 +2264,9 @@ extern void *MediaArtworkProvider;
 #define ADDR_MediaItem_GetChapterTitleAt 0x08299820
 #define ADDR_MediaItem_GetEQSettingsId 0x0829911c
 #define ADDR_MediaItem_GetChapterIndexAt 0x08299c88
+#define ADDR_MediaItem_IsCompilation 0x08299cf8
+#define ADDR_MediaItem_GetAlbum 0x0829a2d4
+#define ADDR_MediaItem_GetArtist 0x0829a824
 #define ADDR_MediaItem_GetFileType 0x0829a0d0
 #define ADDR_MediaItem_GetComment 0x0829ab98
 #define ADDR_MediaItem_GetCategory 0x0829ab14
@@ -2282,6 +2302,8 @@ extern void *MediaArtworkProvider;
 #define ADDR_MediaListSelection_GetInstance 0x08169178
 #define ADDR_MediaListSelection_SetTitle 0x08169c7c
 #define ADDR_ArtworkSession_Stop 0x0820a76c
+#define ADDR_ListArtworkSession_Get 0x0820068c
+#define ADDR_ListArtworkSession_SetSource 0x082006f4
 #define ADDR_ArtworkSession_Construct 0x08216a90
 #define ADDR_ArtworkSession_Destroy 0x08222298
 #define ADDR_ArtworkSession_Attach 0x0821674c
@@ -2472,6 +2494,7 @@ extern void *MediaArtworkProvider;
 #define ADDR_Preferences_SetClickerRoute 0x0805bef0
 #define ADDR_Preferences_GetClickerRoute 0x080465fc
 #define ADDR_PreferencesService_Get 0x08167a54
+#define ADDR_PreferencesService_Get60BC 0x08168574
 #define ADDR_File_DeleteLegacyPath 0x0804f99c
 #define ADDR_Runtime_Abort 0x0802606c
 #define ADDR_Runtime_ReportUncaughtException 0x0825de34
@@ -2544,6 +2567,7 @@ extern void *MediaArtworkProvider;
 #define ADDR_String_CompareCString 0x0838886c
 #define ADDR_StringInputStream_Init 0x0829e7b8
 #define ADDR_StringInputStream_Destroy 0x0829e81c
+#define ADDR_NativeString_InitCopy 0x0826ddd8
 #define ADDR_NativeString_InitEmpty 0x0826de38
 #define ADDR_NativeString_Destroy 0x0826de7c
 #define ADDR_NativeString_GetUtf8 0x0829bac0
@@ -2596,6 +2620,8 @@ extern void *MediaArtworkProvider;
 #define ADDR_ResourceScreen_Activate 0x08398954
 #define ADDR_ResourceScreen_Deactivate 0x08398b6c
 #define ADDR_MenuItem_SetVisible 0x08194ff0
+#define ADDR_Source_LoadDescriptors 0x0817a50c
+#define ADDR_TextMenuRow_Initialize 0x0820f2c4
 #define ADDR_ContextMenuItems_Append 0x08162390
 #define ADDR_ContextMenuItems_Init 0x081624e8
 #define ADDR_ContextMenuItems_Destroy 0x0816250c
@@ -2663,6 +2689,7 @@ extern void *MediaArtworkProvider;
 #define ADDR_Navigator_PopTop 0x082896b8
 #define ADDR_Navigator_PopToScreen 0x08289728
 #define ADDR_Navigator_PopToMainScreen 0x08289714
+#define ADDR_Navigator_PopToMainScreenOnly 0x08289864
 #define ADDR_Navigator_PopToPixoMainScreen 0x08289768
 #define ADDR_ExtrasMenu_DispatchAction 0x0811a664
 #define ADDR_UI_ConstructScreenDefinition 0x0813ca44
@@ -2715,6 +2742,7 @@ extern void *MediaArtworkProvider;
 #define ADDR_NavigatorProperties_GetInteger 0x080f7348
 #define ADDR_NavigatorProperties_SetInteger 0x080f6f2c
 #define ADDR_NavigatorProperties_SetString 0x080f6f80
+#define ADDR_NavigatorProperties_SetPointer 0x080f7174
 #define ADDR_NavigatorProperties_Remove 0x080f7310
 #define ADDR_Navigator_Push 0x0810514c
 #define ADDR_UI_GetRootOwner 0x0813e204
@@ -2732,6 +2760,7 @@ extern void *MediaArtworkProvider;
 #define ADDR_KeyboardView_DrawKeyRow 0x08203f6c
 #define ADDR_KeyboardView_DrawKey 0x08203e8c
 #define ADDR_OptionBarView_Draw 0x081e06d0
+#define ADDR_OptionBarView_SetSelected 0x081e0688
 #define ADDR_CalendarView_DrawClipped 0x081363fc
 #define ADDR_CalendarDayCell_Draw 0x081bff58
 #define ADDR_GLAlbumArtView_Draw 0x08163efc
@@ -2851,6 +2880,7 @@ extern void *MediaArtworkProvider;
 #define ADDR_TextView_vtable 0x089af07c
 #define ADDR_SelectedRowTextView_vtable 0x08993504
 #define ADDR_MenuList_vtable 0x08992c60
+#define ADDR_TextMenuRow_vtable 0x0899b904
 #define ADDR_MenuListModel_vtable 0x08992c70
 #define ADDR_GLAlbumArtView_vtable 0x08990618
 #define ADDR_SelectionBar_RamGradient 0x089d4ee8
@@ -2923,8 +2953,14 @@ extern void *MediaArtworkProvider;
 #define SITE_ITunesDB_AlbumArtist_word 0x0808adcc
 #define SITE_ITunesDB_SortArtist_word 0x0808add0
 #define SITE_ITunesDB_SortAlbumArtist_word 0x0808ade8
+#define SITE_ITunesDB_DiscardMhod_call 0x0808b194
+#define SITE_ITunesDB_SkipMhod_call 0x0808b1ac
 #define SITE_TrackData_DestroyStorage_call 0x0803e650
 #define SITE_MediaBrowser_BuildArtists_entry 0x08048fe8
+#define SITE_MediaBrowser_ClearArtists_entry 0x0804e850
+#define SITE_MediaBrowser_BuildArtists_RefreshCounts_call 0x08106808
+#define SITE_MediaBrowser_BuildArtists_SecondaryInit_call 0x08133bac
+#define SITE_LibraryBrowser_BuildArtists_slot 0x0898cb90
 #define SITE_MediaBrowser_ReadArtistName_entry 0x08047b54
 #define SITE_MediaBrowser_ReadArtistJumpLabel_entry 0x08047bc8
 #define SITE_MediaBrowser_ArtistFilterCompare_call 0x080d7bd8
@@ -3049,6 +3085,7 @@ extern void *MediaArtworkProvider;
 #define SITE_TrackCount_0810897c_word 0x0810897c
 #define SITE_TrackCount_0816ebc4_word 0x0816ebc4
 #define SITE_TrackCount_0829c884_word 0x0829c884
+#define SITE_MenuItem_SetVisible_branch 0x0827e3a8
 #define SITE_ProgressBar_Draw_slot 0x0899a450
 #define SITE_ProgressBarStyle8_Draw_slot 0x0899abf8
 #define SITE_ProgressBar_DrawMarkers_slot 0x0899a514
@@ -3087,6 +3124,7 @@ extern void *MediaArtworkProvider;
 #define SITE_ContextMenuModel_Property_slot 0x08997648
 #define SITE_ContextMenuModel_IndexedProperty_slot 0x08997664
 #define SITE_ContextMenu_ScreenActionCompare_call 0x081de7b0
+#define SITE_NavigatorAction_PopToScreen_call 0x08129bc4
 #define SITE_CoverFlow_ClearColor_call 0x08138304
 #define SITE_AlbumArt_ClearColor_call 0x08164230
 #define SITE_SongList_CancelAppend_call 0x082195ec
@@ -3480,9 +3518,22 @@ extern void *MediaArtworkProvider;
 #define MediaBrowser_artist_tokens 0xe4c
 #define MediaBrowser_artist_jump 0xe50
 #define MediaBrowser_artist_count 0xe54
+#define MediaBrowser_registry_slot 0x1
+#define MediaBrowser_list 0x4
+#define MediaBrowser_selected_artist 0x10
 #define MediaBrowser_order_flag 0xe3c
 #define MediaBrowser_order_selector 0xe38
+#define LibraryBrowser_delete_method 0x1c
+#define LibraryBrowser_reset_method 0x38
+#define LibraryBrowser_kind_masks_method 0x5c
+#define LibraryBrowser_artist_sort_method 0xd8
 #define LibraryBrowser_browser 0x40
+#define LibraryBrowser_ownership 0x45
+#define LibraryBrowser_bytes 0x48
+#define AlbumArtworkProvider_model 0xc
+#define LibraryModelRefBlock_count 0x4
+#define ArtistGroup_artwork 0x8
+#define ArtistGroup_bytes 0x14
 #define AlbumGroup_token 0x0
 #define AlbumGroup_artist 0x4
 #define AlbumGroup_display_artist 0x8
@@ -3513,6 +3564,7 @@ extern void *MediaArtworkProvider;
 #define MediaList_shuffle_index 0x3b4
 #define MediaList_order_index 0x3ac
 #define MediaList_jump_index 0x544
+#define MediaListSelection_model 0x18
 #define MediaListSelection_artwork_category 0x83f
 #define ArtworkSession_window 0x38
 #define ArtworkSession_listener 0x20
@@ -3575,7 +3627,10 @@ extern void *MediaArtworkProvider;
 #define MediaListView_list 0x4
 #define MediaListView_browser 0x8
 #define MediaListView_generation 0xc
+#define MediaRecord_flags_15 0x15
 #define MediaRecord_entries 0x24
+#define MediaRecord_artist 0x2c
+#define MediaRecord_album 0x34
 #define MediaRecord_eq_settings_id 0x54
 #define MediaRecord_date_added 0x58
 #define MediaRecord_date_modified 0x6c
@@ -3586,6 +3641,7 @@ extern void *MediaArtworkProvider;
 #define MediaRecord_track_total 0x86
 #define MediaRecord_disc_number 0x88
 #define MediaRecord_disc_total 0x8a
+#define MediaRecord_flags_8f 0x8f
 #define MediaRecord_last_played 0x98
 #define MediaRecord_last_skipped 0xa8
 #define MediaRecord_media_kind 0xbc
@@ -3912,6 +3968,7 @@ extern void *MediaArtworkProvider;
 #define OptionBarView_selected 0x124
 #define OptionBarView_label_color 0x1cc
 #define OptionBarView_selected_label_color 0x1d0
+#define OptionBarView_MaxSegments 0x3
 #define CalendarView_header_color 0x104
 #define CalendarDayCell_day_color 0xf4
 #define CalendarDayCell_art 0x1b4
@@ -4053,6 +4110,7 @@ extern void *MediaArtworkProvider;
 #define ContextMenuItem_action 0x4
 #define ContextMenuItem_flags 0x8
 #define ContextMenuItem_bytes 0xc
+#define MediaListController_created_model 0xb2
 #define MediaListController_show_context_menu_method 0x148
 #define MediaListController_map_visible_row_method 0x130
 #define MediaListController_model 0xb4
@@ -4432,6 +4490,7 @@ extern void *MediaArtworkProvider;
 #define AlbumArtist_order_mode 0x2d
 #define MediaOrderMode_Database 0x1
 #define MediaOrderMode_Shuffle 0x2
+#define MediaOrderMode_Album 0x6
 #define MediaOrderMode_Playback 0x33
 #define MediaListFlags_Shuffled 0x1
 #define MediaListFlags_ShuffleAlbums 0x2
@@ -4440,6 +4499,13 @@ extern void *MediaArtworkProvider;
 #define MediaListOrderFlags_Reversed 0x4
 #define MediaListOrderFlags_Restricted 0x40
 #define MediaEntryFlags_Group 0x100
+#define MediaRecordFlags15_Compilation 0x2
+#define MediaRecordFlags8F_PlaceholderAlbum 0x80
+#define LibraryBrowserOwnership_Child 0x2
+#define LibraryBrowserOwnership_Borrowed 0x3
+#define ArtworkSource_SelectorKind 0x2
+#define AlbumArtwork_Selector 0x2711
+#define ArtworkCategory_Albums 0x3
 #define MediaRepeat_All 0x1
 #define MediaRepeat_One 0x2
 #define MediaKind_Music 0x1
@@ -4610,6 +4676,7 @@ extern void *MediaArtworkProvider;
 #define Interface_ResourceService 0x6
 #define Interface_List 0x1700
 #define Interface_Template 0x3b80
+#define Interface_OptionBar 0x9080
 #define Event_Notification 0x16
 #define Notification_LayoutShown 0x2502
 #define Notification_LayoutChanged 0x2503
@@ -4722,6 +4789,12 @@ extern void *MediaArtworkProvider;
 #define RES_Settings_MusicMenu_Items 0x00000043
 #define RES_Settings_Legal_Screen 0x0dad0cb3
 #define RES_Settings_Legal_Layout 0x0dad0cb4
+#define RES_SettingsMenus_EUVolume_Confirmation_Screen 0x0dad0cac
+#define RES_SettingsMenus_EUVolume_Confirmation_Screen_Default 0x0dad0cad
+#define RES_SettingsMenus_DialogNotice_EULimitConfirmation_Layout 0x0dad0c46
+#define RES_SettingsMenus_DialogNotice_Template 0x0dad02a3
+#define RES_DialogNotice_View 0x0dad0c43
+#define RES_DialogNotice_SettingsOptions 0x0dad0c45
 #define RES_Settings_EQ_Items 0x00000047
 #define RES_Settings_EQ_Screen 0x0dad0cae
 #define RES_Settings_EQ_Layout 0x0dad0cb0

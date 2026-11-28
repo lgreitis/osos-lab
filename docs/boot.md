@@ -15,7 +15,7 @@ sequenceDiagram
     actor User
     participant RB as Rockbox bootloader (NOR)
     participant Disk as iPod disk
-    participant Companion as cfw-loader.bin (RAM)
+    participant Companion as loader.bin (RAM)
     participant Apple as Apple startup and drivers
     participant OS as OSOS + CFW payload
 
@@ -27,7 +27,7 @@ sequenceDiagram
         RB->>Disk: Load Rockbox
         Note over RB,Disk: Start Rockbox
     else No buttons
-        RB->>Disk: Read /osos-cfw.bin and /cfw-loader.bin
+        RB->>Disk: Read /Reprise/Firmware/reprise.bin and /Reprise/Firmware/loader.bin
         Disk-->>RB: Files staged in RAM
         RB->>Companion: Copy bootstrap to internal RAM and enter it
         Companion->>Apple: Run patched PreEfi startup

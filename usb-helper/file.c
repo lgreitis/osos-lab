@@ -18,7 +18,14 @@ UPLOAD_CONFIG_QUALIFIER struct upload_config upload_config = {.tag = "REPRISE-UP
 /* The file being handled: the image config first, then each NEXT request. */
 static struct upload_config current;
 static int fd = -1;
-static bool hfs, mounted, writes_enabled, closed;
+static bool hfs, mounted, writes_enabled, closed, more;
+
+/* HFS+ files staged since the last publish, read back after it. */
+static struct {
+    char path[192];
+    uint32_t size;
+    uint8_t sha256[32];
+} batch[HFS_BATCH];
 static uint64_t data_start, data_end;
 static char temporary[64];
 static struct sha256 hash;
@@ -70,6 +77,8 @@ void upload_close(void)
     if (closed)
         return;
     closed = true;
+    if (hfs_upload_staged())
+        upload_fail(-318);
     if (fd >= 0) {
         int result = close(fd);
         fd = -1;
@@ -117,44 +126,236 @@ static void prepare_file(void)
     UPLOAD_RESULT->state = 1;
 }
 
+/* Split the batch bit off the mode: only uploads take it. */
+static bool take_mode(void)
+{
+    more = current.overwrite & UPLOAD_MORE;
+    current.overwrite &= ~UPLOAD_MORE;
+    return !more || current.overwrite <= 1;
+}
+
 static bool load_config(void)
 {
     const volatile uint8_t *source = (const volatile uint8_t *)&upload_config;
     for (unsigned i = 0; i < sizeof(current); ++i)
         ((uint8_t *)&current)[i] = source[i];
-    if (current_valid() && current.overwrite <= 2)
+    if (current_valid() && take_mode() && current.overwrite <= 3)
         return true;
     upload_fail(-302);
     return false;
 }
 
-void upload_prepare_hfs(uint64_t sectors)
+#define REMOVE_DEPTH 8
+static char tree[256];
+
+/* An unfinished upload of any earlier session: /.reprise-<32 hex>.part. */
+static bool staged_name(const char *name)
 {
-    if (!load_config())
-        return;
+    size_t n = strlen(name);
+    return n > 9 + 5 && !strncasecmp(name, ".reprise-", 9) &&
+           !strcasecmp(name + n - 5, ".part");
+}
+
+/* The companion loader and the firmware image: the folder of later releases first,
+   then the disk root of releases through 0.4.0. Index bit 0 tells the two files apart. */
+static const char *const firmware_files[] = {
+    "/Reprise/Firmware/loader.bin",
+    "/Reprise/Firmware/reprise.bin",
+    "/cfw-loader.bin",
+    "/osos-cfw.bin",
+};
+
+static bool firmware_path(const char *path)
+{
+    for (unsigned i = 0; i < 4; ++i)
+        if (!strcasecmp(path, firmware_files[i]))
+            return true;
+    return false;
+}
+
+/* Append the child of tree[length] after the first `skip` children to tree. Returns 1
+   for a directory, 0 for a file, -1 when none is left and -2 on error. The directory
+   is closed before the caller deletes anything. */
+static int first_child(size_t length, bool staged, unsigned skip)
+{
+    DIR *dir = opendir(length ? tree : "/");
+    if (!dir)
+        return -2;
+    int kind = -1;
+    struct DIRENT *entry;
+    while ((entry = readdir(dir))) {
+        const char *name = entry->d_name;
+        if (!strcmp(name, ".") || !strcmp(name, "..") || (staged && !staged_name(name)))
+            continue;
+        if (skip) {
+            skip--;
+            continue;
+        }
+        size_t n = strlen(name);
+        if (length + 1 + n >= sizeof(tree)) {
+            kind = -2;
+            break;
+        }
+        tree[length] = '/';
+        memcpy(tree + length + 1, name, n + 1);
+        kind = dir_get_info(dir, entry).attribute & ATTR_DIRECTORY ? 1 : 0;
+        break;
+    }
+    if (closedir(dir)) {
+        tree[length] = 0;
+        kind = -2;
+    }
+    return kind;
+}
+
+/* Deletes what it can below tree[length], skipping the firmware files and anything
+   that refuses to go, so one stuck entry never stops the rest. The caller removes the
+   directory itself. */
+static void remove_tree(size_t length, unsigned depth)
+{
+    unsigned skip = 0;
+    for (int kind; (kind = first_child(length, false, skip)) >= 0; tree[length] = 0) {
+        if (kind == 1) {
+            if (depth < REMOVE_DEPTH)
+                remove_tree(strlen(tree), depth + 1);
+            if (rmdir(tree))
+                skip++;
+        } else if (firmware_path(tree) || remove(tree)) {
+            skip++;
+        }
+    }
+}
+
+/* The folders the installer created: /Reprise, and the extension folders releases
+   through 0.4.0 kept under /Revola. Each goes with everything below it. */
+static const char *const folders[] = {"/Reprise", "/Revola/Extensions", "/Revola/Data"};
+/* The theme packs releases through 0.4.0 read. Their folders go once they are empty;
+   /Revola and /themes likewise, so anything else there stays. */
+static const char *const theme_packs[] = {"/themes/default/theme.bin",
+                                          "/themes/dark/theme.bin"};
+static const char *const parents[] = {
+    "/Reprise/Firmware", "/Reprise",        "/Revola/Extensions", "/Revola/Data",
+    "/Revola",           "/themes/default", "/themes/dark",       "/themes"};
+
+/* existing_files bits 0-3 report what was deleted: companion, firmware, the folders and
+   theme packs, staged uploads; bits 4-7 report the same four when something of them
+   remains. Missing entries are neither. The firmware files go last: as long as they
+   exist the RepriseOS bootloader still boots, and the host restores Apple's bootloader
+   whatever remains. */
+static void remove_installation(void)
+{
+    uint32_t *bits = &STORAGE_RESULT->existing_files;
+    writes_enabled = true;
+    bool had = false, left = false;
+    for (unsigned i = 0; i < 3; ++i) {
+        strcpy(tree, folders[i]);
+        if (dir_exists(tree)) {
+            had = true;
+            remove_tree(strlen(tree), 0);
+        }
+    }
+    for (unsigned i = 0; i < 2; ++i)
+        if (file_exists(theme_packs[i])) {
+            had = true;
+            if (remove(theme_packs[i]))
+                left = true;
+        }
+    for (unsigned i = 0; i < 4; ++i)
+        if (file_exists(firmware_files[i]))
+            *bits |= remove(firmware_files[i]) ? 16u << (i & 1) : 1u << (i & 1);
+    for (unsigned i = 0; i < 8; ++i)
+        if (dir_exists(parents[i]) && rmdir(parents[i]) && i < 4)
+            left = true;
+    if (had)
+        *bits |= left ? 64 : 4;
+    unsigned skip = 0;
+    for (int kind; (kind = first_child(0, true, skip)) >= 0; tree[0] = 0) {
+        if (kind != 0 || remove(tree)) {
+            skip++;
+            *bits |= 128;
+        } else {
+            *bits |= 8;
+        }
+    }
+    writes_enabled = false;
+}
+
+/* The same report as remove_installation, in one catalog rebuild. HFS+
+   uploads leave no unfinished files. */
+static int remove_hfs_installation(void)
+{
+    uint32_t *bits = &STORAGE_RESULT->existing_files;
+    struct hfs_removal set[9];
+    for (unsigned i = 0; i < 3; ++i)
+        set[i] = (struct hfs_removal){folders[i], true, 0};
+    for (unsigned i = 0; i < 2; ++i)
+        set[3 + i] = (struct hfs_removal){theme_packs[i], false, 0};
+    for (unsigned i = 0; i < 4; ++i)
+        set[5 + i] = (struct hfs_removal){firmware_files[i], false, 0};
+    writes_enabled = true;
+    int rc = hfs_upload_remove(set, 9);
+    writes_enabled = false;
+    if (rc)
+        return rc;
+    bool had = false, left = false;
+    for (unsigned i = 0; i < 5; ++i) {
+        had |= set[i].outcome != 0;
+        left |= set[i].outcome == 1;
+    }
+    if (had)
+        *bits |= left ? 64 : 4;
+    for (unsigned i = 0; i < 4; ++i)
+        if (set[5 + i].outcome)
+            *bits |= set[5 + i].outcome == 2 ? 1u << (i & 1) : 16u << (i & 1);
+    return 0;
+}
+
+/* The disk holds an HFS+ volume, behind an Apple Partition Map at the start of
+   the disk or after the hidden firmware partition. Returns false, without
+   touching the result, when there is none. */
+bool upload_prepare_hfs(uint64_t sectors)
+{
     uint64_t free_bytes;
     int rc = hfs_upload_mount(sectors, &data_start, &data_end, &free_bytes);
+    if (rc == HFS_UPLOAD_NOT_FOUND)
+        return false;
+    if (!load_config())
+        return true;
     if (rc) {
         upload_fail(rc);
-        return;
+        return true;
     }
     hfs = true;
     if (current.overwrite < 2) {
         prepare_file();
-        return;
-    }
-    int companion = hfs_upload_exists("/cfw-loader.bin");
-    int osos = hfs_upload_exists("/osos-cfw.bin");
-    if (companion < 0 || osos < 0 || free_bytes < current.size) {
-        upload_fail(companion < 0 ? companion : osos < 0 ? osos : -322);
-        return;
+        return true;
     }
     STORAGE_RESULT->start = data_start;
     STORAGE_RESULT->end = data_end;
     STORAGE_RESULT->sector_bytes = 512;
     STORAGE_RESULT->free_bytes = free_bytes;
-    STORAGE_RESULT->existing_files = companion | (osos << 1);
+    STORAGE_RESULT->existing_files = 0;
+    if (current.overwrite == 2) {
+        int companion = hfs_upload_exists("/Reprise/Firmware/loader.bin");
+        int osos = hfs_upload_exists("/Reprise/Firmware/reprise.bin");
+        rc = companion < 0 ? companion : osos < 0 ? osos : 0;
+        uint64_t overhead = hfs_upload_overhead();
+        if (!rc && (overhead > free_bytes || free_bytes - overhead < current.size))
+            rc = -322;
+        if (rc) {
+            upload_fail(rc);
+            return true;
+        }
+        STORAGE_RESULT->existing_files = companion | (osos << 1);
+    } else {
+        rc = remove_hfs_installation();
+        if (rc) {
+            upload_fail(rc);
+            return true;
+        }
+    }
     UPLOAD_RESULT->state = 4;
+    return true;
 }
 
 void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
@@ -189,8 +390,11 @@ void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
         return;
     }
     sector_t free_kib;
+    /* Removal must work on a full disk. */
     if (!fat_size(IF_MV(0, ) NULL, &free_kib) ||
-        (uint64_t)free_kib * 1024 < (uint64_t)current.size + fat_get_cluster_size(IF_MV(0))) {
+        (current.overwrite == 2 &&
+         (uint64_t)free_kib * 1024 <
+             (uint64_t)current.size + fat_get_cluster_size(IF_MV(0)))) {
         upload_fail(-322);
         return;
     }
@@ -198,8 +402,13 @@ void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
     STORAGE_RESULT->end = end;
     STORAGE_RESULT->free_bytes = (uint64_t)free_kib * 1024;
     STORAGE_RESULT->sector_bytes = bytes;
-    STORAGE_RESULT->existing_files =
-        file_exists("/cfw-loader.bin") | (file_exists("/osos-cfw.bin") << 1);
+    STORAGE_RESULT->existing_files = 0;
+    if (current.overwrite == 2)
+        STORAGE_RESULT->existing_files =
+            file_exists("/Reprise/Firmware/loader.bin") |
+            (file_exists("/Reprise/Firmware/reprise.bin") << 1);
+    else
+        remove_installation();
     UPLOAD_RESULT->state = 4;
 }
 
@@ -217,7 +426,7 @@ void upload_next(const struct upload_config *next)
     UPLOAD_RESULT->rejected = 0;
     memset(UPLOAD_RESULT->source_sha256, 0, sizeof(UPLOAD_RESULT->source_sha256));
     memset(UPLOAD_RESULT->disk_sha256, 0, sizeof(UPLOAD_RESULT->disk_sha256));
-    if (!current_valid() || current.overwrite > 1) {
+    if (!current_valid() || !take_mode() || current.overwrite > 1) {
         upload_fail(-302);
         return;
     }
@@ -327,6 +536,36 @@ static int create_parents(const char *path)
     return 0;
 }
 
+/* Read a file under its final name, the one the bootloader opens, and hash it
+   again. Its data was verified before the rename or the HFS+ publish, so a
+   mismatch here is a directory or allocation fault of the path. */
+static int readback(const char *path, uint32_t expected, const uint8_t *sha256)
+{
+    uint32_t size;
+    if (hfs ? hfs_upload_open(path, &size) != 0 : (fd = open(path, O_RDONLY)) < 0)
+        return -1;
+    if (!hfs)
+        size = filesize(fd);
+    struct sha256 again;
+    sha256_init(&again);
+    bool ok = size == expected;
+    for (unsigned pos = 0; ok && pos < size;) {
+        unsigned count = MIN(size - pos, UPLOAD_CHUNK);
+        ok = hfs ? hfs_upload_read(pos, UPLOAD_DATA, count) == 0
+                 : read(fd, UPLOAD_DATA, count) == (ssize_t)count;
+        sha256_update(&again, UPLOAD_DATA, count);
+        pos += count;
+    }
+    uint8_t digest[32];
+    sha256_final(&again, digest);
+    int rc = 0;
+    if (!hfs) {
+        rc = close(fd);
+        fd = -1;
+    }
+    return !ok || rc || memcmp(digest, sha256, 32);
+}
+
 void upload_verify_step(void)
 {
     unsigned left = current.size - UPLOAD_RESULT->verified;
@@ -353,8 +592,17 @@ void upload_verify_step(void)
         return;
     }
     if (hfs) {
-        int rc = hfs_upload_commit();
+        unsigned staged = hfs_upload_staged();
+        memcpy(batch[staged - 1].path, UPLOAD_RESULT->path, sizeof(batch[0].path));
+        batch[staged - 1].size = current.size;
+        memcpy(batch[staged - 1].sha256, UPLOAD_RESULT->source_sha256, 32);
+        int rc = more ? 0 : hfs_upload_commit();
         writes_enabled = false;
+        for (unsigned i = 0; !more && !rc && i < staged; ++i)
+            if (readback(batch[i].path, batch[i].size, batch[i].sha256)) {
+                memcpy(UPLOAD_RESULT->path, batch[i].path, sizeof(UPLOAD_RESULT->path));
+                rc = -317;
+            }
         if (rc)
             upload_fail(rc);
         else
@@ -378,5 +626,9 @@ void upload_verify_step(void)
     }
     /* The volume stays mounted for the next file; the host's final request closes it. */
     writes_enabled = false;
+    if (readback(UPLOAD_RESULT->path, current.size, UPLOAD_RESULT->source_sha256)) {
+        upload_fail(-317);
+        return;
+    }
     UPLOAD_RESULT->state = 4;
 }

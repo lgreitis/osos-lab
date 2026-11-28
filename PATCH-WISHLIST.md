@@ -1,16 +1,10 @@
 # Possible CFW Features
 
-Implemented features, including Album Artists and WIP Dark Mode, are listed in the
-[README](README.md#features).
+Implemented features are listed in the [README](README.md#features).
 
 ## Cover Flow song context menu
 
 Allow opening a song's context menu when browsing through Cover Flow.
-
-## Five-band parametric EQ
-
-Investigate whether the EQ can support five custom bands instead of the current
-three.
 
 ## FairPlay DRM
 
@@ -34,7 +28,3 @@ Investigate USB log retrieval through the native control-transfer handler.
 ## FLAC and other audio formats
 
 Investigate the audio engine to see whether it can support formats such as FLAC.
-
-## HFS+ format support
-
-Support HFS+ formatted iPods. Low priority due to implementation difficulty.

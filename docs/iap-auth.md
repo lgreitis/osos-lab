@@ -10,7 +10,8 @@ Let custom accessories use authentication-gated iAP (iPod Accessory Protocol) li
 commands without a Made-for-iPod authentication coprocessor ("CP chip"). The native firmware
 challenges an accessory to sign a nonce with its CP chip and verifies that signature before
 promoting the accessory to the authenticated state; a home-made accessory has no chip and so
-is refused the gated lingos. This patch makes that verification always succeed.
+is refused the gated lingos. The iAP Auth Bypass extension makes that verification always
+succeed.
 
 ## How iAP authentication works
 
@@ -60,41 +61,19 @@ Both verifiers return `0` on success and non-zero on failure, and both are reach
 
 The verifier result is the sole gate: a `0` authenticates the accessory, anything else refuses it.
 
-## The patch
+## The extension
 
-Both verifiers are forced to report success. Because each is exclusive to the signature handler,
-`return 0` authenticates every accessory with no side effects elsewhere.
+The core does not patch the verifiers. The iAP Auth Bypass extension binds the two call sites
+in `FUN_081892b8` that reach them, listed in `payload/rvx/site_table.inc`:
 
-`payload/iap_auth.c`:
+| Site | Address | Original instruction |
+| --- | --- | --- |
+| `IAP_VerifyDeviceSignatureRSA_call` | `0x081893a8` | `bl FUN_0812dca8` |
+| `IAP_VerifyDeviceSignatureAlternate_call` | `0x081893fc` | `bl FUN_081592fc` |
 
-```c
-PATCH_ARM int cfw_iap_auth_verify(void)
-{
-    return 0;
-}
-```
-
-`payload/patches/sites.h`:
-
-```c
-#define OSOS_IAP_AUTH_VERIFY_A 0x0812dca8
-#define OSOS_IAP_AUTH_VERIFY_B 0x081592fc
-```
-
-`payload/patches/patches.c`:
-
-```c
-/* stmdb sp!,{r4-r9,lr}; sub sp,sp,#0x6c */
-PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_A, 0xe92d43f0, 0xe24dd06c, cfw_iap_auth_verify);
-/* stmdb sp!,{r2,r3,r4,lr}; cmp r1,#0 */
-PATCH_JUMP(OSOS_IAP_AUTH_VERIFY_B, 0xe92d401c, 0xe3510000, cfw_iap_auth_verify);
-```
-
-`PATCH_JUMP` replaces each verifier's first two instructions with `ldr pc,[pc,#-4]` followed by
-the hook address, and verifies the two original words before patching. The verifier is entered
-via `bl`, so `lr` still holds the handler's return address; the hook runs no prologue, touches no
-stack, returns `0` in `r0` and branches back through `lr`. The two 32-bit words in each record are
-the authoritative entry bytes of the functions in this exact 2.0.5 image.
+The extension's replacement returns `0` from either call, so the handler treats every
+signature as verified. The verifier functions themselves stay unmodified, and as both are
+reached only from these two calls, nothing else observes the change.
 
 ## Behaviour and limits
 

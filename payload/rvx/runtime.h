@@ -7,20 +7,34 @@ void cfw_rvx_flush(void);
 void cfw_rvx_register_ui(void *bank);
 void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row,
                       uint32_t bytes, uint32_t metadata);
-void cfw_rvx_menu_events(void *map, uint32_t screen);
 
-void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
-                        int tv);
+/* The runtime image after the resident payload's limit in
+ * /Reprise/Firmware/reprise.bin:
+ * its stored bytes, the bytes it takes in memory, its 16-bit relocation
+ * offsets and the FNV-1a hash of the stored bytes and the offsets. */
+struct rvx_trailer_spec {
+    uint32_t stored, memory, relocations, hash;
+};
+extern const struct rvx_trailer_spec rvx_trailer;
+
+/* Adds the extensions' bindings for `screen` and `layout` to a layout's event
+ * map; `screen` is 0 for a layout without one. */
+void cfw_rvx_menu_events(void *map, uint32_t screen, uint32_t layout);
+
+/* Appends the extensions' rows to a movie or TV episode menu; returns how many. */
+unsigned cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
+                            int tv);
 
 int cfw_rvx_indexed_property(uint32_t type, uint32_t property, uint32_t index,
                              uintptr_t *out);
 int cfw_rvx_property(uint32_t type, uint32_t property, uintptr_t *out);
+/* The stock view a view of a template the runtime copied was copied from;
+ * any other view id unchanged. Code that treats a view specially by its id
+ * sees the copy as the original. */
+uint32_t cfw_rvx_stock_view(uint32_t view);
 void cfw_rvx_reset(void);
-void cfw_rvx_hold(int locked);
 
 unsigned cfw_rvx_visible_rows(unsigned menu);
 int cfw_rvx_visible_property(unsigned menu, unsigned row, uint32_t type, int selected,
                              uintptr_t *out);
 void cfw_rvx_toggle_row(unsigned menu, unsigned row);
-
-extern uint8_t cfw_rvx_has_canvas, cfw_rvx_has_menu_pane;

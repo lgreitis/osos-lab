@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "screen.h"
+#include "native_ui.h"
 #include "cfw.h"
 #include "osos.h"
-#include "album_artist.h"
-#include "store.h"
 #include "patch.h"
 
 struct rvx_block {
@@ -11,27 +10,32 @@ struct rvx_block {
     u32 bytes;
 };
 
+static struct rvx_block *core_heap; /* the blocks of the runtime's own screens */
+
 void *rvx_alloc(Pkg *p, u32 bytes)
 {
+    struct rvx_block **heap = p ? &p->heap : &core_heap;
     if (bytes > 0x7ffffff0)
         return NULL;
     struct rvx_block *b = osos_import_alloc(sizeof *b + bytes);
     if (!b)
         return NULL;
     b->bytes = bytes;
-    b->next = p->heap;
-    p->heap = b;
+    b->next = *heap;
+    *heap = b;
     return b + 1;
 }
 
 void rvx_free(Pkg *p, void *data)
 {
-    for (struct rvx_block **it = &p->heap; *it; it = &(*it)->next) {
+    for (struct rvx_block **it = p ? &p->heap : &core_heap; *it; it = &(*it)->next) {
         struct rvx_block *b = *it;
         if (b + 1 == data) {
             *it = b->next;
-            rvx_forget_colors(p, data, b->bytes);
-            rvx_forget_provider(p, data, b->bytes);
+            if (p) {
+                rvx_forget_colors(p, data, b->bytes);
+                rvx_forget_provider(p, data, b->bytes);
+            }
             osos_import_free(b);
             return;
         }
@@ -180,11 +184,38 @@ static void log_text(Pkg *p, const char *s)
     rvx_last_log[n] = 0;
 }
 
-static void redraw(Pkg *p)
+#define VIEW_TREE_DEPTH 16 /* deeper than any stock screen; bounds a broken tree */
+
+/* A view on its own compositor layer keeps its pixels until its own window is
+ * dirtied, so a change to colours or artwork dirties every view. Only container
+ * views (their find slot is View_FindViewById) carry the child array. */
+static void invalidate_tree(uint8_t *view, uint32_t depth)
+{
+    NATIVE_CALL(View_InvalidateRect)(view, (const int32_t *)(view + View_bounds));
+    void **vtable = RV_FIELD(view, 0, void **);
+    if (depth > VIEW_TREE_DEPTH ||
+        vtable[View_find_view_method / 4] != (void *)ADDR_View_FindViewById)
+        return;
+    uint32_t count = RV_FIELD(view, View_child_count, uint32_t);
+    uint8_t **children = RV_FIELD(view, View_child_items, uint8_t **);
+    for (uint32_t i = 0; children && i < count; i++)
+        if (children[i])
+            invalidate_tree(children[i], depth + 1);
+}
+
+static void invalidate(Pkg *p)
 {
     if (rvx_top && rvx_top->ctx.self == p)
         rvx_top->damage.w = 0;
     osos_ui_invalidate();
+}
+
+static void redraw(Pkg *p)
+{
+    invalidate(p);
+    uint8_t *root = NATIVE_CALL(UI_GetRootView)();
+    if (root)
+        invalidate_tree(root, 0);
 }
 
 static void refresh(Pkg *p, const char *s)
@@ -193,7 +224,7 @@ static void refresh(Pkg *p, const char *s)
         if (f->ctx.self == p &&
             (!s || (f->screen->id && cfw_string_equal(f->screen->id, s))))
             rvx_native_refresh(f);
-    redraw(p);
+    invalidate(p);
 }
 
 static void invalidate_rect(Pkg *p, const void *rect)
@@ -246,11 +277,6 @@ static u32 string_id(Pkg *p, const char *s)
     return assigned;
 }
 
-static u32 album_artist_read(void *record, uint16_t *text, u32 capacity)
-{
-    return cfw_album_artist_read(record, text, capacity);
-}
-
 const struct rvx_api cfw_rvx_api = {
     .size = sizeof(struct rvx_api),
     .version = RVX_API,
@@ -270,7 +296,7 @@ const struct rvx_api cfw_rvx_api = {
     .push = rvx_push,
     .pop = rvx_pop,
     .refresh = refresh,
-    .invalidate = redraw,
+    .invalidate = invalidate,
     .debug = no_debug,
     .asset_load = rvx_asset_load,
     .asset_read = rvx_asset_read,
@@ -300,7 +326,6 @@ const struct rvx_api cfw_rvx_api = {
     .service = rvx_service,
     .provider = rvx_provider,
     .firmware = rvx_firmware_open,
-    .reprise_id = 0x52505253,
-    .legacy_preference = cfw_store_get,
-    .album_artist_read = album_artist_read,
+    .extension_service = rvx_extension_service,
+    .stock_view = rvx_stock_view,
 };

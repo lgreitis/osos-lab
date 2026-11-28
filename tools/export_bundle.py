@@ -59,12 +59,6 @@ def export(build_dir, helper, version, minimum, out):
                     "data": str((build_dir / (name + ".data")).resolve()),
                 },
             }
-        spec["components"]["osos"]["files"].update(
-            {
-                "dark_mode": str((build_dir / "dark-mode.bin").resolve()),
-                "bitmap_catalog": str((build_dir / "dark-mode.json").resolve()),
-            }
-        )
         descriptor = directory / "nor.json"
         descriptor.write_text(json.dumps(nor_spec) + "\n")
         spec["components"]["nor"] = {
@@ -72,6 +66,7 @@ def export(build_dir, helper, version, minimum, out):
             "files": {
                 "image": str((build_dir / "install-rockbox-cfw.dfu").resolve()),
                 "descriptor": str(descriptor),
+                "uninstaller": str((build_dir / "uninstall-rockbox-cfw.dfu").resolve()),
             },
         }
         return bundle.export(spec, directory, out)
