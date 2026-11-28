@@ -40,8 +40,10 @@ struct pane {
 };
 
 struct pane_extra {
-    const char *lines[2];
-    const char *(*text)(const struct context *, u32);
+    const char *line;
+    const char *(*line_text)(const struct context *);
+    const char *number;
+    const char *(*number_text)(const struct context *);
     const struct bitmap *badge;
     const struct bitmap *(*image)(const struct context *);
 };

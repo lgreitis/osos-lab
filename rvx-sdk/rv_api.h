@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 #define RV_API_MAJOR 1
-#define RV_API_MINOR 91
+#define RV_API_MINOR 92
 #define RV_API_VERSION ((RV_API_MAJOR << 16) | RV_API_MINOR)
 
 /* A field of an Apple struct at an offset of the symbols header:
@@ -366,12 +366,15 @@ struct rv_pane {
     uint8_t plain_icon; /* list screens: 1 shows the bitmap without the system's box */
 };
 
-/* The parts of a menu pane only some shapes have: the 130 x 128 pane's two
- * more lines, static or computed for line 0 and 1, and the 20 x 16 badge
- * (`pane = "badge"`) before the 146 x 110 pane's count line. */
+/* The parts of a menu pane only some shapes have, each static or computed:
+ * the line over the 130 x 128 picture, the number in large digits under it,
+ * and the 20 x 16 badge (`pane = "badge"`) before the 146 x 110 pane's
+ * caption. */
 struct rv_pane_extra {
-    const char *lines[2];
-    const char *(*line_text)(const struct rv_context *ctx, uint32_t line);
+    const char *line;
+    const char *(*line_text)(const struct rv_context *ctx);
+    const char *number;
+    const char *(*number_text)(const struct rv_context *ctx);
     const struct rv_bitmap *badge;
     const struct rv_bitmap *(*badge_for)(const struct rv_context *ctx);
 };
@@ -657,8 +660,8 @@ struct rv_api {
     void (*ui_invalidate_rect)(rv_extension_handle self, const struct rv_rect *rect);
     /* Reads the panes that last showed a row of the extension again, and the
      * per-row pane of its list screen on screen: caption_text, line_text,
-     * bitmap_for, badge_for and caption_setting. Nothing happens while no pane
-     * has shown one. */
+     * number_text, bitmap_for, badge_for and caption_setting. Nothing happens
+     * while no pane has shown one. */
     void (*ui_pane_refresh)(rv_extension_handle self);
 
     /* Files in the extension's data folder, /Reprise/Data/Extensions/<id>/.

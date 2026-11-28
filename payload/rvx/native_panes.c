@@ -37,8 +37,8 @@ enum {
                         chosen by the row, never by a picture's size */
     PANE_SQUARE,     /* 119 x 119, the caption under it */
     PANE_WIDE,       /* 142 x 87, the caption under it */
-    PANE_LINES_OVER, /* 130 x 128, the label above, two lines over it, the
-                        caption under */
+    PANE_LINES_OVER, /* 130 x 128, the label above, a line and a number over
+                        it, the caption under */
     PANE_BADGED,     /* 146 x 110, a count line with a badge before it under */
     PANE_CLOCK_BOX,  /* 132 x 145 in the World Clock pane's clock box, two lines
                         above */
@@ -47,7 +47,7 @@ enum {
 
 /* What a view shows: CAPTION falls back to the label, CAPTION_ONLY stays empty
  * without one, for the kinds whose title line shows the label. */
-enum { PICTURE, CAPTION, CAPTION_ONLY, LABEL, LINE, LINE2, BADGE, BOX };
+enum { PICTURE, CAPTION, CAPTION_ONLY, LABEL, LINE, NUMBER, BADGE, BOX };
 
 #define MAX_VIEWS 5
 
@@ -87,7 +87,7 @@ static const struct kind {
     [PANE_LINES_OVER] = {130,
                          128,
                          5,
-                         {PICTURE, LINE, LINE2, LABEL, CAPTION_ONLY},
+                         {PICTURE, LINE, NUMBER, LABEL, CAPTION_ONLY},
                          .template = RES_ExtrasPreview_Calendars_Template,
                          .second = RES_ExtrasPreview_Calendars_Lines_Template},
     [PANE_BADGED] = {146,
@@ -487,8 +487,10 @@ static const char *line_of(const struct shown *s, uint32_t role)
         text = pane->label;
     else if ((role == CAPTION || role == CAPTION_ONLY) && e->caption)
         text = rvx_setting_label(s->pkg, e->caption);
-    else if ((role == LINE || role == LINE2) && extra)
-        text = extra->text ? extra->text(&ctx, role - LINE) : extra->lines[role - LINE];
+    else if (role == LINE && extra)
+        text = extra->line_text ? extra->line_text(&ctx) : extra->line;
+    else if (role == NUMBER && extra)
+        text = extra->number_text ? extra->number_text(&ctx) : extra->number;
     if (!text && (role == CAPTION || role == LABEL))
         text = rvx_entry_label(e, s->pkg);
     return text ? text : "";
