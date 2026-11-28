@@ -11,7 +11,7 @@ mod recipe;
 
 use recipe::{slice, Fingerprint, Recipe, MAX_OUTPUT};
 
-pub const INTERFACE: &str = "classic7g-file-v1";
+pub const INTERFACE: &str = "classic7g-file-v2";
 const SYSINFO_OFFSET: usize = 0x25100;
 const SYSINFO_BYTES: usize = 0x120;
 pub(crate) const INPUT_FILES: &[(&str, &str)] = &[
@@ -329,8 +329,8 @@ pub struct FileReport {
 impl Artifacts {
     fn files(&self) -> [(&str, &[u8]); 3] {
         [
-            ("osos-cfw.bin", &self.osos),
-            ("cfw-loader.bin", &self.companion),
+            ("reprise.bin", &self.osos),
+            ("loader.bin", &self.companion),
             ("install-rockbox-cfw.dfu", &self.nor_installer),
         ]
     }

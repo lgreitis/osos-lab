@@ -83,14 +83,10 @@ def build_osos(config, out, inputs, recipe_only=False, info=None):
     print("Building OSOS recipe...", flush=True)
     info = info or identity(ROOT)
     fingerprint = firmware.load()["inputs"]["osos.bin"]
-    metadata = json.loads((firmware.DIRECTORY / "ui.json").read_text())
-    if metadata["schema"] != 1 or metadata["input"] != fingerprint:
-        raise ValueError("UI metadata does not match the pinned OSOS")
     recipe = build_recipe(
         ROOT / "payload",
         config.work / "payload",
         fingerprint,
-        metadata["resources"],
         config.prefix,
         config.jobs,
         info["revision"],
@@ -98,7 +94,7 @@ def build_osos(config, out, inputs, recipe_only=False, info=None):
     )
     files = recipe.save(out, "osos")
     if not recipe_only:
-        assemble(config, files, out / "osos-cfw.bin", inputs)
+        assemble(config, files, out / "reprise.bin", inputs)
 
 
 def build_apple(config, out, inputs, recipe_only=False, nor=None):
@@ -112,7 +108,7 @@ def build_apple(config, out, inputs, recipe_only=False, nor=None):
     )
     files = recipe.save(out, "companion")
     if not recipe_only:
-        assemble(config, files, out / "cfw-loader.bin", inputs, nor=nor)
+        assemble(config, files, out / "loader.bin", inputs, nor=nor)
 
 
 def build_rockbox(config, out, rockbox):

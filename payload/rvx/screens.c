@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "native_ui.h"
-#include "screen_ui.h"
 #include "cfw.h"
 #include "osos.h"
 #include "patch.h"
@@ -13,8 +12,9 @@ static int wheel_ready;
 static void refresh_title(void)
 {
     void *model = ((void *(*)(void))0x081e0ff4)();
-    if (model)
-        osos_model_notify(model, OSOS_NOTIFY_ALL, RVX_Title);
+    u32 title = rvx_canvas_title();
+    if (model && title)
+        osos_model_notify(model, OSOS_NOTIFY_ALL, title);
 }
 
 static PATCH_ARM u32 destroy(void *controller, u32 mode);
@@ -38,6 +38,11 @@ static int present(struct frame *f, void *parent)
                 (f->screen->layout == RV_LAYOUT_AUTO && from == LayoutKind_SplitList));
     int native = f->screen->kind != RV_SCREEN_KIND_CANVAS &&
                  f->screen->kind != RV_SCREEN_KIND_STOCK;
+    int dialog = f->screen->kind == RV_SCREEN_KIND_DIALOG;
+    if (dialog && !rvx_dialog_valid(f->screen)) {
+        osos_import_free(f);
+        return BAD_ARGUMENT;
+    }
     if (f->screen->kind == RV_SCREEN_KIND_CHOICE ||
         f->screen->kind == RV_SCREEN_KIND_SLIDER) {
         u32 value = rvx_get_int(f->ctx.self, f->screen->choice.key);
@@ -56,14 +61,18 @@ static int present(struct frame *f, void *parent)
         }
         f->stock_methods = osos_import_alloc(12 + 0x200);
         if (f->stock_methods) {
-            u32 screen = RES_Games_Menu_Screen, layout = RES_Games_Menu_Layout;
-            if (native && !rvx_prepare_native(f, &screen, &layout)) {
+            u32 screen, layout;
+            if (!rvx_prepare_native(f, &screen, &layout)) {
                 osos_import_free(f->stock_methods);
                 osos_import_free(f);
                 return NO_MEMORY;
             }
             rvx_top = f;
-            int transition = f->split ? Transition_Standard : Transition_ScreenPush;
+            /* A dialog comes up over the screen as the stock EU Volume Limit
+             * question does. */
+            int transition = dialog     ? Transition_ForegroundPush
+                             : f->split ? Transition_Standard
+                                        : Transition_ScreenPush;
             if (f->screen->kind == RV_SCREEN_KIND_SLIDER) {
                 int pane = f->screen->transition == RV_TRANSITION_FROM_PANE &&
                            from == LayoutKind_SplitList;
@@ -83,12 +92,14 @@ static int present(struct frame *f, void *parent)
                     f->stock_methods[i] = (f->native_methods - 3)[i];
                 f->stock_methods[4] = (uintptr_t)destroy;
                 if (native && f->screen->kind != RV_SCREEN_KIND_TEXT &&
-                    f->screen->kind != RV_SCREEN_KIND_SLIDER)
+                    f->screen->kind != RV_SCREEN_KIND_SLIDER && !dialog)
                     f->stock_methods[3 + ScreenController_action_method / 4] =
                         (uintptr_t)rvx_native_action;
                 if (f->screen->kind == RV_SCREEN_KIND_SLIDER)
                     f->stock_methods[3 + ScreenController_event_method / 4] =
                         (uintptr_t)event;
+                if (dialog)
+                    rvx_dialog_attach(f);
                 *(uintptr_t **)c = f->stock_methods + 3;
             } else {
                 rvx_top = f->parent;
@@ -96,9 +107,11 @@ static int present(struct frame *f, void *parent)
             }
         }
     } else {
+        u32 screen, layout;
         rvx_top = f;
-        c = osos_create_screen_controller(osos_controller_registry(), RVX_Screen,
-                                          RVX_Layout, f->screen->transition ? 2 : 3);
+        if (rvx_prepare_canvas(&screen, &layout))
+            c = osos_create_screen_controller(osos_controller_registry(), screen,
+                                              layout, f->screen->transition ? 2 : 3);
     }
     if (!c) {
         rvx_top = f->parent;
@@ -148,6 +161,19 @@ static int open_id(Pkg *p, const char *id, void *arg, void *controller)
 {
     if (!id)
         return BAD_ARGUMENT;
+    if (!p) {
+        for (u32 j = 0; j < rvx_core_screen_count; j++) {
+            if (!cfw_string_equal(rvx_core_screens[j].id, id))
+                continue;
+            struct frame *f = frame(NULL, arg);
+            if (!f)
+                return NO_MEMORY;
+            f->module = 0;
+            f->screen = rvx_core_screens + j;
+            return present(f, controller);
+        }
+        return NOT_FOUND;
+    }
     for (unsigned i = 0; i < p->manifest->modules; i++) {
         struct rvx_module *m = p->modules + i;
         if (!m->image && p->records[i].trigger == 1) {
@@ -193,12 +219,56 @@ void rvx_select(Pkg *p, const char *id, u32 row)
 {
     for (struct frame *f = rvx_top; f; f = f->parent)
         if (f->ctx.self == p && id && cfw_string_equal(f->screen->id, id)) {
+            /* A list's selection is a position: guests may sit before row. */
+            u32 rows = rvx_row_count(f);
+            if (f->screen->kind == RV_SCREEN_KIND_LIST && f->native) {
+                row = rvx_guest_position(f->native, f->screen, row);
+                rows += rvx_guest_count(f->native);
+            }
             f->selected = row;
-            if (f == rvx_top && f->native && row < rvx_row_count(f))
+            if (f == rvx_top && f->native && row < rows)
                 osos_ui_list_select(row);
             osos_ui_invalidate();
             break;
         }
+}
+
+/* Apple's Volume Limit control and lock-screen layouts leave with a pop to
+ * the Settings menu, which is below the list holding the moved row. */
+u32 rvx_pop_to_screen(u32 screen, u32 push_history, u32 skip_history, const void *next)
+{
+    for (struct frame *f = rvx_top; screen == RES_SettingsMenu_Main_Screen && f;
+         f = f->parent)
+        if (f->native && f->screen->kind == RV_SCREEN_KIND_LIST &&
+            core_lists_stock_count(f->screen)) {
+            screen = core_lists_screen_id(f->native, f->split);
+            break;
+        }
+    return rvx_next(next, screen, push_history, skip_history, 0, 0, 0);
+}
+
+/* A declared choice, multi-choice or slider screen for the setting, with its
+ * own title and icon, instead of the one the core would make from the setting. */
+static const struct screen *declared_setting_screen(Pkg *p, uint16_t key,
+                                                    unsigned *module)
+{
+    for (unsigned i = 0; i < p->manifest->modules; i++) {
+        const struct rvx_module *m = p->modules + i;
+        if (!m->desc)
+            continue;
+        const struct screen *screens = m->desc->screens;
+        for (u32 j = 0; j < m->desc->screen_count; j++) {
+            const struct screen *s = screens + j;
+            if ((s->kind == RV_SCREEN_KIND_CHOICE ||
+                 s->kind == RV_SCREEN_KIND_MULTI_CHOICE ||
+                 s->kind == RV_SCREEN_KIND_SLIDER) &&
+                s->choice.key == key) {
+                *module = i;
+                return s;
+            }
+        }
+    }
+    return NULL;
 }
 
 void rvx_act(const struct context *ctx, const struct row *r)
@@ -222,15 +292,22 @@ void rvx_act(const struct context *ctx, const struct row *r)
         else if (!s->screen)
             rvx_set_int(p, r->key, n >= s->maximum ? s->minimum : n + 1);
         else {
+            unsigned module = 0;
+            const struct screen *declared = declared_setting_screen(p, r->key, &module);
             struct frame *f = frame(p, NULL);
             if (!f)
                 break;
-            f->screen = &f->setting_screen;
-            f->setting_screen.title = s->label;
-            f->setting_screen.kind = s->screen;
-            f->setting_screen.choice.key = r->key;
-            f->setting_screen.choice.labels = s->labels;
-            f->setting_screen.choice.count = s->label_count;
+            if (declared) {
+                f->module = module;
+                f->screen = declared;
+            } else {
+                f->screen = &f->setting_screen;
+                f->setting_screen.title = s->label;
+                f->setting_screen.kind = s->screen;
+                f->setting_screen.choice.key = r->key;
+                f->setting_screen.choice.labels = s->labels;
+                f->setting_screen.choice.count = s->label_count;
+            }
             present(f, ctx->controller);
         }
         osos_ui_invalidate();
@@ -339,10 +416,7 @@ static PATCH_ARM void draw(void *view, void *arg, const int32_t *clip)
     osos_view_bind_graphics(view, context);
     osos_view_local_rect(view, bounds);
     int width = bounds[3] - bounds[1], height = bounds[2] - bounds[0];
-    if (osos_view_id(view) == RVX_PaneView) {
-        rvx_begin_draw(context, bounds, NULL);
-        rvx_draw_menu_pane(width, height);
-    } else if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
+    if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
         struct frame *f = rvx_top;
         f->view = view;
         rvx_begin_draw(context, bounds, f->damage.w ? &f->damage : NULL);
@@ -423,6 +497,21 @@ copy_methods(uintptr_t *dest, const uintptr_t *src, unsigned count)
         *dest++ = *src++;
 }
 
+/* The system UI consumes the hold switch before any screen controller sees
+ * it; the top canvas screen receives it as input kind 3 afterwards. */
+static u32 hold_changed(u32 system, u32 locked, const void *next)
+{
+    u32 result = rvx_next(next, system, locked, 0, 0, 0, 0);
+    if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
+        struct input in = {3, 0, !!locked};
+        rvx_input(rvx_top, &in);
+    }
+    return result;
+}
+
+static const struct rvx_hook hold_hook = {
+    0x5fa8f8b9 /* SystemUI_HandleHoldChange_call */, (u32)hold_changed, 0, 0, 0};
+
 void rvx_register_controller(void)
 {
     copy_methods(view_table, (const uintptr_t *)(OSOS_VIEW_VTABLE - 12),
@@ -433,16 +522,8 @@ void rvx_register_controller(void)
     view_table[3 + 0x74 / 4] = (uintptr_t)draw;
     controller_table[3 + ScreenController_event_method / 4] = (uintptr_t)event;
     controller_table[4] = (uintptr_t)destroy;
-    osos_register_view_factory(0x72767870, create_view);
-    osos_register_view_factory(0x72767863, create_view);
-    osos_ui_register_controllers(osos_controller_registry(), "RVXScreen", NULL,
+    osos_register_view_factory(CORE_VIEW_CANVAS, create_view);
+    osos_ui_register_controllers(osos_controller_registry(), CORE_CANVAS_FACTORY, NULL,
                                  create_controller);
-}
-
-void cfw_rvx_hold(int locked)
-{
-    if (rvx_top && rvx_top->screen->kind == RV_SCREEN_KIND_CANVAS) {
-        struct input in = {3, 0, !!locked};
-        rvx_input(rvx_top, &in);
-    }
+    rvx_bind_core(&hold_hook);
 }

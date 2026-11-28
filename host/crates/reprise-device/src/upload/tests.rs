@@ -45,13 +45,13 @@ fn put(b: &mut [u8], offset: usize, value: u32) {
 
 fn options() -> UploadOptions {
     UploadOptions {
-        destination: "/osos-cfw.bin".into(),
+        destination: "/Reprise/Firmware/reprise.bin".into(),
         overwrite: true,
     }
 }
 
 fn status(size: u32, state: u32, sha: &[u8; 32]) -> Status {
-    status_at(size, state, sha, "/osos-cfw.bin")
+    status_at(size, state, sha, "/Reprise/Firmware/reprise.bin")
 }
 
 fn status_at(size: u32, state: u32, sha: &[u8; 32], path: &str) -> Status {
@@ -366,8 +366,8 @@ fn batch(
 
 const BATCH: [(u32, &str); 3] = [
     (0, "/themes/default/theme.bin"),
-    (513, "/cfw-loader.bin"),
-    (70000, "/osos-cfw.bin"),
+    (513, "/Reprise/Firmware/loader.bin"),
+    (70000, "/Reprise/Firmware/reprise.bin"),
 ];
 
 #[test]
@@ -416,7 +416,7 @@ fn batch_stops_at_the_first_bad_file_and_keeps_the_verified_reports() {
     bulk.corrupt = Some(1);
     let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
     let error = result.unwrap_err().to_string();
-    assert!(error.starts_with("/cfw-loader.bin: "), "{error}");
+    assert!(error.starts_with("/Reprise/Firmware/loader.bin: "), "{error}");
     assert_eq!(bulk.commands, vec![START, NEXT, START]);
     assert_eq!(reports.len(), 1);
 
@@ -446,7 +446,7 @@ fn a_lost_device_mid_file_reports_the_ipod_stopped() {
     bulk.unplug = Some(2);
     let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
     let error = result.unwrap_err();
-    assert!(error.to_string().starts_with("/osos-cfw.bin: "), "{error}");
+    assert!(error.to_string().starts_with("/Reprise/Firmware/reprise.bin: "), "{error}");
     assert!(error.device_stopped());
     assert_eq!(reports.len(), 2);
 
@@ -807,7 +807,7 @@ fn paths_reject_traversal_aliases_and_reserved_temporary_names() {
             "{path}"
         );
     }
-    for path in ["/osos-cfw.bin", "/folder/os patched.bin"] {
+    for path in ["/Reprise/Firmware/reprise.bin", "/folder/os patched.bin"] {
         assert!(UploadOptions {
             destination: path.into(),
             overwrite: true
@@ -835,8 +835,8 @@ fn saved_rom_prepares_fixture_helper() {
         &[9; 32]
     );
     assert_eq!(
-        &patched[helper.config_offset + 56..helper.config_offset + 69],
-        b"/osos-cfw.bin"
+        &patched[helper.config_offset + 56..helper.config_offset + 85],
+        b"/Reprise/Firmware/reprise.bin"
     );
     assert_eq!(
         &patched[helper.nonce_offset..helper.nonce_offset + 16],

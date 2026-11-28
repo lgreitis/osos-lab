@@ -100,8 +100,11 @@ int rvx_write_setting(Pkg *p, uint16_t key, uint8_t type, const void *data, u32 
     v->bytes = n;
     v->dirty = 1;
     const struct rvx_descriptor *d = p->modules[0].desc;
-    if (d && d->changed)
+    if (d && d->changed) {
+        u32 outer = rvx_enter(p);
         d->changed(key);
+        rvx_leave(outer);
+    }
     rvx_setting_updated(p, key);
     return OK;
 }
@@ -196,7 +199,10 @@ void cfw_rvx_reset(void)
             osos_import_free(v);
         }
         const struct rvx_descriptor *d = p->modules[0].desc;
-        if (d && d->changed)
+        if (d && d->changed) {
+            u32 outer = rvx_enter(p);
             d->changed(0xffff);
+            rvx_leave(outer);
+        }
     }
 }

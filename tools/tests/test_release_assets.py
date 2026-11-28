@@ -31,11 +31,7 @@ class ReleaseAssetsTests(unittest.TestCase):
         )
         spec["purpose"] = "release"
         for name, format_name, fields in (
-            (
-                "osos",
-                "reprise-osos-recipe-v2",
-                ("recipe", "data", "dark_mode", "bitmap_catalog"),
-            ),
+            ("osos", "reprise-osos-recipe-v2", ("recipe", "data")),
             ("companion", "reprise-companion-recipe-v2", ("recipe", "data")),
             ("nor", "reprise-nor-template-v1", ("image", "descriptor")),
         ):

@@ -169,7 +169,7 @@ impl UploadHelper {
             Config {
                 size,
                 sha: &[0; 32],
-                destination: "/cfw-loader.bin",
+                destination: "/Reprise/Firmware/loader.bin",
                 mode: 2,
             },
         )

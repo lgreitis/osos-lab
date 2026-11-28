@@ -30,7 +30,7 @@ def relocation_words(raw, mirror, base, memory_size):
     return relocations
 
 
-def build_trailer(source, directory, resident, prefix, jobs):
+def build_trailer(source, directory, resident, prefix, jobs, defines=()):
     out = directory / "rvx"
     out.mkdir(exist_ok=True)
     sources = sorted(
@@ -46,6 +46,7 @@ def build_trailer(source, directory, resident, prefix, jobs):
                 prefix + "gcc",
                 *FLAGS,
                 *RUNTIME_CFLAGS,
+                *defines,
                 *(
                     ["-fno-tree-loop-distribute-patterns"]
                     if path.name == "rv_libc.c"
@@ -80,9 +81,8 @@ def build_trailer(source, directory, resident, prefix, jobs):
         "__aeabi_idivmod",
         "__aeabi_uidiv",
         "__aeabi_uidivmod",
-        "cfw_dark_mode_enabled",
-        "cfw_album_artist_read",
         "cfw_store_get",
+        "cfw_recovery_release",
         "cfw_rvx_lock",
         "cfw_rvx_unlock",
         "cfw_rvx_sync",
@@ -112,8 +112,10 @@ def build_trailer(source, directory, resident, prefix, jobs):
         "rvx_insert_vector",
         "rvx_insert_slot",
         "rvx_chains",
-        "cfw_rvx_has_canvas",
-        "cfw_rvx_has_menu_pane",
+        "rvx_trailer",
+        "cfw_rvx_running",
+        "__payload_limit",
+        "__payload_start",
     ]
     layout = (
         "\n".join(f"{n} = {require(resident, n):#x};" for n in absolute)

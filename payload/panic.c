@@ -1,11 +1,22 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 
 #include "panic.h"
+#include "native/bindings.h"
+#include "recovery.h"
+#include "rvx/runtime.h"
+#include "sad_ipod.h"
 #include <stddef.h>
-#include "patch.h"
 
 #define REG32(address) (*(volatile uint32_t *)(address))
 #define LCD_BASE 0x38300000u
+/* Display pipe: CONTROL bits 6, 5 and 4 enable layers 0 to 2, which it scans out
+ * over whatever the panel holds. Cleared before the panel is written directly. */
+#define DISP_CONTROL REG32(0x38900008u)
+#define DISP_LAYERS 0x70u
+#define DRAM_BASE 0x08000000u
+#define DRAM_END 0x0c000000u
+#define MAIN_HEAP_FREE_BYTES 0x0
+#define MAIN_HEAP_TOTAL_BYTES 0x4
 #define LCD_CONFIG REG32(LCD_BASE)
 #define LCD_COMMAND REG32(LCD_BASE + 0x04)
 #define LCD_DATA REG32(LCD_BASE + 0x40)
@@ -30,7 +41,7 @@ static unsigned scan_y;
 static void render_line(const struct panic_frame *frame);
 
 /* Five-bit rows, most significant pixel first. */
-static const char alphabet[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-+:";
+static const char alphabet[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-+:./";
 static const uint8_t glyphs[][7] = {
     {14, 17, 19, 21, 25, 17, 14}, {4, 12, 4, 4, 4, 4, 14},
     {14, 17, 1, 2, 4, 8, 31},     {30, 1, 1, 14, 1, 1, 30},
@@ -51,7 +62,8 @@ static const uint8_t glyphs[][7] = {
     {17, 17, 17, 21, 21, 21, 10}, {17, 17, 10, 4, 10, 17, 17},
     {17, 17, 10, 4, 4, 4, 4},     {31, 1, 2, 4, 8, 16, 31},
     {0, 0, 0, 31, 0, 0, 0},       {0, 4, 4, 31, 4, 4, 0},
-    {0, 4, 4, 0, 4, 4, 0}};
+    {0, 4, 4, 0, 4, 4, 0},        {0, 0, 0, 0, 0, 6, 6},
+    {1, 2, 2, 4, 8, 8, 16}};
 
 static void text(unsigned x, unsigned y, unsigned scale, const char *value)
 {
@@ -59,8 +71,11 @@ static void text(unsigned x, unsigned y, unsigned scale, const char *value)
         return;
     unsigned row = (scan_y - y) / scale;
     for (; *value; value++, x += 6 * scale) {
+        char letter = *value;
+        if (letter >= 'a' && letter <= 'z')
+            letter -= 'a' - 'A';
         unsigned index = 0;
-        while (alphabet[index] && alphabet[index] != *value)
+        while (alphabet[index] && alphabet[index] != letter)
             index++;
         if (!alphabet[index])
             continue;
@@ -76,6 +91,63 @@ static void text(unsigned x, unsigned y, unsigned scale, const char *value)
     }
 }
 
+static void sad_ipod(void)
+{
+    if (scan_y < 134 || scan_y >= 134 + sizeof sad_ipod_rows / sizeof *sad_ipod_rows)
+        return;
+    const uint8_t *row = sad_ipod_rows[scan_y - 134];
+    for (unsigned x = 0; x < 54; x++)
+        if (row[x / 8] & (0x80u >> (x % 8)))
+            pixels[WIDTH - 12 - 54 + x] = WHITE;
+}
+
+static char *decimal(char *out, uint32_t value)
+{
+    char digits[10];
+    unsigned n = 0;
+    do {
+        digits[n++] = (char)('0' + value % 10);
+        value /= 10;
+    } while (value);
+    while (n)
+        *out++ = digits[--n];
+    *out = 0;
+    return out;
+}
+
+static char *copy(char *out, const char *text)
+{
+    while (*text)
+        *out++ = *text++;
+    *out = 0;
+    return out;
+}
+
+static char *hex(char *out, uint32_t value)
+{
+    for (unsigned digit = 0; digit < 8; digit++)
+        *out++ = "0123456789ABCDEF"[(value >> (28 - digit * 4)) & 15];
+    *out = 0;
+    return out;
+}
+
+/* Main heap free and total bytes. */
+static void heap_line(unsigned y)
+{
+    char line[64];
+    char *out = line;
+    uint32_t heap = *(volatile uint32_t *)OSOS_MAIN_HEAP;
+    if (heap < DRAM_BASE || heap > DRAM_END - 8 || heap & 3) {
+        copy(out, "HEAP UNAVAILABLE");
+    } else {
+        out = copy(out, "HEAP FREE ");
+        out = decimal(out, *(uint32_t *)(heap + MAIN_HEAP_FREE_BYTES));
+        out = copy(out, " OF ");
+        decimal(out, *(uint32_t *)(heap + MAIN_HEAP_TOTAL_BYTES));
+    }
+    text(12, y, 1, line);
+}
+
 static void field(unsigned x, unsigned y, unsigned scale, const char *label,
                   uint32_t value)
 {
@@ -87,9 +159,7 @@ static void field(unsigned x, unsigned y, unsigned scale, const char *label,
     }
     while (i < 5)
         line[i++] = ' ';
-    for (unsigned digit = 0; digit < 8; digit++)
-        line[i++] = "0123456789ABCDEF"[(value >> (28 - digit * 4)) & 15];
-    line[i] = 0;
+    hex(line + i, value);
     text(x, y, scale, line);
 }
 
@@ -166,7 +236,9 @@ static int show_pixels(const struct panic_frame *frame)
     unsigned panel = (REG32(0x3cf000c4) >> 4) & 3;
     uint32_t timing = LCD_CONFIG & 0x80000007;
 
-    /* Stop Apple's frame engine before taking over the command interface. */
+    /* Stop Apple's frame engine and layer scan-out before taking over the
+     * command interface. */
+    DISP_CONTROL &= ~DISP_LAYERS;
     REG32(LCD_BASE + 0x70) = 0;
     if (!stop_lcd_dma() || !wait_bits(LCD_BASE + 0x8c, 3, 0))
         return 0;
@@ -209,9 +281,10 @@ static void register_field(unsigned x, unsigned y, unsigned index, uint32_t valu
 
 static void software_details(const struct panic_frame *frame)
 {
-    field(12, 56, 2, "LR", frame->exception_lr);
-    field(12, 80, 1, "SP", frame->sp);
-    field(166, 80, 1, "CPSR", frame->cpsr);
+    field(12, 52, 2, "LR", frame->exception_lr);
+    field(12, 72, 1, "SP", frame->sp);
+    field(166, 72, 1, "CPSR", frame->cpsr);
+    heap_line(84);
     text(12, 96, 1, "REGISTERS");
     text(166, 96, 1, "STACK");
     if (frame->valid) {
@@ -234,6 +307,33 @@ static void render_line(const struct panic_frame *frame)
 {
     for (unsigned x = 0; x < WIDTH; x++)
         pixels[x] = BACKGROUND;
+
+    if (cfw_recovery_valid() && CFW_CRASH_RECORD->report_id) {
+        text(12, 16, 2, "WE RAN INTO AN ERROR");
+        sad_ipod();
+        if (CFW_CRASH_RECORD->owner.hash) {
+            char name[40];
+            unsigned i = 0;
+            for (; i < sizeof name - 1 && CFW_CRASH_RECORD->owner.name[i]; i++)
+                name[i] = CFW_CRASH_RECORD->owner.name[i];
+            name[i] = 0;
+            text(12, 52, 1, name[0] ? name : "EXTENSION ERROR");
+            text(12, 76, 1, "CENTER WILL RESTART WITHOUT");
+            text(12, 90, 1, "THIS EXTENSION.");
+        } else {
+            text(12, 52, 1, "REPRISEOS");
+            text(12, 76, 1, "CENTER WILL RESTART. HOLD PREVIOUS");
+            text(12, 90, 1, "AT START TO SKIP EXTENSIONS.");
+        }
+        char path[32];
+        cfw_recovery_path(path, CFW_CRASH_RECORD->report_id);
+        text(12, 116, 1, "REPORT WILL BE SAVED AFTER RESTART:");
+        text(12, 130, 1, path);
+        text(12, 158, 1, "OPEN AN ISSUE AND ATTACH THE REPORT:");
+        text(12, 172, 1, "GITHUB.COM/REPRISEOS/REPRISEOS/ISSUES");
+        text(12, 210, 2, "CENTER TO RESTART");
+        return;
+    }
 
     const char *reason = "CPU EXCEPTION";
     uint32_t pc = frame->exception_lr;
@@ -262,6 +362,7 @@ static void render_line(const struct panic_frame *frame)
         break;
     }
     text(12, 10, 2, "OS PANIC");
+    text(206, 10, 1, "CENTER TO RESTART");
     text(12, 32, 2, reason);
     if (frame->type == 8) {
         software_details(frame);
@@ -281,6 +382,7 @@ static void render_line(const struct panic_frame *frame)
     }
     field(12, 134, 1, "CPSR", frame->cpsr);
     field(166, 134, 1, "SPSR", frame->spsr);
+    heap_line(146);
     if (frame->valid) {
         for (unsigned i = 0; i < 13; i++)
             register_field(i < 7 ? 12 : 166, 158 + (i % 7) * 9, i, frame->registers[i]);
@@ -292,7 +394,15 @@ static void render_line(const struct panic_frame *frame)
 void cfw_panic_screen(const struct panic_frame *frame)
 {
     REG32(0x3c800000) = 0;
+    /* The record is committed before the runtime's lookup runs, so a fault in
+     * the lookup leaves a report for the next start. */
+    cfw_recovery_capture(frame, NULL);
+    struct cfw_crash_owner owner;
+    if (cfw_rvx_crash_owner(frame, &owner))
+        cfw_recovery_capture(frame, &owner);
+    uint32_t backlight[4];
+    cfw_panic_backlight(backlight);
+    cfw_recovery_backlight(backlight);
     show_pixels(frame);
-    for (;;) {
-    }
+    cfw_recovery_wait();
 }

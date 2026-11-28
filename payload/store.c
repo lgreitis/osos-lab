@@ -83,19 +83,6 @@ void cfw_store_load(void)
     migrating = dirty = 1;
 }
 
-int cfw_store_read_legacy(const char *name, void *record, uint32_t size)
-{
-    int status = cfw_preferences_read_status(name, record, size);
-    if (status == CFW_PREFERENCES_IO_ERROR)
-        blocked = 1;
-    return status;
-}
-
-int cfw_store_migrating(void)
-{
-    return migrating;
-}
-
 uint32_t cfw_store_get(uint32_t key, void *data, uint32_t capacity)
 {
     uint32_t i = find(key);
@@ -141,6 +128,13 @@ void cfw_store_set(uint32_t key, const void *data, uint32_t size)
     dirty = 1;
 }
 
+void cfw_store_clear(void)
+{
+    if (store[2] > HEADER * 4)
+        dirty = 1;
+    store[2] = HEADER * 4;
+}
+
 void cfw_store_flush(void)
 {
     if (!dirty || blocked)
@@ -158,5 +152,4 @@ void cfw_store_flush(void)
         return;
     dirty = 0;
     migrating = 0;
-    cfw_store_delete_legacy();
 }
