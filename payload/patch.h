@@ -41,9 +41,4 @@ _Static_assert(sizeof(struct cfw_patch) == 84, "Patch metadata layout changed");
         address, 0xEB000000u | (((original - address - 8u) >> 2) & 0xFFFFFFu), symbol)
 #define PATCH_JUMP(address, first, second, symbol)                                     \
     PATCH_WRITE(4, address, first, second, 0, #symbol)
-/* Fill an ordinary C array from the pinned native firmware at assembly time. */
-#define PATCH_COPY(array, offset, source, bytes)                                       \
-    _Static_assert((offset) + (bytes) <= sizeof(array), "Copy exceeds array");         \
-    PATCH_RECORD(5, source, offset, sizeof(array), bytes, #array)
-
 #endif

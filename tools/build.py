@@ -83,14 +83,10 @@ def build_osos(config, out, inputs, recipe_only=False, info=None):
     print("Building OSOS recipe...", flush=True)
     info = info or identity(ROOT)
     fingerprint = firmware.load()["inputs"]["osos.bin"]
-    metadata = json.loads((firmware.DIRECTORY / "ui.json").read_text())
-    if metadata["schema"] != 1 or metadata["input"] != fingerprint:
-        raise ValueError("UI metadata does not match the pinned OSOS")
     recipe = build_recipe(
         ROOT / "payload",
         config.work / "payload",
         fingerprint,
-        metadata["resources"],
         config.prefix,
         config.jobs,
         info["revision"],
