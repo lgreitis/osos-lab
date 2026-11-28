@@ -25,12 +25,12 @@
 
 /* The pane kinds, each with the picture its pane shows, the stock template
  * that shows it and what each of the template's views shows, in the View
- * resource's order (the icon pane's in the order core_panes_write binds its
- * VLyt). A kind every row of a menu uses (icon, square) binds the stock
- * template itself through the row layout's VLyt or VCvs; a kind whose stock
- * rows each have a template of their own gets a copy of one of them (with a
- * second template's views after it when the stock pane is two instances), so
- * the stock views stay untouched. */
+ * resource's order from `first` on (the icon pane's in the order
+ * core_panes_write binds its VLyt). A kind every row of a menu uses (icon,
+ * square) binds the stock template itself through the row layout's VLyt or
+ * VCvs; a kind whose stock rows each have a template of their own gets a copy
+ * of one of them (with a second template's views after it when the stock pane
+ * is two instances), so the stock views stay untouched. */
 enum {
     PANE_ICON,       /* a 78 x 121 mask on the Settings box, the label above */
     PANE_ICON_PLAIN, /* the same without the box: a plain icon, or no picture;
@@ -40,13 +40,14 @@ enum {
     PANE_LINES_OVER, /* 130 x 128, the label above, a line and a number over
                         it, the caption under */
     PANE_BADGED,     /* 146 x 110, a count line with a badge before it under */
-    PANE_CLOCK_BOX,  /* 132 x 145 in the World Clock pane's clock box, two lines
-                        above */
+    PANE_CLOCK_BOX,  /* 132 x 145 in the World Clock pane's clock box, the
+                        caption under */
     PANE_KINDS
 };
 
 /* What a view shows: CAPTION falls back to the label, CAPTION_ONLY stays empty
- * without one, for the kinds whose title line shows the label. */
+ * without one, for the kinds whose title line shows the label and the
+ * 132 x 145 kind, which shows none. */
 enum { PICTURE, CAPTION, CAPTION_ONLY, LABEL, LINE, NUMBER, BADGE, BOX };
 
 #define MAX_VIEWS 5
@@ -62,6 +63,7 @@ static const struct kind {
     uint32_t layout;   /* stock row layout cloned in place of the menu's, for its
                           other instances */
     int8_t replaced;   /* view of the copy that becomes the picture view, 0 for none */
+    uint8_t first;     /* view of the copy the roles start at */
 } kinds[PANE_KINDS] = {
     /* The box is shown or hidden by the layout, as the stock row layouts do:
      * its view is shared by every Settings pane and keeps the last bitmap
@@ -95,15 +97,17 @@ static const struct kind {
                      3,
                      {PICTURE, CAPTION, BADGE},
                      .template = RES_MainMenuPreview_Radio_Template},
-    /* City, region and date lines, then the clock view, which the copy makes
-     * an image view in the clock's box. */
+    /* The date line and the clock view, which the copy makes an image view in
+     * the clock's box. The stock Clocks pane draws neither the city nor the
+     * region line before them, so the roles start after them. */
     [PANE_CLOCK_BOX] = {132,
                         145,
-                        4,
-                        {LABEL, LINE, CAPTION_ONLY, PICTURE},
+                        2,
+                        {CAPTION_ONLY, PICTURE},
                         .template = RES_ExtrasPreview_Clocks_Template,
                         .layout = RES_ExtrasMenu_Clocks_Layout,
-                        .replaced = 3},
+                        .replaced = 3,
+                        .first = 2},
 };
 
 static uint32_t copies[PANE_KINDS]; /* the template copies made so far */
@@ -303,7 +307,7 @@ static int picture_pane(uint32_t kind, uint32_t id, struct layout_clone *c,
          * the copy's views, so every copy takes it. */
         c->bindings =
             pane_layout(RES_ExtrasMenu_Games_Layout, RES_ExtrasPreview_Games_Template);
-        views->view = copies[kind] + 1;
+        views->view = copies[kind] + 1 + k->first;
     }
     views->source = sources;
     views->count = k->views;
