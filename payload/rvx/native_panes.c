@@ -46,8 +46,7 @@ enum {
 };
 
 /* What a view shows: CAPTION falls back to the label, CAPTION_ONLY stays empty
- * without one, for the kinds whose title line shows the label and the
- * 132 x 145 kind, which shows none. */
+ * without one, for the kinds whose title line shows the label. */
 enum { PICTURE, CAPTION, CAPTION_ONLY, LABEL, LINE, NUMBER, BADGE, BOX };
 
 #define MAX_VIEWS 5
@@ -103,7 +102,7 @@ static const struct kind {
     [PANE_CLOCK_BOX] = {132,
                         145,
                         2,
-                        {CAPTION_ONLY, PICTURE},
+                        {CAPTION, PICTURE},
                         .template = RES_ExtrasPreview_Clocks_Template,
                         .layout = RES_ExtrasMenu_Clocks_Layout,
                         .replaced = 3,
