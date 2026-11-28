@@ -1,10 +1,10 @@
 # Files
 
-Each extension has a data folder, `/Revola/Data/Extensions/<id>/`. Games and apps keep theirs in `/Revola/Data/Games/gamedata_RW/<id>/` and `/Revola/Data/Apps/appdata_RW/<id>/`, where Homebrew points the host's game-data folder. Paths cannot leave the folder. The core closes an extension's open files when it unloads.
+Each extension has a data folder, `/Reprise/Data/Extensions/<id>/`. Games and apps keep theirs in `/Reprise/Data/Games/gamedata_RW/<id>/` and `/Reprise/Data/Apps/appdata_RW/<id>/`, where Homebrew points the host's game-data folder. Paths cannot leave the folder. The core closes an extension's open files when it unloads.
 
-For files the listener copies onto the iPod, an extension names a content folder in its manifest, `content = "Themes"` (or a list). It then reads `/Revola/Themes/` with `api->content_open` and `api->content_list`, using names such as `Themes/example.rvt`. Content folders are read-only and have one owner. A second enabled extension naming the same folder does not load and shows Conflict in Settings > Extensions.
+For files the listener copies onto the iPod, an extension names a content folder in its manifest, `content = "Themes"` (or a list). It then reads `/Reprise/Themes/` with `api->content_open` and `api->content_list`, using names such as `Themes/example.rvt`. Content folders are read-only and have one owner. A second enabled extension naming the same folder does not load and shows Conflict in Settings > Extensions.
 
-`api->firmware_open` opens the booted firmware, `/Revola/Firmware/revola.bin`, where themes read stock artwork. Handles from `content_open`, `firmware_open` and `asset_open` ([Assets](assets.md)) work with `file_read`, `file_seek` and `file_close`.
+`api->firmware_open` opens the booted firmware, `/Reprise/Firmware/reprise.bin`, where themes read stock artwork. Handles from `content_open`, `firmware_open` and `asset_open` ([Assets](assets.md)) work with `file_read`, `file_seek` and `file_close`.
 
 For anything else on the disk, use Apple's file functions from the symbols header.
 

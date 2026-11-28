@@ -25,9 +25,15 @@ MOCK = r"""
 #include <sys/stat.h>
 #include <errno.h>
 #include <assert.h>
+#include <strings.h>
+#include <dirent.h>
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define IF_MV(...)
 typedef uint64_t sector_t;
+#define DIRENT dirent
+#define ATTR_DIRECTORY 0x10
+struct dirinfo { unsigned attribute; };
+struct dirinfo dir_get_info(DIR *, struct dirent *);
 struct partinfo { uint64_t start, size; unsigned type; };
 void filesystem_init(void);
 int disk_mount_all(void);
@@ -47,6 +53,9 @@ ssize_t test_read(int, void *, size_t);
 ssize_t test_write(int, const void *, size_t);
 int test_fsync(int);
 int test_rename(const char *, const char *);
+int test_remove(const char *);
+int test_rmdir(const char *);
+DIR *test_opendir(const char *);
 off_t filesize(int);
 int upload_write_allowed(uint64_t, int);
 #ifndef TEST_IMPLEMENTATION
@@ -57,6 +66,9 @@ int upload_write_allowed(uint64_t, int);
 #define fsync test_fsync
 #define rename test_rename
 #define mkdir test_mkdir
+#define remove test_remove
+#define rmdir test_rmdir
+#define opendir test_opendir
 #endif
 #endif
 """
@@ -94,6 +106,56 @@ ssize_t test_read(int fd,void *p,size_t n) {ssize_t r=read(fd,p,n);if(fault==1 &
 ssize_t test_write(int fd,const void *p,size_t n) {assert(upload_write_allowed(394224,1));if(fault==2)return -1;return write(fd,p,n);}
 int test_fsync(int fd) {if(fault==3)return -1;return fsync(fd);}
 int test_rename(const char *a,const char *b) {assert(upload_write_allowed(394224,1));if(fault==4)return -1;return rename(a+1,b+1);}
+int test_remove(const char *p) {assert(upload_write_allowed(394224,1));if(fault==17&&strstr(p,"state.bin"))return -1;return unlink(p+1);}
+int test_rmdir(const char *p) {assert(upload_write_allowed(394224,1));return rmdir(p+1);}
+DIR *test_opendir(const char *p) {return opendir(p[1] ? p+1 : ".");}
+struct dirinfo dir_get_info(DIR *d,struct dirent *e) {(void)d;return (struct dirinfo){e->d_type==DT_DIR ? ATTR_DIRECTORY : 0};}
+static void close_repeatedly(void);
+static void touch(const char *p) {int f=open(p,O_WRONLY|O_CREAT,0600);assert(f>=0);close(f);}
+static bool present(const char *p) {return access(p,F_OK)==0;}
+static void mkdirs(const char *p) {char b[256];strcpy(b,p);for(char *s=strchr(b+1,'/');;s=strchr(s+1,'/')){if(s)*s=0;if(mkdir(b,0700))assert(errno==EEXIST);if(!s)break;*s='/';}}
+/* Faults 14, 15 and 18 start from a partial installation: the companion loader alone,
+   nothing, the root files of a release through 0.4.0. Fault 17 keeps every state.bin;
+   fault 19 leaves nothing of the user's under /Revola and /themes. */
+static void installation(void) {
+    mkdirs("iPod_Control/Music");touch("iPod_Control/Music/song.m4a");touch("unrelated-notes.part");
+    if(fault==15)return;
+    if(fault==14){mkdirs("Reprise/Firmware");touch("Reprise/Firmware/loader.bin");return;}
+    if(fault==18){touch("cfw-loader.bin");touch("osos-cfw.bin");return;}
+    mkdirs("Reprise/Firmware");touch("Reprise/Firmware/loader.bin");touch("Reprise/Firmware/reprise.bin");
+    touch("cfw-loader.bin");touch("osos-cfw.bin");
+    touch(".reprise-00112233445566778899aabbccddeeff.part");
+    mkdirs("Reprise/Extensions/eq");touch("Reprise/Extensions/eq/manifest.bin");touch("Reprise/Extensions/eq/main.rvx");
+    mkdirs("Reprise/Data/Extensions/eq");touch("Reprise/Data/Extensions/eq/state.bin");
+    mkdirs("Revola/Extensions/old");touch("Revola/Extensions/old/main.rvx");
+    mkdirs("Revola/Data/Extensions/old");touch("Revola/Data/Extensions/old/state.bin");
+    mkdirs("themes/default");touch("themes/default/theme.bin");
+    mkdirs("themes/dark");touch("themes/dark/theme.bin");
+    if(fault==19)return;
+    touch("Revola/keep.txt");touch("themes/dark/notes.txt");
+}
+static void removal(void) {
+    assert(test_result.state==4);assert(!test_result.rc);
+    assert(test_storage.existing_files==(fault==14 ? 5 : fault==15 ? 0 : fault==17 ? 75 : fault==18 ? 3 : 15));
+    assert(!upload_write_allowed(394224,1));
+    assert(!present("Reprise/Firmware/loader.bin")&&!present("Reprise/Firmware/reprise.bin")&&!present("Reprise/Firmware"));
+    assert(!present("cfw-loader.bin")&&!present("osos-cfw.bin"));
+    assert(!present("Reprise/Extensions")&&!present("Revola/Extensions")&&!present("themes/default"));
+    if(fault==17){
+        assert(present("Reprise/Data/Extensions/eq/state.bin")&&present("Revola/Data/Extensions/old/state.bin"));
+    } else {
+        assert(!present("Reprise")&&!present("Revola/Data"));
+    }
+    if(fault==0||fault==8||fault==17){
+        assert(present("Revola/keep.txt")&&present("themes/dark/notes.txt")&&!present("themes/dark/theme.bin"));
+    } else {
+        assert(!present("Reprise")&&!present("Revola")&&!present("themes"));
+    }
+    if(fault==19)assert(!present("Revola")&&!present("themes"));
+    assert(!present(".reprise-00112233445566778899aabbccddeeff.part"));
+    assert(present("iPod_Control/Music/song.m4a")&&present("unrelated-notes.part"));
+    close_repeatedly();
+}
 off_t filesize(int fd) {struct stat s;assert(!fstat(fd,&s));return s.st_size;}
 static void original(void) {int fd=open("os.bin",O_RDONLY);assert(fd>=0);char b[4]={0};assert(read(fd,b,4)==3);assert(!memcmp(b,"old",3));assert(!close(fd));}
 static void pattern(uint32_t off,unsigned n) {for(unsigned i=0;i<n;i++)test_buffer[i]=(off+i)*37+(off+i)/11;}
@@ -111,6 +173,7 @@ int main(int argc,char **argv)
     const char *second=argc==7 ? argv[6] : NULL;
     unsigned size=strtoul(argv[1],0,10); unsigned overwrite=atoi(argv[2]); bool exists=atoi(argv[3]);fault=atoi(argv[4]);
     if(exists){int f=open("os.bin",O_WRONLY|O_CREAT,0600);assert(write(f,"old",3)==3);close(f);}
+    if(overwrite==3)installation();
     upload_config.size=size;upload_config.overwrite=overwrite;strcpy(upload_config.path,target);
     struct sha256 hash;sha256_init(&hash);
     for(unsigned off=0;off<size;){unsigned n=MIN(size-off,65536);pattern(off,n);sha256_update(&hash,test_buffer,n);off+=n;}
@@ -119,6 +182,7 @@ int main(int argc,char **argv)
     memset(test_result.nonce,7,16);
     upload_prepare(394224,1001390072,4096);
     if(fault>=9 && fault<=11){assert(test_result.rc==-303);assert(opens==0);assert(!upload_write_allowed(394224,1));upload_close();return 0;}
+    if(overwrite==3){removal();return 0;}
     if(fault==8){assert(test_result.rc==-322);assert(opens==0);upload_close();return 0;}
     if(overwrite==2 && fault==16){ /* NEXT is ignored after an inspection */
         struct upload_config next;memset(&next,0,sizeof next);next.size=512;next.overwrite=1;strcpy(next.path,"/a.bin");
@@ -328,6 +392,11 @@ extern struct storage_result test_storage;
     def test_storage_inspection_is_read_only(self):
         self.run_file(12000000, 2, True, 0)
 
+    def test_removal_deletes_only_the_installation(self):
+        for fault in [0, 8, 14, 15, 17, 18, 19]:
+            with self.subTest(fault=fault):
+                self.run_file(0, 3, False, fault)
+
     def test_mount_must_match_validated_geometry_before_writes(self):
         for fault in [9, 10, 11]:
             with self.subTest(fault=fault):
@@ -351,7 +420,7 @@ extern struct storage_result test_storage;
                     True,
                     False,
                     0,
-                    "/osos-cfw.bin",
+                    "/Reprise/Firmware/reprise.bin",
                     second="/themes/dark/theme.bin",
                 )
 

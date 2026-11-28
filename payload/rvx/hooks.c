@@ -4,7 +4,11 @@
 #include "patch.h"
 #include "osos.h"
 
-enum { CALL, VTABLE, ENTRY, ENTRY_NORETURN, WORD, INSERT };
+/* CALL: a BL to a function; VTABLE: a method slot; ENTRY: a function's first
+ * word; WORD: a table entry or constant; INSERT: the dispatcher's own branch;
+ * BRANCH: a B over a one-word tail-call thunk, handled like a CALL because lr
+ * already belongs to the thunk's caller. */
+enum { CALL, VTABLE, ENTRY, ENTRY_NORETURN, WORD, INSERT, BRANCH };
 
 struct site {
     u32 id, address, word;
@@ -134,6 +138,12 @@ static int prepare(struct chain *c, const struct site *s, unsigned slot, u32 fn)
             return 0;
         c->patched = 0xeb000000 | branch;
         break;
+    case BRANCH:
+        if (word >> 24 != 0xea)
+            return 0;
+        c->original = s->address + 8 + ((int32_t)(word << 8) >> 6);
+        c->patched = 0xea000000 | branch;
+        break;
     case VTABLE:
         c->original = word;
         c->patched = vector;
@@ -175,7 +185,7 @@ static int grow(void *volatile *slot, u32 bytes)
     return available;
 }
 
-/* Core menu hooks have no owning extension and use only named sites. */
+/* Core hooks have no owning extension and use only named sites. */
 static int bind_hook(Pkg *p, const struct rvx_hook *h)
 {
     if (!h || h->reserved || h->mode > 1)
@@ -248,7 +258,7 @@ int rvx_bind(Pkg *p, const struct rvx_hook *h)
     return p ? bind_hook(p, h) : BAD_ARGUMENT;
 }
 
-void rvx_bind_menu(const struct rvx_hook *h)
+void rvx_bind_core(const struct rvx_hook *h)
 {
     bind_hook(NULL, h);
 }
@@ -263,29 +273,36 @@ static void remove_binding(struct chain *c, struct binding **it)
         cfw_rvx_write(c->address, c->previous);
 }
 
+/* 1 when `h` is one of the hooks a loaded module of `p` declares. */
+static int declared(Pkg *p, const struct rvx_hook *h)
+{
+    for (unsigned j = 0; j < p->manifest->modules; j++) {
+        const struct rvx_descriptor *d = p->modules[j].desc;
+        if (d && (uintptr_t)h - (uintptr_t)d->hooks < d->count * sizeof *h)
+            return 1;
+    }
+    return 0;
+}
+
+/* Only hooks bound through hook_bind unbind; a module's declared ones stay
+ * until it unloads. */
 int rvx_unbind(Pkg *p, const struct rvx_hook *h)
 {
     if (!p || !h)
         return BAD_ARGUMENT;
-    for (unsigned j = 0; j < p->manifest->modules; j++) {
-        const struct rvx_descriptor *d = p->modules[j].desc;
-        if (d && (uintptr_t)h - (uintptr_t)d->hooks < d->count * sizeof *h)
-            return NOT_BOUND;
-    }
+    if (declared(p, h))
+        return NOT_BOUND;
+    /* The binding of this site and handler, whatever struct named them. */
     u32 irq = cfw_rvx_lock();
-    int result = NOT_BOUND;
-    for (unsigned i = 0; i < SLOTS; i++) {
-        struct chain *c = rvx_chains[i];
-        if (!c)
-            continue;
-        for (struct binding **it = &c->head; *it; it = &(*it)->next)
-            if ((*it)->pkg == p && (*it)->hook == h) {
-                remove_binding(c, it);
-                result = OK;
-                goto done;
-            }
-    }
-done:
+    struct site site;
+    int slot = locate(p, h->site, &site), result = slot < 0 ? BAD_ARGUMENT : NOT_BOUND;
+    struct chain *c = slot < 0 ? NULL : rvx_chains[slot];
+    for (struct binding **it = c ? &c->head : NULL; it && *it; it = &(*it)->next)
+        if ((*it)->pkg == p && (*it)->fn == h->value && !declared(p, (*it)->hook)) {
+            remove_binding(c, it);
+            result = OK;
+            break;
+        }
     cfw_rvx_unlock(irq);
     return result;
 }

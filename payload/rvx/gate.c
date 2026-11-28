@@ -4,10 +4,6 @@
 #include "osos.h"
 #include "patch.h"
 
-struct trailer_spec {
-    uint32_t stored, memory, relocations, hash;
-};
-extern const struct trailer_spec rvx_trailer;
 extern const unsigned char __payload_limit[], __payload_start[];
 extern void cfw_rvx_sync(const void *, const void *);
 static const struct rvx_host *host;
@@ -28,7 +24,7 @@ static int read_and_hash(void *f, void *dest, uint32_t n, uint32_t *hash)
 
 static struct rvx_host *read_runtime(void *f)
 {
-    const struct trailer_spec *s = &rvx_trailer;
+    const struct rvx_trailer_spec *s = &rvx_trailer;
     uint32_t offset = CFW_PAYLOAD_FILE_OFFSET + (uintptr_t)__payload_limit -
                       (uintptr_t)__payload_start;
     if (osos_file_seek(f, offset, 0))
@@ -80,7 +76,7 @@ void cfw_rvx_boot(void)
         return;
     started = 1;
     struct osos_path path;
-    osos_path_init(&path, "/osos-cfw.bin");
+    osos_path_init(&path, "/Reprise/Firmware/reprise.bin");
     void *file;
     if (osos_file_open(&path, 1, &file))
         return;
@@ -112,12 +108,6 @@ void cfw_rvx_reset(void)
         host->reset();
 }
 
-void cfw_rvx_hold(int locked)
-{
-    if (host)
-        host->hold(locked);
-}
-
 void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row,
                       uint32_t bytes, uint32_t metadata)
 {
@@ -125,16 +115,16 @@ void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *row
         host->row(list, table, item, row, bytes, metadata);
 }
 
-void cfw_rvx_menu_events(void *map, uint32_t screen)
+void cfw_rvx_menu_events(void *map, uint32_t screen, uint32_t layout)
 {
     if (host)
-        host->events(map, screen);
+        host->events(map, screen, layout);
 }
 
-void cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item, int tv)
+unsigned cfw_rvx_video_menu(void *menu, void *controller, int row, const void *item,
+                            int tv)
 {
-    if (host)
-        host->video(menu, controller, row, item, tv);
+    return host ? host->video(menu, controller, row, item, tv) : 0;
 }
 
 int cfw_rvx_indexed_property(uint32_t type, uint32_t property, uint32_t index,
@@ -163,6 +153,16 @@ void cfw_rvx_toggle_row(unsigned menu, unsigned row)
 {
     if (host)
         host->toggle(menu, row);
+}
+
+uint32_t cfw_rvx_visible_locate(unsigned menu, uint32_t position, uint32_t *anchor)
+{
+    return host ? host->visible_locate(menu, position, anchor) : position;
+}
+
+uint32_t cfw_rvx_stock_view(uint32_t view)
+{
+    return host ? host->stock_view(view) : view;
 }
 
 uint32_t rvx_dispatch(uint32_t *registers, unsigned slot)

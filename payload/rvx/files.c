@@ -3,6 +3,8 @@
 #include "cfw.h"
 #include "osos.h"
 #include "../../game-sdk/runtime/native_directory.h"
+#include "native/layout.h"
+#include "runtime.h"
 
 struct rvx_file {
     File *next;
@@ -33,6 +35,9 @@ static int build_path(Pkg *p, const char *name, int content, int folder,
             return 0;
         if (!*s || *s == '/') {
             unsigned n = s - part;
+            /* A trailing "/" ends the name like its end does. */
+            if (!*s && !n && part != name)
+                break;
             if (!n || (part[0] == '.' && (n == 1 || (n == 2 && part[1] == '.'))))
                 return 0;
             if (!*s)
@@ -44,8 +49,9 @@ static int build_path(Pkg *p, const char *name, int content, int folder,
         const char *s = p->strings + p->manifest->content;
         unsigned i;
         for (i = 0; i < p->manifest->content_count; i++) {
+            /* FAT returns names in either case. */
             unsigned j = 0;
-            while (s[j] && s[j] == name[j])
+            while (s[j] && (s[j] | 32) == (name[j] | 32))
                 j++;
             if (!s[j] && (!name[j] || name[j] == '/'))
                 break;
@@ -58,7 +64,7 @@ static int build_path(Pkg *p, const char *name, int content, int folder,
     path->volume = 0;
     unsigned len = 0;
     return append(path->text, &len,
-                  content ? "/Revola/" : "/Revola/Data/Extensions/") &&
+                  content ? "/Reprise/" : "/Reprise/Data/Extensions/") &&
            (content || (append(path->text, &len, p->id) &&
                         (!*name || append(path->text, &len, "/")))) &&
            append(path->text, &len, name);
@@ -123,7 +129,7 @@ int rvx_content_open(Pkg *p, const char *name, File **out)
 
 int rvx_firmware_open(Pkg *p, File **out)
 {
-    return out ? open_path(p, "/osos-cfw.bin", 1, out) : BAD_ARGUMENT;
+    return out ? open_path(p, "/Reprise/Firmware/reprise.bin", 1, out) : BAD_ARGUMENT;
 }
 
 int rvx_file_read(Pkg *p, File *f, void *out, u32 bytes, u32 *got)
@@ -328,7 +334,8 @@ void *rvx_asset_load(Pkg *p, const char *name, u32 *bytes)
     return out;
 }
 
-int rvx_preload_assets(Pkg *p)
+/* An asset that cannot be kept in memory stays on disk and is read when used. */
+void rvx_preload_assets(Pkg *p)
 {
     for (u32 i = p->manifest->modules; i < p->entries; i++) {
         if (p->catalog[i].preload != 0)
@@ -336,20 +343,23 @@ int rvx_preload_assets(Pkg *p)
         if (!p->preloaded)
             p->preloaded = rvx_alloc(p, p->entries * sizeof(void *));
         if (!p->preloaded)
-            return 0;
+            return;
         const struct entry *e = p->catalog + i;
         uint8_t *data = rvx_alloc(p, e->stored);
         File *f;
-        if (!data || rvx_open_entry(p, e, &f) != OK)
-            return 0;
-        u32 got;
-        int status = rvx_file_read(p, f, data, e->stored, &got);
-        rvx_file_close(p, f);
-        if (status != OK || got != e->stored)
-            return 0;
-        p->preloaded[i] = data;
+        if (!data)
+            continue;
+        u32 got = 0;
+        int status = rvx_open_entry(p, e, &f);
+        if (status == OK) {
+            status = rvx_file_read(p, f, data, e->stored, &got);
+            rvx_file_close(p, f);
+        }
+        if (status == OK && got == e->stored)
+            p->preloaded[i] = data;
+        else
+            rvx_free(p, data);
     }
-    return 1;
 }
 
 struct stream {
@@ -376,10 +386,82 @@ int rvx_provider(Pkg *p, const void *new_provider)
     return OK;
 }
 
+/* The runtime's own bitmaps: payload/rvx/assets/<name>.png as menu masks,
+ * lz-compressed behind a header and an entry table after the runtime image
+ * in /Reprise/Firmware/reprise.bin, entry offsets relative to the trailer. Read
+ * while shown, like an extension's optional asset; a theme's provider does not
+ * see them. */
+#define CORE_ASSETS_MAGIC 0x41435652u /* RVCA */
+#define CORE_ASSETS_MAX 16
+#define CORE_ASSET_MAX_BYTES (64u << 10)
+#define CORE_ASSETS_MAX_BYTES (CORE_ASSETS_MAX * CORE_ASSET_MAX_BYTES)
+
+struct core_assets_header {
+    u32 magic, count, bytes, reserved;
+};
+
+extern const unsigned char __payload_limit[], __payload_start[];
+
+static int file_read_exact(void *f, void *out, u32 n)
+{
+    u32 got;
+    return !osos_file_read(f, out, n, &got) && got == n;
+}
+
+static void *core_bitmap_load(const char *name, u32 *n)
+{
+    struct osos_path path;
+    void *f, *out = NULL;
+    osos_path_init(&path, "/Reprise/Firmware/reprise.bin");
+    if (osos_file_open(&path, 1, &f))
+        return NULL;
+    u32 runtime = CFW_PAYLOAD_FILE_OFFSET + (u32)(__payload_limit - __payload_start);
+    u32 base = (runtime + rvx_trailer.stored + rvx_trailer.relocations * 2 + 3) & ~3u;
+    u32 hash = rvx_hash(name);
+    struct core_assets_header h;
+    struct entry e;
+    if (osos_file_seek(f, base, 0) || !file_read_exact(f, &h, sizeof h) ||
+        h.magic != CORE_ASSETS_MAGIC || !h.count || h.count > CORE_ASSETS_MAX ||
+        h.bytes > CORE_ASSETS_MAX_BYTES || h.bytes < sizeof h + h.count * sizeof e)
+        goto done;
+    for (u32 i = 0; i < h.count; i++) {
+        if (!file_read_exact(f, &e, sizeof e))
+            goto done;
+        if (e.name == hash)
+            break;
+        if (i + 1 == h.count)
+            goto done;
+    }
+    if (e.kind != 2 || e.codec > 1 || e.size < 28 || e.size > CORE_ASSET_MAX_BYTES ||
+        !e.stored || e.offset > h.bytes || e.stored > h.bytes - e.offset ||
+        (!e.codec && e.stored != e.size) || osos_file_seek(f, base + e.offset, 0))
+        goto done;
+    uint8_t *src = osos_import_alloc(e.stored);
+    if (!src)
+        goto done;
+    if (file_read_exact(f, src, e.stored) && (out = rvx_alloc(NULL, e.size)) != NULL) {
+        int ok = e.codec ? rvx_decode(src, e.stored, out, e.size) : 1;
+        for (u32 i = 0; ok && !e.codec && i < e.size; i++)
+            ((uint8_t *)out)[i] = src[i];
+        if (!ok) {
+            rvx_free(NULL, out);
+            out = NULL;
+        }
+    }
+    osos_import_free(src);
+    if (out)
+        *n = e.size;
+done:
+    osos_file_close(f);
+    return out;
+}
+
 void *rvx_bitmap_load(Pkg *p, const char *name, u32 *n)
 {
     if (!name)
         return NULL;
+    if (!p)
+        return core_bitmap_load(name, n);
     u32 owner = rvx_hash(p->id), id = rvx_hash(name);
     void *bitmap = NULL;
     if (provider && provider->replacement && provider->read) {

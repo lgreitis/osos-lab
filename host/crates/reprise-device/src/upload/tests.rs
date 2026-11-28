@@ -45,13 +45,13 @@ fn put(b: &mut [u8], offset: usize, value: u32) {
 
 fn options() -> UploadOptions {
     UploadOptions {
-        destination: "/osos-cfw.bin".into(),
+        destination: "/Reprise/Firmware/reprise.bin".into(),
         overwrite: true,
     }
 }
 
 fn status(size: u32, state: u32, sha: &[u8; 32]) -> Status {
-    status_at(size, state, sha, "/osos-cfw.bin")
+    status_at(size, state, sha, "/Reprise/Firmware/reprise.bin")
 }
 
 fn status_at(size: u32, state: u32, sha: &[u8; 32], path: &str) -> Status {
@@ -366,8 +366,8 @@ fn batch(
 
 const BATCH: [(u32, &str); 3] = [
     (0, "/themes/default/theme.bin"),
-    (513, "/cfw-loader.bin"),
-    (70000, "/osos-cfw.bin"),
+    (513, "/Reprise/Firmware/loader.bin"),
+    (70000, "/Reprise/Firmware/reprise.bin"),
 ];
 
 #[test]
@@ -416,7 +416,10 @@ fn batch_stops_at_the_first_bad_file_and_keeps_the_verified_reports() {
     bulk.corrupt = Some(1);
     let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
     let error = result.unwrap_err().to_string();
-    assert!(error.starts_with("/cfw-loader.bin: "), "{error}");
+    assert!(
+        error.starts_with("/Reprise/Firmware/loader.bin: "),
+        "{error}"
+    );
     assert_eq!(bulk.commands, vec![START, NEXT, START]);
     assert_eq!(reports.len(), 1);
 
@@ -446,7 +449,12 @@ fn a_lost_device_mid_file_reports_the_ipod_stopped() {
     bulk.unplug = Some(2);
     let (result, reports, _) = batch(&mut bulk, &mut |_| Ok(()));
     let error = result.unwrap_err();
-    assert!(error.to_string().starts_with("/osos-cfw.bin: "), "{error}");
+    assert!(
+        error
+            .to_string()
+            .starts_with("/Reprise/Firmware/reprise.bin: "),
+        "{error}"
+    );
     assert!(error.device_stopped());
     assert_eq!(reports.len(), 2);
 
@@ -462,6 +470,43 @@ fn helpers_without_batch_upload_take_one_file() {
     assert!(check_file_count(2, false).is_err());
     assert!(check_file_count(2, true).is_ok());
     assert!(check_file_count(0, true).is_err());
+}
+
+#[test]
+fn file_removal_is_a_manifest_capability() {
+    assert!(!fixture_helper().unwrap().supports_file_removal());
+    let image = include_bytes!("../../../../../usb-helper/tests/fixtures/upload.dfu");
+    let mut manifest: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "../../../../../usb-helper/tests/fixtures/manifest.json"
+    ))
+    .unwrap();
+    manifest["file_removal"] = true.into();
+    let helper = UploadHelper::from_bytes(image, &serde_json::to_vec(&manifest).unwrap()).unwrap();
+    assert!(helper.supports_file_removal());
+}
+
+#[test]
+fn removal_result_reports_deleted_and_remaining_entries() {
+    let mut raw = vec![0; 32];
+    put(&mut raw, 8, 1000);
+    put(&mut raw, 28, 1 | 2 | 8 | 64);
+    let report = super::removal_report(&raw).unwrap();
+    assert!(report.companion && report.firmware && report.staged_uploads);
+    assert!(!report.extensions && report.extensions_left);
+    assert!(!report.companion_left && !report.firmware_left && !report.staged_uploads_left);
+    assert_eq!(
+        report.leftovers(),
+        ["/Reprise, /Revola/Extensions, /Revola/Data or /themes"]
+    );
+    put(&mut raw, 28, 15);
+    assert!(super::removal_report(&raw).unwrap().leftovers().is_empty());
+    put(&mut raw, 28, 0);
+    assert!(super::removal_report(&raw).unwrap().leftovers().is_empty());
+    put(&mut raw, 28, 256);
+    assert!(super::removal_report(&raw).is_err());
+    put(&mut raw, 28, 0);
+    put(&mut raw, 8, 0);
+    assert!(super::removal_report(&raw).is_err());
 }
 
 #[test]
@@ -807,7 +852,7 @@ fn paths_reject_traversal_aliases_and_reserved_temporary_names() {
             "{path}"
         );
     }
-    for path in ["/osos-cfw.bin", "/folder/os patched.bin"] {
+    for path in ["/Reprise/Firmware/reprise.bin", "/folder/os patched.bin"] {
         assert!(UploadOptions {
             destination: path.into(),
             overwrite: true
@@ -835,8 +880,8 @@ fn saved_rom_prepares_fixture_helper() {
         &[9; 32]
     );
     assert_eq!(
-        &patched[helper.config_offset + 56..helper.config_offset + 69],
-        b"/osos-cfw.bin"
+        &patched[helper.config_offset + 56..helper.config_offset + 85],
+        b"/Reprise/Firmware/reprise.bin"
     );
     assert_eq!(
         &patched[helper.nonce_offset..helper.nonce_offset + 16],

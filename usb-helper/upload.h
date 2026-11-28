@@ -11,6 +11,7 @@
 
 struct upload_config {
     uint8_t tag[16];
+    /* overwrite: 0 create, 1 replace, 2 inspect storage, 3 remove the installation. */
     uint32_t size, overwrite;
     uint8_t sha256[32];
     char path[192];

@@ -61,7 +61,7 @@ def stop_before_primary_header(g, symbols):
         g.insert(point)
 
 
-def replay(elf, disk, nor, uploads, inspect=False, interrupt=False, header_cut=False):
+def replay(elf, disk, nor, uploads, mode=1, interrupt=False, header_cut=False):
     nm = ROOT / "toolchains/rockbox-arm/bin/arm-elf-eabi-nm"
     symbols = {
         v[2]: int(v[0], 16)
@@ -109,18 +109,13 @@ def replay(elf, disk, nor, uploads, inspect=False, interrupt=False, header_cut=F
                         g.remove(point)
 
                     stop_at("main")
-                    path, data = uploads[0]
-                    g.write(
-                        symbols["upload_config"],
-                        config(path, data, 2 if inspect else 1),
-                    )
+                    path, data = uploads[0] if uploads else ("/Reprise", b"")
+                    g.write(symbols["upload_config"], config(path, data, mode))
                     stop_at("upload_usb")
-                    if inspect:
+                    if mode != 1:
                         check(g, 4)
-                        print(
-                            "inspection:",
-                            struct.unpack("<QQQII", g.read(0x2201FBC0, 32)),
-                        )
+                        storage = struct.unpack("<QQQII", g.read(0x2201FBC0, 32))
+                        print(f"storage: {storage}; existing_files={storage[4]:#x}")
                         return
                     for index, (path, data) in enumerate(uploads):
                         if index:
@@ -160,10 +155,13 @@ if __name__ == "__main__":
     parser.add_argument("elf", type=Path)
     parser.add_argument("disk", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("files", nargs="+", help="LOCAL_FILE=/absolute/ipod/path")
+    parser.add_argument("files", nargs="*", help="LOCAL_FILE=/absolute/ipod/path")
     parser.add_argument("--nor", type=Path, default=ROOT / "inputs/nor.bin")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--inspect", action="store_true")
+    mode.add_argument(
+        "--remove", action="store_true", help="delete the installation, upload nothing"
+    )
     mode.add_argument(
         "--interrupt", action="store_true", help="cut during a multi-chunk transfer"
     )
@@ -173,6 +171,8 @@ if __name__ == "__main__":
         help="cut between alternate and primary HFS+ header writes",
     )
     a = parser.parse_args()
+    if not a.files and not (a.inspect or a.remove):
+        parser.error("name at least one file to upload")
     with a.disk.open("rb") as source, a.output.open("xb") as target:
         shutil.copyfileobj(source, target)
     items = []
@@ -180,5 +180,11 @@ if __name__ == "__main__":
         local, path = arg.split("=", 1)
         items.append((path, Path(local).read_bytes()))
     replay(
-        a.elf, a.output, a.nor, items, a.inspect, a.interrupt, a.interrupt_before_header
+        a.elf,
+        a.output,
+        a.nor,
+        items,
+        2 if a.inspect else 3 if a.remove else 1,
+        a.interrupt,
+        a.interrupt_before_header,
     )

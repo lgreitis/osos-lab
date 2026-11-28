@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "internal.h"
 #include "osos.h"
+#include "../../rvx-sdk/rv_api.h"
 
 struct rvx_value {
     struct rvx_value *next;
@@ -99,10 +100,11 @@ int rvx_write_setting(Pkg *p, uint16_t key, uint8_t type, const void *data, u32 
     v->type = type;
     v->bytes = n;
     v->dirty = 1;
+    /* Screens and menus show the new value before the extension hears of it. */
+    rvx_setting_updated(p, key);
     const struct rvx_descriptor *d = p->modules[0].desc;
     if (d && d->changed)
         d->changed(key);
-    rvx_setting_updated(p, key);
     return OK;
 }
 
@@ -116,33 +118,34 @@ const struct rvx_setting *rvx_declaration(Pkg *p, uint16_t key)
     return NULL;
 }
 
+/* A stored int or bool of four bytes, else the declared fallback. */
 int32_t rvx_get_int(Pkg *p, uint16_t key)
 {
+    const struct rvx_value *v = value(p, key);
     int32_t n;
-    if (rvx_read_setting(p, key, &n, sizeof n) == sizeof n)
+    if (v && (v->type == RV_SETTING_TYPE_INT || v->type == RV_SETTING_TYPE_BOOL) &&
+        v->bytes == sizeof n) {
+        uint8_t *to = (uint8_t *)&n;
+        for (unsigned i = 0; i < sizeof n; i++)
+            to[i] = v->data[i];
         return n;
+    }
     const struct rvx_setting *s = rvx_declaration(p, key);
     return s ? s->fallback : 0;
 }
 
+/* Clamped to the declared range; a multi-choice keeps the bits its maximum
+ * names. Stored as an int whatever the declared type. */
 int rvx_set_int(Pkg *p, uint16_t key, int32_t n)
 {
     const struct rvx_setting *s = rvx_declaration(p, key);
-    if (s) {
-        if (s->type == 1)
-            n = n != 0;
-        else if (s->type != 2)
-            return BAD_ARGUMENT;
-        else if (s->screen == 6 && s->label_count < 32)
-            n &= (1u << s->label_count) - 1;
-        else {
-            if (n < s->minimum)
-                n = s->minimum;
-            if (n > s->maximum)
-                n = s->maximum;
-        }
-    }
-    return rvx_write_setting(p, key, s ? s->type : 2, &n, sizeof n);
+    if (s && s->screen == RV_SCREEN_KIND_MULTI_CHOICE)
+        n = (int32_t)((u32)n & (u32)s->maximum);
+    else if (s && n < s->minimum)
+        n = s->minimum;
+    else if (s && n > s->maximum)
+        n = s->maximum;
+    return rvx_write_setting(p, key, RV_SETTING_TYPE_INT, &n, sizeof n);
 }
 
 void cfw_rvx_flush(void)
@@ -181,11 +184,11 @@ static void reset_record(const char *name, int folder, void *arg)
         value(arg, key);
 }
 
+/* Reset All Settings empties every package's settings, started or not; menus
+ * then show the rows and values the fallbacks give. */
 void cfw_rvx_reset(void)
 {
     for (Pkg *p = rvx_packages; p; p = p->next) {
-        if (p->state != 2)
-            continue;
         rvx_folder_list(p, ".settings", reset_record, p);
         while (p->settings) {
             struct rvx_value *v = p->settings;
@@ -195,7 +198,10 @@ void cfw_rvx_reset(void)
             p->settings = v->next;
             osos_import_free(v);
         }
-        const struct rvx_descriptor *d = p->modules[0].desc;
+    }
+    rvx_menus_settings_reset();
+    for (Pkg *p = rvx_packages; p; p = p->next) {
+        const struct rvx_descriptor *d = p->state == 2 ? p->modules[0].desc : NULL;
         if (d && d->changed)
             d->changed(0xffff);
     }

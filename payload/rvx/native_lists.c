@@ -3,7 +3,6 @@
  * based on RepriseOS UI resources by lgreitis.
  */
 #include "native_ui.h"
-#define ROW_BYTES 0x98
 
 static const void *stock(uint32_t type, uint32_t id, uint32_t *bytes)
 {
@@ -98,23 +97,151 @@ static int indexed(const struct core_screen *s)
     return core_lists_indexed(s->declaration->kind);
 }
 
-/* A chosen event per row, and when the pane follows the highlight a
- * delayed-selected event per row that names the pane's handler. */
-static void write_row_events(struct core_writer *w, uint32_t first_item, uint32_t count,
-                             uint32_t pane, uint32_t more)
+/* 1 when row `i` of a list is a stock Settings row moved into it. */
+static int stock_at(const struct screen *d, uint32_t i)
 {
-    char name[48], handler[11];
-    core_write_word(w, count + (pane ? count : 0) + more);
+    return d->kind == RV_SCREEN_KIND_LIST && d->list.rows[i].kind == RV_ROW_KIND_STOCK;
+}
+
+/* Whether the pane of the split layout a list opens on hides the box: the
+ * first declared row that is not a stock row has no bitmap. The other variant
+ * is the list's second split layout, built when a row needs it. */
+static int main_plain(const struct screen *d)
+{
+    for (uint32_t i = 0; core_lists_per_row_pane(d) && i < d->list.count; i++)
+        if (!stock_at(d, i))
+            return core_lists_plain_pane(&d->list.panes[i]);
+    return 0;
+}
+
+uint32_t core_lists_screen_id(const struct core_screen *s, int split)
+{
+    return split ? s->id + s->ids - CORE_LIST_SPLIT_IDS : s->id;
+}
+
+/* The split layout of `screen` a row whose pane is `plain` switches to. */
+static uint32_t split_layout(const struct screen *d, uint32_t screen, int plain)
+{
+    return plain == main_plain(d) ? screen + 1 : CORE_LIST_PANE_OTHER(screen);
+}
+
+/* The ids of the layout clone of the stock row at `i`, after the rows' ids in
+ * the order of the stock rows: its layout, then its lists and views. */
+static uint32_t stock_clone(const struct core_screen *s, const struct screen *d,
+                            uint32_t i)
+{
+    uint32_t n = 0;
+    for (uint32_t j = 0; j < i; j++)
+        n += stock_at(d, j);
+    return CORE_SCREEN_ROWS(s) + 2 * d->list.count + CORE_LIST_STOCK_IDS * n;
+}
+
+/* The Settings screen's events, which bind every stock row's chosen and
+ * delayedselected by its id. */
+static const void *settings_events(void)
+{
+    uint32_t bytes;
+    return stock(Resource_CEVT, RES_SettingsMenu_Main_Screen, &bytes);
+}
+
+/* The binding of stock row `item`'s event `suffix` in the Settings screen's events. */
+static int stock_event(uint32_t item, const char *suffix, struct core_event *e)
+{
+    char name[40];
+    core_row_event_name(name, sizeof name, item, suffix);
+    return core_clone_find_event(settings_events(), name, e);
+}
+
+/* The Settings layout a stock row's highlight switches to, 0 for none. */
+static uint32_t stock_layout(uint32_t item)
+{
+    struct core_event e;
+    uint32_t string[CppString_bytes / 4], allocator = 0, layout;
+    if (!stock_event(item, ".delayedselected", &e) || !e.argument)
+        return 0;
+    NATIVE_CALL(CppString_InitBytes)(string, e.argument, e.argument_bytes, &allocator);
+    layout = NATIVE_CALL(ResourceName_GetId)(string);
+    NATIVE_CALL(CppString_Destroy)(string);
+    return layout;
+}
+
+/* Copies a stock Settings row's chosen binding from the Settings screen's
+ * events; returns how many events, 0 when the screen binds none. */
+static uint32_t write_stock_chosen(struct core_writer *w, uint32_t item)
+{
+    char name[40];
+    core_row_event_name(name, sizeof name, item, ".chosen");
+    return core_clone_copy_events(w, settings_events(), name, 1);
+}
+
+/* The highlight binding of stock row `i` of a split list: the row's Settings
+ * handler, and a switch to the clone of its Settings layout. */
+static void write_stock_highlight(struct core_writer *w, const struct core_screen *s,
+                                  uint32_t i)
+{
+    char name[40], handler[32], layout[11];
+    struct core_event e;
+    uint32_t item = s->declaration->list.rows[i].stock, n = 0;
+    if (stock_event(item, ".delayedselected", &e))
+        for (; n < e.handler_bytes && n < sizeof handler - 1; n++)
+            handler[n] = (char)e.handler[n];
+    handler[n] = 0;
+    core_row_event_name(name, sizeof name, item, ".delayedselected");
+    core_screens_handler_name(layout, stock_clone(s, s->declaration, i));
+    const char *const arguments[] = {layout};
+    core_write_event(w, name, handler, "navigator.SwitchLayout", arguments, 1);
+}
+
+/* A chosen event per row (a stock row's is Apple's), when the pane follows
+ * the highlight a delayed-selected event per row that names the pane's
+ * handler (a stock row's switches to its Settings layout, the others of a
+ * list with a pane per row to the list's layout with or without the box), and
+ * room in the count for `more` events written after. */
+static void write_row_events(struct core_writer *w, const struct core_screen *s,
+                             uint32_t count, uint32_t pane, uint32_t more)
+{
+    const struct screen *d = s->declaration;
+    char name[48], handler[11], layout[11];
+    uint32_t first_item = CORE_SCREEN_ROWS(s), begin = w->at, written = 0;
+    uint32_t stock_rows = core_lists_stock_count(d), split = core_lists_screen_id(s, 1);
+    int per_row = core_lists_per_row_pane(d);
+    const char *const arguments[] = {layout};
+    core_write_word(w, 0);
     for (uint32_t i = 0; i < count; i++) {
+        if (stock_at(d, i)) {
+            written += write_stock_chosen(w, d->list.rows[i].stock);
+            continue;
+        }
         core_row_event_name(name, sizeof name, first_item + 2 * i, ".chosen");
         core_screens_handler_name(handler, first_item + 2 * i);
         core_write_event(w, name, handler, NULL, NULL, 0);
+        written++;
     }
     for (uint32_t i = 0; pane && i < count; i++) {
+        if (stock_at(d, i)) {
+            write_stock_highlight(w, s, i);
+            written++;
+            continue;
+        }
+        int plain = per_row && core_lists_plain_pane(&d->list.panes[i]);
         core_row_event_name(name, sizeof name, first_item + 2 * i, ".delayedselected");
         core_screens_handler_name(handler, pane);
-        core_write_event(w, name, handler, NULL, NULL, 0);
+        core_screens_handler_name(layout, split_layout(d, split, plain));
+        core_write_event(w, name, handler, per_row ? "navigator.SwitchLayout" : NULL,
+                         arguments, per_row ? 1 : 0);
+        written++;
     }
+    if (stock_rows) {
+        /* Every stock Settings layout binds seven controller.* events, and a
+         * stock row's handler may post one: Volume Limit opens its screen that
+         * way. They go into the screen's events once; every layout of the
+         * screen loads them. */
+        uint32_t bytes;
+        const void *legal =
+            stock(Resource_SEVT, RES_SettingsMenus_Legal_Layout, &bytes);
+        written += core_clone_copy_events(w, legal, "controller.", 0);
+    }
+    core_write_word_at(w, begin, written + more);
 }
 
 /* Whether the pane changes with the highlighted row: a choice screen names the
@@ -127,11 +254,6 @@ static int pane_follows(const struct screen *d)
 static int pane_has_icon(const struct screen *d)
 {
     return d->bitmap || core_lists_per_row_pane(d);
-}
-
-uint32_t core_lists_screen_id(const struct core_screen *s, int split)
-{
-    return split ? s->id + s->ids - CORE_LIST_SPLIT_IDS : s->id;
 }
 
 /* A split layout: the Settings > Main Menu layout with the title and the pane
@@ -148,8 +270,8 @@ static int clone_split(struct core_screen *s, uint32_t screen, uint32_t *next,
     const struct screen *d = s->declaration;
     uint32_t caption = CORE_LIST_PANE_CAPTION(screen);
     uint32_t pane_id = (*next)++;
-    uint32_t icon = pane_has_icon(d) ? caption + 1 : 0,
-             box = pane_has_icon(d) ? caption + 2 : 0;
+    uint32_t icon = pane_has_icon(d) ? caption + 1 : 0;
+    uint32_t box = pane_has_icon(d) && !main_plain(d) ? caption + 2 : 0;
     uint32_t line = d->caption || pane_follows(d) ? caption : 0;
     uint32_t stock_pane =
         core_panes_write(&w, CORE_LIST_PANE_TITLE(screen), line, icon, box);
@@ -179,11 +301,111 @@ const uint8_t *core_lists_prototype(int value)
                  : stock_row(RES_SettingsMenu_Items, RES_SettingsMenu_Legal_Item);
 }
 
+const uint8_t *core_lists_settings_row(uint32_t id)
+{
+    return stock_row(RES_SettingsMenu_Items, id);
+}
+
+uint32_t core_lists_stock_count(const struct screen *d)
+{
+    uint32_t n = 0;
+    for (uint32_t i = 0; d->kind == RV_SCREEN_KIND_LIST && i < d->list.count; i++)
+        n += stock_at(d, i);
+    return n;
+}
+
+uint32_t core_lists_initial_layout(const struct core_screen *s, const struct screen *d,
+                                   int split)
+{
+    /* The highlight starts on the first shown row. */
+    for (uint32_t i = 0;
+         split && pane_follows(d) && i < d->list.count && stock_at(d, i); i++)
+        if (rvx_stock_shown(d->list.rows[i].stock))
+            return stock_clone(s, d, i);
+    return core_lists_screen_id(s, split) + 1;
+}
+
+uint32_t core_lists_pane_layout(const struct core_screen *s, const struct screen *d,
+                                int plain)
+{
+    uint32_t screen = core_lists_screen_id(s, 1), bytes;
+    uint32_t layout = split_layout(d, screen, plain);
+    return layout == screen + 1 || stock(Resource_SLyt, layout, &bytes) ? layout
+                                                                        : screen + 1;
+}
+
+/* 1 when a declared row switches to the other split layout. */
+static int other_declared(const struct screen *d)
+{
+    for (uint32_t i = 0; core_lists_per_row_pane(d) && i < d->list.count; i++)
+        if (!stock_at(d, i) &&
+            core_lists_plain_pane(&d->list.panes[i]) != main_plain(d))
+            return 1;
+    return 0;
+}
+
+/* The other split layout: the split layout again with a pane VLyt that shows
+ * the box when the main layout's hides it and the other way round, and the
+ * same layout events. */
+static int clone_other(struct core_screen *s, uint8_t *scratch, uint32_t bytes)
+{
+    uint32_t screen = core_lists_screen_id(s, 1), other = CORE_LIST_PANE_OTHER(screen);
+    uint32_t caption = CORE_LIST_PANE_CAPTION(screen), next = other + 2;
+    struct core_writer w = {scratch, 0};
+    uint32_t stock_pane =
+        core_panes_write(&w, CORE_LIST_PANE_TITLE(screen), caption, caption + 1,
+                         main_plain(s->declaration) ? caption + 2 : 0);
+    struct layout_clone c = {RES_Settings_MainMenu_Layout,
+                             other,
+                             RES_StatusBarWhite_Text,
+                             s->id + 2,
+                             0,
+                             stock_pane,
+                             other + 1,
+                             NULL,
+                             0};
+    if (!stock_pane)
+        return 0;
+    core_panes_store(other + 1, scratch, w.at, stock_pane);
+    if (!core_clone_layout(&c, &next, scratch, bytes) || next > other + 6)
+        return 0;
+    w.at = 0;
+    core_clone_layout_events(&w);
+    native_set(Resource_SEVT, other, scratch, w.at);
+    core_clone_name_layout(other);
+    return 1;
+}
+
+/* Lists `layout` in the split screen's layout list after the others, as a
+ * copy of the first entry; Apple reads the list at every push. */
+static int append_layout(uint32_t screen, uint32_t layout, uint8_t *scratch,
+                         uint32_t bytes)
+{
+    uint32_t slst_bytes;
+    const void *slst = stock(Resource_SLst, screen, &slst_bytes);
+    struct core_block first;
+    if (!slst || !core_block_at(slst, 0, &first) ||
+        slst_bytes + 8 + first.bytes > bytes)
+        return 0;
+    struct core_writer w = {scratch, 0};
+    core_write_word(&w, core_blocks_count(slst) + 1);
+    core_write_bytes(&w, (const uint8_t *)slst + 4, slst_bytes - 4);
+    uint32_t begin = core_write_block_begin(&w, first.kind);
+    uint32_t id[2] = {ScreenLayoutEntry_layout, layout};
+    core_write_copy(&w, first.data, first.bytes, id, 1);
+    core_write_block_end(&w, begin);
+    native_set(Resource_SLst, screen, scratch, w.at);
+    return 1;
+}
+
 /* The row a list screen's rows are copied from. */
 static const uint8_t *prototype(const struct core_screen *s, uint32_t i, int *value)
 {
     const struct screen *d = s->declaration;
     uint8_t row_kind = d->kind == RV_SCREEN_KIND_LIST ? d->list.rows[i].kind : 0;
+    *value = 0;
+    if (row_kind == RV_ROW_KIND_STOCK)
+        return stock_row(RES_SettingsMenu_Items, d->list.rows[i].stock);
     *value = d->kind == RV_SCREEN_KIND_DYNAMIC_LIST ||
              (d->kind == RV_SCREEN_KIND_LIST &&
               (row_kind == RV_ROW_KIND_SETTING || row_kind == RV_ROW_KIND_INFO));
@@ -191,6 +413,7 @@ static const uint8_t *prototype(const struct core_screen *s, uint32_t i, int *va
         return core_lists_prototype(1);
     switch (d->kind) {
     case RV_SCREEN_KIND_CHOICE:
+        return stock_row(RES_Settings_EQ_Items, RES_Settings_EQ_Item);
     case RV_SCREEN_KIND_MULTI_CHOICE:
         return stock_row(RES_Settings_MainMenu_Items, RES_Settings_MainMenu_Item);
     default:
@@ -220,8 +443,7 @@ static int write_rows(struct core_screen *s, uint8_t *scratch)
                                                                 : RV_DETAIL_BESIDE;
         int action = d->kind == RV_SCREEN_KIND_LIST &&
                      d->list.rows[i].kind == RV_ROW_KIND_ACTION;
-        int checked =
-            d->kind == RV_SCREEN_KIND_CHOICE || d->kind == RV_SCREEN_KIND_MULTI_CHOICE;
+        int checked = d->kind == RV_SCREEN_KIND_MULTI_CHOICE;
         uint32_t words[6] = {MenuRow_id,
                              item,
                              MenuRow_title,
@@ -234,10 +456,21 @@ static int write_rows(struct core_screen *s, uint8_t *scratch)
                                  : MenuRowStyle_TwoLine};
         uint32_t begin = core_write_block_begin(&w, 0);
         uint32_t at = w.at;
+        /* A stock row keeps Apple's words and the visibility Apple last set
+         * (menus.c); a copy of the Sound Check prototype is shown even while
+         * that row is claimed and hidden. */
+        int stock_row = stock_at(d, i);
         core_write_copy(&w, row, ROW_BYTES, words,
-                        checked || action || detail != RV_DETAIL_BESIDE ? 3 : 2);
-        scratch[at + MenuRow_title_from_model] = 1;
+                        stock_row                                         ? 0
+                        : checked || action || detail != RV_DETAIL_BESIDE ? 3
+                                                                          : 2);
+        if (!stock_row)
+            scratch[at + MenuRow_title_from_model] = 1;
+        scratch[at + MenuRow_visible] =
+            (uint8_t)(stock_row ? rvx_stock_shown(d->list.rows[i].stock) : 1);
         core_write_block_end(&w, begin);
+        if (stock_row)
+            continue; /* its sources are Apple's */
         if (d->kind == RV_SCREEN_KIND_DYNAMIC_LIST && d->dynamic.status) {
             uint32_t bindings[] = {
                 4,
@@ -265,8 +498,7 @@ static int write_rows(struct core_screen *s, uint8_t *scratch)
             native_set(Resource_SORC, source, bindings, sizeof bindings);
         } else if (value)
             core_set_source2(source, item, source, SourceDestination_InlineValue);
-        else if (d->kind == RV_SCREEN_KIND_MULTI_CHOICE ||
-                 d->kind == RV_SCREEN_KIND_CHOICE)
+        else if (d->kind == RV_SCREEN_KIND_MULTI_CHOICE)
             core_set_source2(source, item, item, SourceDestination_RowBitmap);
         else
             core_set_source(source, item, 1);
@@ -310,24 +542,64 @@ static int clone_layouts(struct core_screen *s, int split, const void *events,
     struct core_writer w = {scratch, 0};
     core_clone_layout_events(&w);
     native_set(Resource_SEVT, screen + 1, scratch, w.at);
+    /* A clone of each stock row's Settings layout, titled by the list and
+     * listing its table, with the same layout events (the stock layout's Menu
+     * binding would pop twice), under the row's ids. Once every clone is in
+     * place each gets the name its row's highlight switches to, and the list's
+     * own layout the name the other rows switch to. */
+    const struct screen *d = s->declaration;
+    uint32_t stock_rows = split && pane_follows(d) ? core_lists_stock_count(d) : 0;
+    uint32_t n = 0;
+    struct core_layout_entry clones[CORE_SETTINGS_ROWS];
+    for (uint32_t i = 0; n < stock_rows && n < CORE_SETTINGS_ROWS; i++) {
+        if (!stock_at(d, i))
+            continue;
+        uint32_t id = stock_clone(s, d, i),
+                 stock_id = stock_layout(d->list.rows[i].stock);
+        struct layout_clone row = {
+            stock_id, id, RES_StatusBarWhite_Text, s->id + 2, s->id + 3, 0, 0, NULL, 0};
+        next = id + 1;
+        if (!stock_id || !core_clone_layout(&row, &next, scratch, scratch_bytes) ||
+            next > id + CORE_LIST_STOCK_IDS)
+            return 0;
+        w.at = 0;
+        core_clone_layout_events(&w);
+        native_set(Resource_SEVT, id, scratch, w.at);
+        clones[n].stock = stock_id;
+        clones[n++].clone = id;
+    }
+    for (uint32_t i = 0; i < n; i++)
+        core_clone_name_layout(clones[i].clone);
+    if (split && core_lists_per_row_pane(d))
+        core_clone_name_layout(screen + 1);
+    /* The other split layout goes with the list when a declared row or a
+     * guest, which attach at boot, needs it. */
+    int other =
+        split && (other_declared(d) || rvx_guest_other_needed(s, main_plain(d)));
+    if (other && !clone_other(s, scratch, scratch_bytes))
+        return 0;
     return core_clone_screen(screen, screen + 1, RES_SettingsMenu_Main_Screen,
                              split ? RES_Settings_MainMenu_Screen
                                    : RES_Notes_List_Screen_Alt,
-                             events, event_bytes, scratch, scratch_bytes);
+                             RES_SettingsMenu_Main_Screen, clones, n, events,
+                             event_bytes, scratch, scratch_bytes) &&
+           (!other || append_layout(screen, CORE_LIST_PANE_OTHER(screen), scratch,
+                                    scratch_bytes));
 }
 
 int core_clone_list(struct core_screen *s, int split)
 {
     uint32_t count = indexed(s) ? 1 : s->declaration->list.count;
-    /* The ITEM table, the layout clones and the SLst copy each fit the scratch
-     * or the table's own size, whichever is larger; the row events go first. */
+    /* The ITEM table, the layout clones, the SLst copy and a stock layout's
+     * events each fit the scratch or the table's own size, whichever is
+     * larger; the row events go first. */
     uint32_t menu = core_screen_menu_events(&(struct core_writer){NULL, 0}, s);
     uint32_t pane = split && pane_follows(s->declaration)
                         ? CORE_LIST_PANE_CAPTION(core_lists_screen_id(s, 1))
                         : 0;
     uint32_t bytes = 4 + count * (8 + ROW_BYTES);
     struct core_writer measure = {NULL, 0};
-    write_row_events(&measure, CORE_SCREEN_ROWS(s), count, pane, menu);
+    write_row_events(&measure, s, count, pane, menu);
     core_screen_menu_events(&measure, s);
     uint32_t events = measure.at;
     if (bytes < CORE_CLONE_SCRATCH_BYTES)
@@ -339,7 +611,7 @@ int core_clone_list(struct core_screen *s, int split)
     if (!s->built && menu)
         built = built && core_screen_menu_build(s, scratch, bytes);
     struct core_writer w = {scratch, 0};
-    write_row_events(&w, CORE_SCREEN_ROWS(s), count, pane, menu);
+    write_row_events(&w, s, count, pane, menu);
     core_screen_menu_events(&w, s);
     built = built && clone_layouts(s, split, scratch, w.at, scratch + events, bytes);
     osos_import_free(scratch);
@@ -483,6 +755,6 @@ int core_screen_menu_build(const struct core_screen *s, uint8_t *scratch,
         return 0;
     native_set(Resource_SEVT, layout, events, event_bytes);
     return core_clone_screen(screen, layout, RES_ContextMenu_Screen,
-                             RES_ContextMenu_Screen, &none, sizeof none, scratch,
-                             bytes);
+                             RES_ContextMenu_Screen, 0, NULL, 0, &none, sizeof none,
+                             scratch, bytes);
 }

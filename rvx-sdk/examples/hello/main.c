@@ -18,7 +18,7 @@ static const struct rv_screen screens[] = {
 
 static const struct rv_menu_entry entries[] = {
     RV_MENU_ENTRY(RV_MENU_SETTINGS, RV_SETTINGS_LEGAL, RV_ROW_PUSH("Hello", "about"),
-                  .pane = RV_PANE(.caption = "Says hello")),
+                  .pane = RV_PANE(.caption = "Says Hello")),
 };
 
 static const struct rv_descriptor extension = {
