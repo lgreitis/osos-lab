@@ -68,10 +68,6 @@ void cfw_rvx_menu_row(void *list, uint32_t table, uint32_t item, const void *dat
     (void)metadata;
 }
 
-void cfw_ui_register_canvas(void)
-{
-}
-
 static void osos_resource_set(void *, uint32_t, uint32_t, const void *, uint32_t);
 
 static const void *osos_resource_next(void *bank, uint32_t *id, uint32_t *size)
@@ -102,16 +98,16 @@ static uint32_t *osos_resource_name_slot(const struct osos_string *s)
 
 #include "../../../payload/resources.c"
 
-enum { ARTISTS = 1, ITUNES_U, NOW_PLAYING, ALBUM_ARTISTS, SECOND };
+enum { ARTISTS = 1, ITUNES_U, NOW_PLAYING, EXAMPLE, SECOND };
 
 struct row {
     uint32_t prefix[12], id, padding[12], visible;
 };
 static struct row stock[] = {
     {.id = ARTISTS}, {.id = ITUNES_U, .visible = 1}, {.id = NOW_PLAYING}};
-static struct row added[] = {{.id = ALBUM_ARTISTS},
+static struct row added[] = {{.id = EXAMPLE},
                              {.id = SECOND, .visible = 1},
-                             {.id = ALBUM_ARTISTS, .visible = 1}};
+                             {.id = EXAMPLE, .visible = 1}};
 const struct cfw_ui_menu_item cfw_ui_menu_items[] = {
     {26, ARTISTS, sizeof(struct row), 7, (unsigned char *)&added[0]},
     {26, ARTISTS, sizeof(struct row), 8, (unsigned char *)&added[1]},
@@ -124,11 +120,10 @@ const struct cfw_resource cfw_resources[] = {
     {0x53747220, 99, sizeof(label), label},
     {OSOS_RESOURCE_BMAP, 26, sizeof(icon), icon},
     {0x56696577, RVX_CanvasTemplate, sizeof(icon), icon},
-    {0x56696577, RVX_MenuPaneTemplate, sizeof(icon), icon},
     {0x56696577, 28, sizeof(icon), icon},
 };
 const uint32_t cfw_resource_count = sizeof cfw_resources / sizeof *cfw_resources;
-const struct cfw_resource_name cfw_resource_names[] = {{"AlbumArtists", ALBUM_ARTISTS}};
+const struct cfw_resource_name cfw_resource_names[] = {{"Example", EXAMPLE}};
 const uint32_t cfw_resource_name_count = 1;
 static unsigned installed;
 static int bank;
@@ -173,16 +168,11 @@ int main(void)
     id = 0;
     assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_CanvasTemplate);
     assert(cfw_next_template(&bank, &id, &bytes) == icon && id == 28);
-    cfw_rvx_has_menu_pane = 1;
-    id = 0;
-    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_CanvasTemplate);
-    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == RVX_MenuPaneTemplate);
-    assert(cfw_next_template(&bank, &id, &bytes) == icon && id == 28);
     cfw_install_resources(&bank);
-    assert(installed == 1 && name_id == ALBUM_ARTISTS);
+    assert(installed == 1 && name_id == EXAMPLE);
     assert(cfw_resource_bitmap(26) == icon && !cfw_resource_bitmap(99));
     registry[ARTISTS]->visible = 1;
-    registry[ALBUM_ARTISTS]->visible = 1;
+    registry[EXAMPLE]->visible = 1;
     registry[ITUNES_U]->visible = 0;
 
     for (unsigned entry = 0; entry < 20; entry++) {

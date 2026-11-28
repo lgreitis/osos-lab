@@ -24,7 +24,7 @@ The stream is 16-bit stereo at the output sample rate, 8 to 48 kHz. An effect se
 
 ## Shared helpers
 
-`rv_audio.h` holds the shared helpers as inline functions. The limiter (`struct rv_limiter`, `rv_limiter_rest`), the fade behind it, the filter designs and the double-precision maths live in the `dsp` library extension ([Libraries](modules.md#libraries)): an effect lists `requires = ["dsp"]` and includes `rv_dsp.h`.
+`rv_audio.h` holds the shared helpers as inline functions. The limiter (`struct rv_limiter`, `rv_limiter_rest`), the fade behind it, the filter designs and the double-precision maths live in the `dsp` library extension ([Libraries](modules.md#libraries)): an effect lists `dsp` under `[libraries] required` and includes `rv_dsp.h`.
 
 | Call | |
 |---|---|

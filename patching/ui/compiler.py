@@ -99,7 +99,6 @@ class DocumentCompiler:
             instances = blocks(resources.added["SSin", instances_id])
             for _, instance in instances:
                 if word(instance, 4) == template:
-                    self.canvas_binding = word(instance, 0)
                     put(instance, 0x10, word(instance, 0x10) & ~0x00FF0000)
             resources.replace("SSin", instances_id, pack_blocks(instances))
         resources.add("SCST", screen, root.factory.encode("ascii"))
@@ -114,53 +113,6 @@ class DocumentCompiler:
             + event("button.menu.up", "navigator.PopTopScreen")
             + event("button.menu.pressandhold", "navigator.PopToMainScreen"),
         )
-
-    def menu_previews(self):
-        resources = self.resources
-        entries = self.document.menu_previews
-        if not entries:
-            return
-        view_type = int.from_bytes(b"rvxp", "big")
-        template = resources.allocate()
-        self.string_ids[self.document.root.name + "_MenuPaneTemplate"] = template
-        view = blocks(resources.stock("View", "Settings_Legal_Template"))[0][1][:0x5C]
-        view[:0x30] = struct.pack("<12i", 160, 0, 0, 23, 0, 0, 217, 0, 6, 160, 0, 5)
-        view_id = resources.allocate()
-        self.string_ids[self.document.root.name + "_PaneView"] = view_id
-        put(view, 0x30, view_id)
-        put(view, 0x4C, view_type)
-        resources.add("View", template, pack_blocks([(view_type, view)]))
-        resources.add(
-            "TMLT", template, resources.stock("TMLT", "Settings_Brightness_Template")
-        )
-        view_layout = resources.allocate()
-        resources.add("VLyt", view_layout, pack_blocks([]))
-        resources.set_events("TEVT", view_layout, struct.pack("<I", 0))
-        for name, screen, layout in entries:
-            preview = resources.allocate(name)
-            resources.runtime_name(name)
-            resources.clone_layout(layout, preview)
-            for _, group in blocks(resources.added["SLyt", preview]):
-                instances_id = word(group, 0)
-                instances = blocks(resources.added["SSin", instances_id])
-                # A custom view still needs the native parent rectangle and binding table.
-                instance = next(
-                    data
-                    for _, data in instances
-                    if word(data, 4) in (0x0DAD01C1, 0x0DAD01B9, 0x0DAD0C2E)
-                )
-                # These panes use the canvas's full parent rectangle and empty bindings.
-                put(instance, 0, self.canvas_binding)
-                put(instance, 4, template)
-                put(instance, 8, view_layout)
-                put(instance, 0x10, word(instance, 0x10) & ~0x00FF0000)
-                resources.replace("SSin", instances_id, pack_blocks(instances))
-            layouts = blocks(resources.current("SLst", screen))
-            kind, slot = next(
-                (k, Resource(d)) for k, d in layouts if word(d, 0) == layout
-            )
-            put(slot, 0, preview)
-            resources.replace("SLst", screen, pack_blocks([*layouts, (kind, slot)]))
 
     def paragraph_views(self, text):
         resources = self.resources
@@ -409,10 +361,6 @@ class DocumentCompiler:
 
 def compile_document(resources, document, text=""):
     compiled = CompiledDocument()
-    if document.music_entry:
-        compile_music_entry(resources, document.music_entry, compiled)
-    if document.main_entry:
-        compile_main_entry(resources, document.main_entry, compiled)
     for binding in document.events:
         resources.bind_screen_event(binding)
     builder = None
@@ -424,198 +372,12 @@ def compile_document(resources, document, text=""):
             builder.list_page(document.root)
         if document.root.kind == "canvas":
             builder.canvas_page(document.root)
-            builder.menu_previews()
 
     for name, text in document.strings.items():
         compiled.string_ids[name] = resource_id = resources.allocate()
         resources.add("Str ", resource_id, text.encode("utf-8") + b"\0")
 
     if builder is not None:
-        if document.preview and not document.after:
-            title = resources.allocate()
-            builder.string_ids[document.root.name + "_PaneTitle"] = title
-            builder.add_settings_preview(resources.source("", title))
-            resources.runtime_name(document.root.name + "_Preview")
         builder.insert_settings()
         compiled.string_ids.update(builder.string_ids)
     return compiled
-
-
-def compile_music_entry(resources, entry, compiled):
-    name = entry["id"]
-    screen = resources.allocate(name + "_Screen")
-    layout = resources.allocate(name + "_Layout")
-    title_id = resources.allocate(name + "_Title")
-    title = resources.source(entry["title"], title_id)
-    resources.clone_layout(resources.native(entry["layout"]), layout, title)
-    resources.add("SCST", screen, resources.stock("SCST", entry["screen"]))
-    resources.alias_events("CEVT", screen, resources.native(entry["screen"]))
-    layouts = blocks(resources.stock("SLst", entry["screen"]))
-    if len(layouts) != 1:
-        raise ValueError("Music entry expects a single-layout native screen")
-    put(layouts[0][1], 0, layout)
-    resources.add("SLst", screen, pack_blocks(layouts))
-    compiled.string_ids.update(
-        {name + "_Screen": screen, name + "_Layout": layout, name + "_Title": title_id}
-    )
-
-    visibility = {
-        "id": name,
-        "title": title_id,
-        "items": {},
-        "anchors": {},
-        "defaults": 0,
-    }
-    for menu, anchor_name, visible in (
-        ("Music", entry["after"], entry["music-visible"] == "true"),
-        (
-            "Main",
-            entry.get(
-                "main-after",
-                entry["after"].replace("MusicMenu_ListItem_", "MainMenu_List_"),
-            ),
-            entry["main-visible"] == "true",
-        ),
-    ):
-        table = resources.native(menu + "Menu_Items")
-        rows = blocks(resources.stock("ITEM", table))
-        anchor = resources.native(anchor_name)
-        kind, row = menu_row(
-            rows, anchor, f"{menu} anchor {anchor_name} missing for {name}"
-        )
-        item = resources.allocate(name + "_" + menu + "Item")
-        visibility["items"][menu] = item
-        visibility["anchors"][menu] = anchor
-        visibility["defaults"] |= int(visible) << (menu == "Music")
-        compiled.string_ids[name + "_" + menu + "Item"] = item
-        put(row, 0x30, item)
-        put(row, 0x60, 5)
-        put(row, 0x64, visible)
-        put(row, 0x68, title)
-        resources.insert_menu_item(table, anchor, (kind, row))
-        events = []
-        for event_name, handler in (
-            ("chosen", entry["open"]),
-            ("delayedselected", entry["highlight"]),
-        ):
-            events.append(menu_event(item, event_name, handler))
-        resources.extend_events(
-            "CEVT", resources.native(f"MainMenus_{menu}_Screen"), events
-        )
-    resources.visibility.append(visibility)
-
-
-def native_id(resources, value):
-    """A native resource by binding name, or by number (decimal or 0x hexadecimal)."""
-    return resources.bindings[value] if value in resources.bindings else int(value, 0)
-
-
-def compile_main_entry(resources, entry, compiled):
-    """Add a main menu row after the native row `after`, with a live preview.
-
-    Runtime availability and the saved Main Menu checkbox control visibility.
-    The "chosen" event runs `open`; "delayedselected" runs `hilite` and switches to a clone of the
-    native watermark layout `preview` (picture plus up to three text lines). The first line is
-    bound to the Settings-model string property <id>_Count, so C code can change it while the
-    layout is cached: it answers the property with the Str <id>_Message and notifies the model.
-    The other lines are left empty.
-
-    Generated names: <id>_MainItem, <id>_Preview (layout), <id>_Title and <id>_Message (Str),
-    <id>_Count (property)."""
-    name = entry["id"]
-    item = resources.allocate(name + "_MainItem")
-    title_id = resources.allocate(name + "_Title")
-    title = resources.source(entry["title"], title_id)
-    message_id = resources.allocate(name + "_Message")
-    resources.add("Str ", message_id, entry.get("message", "").encode("utf-8") + b"\0")
-    count = resources.allocate(name + "_Count")
-    message = resources.property_source(0x8900, count)
-    empty = resources.source("")
-    preview = resources.allocate(name + "_Preview")
-    compiled.string_ids.update(
-        {
-            name + "_MainItem": item,
-            name + "_Title": title_id,
-            name + "_Message": message_id,
-            name + "_Count": count,
-            name + "_Preview": preview,
-        }
-    )
-
-    # The row is cloned from its anchor: same template, hidden by default.
-    table = resources.native("MainMenu_Items")
-    rows = blocks(resources.current("ITEM", table))
-    after = native_id(resources, entry["after"])
-    kind, row = menu_row(
-        rows, after, f"Main menu anchor {entry['after']} missing for {name}"
-    )
-    put(row, 0x30, item)
-    put(row, 0x64, 0)
-    # The low half of +0x5c is the row's native index. Now Playing's is special-cased by Apple
-    # and would open Now Playing, so use Artists' (4), as the Album Artists main row does.
-    put(row, 0x5C, (word(row, 0x5C) & 0xFFFF0000) | 4)
-    put(row, 0x68, title)
-    resources.insert_menu_item(table, after, (kind, row))
-    resources.visibility.append(
-        {
-            "id": name,
-            "title": title_id,
-            "items": {"Main": item, "Music": 0},
-            # Now Playing has no checkbox; Sleep is the last native visibility choice.
-            "anchors": {"Main": resources.native("MainMenu_List_Sleep"), "Music": 0},
-            "defaults": 1,
-            "available": 0,
-        }
-    )
-
-    # The preview layout: its text views read our sources instead of the native message.
-    views = {
-        resources.native("PreviewArea_Watermark_Message"): message,
-        resources.native("PreviewArea_Watermark_Message2"): empty,
-        resources.native("PreviewArea_Watermark_Message3"): empty,
-    }
-    original = native_id(resources, entry["preview"])
-    view_bindings = {}
-    rebound = 0
-    for _, layout in blocks(resources.stock("SLyt", original)):
-        for _, instance in blocks(resources.stock("SSin", word(layout, 0))):
-            key = ("VCvs", word(instance, 0))
-            if key not in resources.original:
-                continue
-            bindings = blocks(resources.original[key])
-            changed = False
-            for view, binding in bindings:
-                if view in views:
-                    put(binding, len(binding) - 4, views[view])
-                    changed = True
-                    rebound += views[view] == message
-            if changed:
-                view_bindings[word(instance, 4)] = pack_blocks(bindings)
-    resources.clone_layout(original, preview, view_bindings=view_bindings)
-    if rebound != 1:
-        raise ValueError(
-            f"{name}: preview layout {entry['preview']} has {rebound} message views (want 1)"
-        )
-
-    screen = resources.native("MainMenus_Main_Screen")
-    layouts = blocks(resources.current("SLst", screen))
-    kind, data = layouts[0]
-    data = Resource(data)
-    put(data, 0, preview)
-    layouts.append((kind, data))
-    resources.replace("SLst", screen, pack_blocks(layouts))
-
-    resources.extend_events(
-        "CEVT",
-        screen,
-        [
-            menu_event(item, "chosen", entry["open"]),
-            menu_event(
-                item,
-                "delayedselected",
-                entry["hilite"],
-                "navigator.SwitchLayout",
-                [resources.runtime_name(name + "_Preview")],
-            ),
-        ],
-    )
