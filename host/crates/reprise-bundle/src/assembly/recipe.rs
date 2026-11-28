@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 pub(super) const MAX_RECIPE: usize = 2 * 1024 * 1024;
-// OSOS staging space before the companion in classic7g-file-v1.
+// OSOS staging space before the companion in classic7g-file-v2.
 pub(super) const MAX_OUTPUT: usize = 0x03c00000 - 0x03000000;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

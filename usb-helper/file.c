@@ -122,10 +122,145 @@ static bool load_config(void)
     const volatile uint8_t *source = (const volatile uint8_t *)&upload_config;
     for (unsigned i = 0; i < sizeof(current); ++i)
         ((uint8_t *)&current)[i] = source[i];
-    if (current_valid() && current.overwrite <= 2)
+    if (current_valid() && current.overwrite <= 3)
         return true;
     upload_fail(-302);
     return false;
+}
+
+#define REMOVE_DEPTH 8
+static char tree[256];
+
+/* An unfinished upload of any earlier session: /.reprise-<32 hex>.part. */
+static bool staged_name(const char *name)
+{
+    size_t n = strlen(name);
+    return n > 9 + 5 && !strncasecmp(name, ".reprise-", 9) &&
+           !strcasecmp(name + n - 5, ".part");
+}
+
+/* The companion loader and the firmware image: the folder of later releases first,
+   then the disk root of releases through 0.4.0. Index bit 0 tells the two files apart. */
+static const char *const firmware_files[] = {
+    "/Reprise/Firmware/loader.bin",
+    "/Reprise/Firmware/reprise.bin",
+    "/cfw-loader.bin",
+    "/osos-cfw.bin",
+};
+
+static bool firmware_path(const char *path)
+{
+    for (unsigned i = 0; i < 4; ++i)
+        if (!strcasecmp(path, firmware_files[i]))
+            return true;
+    return false;
+}
+
+/* Append the child of tree[length] after the first `skip` children to tree. Returns 1
+   for a directory, 0 for a file, -1 when none is left and -2 on error. The directory
+   is closed before the caller deletes anything. */
+static int first_child(size_t length, bool staged, unsigned skip)
+{
+    DIR *dir = opendir(length ? tree : "/");
+    if (!dir)
+        return -2;
+    int kind = -1;
+    struct DIRENT *entry;
+    while ((entry = readdir(dir))) {
+        const char *name = entry->d_name;
+        if (!strcmp(name, ".") || !strcmp(name, "..") || (staged && !staged_name(name)))
+            continue;
+        if (skip) {
+            skip--;
+            continue;
+        }
+        size_t n = strlen(name);
+        if (length + 1 + n >= sizeof(tree)) {
+            kind = -2;
+            break;
+        }
+        tree[length] = '/';
+        memcpy(tree + length + 1, name, n + 1);
+        kind = dir_get_info(dir, entry).attribute & ATTR_DIRECTORY ? 1 : 0;
+        break;
+    }
+    if (closedir(dir)) {
+        tree[length] = 0;
+        kind = -2;
+    }
+    return kind;
+}
+
+/* Deletes what it can below tree[length], skipping the firmware files and anything
+   that refuses to go, so one stuck entry never stops the rest. The caller removes the
+   directory itself. */
+static void remove_tree(size_t length, unsigned depth)
+{
+    unsigned skip = 0;
+    for (int kind; (kind = first_child(length, false, skip)) >= 0; tree[length] = 0) {
+        if (kind == 1) {
+            if (depth < REMOVE_DEPTH)
+                remove_tree(strlen(tree), depth + 1);
+            if (rmdir(tree))
+                skip++;
+        } else if (firmware_path(tree) || remove(tree)) {
+            skip++;
+        }
+    }
+}
+
+/* The folders the installer created: /Reprise, and the extension folders releases
+   through 0.4.0 kept under /Revola. Each goes with everything below it. */
+static const char *const folders[] = {"/Reprise", "/Revola/Extensions", "/Revola/Data"};
+/* The theme packs releases through 0.4.0 read. Their folders go once they are empty;
+   /Revola and /themes likewise, so anything else there stays. */
+static const char *const theme_packs[] = {"/themes/default/theme.bin",
+                                          "/themes/dark/theme.bin"};
+static const char *const parents[] = {
+    "/Reprise/Firmware", "/Reprise",        "/Revola/Extensions", "/Revola/Data",
+    "/Revola",           "/themes/default", "/themes/dark",       "/themes"};
+
+/* existing_files bits 0-3 report what was deleted: companion, firmware, the folders and
+   theme packs, staged uploads; bits 4-7 report the same four when something of them
+   remains. Missing entries are neither. The firmware files go last: as long as they
+   exist the RepriseOS bootloader still boots, and the host restores Apple's bootloader
+   whatever remains. */
+static void remove_installation(void)
+{
+    uint32_t *bits = &STORAGE_RESULT->existing_files;
+    writes_enabled = true;
+    bool had = false, left = false;
+    for (unsigned i = 0; i < 3; ++i) {
+        strcpy(tree, folders[i]);
+        if (dir_exists(tree)) {
+            had = true;
+            remove_tree(strlen(tree), 0);
+        }
+    }
+    for (unsigned i = 0; i < 2; ++i)
+        if (file_exists(theme_packs[i])) {
+            had = true;
+            if (remove(theme_packs[i]))
+                left = true;
+        }
+    for (unsigned i = 0; i < 4; ++i)
+        if (file_exists(firmware_files[i]))
+            *bits |= remove(firmware_files[i]) ? 16u << (i & 1) : 1u << (i & 1);
+    for (unsigned i = 0; i < 8; ++i)
+        if (dir_exists(parents[i]) && rmdir(parents[i]) && i < 4)
+            left = true;
+    if (had)
+        *bits |= left ? 64 : 4;
+    unsigned skip = 0;
+    for (int kind; (kind = first_child(0, true, skip)) >= 0; tree[0] = 0) {
+        if (kind != 0 || remove(tree)) {
+            skip++;
+            *bits |= 128;
+        } else {
+            *bits |= 8;
+        }
+    }
+    writes_enabled = false;
 }
 
 void upload_prepare_hfs(uint64_t sectors)
@@ -143,17 +278,21 @@ void upload_prepare_hfs(uint64_t sectors)
         prepare_file();
         return;
     }
-    int companion = hfs_upload_exists("/cfw-loader.bin");
-    int osos = hfs_upload_exists("/osos-cfw.bin");
-    if (companion < 0 || osos < 0 || free_bytes < current.size) {
-        upload_fail(companion < 0 ? companion : osos < 0 ? osos : -322);
-        return;
-    }
     STORAGE_RESULT->start = data_start;
     STORAGE_RESULT->end = data_end;
     STORAGE_RESULT->sector_bytes = 512;
     STORAGE_RESULT->free_bytes = free_bytes;
-    STORAGE_RESULT->existing_files = companion | (osos << 1);
+    /* Removal leaves an HFS+ volume as it is and reports nothing deleted. */
+    STORAGE_RESULT->existing_files = 0;
+    if (current.overwrite == 2) {
+        int companion = hfs_upload_exists("/Reprise/Firmware/loader.bin");
+        int osos = hfs_upload_exists("/Reprise/Firmware/reprise.bin");
+        if (companion < 0 || osos < 0 || free_bytes < current.size) {
+            upload_fail(companion < 0 ? companion : osos < 0 ? osos : -322);
+            return;
+        }
+        STORAGE_RESULT->existing_files = companion | (osos << 1);
+    }
     UPLOAD_RESULT->state = 4;
 }
 
@@ -189,8 +328,11 @@ void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
         return;
     }
     sector_t free_kib;
+    /* Removal must work on a full disk. */
     if (!fat_size(IF_MV(0, ) NULL, &free_kib) ||
-        (uint64_t)free_kib * 1024 < (uint64_t)current.size + fat_get_cluster_size(IF_MV(0))) {
+        (current.overwrite == 2 &&
+         (uint64_t)free_kib * 1024 <
+             (uint64_t)current.size + fat_get_cluster_size(IF_MV(0)))) {
         upload_fail(-322);
         return;
     }
@@ -198,8 +340,13 @@ void upload_prepare(uint64_t start, uint64_t end, unsigned bytes)
     STORAGE_RESULT->end = end;
     STORAGE_RESULT->free_bytes = (uint64_t)free_kib * 1024;
     STORAGE_RESULT->sector_bytes = bytes;
-    STORAGE_RESULT->existing_files =
-        file_exists("/cfw-loader.bin") | (file_exists("/osos-cfw.bin") << 1);
+    STORAGE_RESULT->existing_files = 0;
+    if (current.overwrite == 2)
+        STORAGE_RESULT->existing_files =
+            file_exists("/Reprise/Firmware/loader.bin") |
+            (file_exists("/Reprise/Firmware/reprise.bin") << 1);
+    else
+        remove_installation();
     UPLOAD_RESULT->state = 4;
 }
 

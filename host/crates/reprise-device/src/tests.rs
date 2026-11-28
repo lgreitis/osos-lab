@@ -1246,7 +1246,7 @@ fn device_stopped_follows_context_and_cleanup() {
     let lost = || crate::usb::usb_error("file upload", rusb::Error::NoDevice);
     let refused = || crate::usb::usb_error("file upload", rusb::Error::Access);
     let context = |source| Error::Context {
-        context: "/osos-cfw.bin".into(),
+        context: "/Reprise/Firmware/reprise.bin".into(),
         source: Box::new(source),
     };
     let cleanup = |step, cleanup| Error::Cleanup {

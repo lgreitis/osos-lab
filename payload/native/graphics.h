@@ -46,12 +46,6 @@ static inline void osos_register_view_factory(uint32_t type, osos_view_factory f
     ((fn)OSOS_REGISTER_VIEW_FACTORY)(type, factory);
 }
 
-/* Descriptor identity is retained separately from the changing model property ID. */
-static inline uint32_t osos_view_id(const void *view)
-{
-    return *(const uint32_t *)((const unsigned char *)view + 0x4c);
-}
-
 /* Drawing colors are byte-order RGBA; COLR resource words are 0x00RRGGBB. */
 static inline void osos_surface_fill_rect(void *surface, const void *rect,
                                           const unsigned char *color, uint32_t mode,
@@ -59,12 +53,6 @@ static inline void osos_surface_fill_rect(void *surface, const void *rect,
 {
     typedef void (*fn)(void *, const void *, const unsigned char *, uint32_t, void *);
     ((fn)OSOS_SURFACE_FILL_RECT)(surface, rect, color, mode, clip);
-}
-
-static inline void osos_graphics_fill_rect(void *context, const int32_t *rect)
-{
-    typedef void (*fn)(void *, const int32_t *);
-    ((fn)OSOS_GRAPHICS_FILL_RECT)(context, rect);
 }
 
 /* Match GraphicsContext_FillRect's origin, surface, mode and clip contract. */
@@ -140,19 +128,6 @@ static inline int osos_graphics_font_descent(void *context)
 {
     typedef int (*fn)(void *);
     return ((fn)OSOS_GRAPHICS_FONT_DESCENT)(context);
-}
-
-/* GLES color components use 16.16 fixed point. */
-static inline void osos_gles_clear_color(int red, int green, int blue, int alpha)
-{
-    typedef void (*fn)(int, int, int, int);
-    ((fn)OSOS_GLES_CLEAR_COLOR_X)(red, green, blue, alpha);
-}
-
-static inline uint32_t osos_rgb565_blend(uint32_t first, uint32_t second, int weight)
-{
-    typedef uint32_t (*fn)(uint32_t, uint32_t, int);
-    return ((fn)OSOS_RGB565_BLEND_FIXED)(first, second, weight);
 }
 
 static inline void osos_ui_invalidate(void)

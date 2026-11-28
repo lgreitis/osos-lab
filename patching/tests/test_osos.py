@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from patching import declarations, rvx_runtime, symbols
-from patching.declarations import Copy, Kind, Write
+from patching.declarations import Kind, Write
 from patching.recipes import fingerprint, osos
 
 
@@ -96,15 +96,6 @@ class OsosTests(unittest.TestCase):
                 struct.unpack_from("<I", image, offset)[0], len(image) - 0x800
             )
 
-    def test_native_array_copies_preserve_adjacent_literals(self):
-        self.code = bytes(40) + b"CFW!" + bytes(84)
-        recipe = self.build([Copy("table", 0, 12, osos.BASE, 8)])
-        image = self.replay(recipe)
-        self.assertEqual(
-            image[len(self.original) + 32 : len(self.original) + 44], b"native!!CFW!"
-        )
-        self.assertNotIn(b"native!!", recipe.data)
-
     def test_dynamic_reservation_includes_bss_and_matches_heap_and_file_size(self):
         start = self.symbols["__payload_start"]
         self.symbols["__payload_end"] = start + 332140
@@ -188,25 +179,17 @@ class OsosTests(unittest.TestCase):
                 self.build([patch])
             self.symbols[name] = value
 
-    def test_rejects_invalid_and_overlapping_copies(self):
-        valid = Copy("table", 0, 16, osos.BASE, 8)
-        cases = [
-            [valid, valid],
-            [Copy("table", 12, 16, osos.BASE, 8)],
-            [Copy("table", 0, 16, osos.BASE - 1, 8)],
-            [Copy("table", 0, 16, osos.BASE + 252, 8)],
-            [Copy("table", 96, 128, osos.BASE, 8)],
-        ]
-        for patches in cases:
-            with self.subTest(patches=patches), self.assertRaises(ValueError):
-                self.build(patches)
+    def test_rejects_a_payload_past_the_reservation(self):
         self.code = bytes(257)
         with self.assertRaisesRegex(ValueError, "reserved"):
             self.build([])
 
     def test_metadata_decodes_explicit_fields(self):
-        raw = declarations.RECORD.pack(5, osos.BASE, 4, 12, 8, b"table")
-        self.assertEqual(declarations.parse(raw), [Copy("table", 4, 12, osos.BASE, 8)])
+        raw = declarations.RECORD.pack(3, osos.BASE, 4, 0, 0, b"hook")
+        self.assertEqual(
+            declarations.parse(raw),
+            [Write(Kind.CALL, osos.BASE, struct.pack("<I", 4), 0, "hook")],
+        )
         for data in (raw[:-1], bytes(declarations.RECORD.size), raw[:20] + b"x" * 64):
             with self.subTest(data=data), self.assertRaises(ValueError):
                 declarations.parse(data)

@@ -21,7 +21,7 @@ class BuildTests(unittest.TestCase):
             output.mkdir()
             destination.mkdir()
             (destination / "MB565").mkdir()
-            (destination / "MB565/osos-cfw.bin").write_bytes(b"keep")
+            (destination / "MB565/reprise.bin").write_bytes(b"keep")
             (destination / "repriseos.zip").write_bytes(b"old")
             (output / "repriseos.zip").write_bytes(b"new")
             (output / "package").mkdir()
@@ -44,7 +44,7 @@ class BuildTests(unittest.TestCase):
             self.assertFalse((destination / "package").exists())
             release.publish(output, destination)
             self.assertEqual((destination / "repriseos.zip").read_bytes(), b"new")
-            self.assertEqual((destination / "MB565/osos-cfw.bin").read_bytes(), b"keep")
+            self.assertEqual((destination / "MB565/reprise.bin").read_bytes(), b"keep")
             self.assertEqual(
                 (destination / "package/manifest.json").read_bytes(), b"manifest"
             )

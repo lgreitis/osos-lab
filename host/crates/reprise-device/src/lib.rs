@@ -18,8 +18,8 @@ mod tests;
 mod upload;
 mod usb;
 pub use upload::{
-    Input, StorageReport, UploadFailure, UploadFile, UploadHelper, UploadOptions, UploadProgress,
-    UploadReport, Uploaded, MAX_UPLOAD_SIZE,
+    Input, RemovalReport, StorageReport, UploadFailure, UploadFile, UploadHelper, UploadOptions,
+    UploadProgress, UploadReport, Uploaded, MAX_UPLOAD_SIZE,
 };
 
 pub use bootloader::{BootloaderFingerprint, BootloaderReport};
