@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 #define RV_API_MAJOR 1
-#define RV_API_MINOR 89
+#define RV_API_MINOR 91
 #define RV_API_VERSION ((RV_API_MAJOR << 16) | RV_API_MINOR)
 
 /* A field of an Apple struct at an offset of the symbols header:
@@ -606,8 +606,8 @@ struct rv_api {
 
     /* Manual-trigger modules by their index in the manifest. module_load
      * returns RV_OK at once for a loaded module; module_unload releases it,
-     * and it unloads once no screen of it is open and its preload class under
-     * Settings > Extensions > Optimize does not keep it (docs/sdk/modules.md). */
+     * and it unloads once no screen of it is open and its preload class does
+     * not keep it (docs/sdk/modules.md). */
     int (*module_load)(rv_extension_handle self, uint32_t module);
     void (*module_unload)(rv_extension_handle self, uint32_t module);
 
@@ -767,6 +767,12 @@ struct rv_api {
      * once: the table goes when that extension unloads. For a dependency the
      * caller can live without; a required one is a library. UI task. */
     const void *(*extension_service)(const char *id);
+
+    /* The id of the stock view a view of a picture pane was copied from, for
+     * a hook that tells views apart by their stock id (View_id): the 142 x 87,
+     * 130 x 128, 146 x 110 and 132 x 145 panes are copies of Apple templates
+     * whose views take new ids. `view` itself for every other view. UI task. */
+    uint32_t (*ui_stock_view)(uint32_t view);
 };
 
 /* Stops `*timer` when it runs and clears it; for a timer the extension keeps. */

@@ -118,3 +118,5 @@ Mark single functions `RV_ARM`, or list whole files in `<module>_ARM_SOURCES`.
 `site` is an `RV_SITE_*` id from `rv_sites.h`. A handler receives the Apple arguments followed by `next`, which it passes to `api->hook_next` with the arguments for the rest of the chain. See [Hook sites](https://github.com/paviro/revola/blob/main/docs/core/hook-sites.md) for the calling convention.
 
 `api->string_resource(self, text)` returns a string resource id for `text`, for tables Apple reads by resource id, such as a row added with `RV_HOOK_POINTER`.
+
+A handler that receives a view and picks it by id (`RV_FIELD(view, View_id, uint32_t)`) passes the id through `api->ui_stock_view` (API 1.91) first: the views of a picture pane copied from an Apple template have new ids, and the call returns the stock view each was copied from, any other id unchanged. Check for it with `RV_HAS(api, ui_stock_view)` when the manifest's `api` is older than 1.91.

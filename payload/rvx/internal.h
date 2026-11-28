@@ -49,7 +49,7 @@ enum {
     RVX_MODULES = 15,
     RVX_FIRMWARE_ID = 0x660eb6ff,
     RVX_API_MAJOR = 1,
-    RVX_API = (RVX_API_MAJOR << 16) | 89,
+    RVX_API = (RVX_API_MAJOR << 16) | 91,
     /* rv_row and rv_menu_entry grew in 1.86 and rv_pane in 1.89: an image an
      * older SDK packed lays its rows, entries and panes out with the wrong
      * stride. */
@@ -201,9 +201,10 @@ extern const struct rvx_api {
     const void *(*service)(Pkg *, u32);
     int (*provider)(Pkg *, const void *), (*firmware)(Pkg *, File **);
     const void *(*extension_service)(const char *);
+    u32 (*stock_view)(u32);
 } cfw_rvx_api;
 
-_Static_assert(sizeof(struct rvx_api) == 49 * 4 &&
+_Static_assert(sizeof(struct rvx_api) == 50 * 4 &&
                    sizeof(struct rvx_descriptor) == 48 &&
                    sizeof(struct rvx_manifest) == 56 && sizeof(struct entry) == 20,
                "RVX ABI");

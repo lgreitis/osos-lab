@@ -321,6 +321,7 @@ static int write_copy(struct core_writer *w, uint32_t t, const void *views)
 /* The copies made so far, for rvx_stock_view. */
 static struct {
     uint32_t id, stock, second, views;
+    int replaced;
 } copies[8];
 
 static unsigned copies_made;
@@ -345,6 +346,7 @@ uint32_t core_templates_copy(uint32_t stock_template, uint32_t second_template,
     copies[copies_made].stock = stock_template;
     copies[copies_made].second = second_template;
     copies[copies_made].views = ids - 1;
+    copies[copies_made].replaced = replaced;
     copies_made++;
     return id;
 }
@@ -359,7 +361,10 @@ uint32_t rvx_stock_view(uint32_t view)
             continue;
         const void *views = stock(Resource_View, copies[c].stock, &bytes);
         uint32_t count = views ? core_blocks_count(views) : 0;
-        if (i >= count) {
+        if ((int)i == copies[c].replaced) { /* the Games pane's image view */
+            views = stock(Resource_View, RES_ExtrasPreview_Games_Template, &bytes);
+            i = 0;
+        } else if (i >= count) {
             views = copies[c].second ? stock(Resource_View, copies[c].second, &bytes)
                                      : NULL;
             i -= count;
